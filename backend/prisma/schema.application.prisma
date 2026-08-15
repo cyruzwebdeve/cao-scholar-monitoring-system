@@ -1,0 +1,276 @@
+generator applicationClient {
+  provider = "prisma-client-js"
+  output   = "../generated/application-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model academic_periods {
+  id          Int       @id @default(autoincrement())
+  school_year String    @db.VarChar(20)
+  semester    String    @db.VarChar(30)
+  start_date  DateTime? @db.Date
+  end_date    DateTime? @db.Date
+  status      String    @default("upcoming") @db.VarChar(20)
+  is_active   Boolean   @default(false)
+  created_by  Int?
+  created_at  DateTime  @default(now()) @db.Timestamp(6)
+  updated_at  DateTime  @updatedAt @db.Timestamp(6)
+
+  @@unique([school_year, semester])
+  @@index([is_active])
+  @@index([school_year])
+}
+
+model activity_logs {
+  id           BigInt   @id @default(autoincrement())
+  actor_type   String   @db.VarChar(30)
+  actor_id     Int
+  action       String   @db.VarChar(100)
+  target_table String?  @db.VarChar(100)
+  target_id    Int?
+  description  String?
+  ip_address   String?  @db.VarChar(45)
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([actor_type, actor_id])
+  @@index([created_at])
+}
+
+model announcements {
+  id           Int       @id @default(autoincrement())
+  title        String    @db.VarChar(200)
+  content      String
+  audience     String    @default("all") @db.VarChar(40)
+  priority     String    @default("normal") @db.VarChar(20)
+  status       String    @default("draft") @db.VarChar(20)
+  publish_at   DateTime? @db.Timestamp(6)
+  expires_at   DateTime? @db.Timestamp(6)
+  published_at DateTime? @db.Timestamp(6)
+  image_name   String?   @db.VarChar(255)
+  image_type   String?   @db.VarChar(100)
+  image_data   String?
+  created_by   Int?
+  created_at   DateTime  @default(now()) @db.Timestamp(6)
+  updated_at   DateTime  @updatedAt @db.Timestamp(6)
+
+  @@index([status, publish_at])
+  @@index([audience])
+}
+
+model admins {
+  id             Int       @id @default(autoincrement())
+  full_name      String    @db.VarChar(150)
+  email          String    @unique @db.VarChar(150)
+  password_hash  String    @db.VarChar(255)
+  is_active      Boolean   @default(true)
+  is_super_admin Boolean   @default(false)
+  role           String    @default("admin") @db.VarChar(30)
+  last_login_at  DateTime? @db.Timestamp(6)
+  created_at     DateTime  @default(now()) @db.Timestamp(6)
+  updated_at     DateTime  @updatedAt @db.Timestamp(6)
+}
+
+model applicants {
+  id             Int       @id @default(autoincrement())
+  first_name     String    @db.VarChar(100)
+  middle_name    String?   @db.VarChar(100)
+  last_name      String    @db.VarChar(100)
+  name_ext       String?   @db.VarChar(10)
+  email          String    @unique @db.VarChar(150)
+  phone          String?   @db.VarChar(20)
+  street         String?   @db.VarChar(255)
+  barangay       String?   @db.VarChar(100)
+  municipality   String?   @db.VarChar(100)
+  school_id      Int?
+  gender         String?   @db.VarChar(30)
+  date_of_birth  DateTime? @db.Date
+  birthplace     String?   @db.VarChar(255)
+  civil_status   String?   @default("Single") @db.VarChar(30)
+  family_income  String?   @db.VarChar(50)
+  gwa            Decimal?  @db.Decimal(5, 2)
+  guardians      String?
+  siblings_boys  Int       @default(0)
+  siblings_girls Int       @default(0)
+  status         String    @default("pending") @db.VarChar(40)
+  school_year    String?   @default("2026-2027") @db.VarChar(20)
+  created_at     DateTime  @default(now()) @db.Timestamp(6)
+  updated_at     DateTime  @updatedAt @db.Timestamp(6)
+  deleted_at     DateTime? @db.Timestamp(6)
+
+  @@index([school_id])
+  @@index([municipality, barangay])
+  @@index([status])
+  @@index([school_year])
+}
+
+model application_submissions {
+  id           Int      @id @default(autoincrement())
+  applicant_id Int?
+  email        String   @db.VarChar(150)
+  identity     Json
+  address      Json
+  school_plan  Json
+  family       Json
+  eligibility  Json
+  initial_docs Json     @default("{}")
+  status       String   @default("Applied") @db.VarChar(40)
+  submitted_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at   DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([applicant_id, status])
+  @@index([email])
+}
+
+model control_accounts {
+  id             Int       @id @default(autoincrement())
+  applicant_id   Int       @unique
+  control_number String    @unique @db.VarChar(20)
+  username       String    @unique @db.VarChar(150)
+  password_hash  String    @db.VarChar(255)
+  is_active      Boolean   @default(true)
+  last_login_at  DateTime? @db.Timestamp(6)
+  created_at     DateTime  @default(now()) @db.Timestamp(6)
+  updated_at     DateTime  @updatedAt @db.Timestamp(6)
+}
+
+model exams {
+  id            Int       @id @default(autoincrement())
+  created_by    Int
+  title         String    @db.VarChar(200)
+  exam_date     DateTime  @db.Timestamp(6)
+  exam_end_date DateTime? @db.Timestamp(6)
+  venue         String?   @db.VarChar(255)
+  municipality  String?   @db.VarChar(100)
+  academic_year String?   @db.VarChar(20)
+  instructions  String?
+  is_active     Boolean   @default(false)
+  created_at    DateTime  @default(now()) @db.Timestamp(6)
+  updated_at    DateTime  @updatedAt @db.Timestamp(6)
+
+  @@index([academic_year, is_active])
+  @@index([municipality])
+}
+
+model exam_slots {
+  id           Int       @id @default(autoincrement())
+  applicant_id Int
+  exam_id      Int
+  appeared     Boolean?
+  appeared_at  DateTime? @db.Timestamp(6)
+  forfeited_at DateTime? @db.Timestamp(6)
+  created_at   DateTime  @default(now()) @db.Timestamp(6)
+  updated_at   DateTime  @updatedAt @db.Timestamp(6)
+
+  @@unique([applicant_id, exam_id])
+  @@index([exam_id])
+}
+
+model results {
+  id            Int      @id @default(autoincrement())
+  exam_slot_id  Int      @unique
+  applicant_id  Int
+  exam_id       Int
+  score         Decimal? @db.Decimal(6, 2)
+  passing_score Decimal? @db.Decimal(6, 2)
+  passed        Boolean
+  remarks       String?
+  recorded_by   Int?
+  created_at    DateTime @default(now()) @db.Timestamp(6)
+  updated_at    DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([applicant_id, created_at])
+  @@index([exam_id])
+}
+
+model scholar_accounts {
+  id           Int      @id @default(autoincrement())
+  applicant_id Int      @unique
+  result_id    Int?     @unique
+  scholar_id   String?  @unique @db.VarChar(30)
+  issued_at    DateTime @default(now()) @db.Timestamp(6)
+  issued_by    Int?
+  is_active    Boolean  @default(true)
+  notes        String?
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  updated_at   DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([is_active])
+}
+
+model scholar_requirements {
+  id                                Int       @id @default(autoincrement())
+  applicant_id                      Int
+  billing_period_id                 Int
+  school_id                         Int?
+  year_level                        String?   @db.VarChar(20)
+  course                            String?   @db.VarChar(150)
+  major                             String?   @db.VarChar(150)
+  cert_tax_exemption_file           String?   @db.VarChar(255)
+  cert_tax_exemption_review_status  String?   @default("pending") @db.VarChar(30)
+  barangay_indigency_file           String?   @db.VarChar(255)
+  barangay_indigency_review_status  String?   @default("pending") @db.VarChar(30)
+  valid_id_photocopy_file           String?   @db.VarChar(255)
+  valid_id_photocopy_review_status  String?   @default("pending") @db.VarChar(30)
+  registration_form_file            String?   @db.VarChar(255)
+  registration_form_review_status   String?   @default("pending") @db.VarChar(30)
+  tuition_fee_receipt_file          String?   @db.VarChar(255)
+  tuition_fee_receipt_review_status String?   @default("pending") @db.VarChar(30)
+  folder_physical_submitted         Boolean   @default(false)
+  folder_physical_submitted_at      DateTime? @db.Timestamp(6)
+  grade_report_file                 String?   @db.VarChar(255)
+  grade_report_review_status        String?   @default("pending") @db.VarChar(30)
+  updated_by                        Int?
+  created_at                        DateTime   @default(now()) @db.Timestamp(6)
+  updated_at                        DateTime   @updatedAt @db.Timestamp(6)
+
+  @@unique([applicant_id, billing_period_id])
+  @@index([billing_period_id])
+  @@index([school_id])
+}
+
+model schools {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(255)
+  school_type String   @default("public") @db.VarChar(20)
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  updated_at  DateTime @updatedAt @db.Timestamp(6)
+}
+
+model payroll_batches {
+  id                Int       @id @default(autoincrement())
+  batch_number      String    @unique @db.VarChar(50)
+  billing_period_id Int
+  total_scholars    Int       @default(0)
+  total_amount      Decimal   @default(0.00) @db.Decimal(12, 2)
+  status            String    @default("draft") @db.VarChar(30)
+  prepared_by       Int?
+  released_by       Int?
+  prepared_at       DateTime  @default(now()) @db.Timestamp(6)
+  released_at       DateTime? @db.Timestamp(6)
+  remarks           String?
+  created_at        DateTime  @default(now()) @db.Timestamp(6)
+  updated_at        DateTime  @updatedAt @db.Timestamp(6)
+
+  @@index([billing_period_id, status])
+}
+
+model payroll_claims {
+  id               Int       @id @default(autoincrement())
+  payroll_batch_id Int
+  applicant_id     Int
+  claim_amount     Decimal   @db.Decimal(10, 2)
+  claim_status     String    @default("pending") @db.VarChar(30)
+  notes            String?
+  claimed_date     DateTime? @db.Timestamp(6)
+  claimed_notes    String?   @db.VarChar(80)
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @db.Timestamp(6)
+
+  @@unique([payroll_batch_id, applicant_id])
+  @@index([applicant_id, claimed_date])
+}

@@ -1,0 +1,40 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:generate": "prisma generate --schema prisma/schema.application.prisma",
+    "prisma:studio": "node ./scripts/studio-application-database.js",
+    "schema:audit": "node ./scripts/audit-schema.js",
+    "schema:provision-clean": "node ./scripts/provision-clean-database.js",
+    "schema:migrate-clean": "node ./scripts/migrate-to-clean-database.js",
+    "schema:provision-application": "node ./scripts/provision-application-database.js",
+    "schema:migrate-application": "node ./scripts/migrate-to-application-database.js",
+    "seed:superadmin": "node ./scripts/create-superadmin.js",
+    "seed:billingadmin": "node ./scripts/create-billingadmin.js",
+    "seed:moderator": "node ./scripts/create-moderator.js",
+    "seed:demo": "node ./scripts/seed-demo-applicants-scholars.js",
+    "seed:complete-applicants": "node ./scripts/seed-complete-applicants.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/client": "^5.14.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14",
+    "prisma": "^5.14.0"
+  }
+}

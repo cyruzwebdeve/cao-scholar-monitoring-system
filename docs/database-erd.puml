@@ -1,0 +1,276 @@
+@startuml PGCEAP_Clean_Database_ERD
+title PGCEAP Scholarship Management System - scholar_monitoring_v2
+
+hide methods
+hide stereotypes
+skinparam linetype ortho
+skinparam shadowing false
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #8FA89A
+  FontColor #173D2B
+}
+
+legend left
+  |= Marker |= Meaning |
+  | PK | Primary key |
+  | UK | Enforced unique key or key group |
+  | FK* | Logical application relationship |
+endlegend
+
+entity "academic_periods" as academic_periods {
+  * id : INT <<PK, auto>>
+  --
+  school_year : VARCHAR(20) <<UK>>
+  semester : VARCHAR(30) <<UK>>
+  start_date : DATE?
+  end_date : DATE?
+  status : VARCHAR(20)
+  is_active : BOOLEAN
+  created_by : INT? <<FK*>>
+}
+
+entity "activity_logs" as activity_logs {
+  * id : BIGINT <<PK, auto>>
+  --
+  actor_type : VARCHAR(30)
+  actor_id : INT
+  action : VARCHAR(100)
+  target_table : VARCHAR(100)?
+  target_id : INT?
+  description : TEXT?
+  ip_address : VARCHAR(45)?
+}
+
+entity "admins" as admins {
+  * id : INT <<PK, auto>>
+  --
+  full_name : VARCHAR(150)
+  email : VARCHAR(150) <<UK>>
+  password_hash : VARCHAR(255)
+  role : VARCHAR(30)
+  is_active : BOOLEAN
+  is_super_admin : BOOLEAN
+  last_login_at : TIMESTAMP?
+}
+
+entity "announcements" as announcements {
+  * id : INT <<PK, auto>>
+  --
+  title : VARCHAR(200)
+  content : TEXT
+  audience : VARCHAR(40)
+  priority : VARCHAR(20)
+  status : VARCHAR(20)
+  publish_at : TIMESTAMP?
+  expires_at : TIMESTAMP?
+  published_at : TIMESTAMP?
+  image_name : VARCHAR(255)?
+  image_type : VARCHAR(100)?
+  image_data : TEXT?
+  created_by : INT? <<FK*>>
+}
+
+entity "schools" as schools {
+  * id : INT <<PK, auto>>
+  --
+  name : VARCHAR(255) <<UK>>
+  school_type : VARCHAR(20) = public
+  is_active : BOOLEAN
+}
+
+entity "applicants" as applicants {
+  * id : INT <<PK, auto>>
+  --
+  first_name : VARCHAR(100)
+  middle_name : VARCHAR(100)?
+  last_name : VARCHAR(100)
+  name_ext : VARCHAR(10)?
+  email : VARCHAR(150) <<UK>>
+  phone : VARCHAR(20)?
+  street : VARCHAR(255)?
+  barangay : VARCHAR(100)?
+  municipality : VARCHAR(100)?
+  school_id : INT? <<FK*>>
+  gender : VARCHAR(30)?
+  date_of_birth : DATE?
+  birthplace : VARCHAR(255)?
+  civil_status : VARCHAR(30)?
+  family_income : VARCHAR(50)?
+  gwa : DECIMAL(5,2)?
+  guardians : TEXT?
+  siblings_boys : INT
+  siblings_girls : INT
+  status : VARCHAR(40)
+  school_year : VARCHAR(20)?
+  deleted_at : TIMESTAMP?
+}
+
+entity "application_submissions" as application_submissions {
+  * id : INT <<PK, auto>>
+  --
+  applicant_id : INT? <<FK*>>
+  email : VARCHAR(150)
+  identity : JSON
+  address : JSON
+  school_plan : JSON
+  family : JSON
+  eligibility : JSON
+  initial_docs : JSON
+  status : VARCHAR(40)
+  submitted_at : TIMESTAMP
+}
+
+entity "control_accounts" as control_accounts {
+  * id : INT <<PK, auto>>
+  --
+  applicant_id : INT <<FK*, UK>>
+  control_number : VARCHAR(20) <<UK>>
+  username : VARCHAR(150) <<UK>>
+  password_hash : VARCHAR(255)
+  is_active : BOOLEAN
+  last_login_at : TIMESTAMP?
+}
+
+entity "exams" as exams {
+  * id : INT <<PK, auto>>
+  --
+  created_by : INT
+  title : VARCHAR(200)
+  exam_date : TIMESTAMP
+  exam_end_date : TIMESTAMP?
+  venue : VARCHAR(255)?
+  municipality : VARCHAR(100)?
+  academic_year : VARCHAR(20)?
+  instructions : TEXT?
+  is_active : BOOLEAN
+}
+
+entity "exam_slots" as exam_slots {
+  * id : INT <<PK, auto>>
+  --
+  applicant_id : INT <<FK*, UK>>
+  exam_id : INT <<FK*, UK>>
+  appeared : BOOLEAN?
+  appeared_at : TIMESTAMP?
+  forfeited_at : TIMESTAMP?
+}
+
+entity "results" as results {
+  * id : INT <<PK, auto>>
+  --
+  exam_slot_id : INT <<FK*, UK>>
+  applicant_id : INT <<FK*>>
+  exam_id : INT <<FK*>>
+  score : DECIMAL(6,2)?
+  passing_score : DECIMAL(6,2)?
+  passed : BOOLEAN
+  remarks : TEXT?
+  recorded_by : INT? <<FK*>>
+}
+
+entity "scholar_accounts" as scholar_accounts {
+  * id : INT <<PK, auto>>
+  --
+  applicant_id : INT <<FK*, UK>>
+  result_id : INT? <<FK*, UK>>
+  scholar_id : VARCHAR(30)? <<UK>>
+  issued_at : TIMESTAMP
+  issued_by : INT? <<FK*>>
+  is_active : BOOLEAN
+  notes : TEXT?
+}
+
+entity "scholar_requirements" as scholar_requirements {
+  * id : INT <<PK, auto>>
+  --
+  applicant_id : INT <<FK*, UK>>
+  billing_period_id : INT <<FK*, UK>>
+  school_id : INT? <<FK*>>
+  year_level : VARCHAR(20)?
+  course : VARCHAR(150)?
+  major : VARCHAR(150)?
+  cert_tax_exemption_file : VARCHAR(255)?
+  cert_tax_exemption_review_status : VARCHAR(30)?
+  barangay_indigency_file : VARCHAR(255)?
+  barangay_indigency_review_status : VARCHAR(30)?
+  valid_id_photocopy_file : VARCHAR(255)?
+  valid_id_photocopy_review_status : VARCHAR(30)?
+  registration_form_file : VARCHAR(255)?
+  registration_form_review_status : VARCHAR(30)?
+  tuition_fee_receipt_file : VARCHAR(255)?
+  tuition_fee_receipt_review_status : VARCHAR(30)?
+  folder_physical_submitted : BOOLEAN
+  folder_physical_submitted_at : TIMESTAMP?
+  grade_report_file : VARCHAR(255)?
+  grade_report_review_status : VARCHAR(30)?
+  updated_by : INT? <<FK*>>
+}
+
+entity "payroll_batches" as payroll_batches {
+  * id : INT <<PK, auto>>
+  --
+  batch_number : VARCHAR(50) <<UK>>
+  billing_period_id : INT <<FK*>>
+  total_scholars : INT
+  total_amount : DECIMAL(12,2)
+  status : VARCHAR(30)
+  prepared_by : INT? <<FK*>>
+  released_by : INT? <<FK*>>
+  prepared_at : TIMESTAMP
+  released_at : TIMESTAMP?
+  remarks : TEXT?
+}
+
+entity "payroll_claims" as payroll_claims {
+  * id : INT <<PK, auto>>
+  --
+  payroll_batch_id : INT <<FK*, UK>>
+  applicant_id : INT <<FK*, UK>>
+  claim_amount : DECIMAL(10,2)
+  claim_status : VARCHAR(30)
+  notes : TEXT?
+  claimed_date : TIMESTAMP?
+  claimed_notes : VARCHAR(80)?
+}
+
+schools ||--o{ applicants : school_id
+applicants ||--o{ application_submissions : applicant_id
+applicants ||--o| control_accounts : applicant_id
+applicants ||--o{ exam_slots : applicant_id
+exams ||--o{ exam_slots : exam_id
+exam_slots ||--o| results : exam_slot_id
+applicants ||--o{ results : applicant_id
+exams ||--o{ results : exam_id
+admins ||--o{ results : recorded_by
+applicants ||--o| scholar_accounts : applicant_id
+results ||--o| scholar_accounts : result_id
+admins ||--o{ scholar_accounts : issued_by
+applicants ||--o{ scholar_requirements : applicant_id
+academic_periods ||--o{ scholar_requirements : billing_period_id
+schools ||--o{ scholar_requirements : school_id
+admins ||--o{ scholar_requirements : updated_by
+academic_periods ||--o{ payroll_batches : billing_period_id
+admins ||--o{ payroll_batches : prepared_by
+admins ||--o{ payroll_batches : released_by
+payroll_batches ||--o{ payroll_claims : payroll_batch_id
+applicants ||--o{ payroll_claims : applicant_id
+admins ||--o{ academic_periods : created_by
+admins ||--o{ announcements : created_by
+
+note right of activity_logs
+  actor_id and target_id are polymorphic.
+  They intentionally have no single connector.
+end note
+
+note right of exams
+  created_by remains actor-like and is not
+  assumed to be an admins.id value.
+end note
+
+note bottom of scholar_requirements
+  applicant_id + billing_period_id is unique.
+  File columns match the active seven-item checklist.
+end note
+
+@enduml

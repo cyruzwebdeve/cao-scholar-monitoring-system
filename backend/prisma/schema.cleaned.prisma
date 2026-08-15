@@ -1,0 +1,320 @@
+// REVIEWED CLEANUP PROPOSAL — this is not the live Prisma schema.
+// Do not deploy it directly. Apply it through a reviewed data-preserving migration.
+
+generator cleanClient {
+  provider = "prisma-client-js"
+  output   = "../generated/cleaned-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model academic_periods {
+  id          Int       @id @default(autoincrement())
+  school_year String    @db.VarChar(20)
+  semester    String    @db.VarChar(30)
+  start_date  DateTime? @db.Date
+  end_date    DateTime? @db.Date
+  status      String    @default("upcoming") @db.VarChar(20)
+  is_active   Boolean   @default(false)
+  created_by  Int?
+  created_at  DateTime  @default(now()) @db.Timestamp(6)
+  updated_at  DateTime  @updatedAt @db.Timestamp(6)
+
+  creator              admins?                @relation("AcademicPeriodCreator", fields: [created_by], references: [id], onDelete: SetNull)
+  applicants           applicants[]
+  exams                exams[]
+  payroll_batches      payroll_batches[]
+  scholar_requirements scholar_requirements[]
+
+  @@unique([school_year, semester])
+  @@index([is_active])
+  @@index([school_year])
+}
+
+model activity_logs {
+  id           BigInt   @id @default(autoincrement())
+  actor_type   String   @db.VarChar(30)
+  actor_id     Int
+  action       String   @db.VarChar(100)
+  target_table String?  @db.VarChar(100)
+  target_id    Int?
+  description  String?
+  ip_address   String?  @db.VarChar(45)
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([actor_type, actor_id])
+  @@index([target_table, target_id])
+  @@index([created_at])
+}
+
+model announcements {
+  id           Int       @id @default(autoincrement())
+  title        String    @db.VarChar(200)
+  content      String
+  audience     String    @default("all") @db.VarChar(40)
+  priority     String    @default("normal") @db.VarChar(20)
+  status       String    @default("draft") @db.VarChar(20)
+  publish_at   DateTime? @db.Timestamp(6)
+  expires_at   DateTime? @db.Timestamp(6)
+  published_at DateTime? @db.Timestamp(6)
+  image_name   String?   @db.VarChar(255)
+  image_type   String?   @db.VarChar(100)
+  image_data   String?
+  created_by   Int?
+  created_at   DateTime  @default(now()) @db.Timestamp(6)
+  updated_at   DateTime  @updatedAt @db.Timestamp(6)
+
+  creator admins? @relation("AnnouncementCreator", fields: [created_by], references: [id], onDelete: SetNull)
+
+  @@index([status, publish_at])
+  @@index([audience])
+}
+
+model admins {
+  id            Int       @id @default(autoincrement())
+  full_name     String    @db.VarChar(150)
+  email         String    @unique @db.VarChar(150)
+  password_hash String    @db.VarChar(255)
+  role          String    @default("admin") @db.VarChar(30)
+  is_active     Boolean   @default(true)
+  last_login_at DateTime? @db.Timestamp(6)
+  created_at    DateTime  @default(now()) @db.Timestamp(6)
+  updated_at    DateTime  @updatedAt @db.Timestamp(6)
+
+  academic_periods         academic_periods[]     @relation("AcademicPeriodCreator")
+  announcements_created    announcements[]       @relation("AnnouncementCreator")
+  payroll_batches_made     payroll_batches[]      @relation("PayrollPreparer")
+  payroll_batches_released payroll_batches[]      @relation("PayrollReleaser")
+  requirements_updated     scholar_requirements[] @relation("RequirementUpdater")
+  results_recorded         results[]              @relation("ResultRecorder")
+  scholars_issued          scholar_accounts[]     @relation("ScholarIssuer")
+}
+
+model applicants {
+  id                 Int       @id @default(autoincrement())
+  first_name         String    @db.VarChar(100)
+  middle_name        String?   @db.VarChar(100)
+  last_name          String    @db.VarChar(100)
+  name_ext           String?   @db.VarChar(10)
+  email              String    @unique @db.VarChar(150)
+  phone              String?   @db.VarChar(20)
+  street             String?   @db.VarChar(255)
+  barangay           String?   @db.VarChar(100)
+  municipality       String?   @db.VarChar(100)
+  school_id          Int?
+  academic_period_id Int
+  gender             String?   @db.VarChar(30)
+  date_of_birth      DateTime? @db.Date
+  birthplace         String?   @db.VarChar(255)
+  civil_status       String?   @default("Single") @db.VarChar(30)
+  family_income      String?   @db.VarChar(50)
+  gwa                Decimal?  @db.Decimal(5, 2)
+  guardian_details   Json?
+  siblings_boys      Int       @default(0)
+  siblings_girls     Int       @default(0)
+  status             String    @default("pending") @db.VarChar(40)
+  created_at         DateTime  @default(now()) @db.Timestamp(6)
+  updated_at         DateTime  @updatedAt @db.Timestamp(6)
+  deleted_at         DateTime? @db.Timestamp(6)
+
+  academic_period      academic_periods          @relation(fields: [academic_period_id], references: [id], onDelete: Restrict)
+  applications         application_submissions[]
+  control_account      control_accounts?
+  exam_slots           exam_slots[]
+  payroll_claims       payroll_claims[]
+  scholar_account      scholar_accounts?
+  scholar_requirements scholar_requirements[]
+  school               schools?                  @relation(fields: [school_id], references: [id], onDelete: SetNull)
+
+  @@index([academic_period_id])
+  @@index([school_id])
+  @@index([municipality, barangay])
+  @@index([status])
+}
+
+model application_submissions {
+  id           Int      @id @default(autoincrement())
+  applicant_id Int
+  identity     Json
+  address      Json
+  school_plan  Json
+  family       Json
+  eligibility  Json
+  status       String   @default("Applied") @db.VarChar(40)
+  submitted_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at   DateTime @updatedAt @db.Timestamp(6)
+
+  applicant applicants @relation(fields: [applicant_id], references: [id], onDelete: Cascade)
+
+  @@index([applicant_id, status])
+}
+
+model control_accounts {
+  id             Int       @id @default(autoincrement())
+  applicant_id   Int       @unique
+  control_number String    @unique @db.VarChar(20)
+  username       String    @unique @db.VarChar(150)
+  password_hash  String    @db.VarChar(255)
+  is_active      Boolean   @default(true)
+  last_login_at  DateTime? @db.Timestamp(6)
+  created_at     DateTime  @default(now()) @db.Timestamp(6)
+  updated_at     DateTime  @updatedAt @db.Timestamp(6)
+
+  applicant applicants @relation(fields: [applicant_id], references: [id], onDelete: Cascade)
+}
+
+model exams {
+  id                 Int       @id @default(autoincrement())
+  academic_period_id Int
+  title              String    @db.VarChar(200)
+  exam_date          DateTime  @db.Timestamp(6)
+  exam_end_date      DateTime? @db.Timestamp(6)
+  venue              String?   @db.VarChar(255)
+  municipality       String?   @db.VarChar(100)
+  instructions       String?
+  is_active           Boolean   @default(false)
+  created_at          DateTime  @default(now()) @db.Timestamp(6)
+  updated_at          DateTime  @updatedAt @db.Timestamp(6)
+
+  academic_period academic_periods @relation(fields: [academic_period_id], references: [id], onDelete: Restrict)
+  exam_slots      exam_slots[]
+
+  @@index([academic_period_id, is_active])
+  @@index([municipality])
+}
+
+model exam_slots {
+  id           Int       @id @default(autoincrement())
+  applicant_id Int
+  exam_id      Int
+  appeared     Boolean?
+  appeared_at  DateTime? @db.Timestamp(6)
+  forfeited_at DateTime? @db.Timestamp(6)
+  created_at   DateTime  @default(now()) @db.Timestamp(6)
+  updated_at   DateTime  @updatedAt @db.Timestamp(6)
+
+  applicant applicants @relation(fields: [applicant_id], references: [id], onDelete: Cascade)
+  exam      exams      @relation(fields: [exam_id], references: [id], onDelete: Cascade)
+  result    results?
+
+  @@unique([applicant_id, exam_id])
+  @@index([exam_id])
+}
+
+model results {
+  id            Int      @id @default(autoincrement())
+  exam_slot_id  Int      @unique
+  score         Decimal? @db.Decimal(6, 2)
+  passing_score Decimal? @db.Decimal(6, 2)
+  passed        Boolean
+  remarks       String?
+  recorded_by   Int?
+  created_at    DateTime @default(now()) @db.Timestamp(6)
+  updated_at    DateTime @updatedAt @db.Timestamp(6)
+
+  exam_slot       exam_slots       @relation(fields: [exam_slot_id], references: [id], onDelete: Cascade)
+  recorder        admins?          @relation("ResultRecorder", fields: [recorded_by], references: [id], onDelete: SetNull)
+  scholar_account scholar_accounts?
+
+  @@index([recorded_by])
+}
+
+model scholar_accounts {
+  id           Int      @id @default(autoincrement())
+  applicant_id Int      @unique
+  result_id    Int?     @unique
+  scholar_id   String?  @unique @db.VarChar(30)
+  issued_at    DateTime @default(now()) @db.Timestamp(6)
+  issued_by    Int?
+  is_active    Boolean  @default(true)
+  notes        String?
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  updated_at   DateTime @updatedAt @db.Timestamp(6)
+
+  applicant applicants @relation(fields: [applicant_id], references: [id], onDelete: Cascade)
+  issuer    admins?    @relation("ScholarIssuer", fields: [issued_by], references: [id], onDelete: SetNull)
+  result    results?   @relation(fields: [result_id], references: [id], onDelete: SetNull)
+
+  @@index([is_active])
+}
+
+model scholar_requirements {
+  id                           Int       @id @default(autoincrement())
+  applicant_id                 Int
+  academic_period_id           Int
+  school_id                    Int?
+  year_level                   String?   @db.VarChar(20)
+  course                       String?   @db.VarChar(150)
+  documents                    Json      @default("{}")
+  physical_folder_submitted    Boolean   @default(false)
+  physical_folder_submitted_at DateTime? @db.Timestamp(6)
+  updated_by                   Int?
+  created_at                   DateTime  @default(now()) @db.Timestamp(6)
+  updated_at                   DateTime  @updatedAt @db.Timestamp(6)
+
+  academic_period academic_periods @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  applicant       applicants       @relation(fields: [applicant_id], references: [id], onDelete: Cascade)
+  school          schools?         @relation(fields: [school_id], references: [id], onDelete: SetNull)
+  updater         admins?          @relation("RequirementUpdater", fields: [updated_by], references: [id], onDelete: SetNull)
+
+  @@unique([applicant_id, academic_period_id])
+  @@index([academic_period_id])
+  @@index([school_id])
+}
+
+model schools {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(255)
+  school_type String   @default("public") @db.VarChar(20)
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  updated_at  DateTime @updatedAt @db.Timestamp(6)
+
+  applicants           applicants[]
+  scholar_requirements scholar_requirements[]
+}
+
+model payroll_batches {
+  id                 Int       @id @default(autoincrement())
+  batch_number       String    @unique @db.VarChar(50)
+  academic_period_id Int
+  total_scholars     Int       @default(0)
+  total_amount       Decimal   @default(0.00) @db.Decimal(12, 2)
+  status             String    @default("draft") @db.VarChar(30)
+  prepared_by        Int?
+  released_by        Int?
+  prepared_at        DateTime  @default(now()) @db.Timestamp(6)
+  released_at        DateTime? @db.Timestamp(6)
+  remarks            String?
+  created_at         DateTime  @default(now()) @db.Timestamp(6)
+  updated_at         DateTime  @updatedAt @db.Timestamp(6)
+
+  academic_period academic_periods @relation(fields: [academic_period_id], references: [id], onDelete: Restrict)
+  claims          payroll_claims[]
+  preparer        admins?          @relation("PayrollPreparer", fields: [prepared_by], references: [id], onDelete: SetNull)
+  releaser        admins?          @relation("PayrollReleaser", fields: [released_by], references: [id], onDelete: SetNull)
+
+  @@index([academic_period_id, status])
+}
+
+model payroll_claims {
+  id                Int       @id @default(autoincrement())
+  payroll_batch_id  Int
+  applicant_id      Int
+  claim_amount      Decimal   @db.Decimal(10, 2)
+  claim_status      String    @default("pending") @db.VarChar(30)
+  payment_reference String?   @db.VarChar(80)
+  notes             String?
+  paid_at           DateTime? @db.Timestamp(6)
+  created_at        DateTime  @default(now()) @db.Timestamp(6)
+  updated_at        DateTime  @updatedAt @db.Timestamp(6)
+
+  applicant     applicants       @relation(fields: [applicant_id], references: [id], onDelete: Restrict)
+  payroll_batch payroll_batches @relation(fields: [payroll_batch_id], references: [id], onDelete: Cascade)
+
+  @@unique([payroll_batch_id, applicant_id])
+  @@index([applicant_id, paid_at])
+}

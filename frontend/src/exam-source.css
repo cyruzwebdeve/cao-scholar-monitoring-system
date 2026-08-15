@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --color-emerald-brand: #10A352;
+  --color-emerald-dark: #008B47;
+  --color-emerald-light: #E8F7EF;
+  --color-emerald-ring: #A7D9BF;
+  --color-mint-bg: #F3F8F5;
+  --color-peach-bg: #FFF2E2;
+  --color-peach-border: #E5A259;
+  --color-peach-text: #7A4B1A;
+  --font-outfit: 'Outfit', sans-serif;
+  --font-inter: 'Inter', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #F3F8F5;
+}
+
+/* Hide scrollbar by default, show on hover/scroll */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #A7D9BF; border-radius: 3px; opacity: 0; }
+.overflow-y-auto:hover::-webkit-scrollbar-thumb { opacity: 1; }
+

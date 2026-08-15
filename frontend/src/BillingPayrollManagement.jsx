@@ -1,0 +1,345 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Banknote,
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Download,
+  Filter,
+  ReceiptText,
+  Search,
+  TriangleAlert,
+  UsersRound,
+  X,
+} from 'lucide-react';
+import { API_BASE, authHeaders } from './services/api';
+
+const formatDate = (value) => {
+  if (!value) return 'Not processed';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Not processed' : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const formatAmount = (value) => value === null || value === undefined
+  ? 'Not assigned'
+  : new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value);
+
+const matchesDateRange = (value, from, to) => {
+  if (!from && !to) return true;
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  if (from && date < new Date(`${from}T00:00:00`)) return false;
+  if (to && date > new Date(`${to}T23:59:59.999`)) return false;
+  return true;
+};
+
+export default function BillingPayrollManagement({ token, mode = 'billing' }) {
+  const isPayroll = mode === 'payroll';
+  const defaultBilledFilter = isPayroll ? 'All Billing Statuses' : 'Not billed yet';
+  const defaultPaidFilter = isPayroll ? 'Not paid yet' : 'All Payroll Statuses';
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [, setPage] = useState(1);
+  const [queuedIds, setQueuedIds] = useState([]);
+  const [sourceSelection, setSourceSelection] = useState([]);
+  const [queueSelection, setQueueSelection] = useState([]);
+  const [paymentReference, setPaymentReference] = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [operationNotice, setOperationNotice] = useState(null);
+  const [query, setQuery] = useState('');
+  const [scholarStatus, setScholarStatus] = useState('All Scholar Statuses');
+  const [billed, setBilled] = useState(defaultBilledFilter);
+  const [payReference, setPayReference] = useState('All Pay References');
+  const [paid, setPaid] = useState(defaultPaidFilter);
+  const [schoolYearSem, setSchoolYearSem] = useState('All School Years / Semesters');
+  const [school, setSchool] = useState('All Schools');
+  const [schoolType, setSchoolType] = useState('All School Types');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  const loadRecords = useCallback(async ({ showLoader = false } = {}) => {
+    if (showLoader) setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/scholars/management`, { headers: authHeaders(token), cache: 'no-store' });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to load billing and payroll records.');
+      const currentRecords = (body.scholars || []).map((record) => ({ ...record, isArchivedPeriod: false }));
+      const archivedRecords = (body.scholars || []).flatMap((record) => (record.financialHistory || [])
+        .filter((history) => !history.isActivePeriod)
+        .map((history) => ({
+          ...record,
+          ...history,
+          id: `${record.id}-period-${history.academicPeriodId || history.dateProcessed || 'legacy'}`,
+          billed: true,
+          paid: history.payrollStatus === 'Paid',
+          schoolYearSemester: `${history.schoolYear} · ${history.semester}`,
+          isArchivedPeriod: true,
+        })));
+      setRecords([...currentRecords, ...archivedRecords]);
+      setLoadError('');
+    } catch (error) {
+      setLoadError(error instanceof TypeError ? 'Unable to reach the server. Retrying automatically…' : error.message || 'Unable to load records.');
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => loadRecords({ showLoader: true }), 0);
+    const timer = window.setInterval(loadRecords, 30000);
+    const refresh = () => loadRecords();
+    window.addEventListener('focus', refresh);
+    return () => { window.clearTimeout(initialLoad); window.clearInterval(timer); window.removeEventListener('focus', refresh); };
+  }, [loadRecords]);
+
+  const scholarStatuses = useMemo(() => [...new Set(records.map(({ status }) => status).filter(Boolean))].sort(), [records]);
+  const payReferences = useMemo(() => [...new Set(records.map((item) => item.payReference).filter(Boolean))].sort(), [records]);
+  const schoolYearSemesters = useMemo(() => [...new Set(records.map((item) => item.schoolYearSemester).filter(Boolean))].sort(), [records]);
+  const schools = useMemo(() => [...new Set(records.map((item) => item.school).filter(Boolean))].sort(), [records]);
+  const schoolTypes = useMemo(() => [...new Set(records.map((item) => item.schoolType || 'Public'))].sort(), [records]);
+
+  const filtered = useMemo(() => records.filter((record) => {
+    const search = `${record.name} ${record.email || ''}`.toLowerCase();
+    const normalizedSchoolType = record.schoolType || 'Public';
+    const matchesReference = payReference === 'All Pay References'
+      || (payReference === 'No pay reference' ? !record.payReference : record.payReference === payReference);
+    return search.includes(query.trim().toLowerCase())
+      && (scholarStatus === 'All Scholar Statuses' || record.status === scholarStatus)
+      && (billed === 'All Billing Statuses' || (billed === 'Billed' ? record.billed : !record.billed))
+      && matchesReference
+      && (paid === 'All Payroll Statuses' || (paid === 'Paid' ? record.paid : !record.paid))
+      && (schoolYearSem === 'All School Years / Semesters' || record.schoolYearSemester === schoolYearSem)
+      && (school === 'All Schools' || record.school === school)
+      && (schoolType === 'All School Types' || normalizedSchoolType === schoolType)
+      && matchesDateRange(record.dateProcessed, dateFrom, dateTo);
+  }), [records, query, scholarStatus, billed, payReference, paid, schoolYearSem, school, schoolType, dateFrom, dateTo]);
+
+  const hasFilters = Boolean(query || dateFrom || dateTo
+    || scholarStatus !== 'All Scholar Statuses'
+    || billed !== defaultBilledFilter
+    || payReference !== 'All Pay References'
+    || paid !== defaultPaidFilter
+    || schoolYearSem !== 'All School Years / Semesters'
+    || school !== 'All Schools'
+    || schoolType !== 'All School Types');
+
+  const clearFilters = () => {
+    setQuery(''); setScholarStatus('All Scholar Statuses'); setBilled(defaultBilledFilter);
+    setPayReference('All Pay References'); setPaid(defaultPaidFilter);
+    setSchoolYearSem('All School Years / Semesters'); setSchool('All Schools');
+    setSchoolType('All School Types'); setDateFrom(''); setDateTo(''); setPage(1);
+  };
+
+  const currentRecords = useMemo(() => records.filter((record) => !record.isArchivedPeriod), [records]);
+  const visibleRecords = useMemo(() => filtered.filter((record) => !isPayroll || record.billed), [filtered, isPayroll]);
+  const queuedRecords = useMemo(() => records.filter((record) => !record.isArchivedPeriod && queuedIds.includes(record.applicantId)
+    && (isPayroll ? record.billed && !record.paid : !record.billed)), [records, queuedIds, isPayroll]);
+  const sourceRecords = useMemo(() => visibleRecords.filter((record) => !queuedIds.includes(record.applicantId)), [visibleRecords, queuedIds]);
+  const movableSourceRecords = useMemo(() => sourceRecords.filter((record) => (
+    !record.isArchivedPeriod && (isPayroll ? record.billed && !record.paid : !record.billed)
+  )), [sourceRecords, isPayroll]);
+  const selectedMovableIds = sourceSelection.filter((id) => movableSourceRecords.some((record) => record.applicantId === id));
+  const queuedTotalAmount = queuedRecords.reduce((sum, record) => sum + Number(record.claimAmount || 0), 0);
+  const billedCount = currentRecords.filter((item) => item.billed).length;
+  const paidCount = currentRecords.filter((item) => item.paid).length;
+  const referencedCount = records.filter((item) => item.payReference).length;
+  const metrics = isPayroll
+    ? [
+        { label: 'Total Scholars', value: currentRecords.length, detail: 'Accepted scholar accounts', tone: 'green', Icon: UsersRound },
+        { label: 'For Payroll', value: billedCount - paidCount, detail: 'Billed and awaiting payment', tone: 'orange', Icon: Banknote },
+        { label: 'Paid', value: paidCount, detail: 'Completed payroll records', tone: 'blue', Icon: Banknote },
+        { label: 'Pay References', value: referencedCount, detail: 'Archived payment references', tone: 'violet', Icon: ReceiptText },
+      ]
+    : [
+        { label: 'Total Scholars', value: currentRecords.length, detail: 'Accepted scholar accounts', tone: 'green', Icon: UsersRound },
+        { label: 'Not Billed Yet', value: currentRecords.length - billedCount, detail: 'Automatically awaiting billing', tone: 'orange', Icon: ReceiptText },
+        { label: 'Billed', value: billedCount, detail: 'Included in billing records', tone: 'blue', Icon: ReceiptText },
+        { label: 'Paid', value: paidCount, detail: 'Completed through payroll', tone: 'violet', Icon: Banknote },
+      ];
+
+  const exportRecords = (items) => {
+    const headers = ['Scholar Name', 'Email', 'Scholar Status', 'Billed', 'Pay Reference', 'Paid', 'School Year / Semester', 'School', 'School Type', 'Date Processed'];
+    const rows = items.map((item) => [item.name, item.email, item.status, item.billingStatus, item.payReference || '', item.payrollStatus, item.schoolYearSemester, item.school, item.schoolType || 'Public', formatDate(item.dateProcessed)]);
+    const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const blob = new Blob([[headers, ...rows].map((row) => row.map(escape).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url; anchor.download = `${mode}-records-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+  };
+
+  const toggleSelection = (setter, id) => setter((current) => current.includes(id)
+    ? current.filter((item) => item !== id)
+    : [...current, id]);
+
+  const queueSelected = () => {
+    setQueuedIds((current) => [...new Set([...current, ...selectedMovableIds])]);
+    setSourceSelection([]);
+    setOperationNotice(null);
+  };
+
+  const queueAll = () => {
+    setQueuedIds((current) => [...new Set([...current, ...movableSourceRecords.map(({ applicantId }) => applicantId)])]);
+    setSourceSelection([]);
+    setOperationNotice(null);
+  };
+
+  const removeSelectedFromQueue = () => {
+    setQueuedIds((current) => current.filter((id) => !queueSelection.includes(id)));
+    setQueueSelection([]);
+    setOperationNotice(null);
+  };
+
+  const clearQueue = () => {
+    setQueuedIds([]);
+    setQueueSelection([]);
+    setOperationNotice(null);
+  };
+
+  const processQueue = async () => {
+    if (!queuedRecords.length || processing) return;
+    setProcessing(true);
+    setOperationNotice(null);
+    try {
+      const response = await fetch(`${API_BASE}/${isPayroll ? 'payroll' : 'billing'}/process`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicantIds: queuedRecords.map(({ applicantId }) => applicantId),
+          ...(isPayroll ? { payReference: paymentReference } : {}),
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || `Unable to process ${mode} records.`);
+      setQueuedIds([]);
+      setSourceSelection([]);
+      setQueueSelection([]);
+      if (isPayroll) setPaymentReference('');
+      setOperationNotice({ tone: 'success', text: isPayroll ? `${body.message} Reference: ${body.payReference}` : body.message });
+      await loadRecords();
+    } catch (error) {
+      setOperationNotice({ tone: 'error', text: error.message || `Unable to process ${mode} records.` });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  return <>
+    <div className="billing-management">
+      <header className="billing-heading">
+        <div><span>{isPayroll ? 'PAYROLL OPERATIONS' : 'BILLING OPERATIONS'}</span><h2>{isPayroll ? 'Payroll Management' : 'Billing Management'}</h2><p>{isPayroll ? 'Track billed scholars, payment completion, and archived pay references.' : 'Prepare scholar billing records and monitor readiness for payroll processing.'}</p></div>
+      </header>
+
+      <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></article>)}</section>
+
+      {loadError && <div className="billing-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadRecords({ showLoader: true })}>Retry</button></div>}
+
+      <section className="billing-filter-panel">
+        <div className="billing-filter-heading"><div><i><Filter size={15} /></i><span><strong>Quick filters</strong><small>Filter scholar billing and payroll records using operational fields.</small></span></div>{hasFilters && <button type="button" onClick={clearFilters}><X size={13} />Clear filters</button>}</div>
+        <div className="billing-filters billing-filter-groups">
+          <section className="billing-filter-group">
+            <header><strong>Scholar</strong></header>
+            <div className="billing-filter-group-fields">
+              <label className="billing-search"><span>Search</span><div><Search size={15} /><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Scholar name or email" /></div></label>
+              <label><span>Status of scholar</span><select value={scholarStatus} onChange={(event) => { setScholarStatus(event.target.value); setPage(1); }}><option>All Scholar Statuses</option>{scholarStatuses.map((option) => <option key={option}>{option}</option>)}</select></label>
+              <label><span>School</span><select value={school} onChange={(event) => { setSchool(event.target.value); setPage(1); }}><option>All Schools</option>{schools.map((option) => <option key={option}>{option}</option>)}</select></label>
+            </div>
+          </section>
+
+          <section className="billing-filter-group">
+            <header><strong>Billing & payroll</strong></header>
+            <div className="billing-filter-group-fields">
+              <label><span>Billed?</span><select value={billed} onChange={(event) => { setBilled(event.target.value); setPage(1); }}><option>All Billing Statuses</option><option>Billed</option><option>Not billed yet</option></select></label>
+              <label><span>Paid?</span><select value={paid} onChange={(event) => { setPaid(event.target.value); setPage(1); }}><option>All Payroll Statuses</option><option>Paid</option><option>Not paid yet</option></select></label>
+              <label><span>Pay reference</span><select value={payReference} onChange={(event) => {
+                const nextReference = event.target.value;
+                setPayReference(nextReference);
+                if (!['All Pay References', 'No pay reference'].includes(nextReference)) {
+                  setBilled('Billed');
+                  setPaid('Paid');
+                }
+                setPage(1);
+              }}><option>All Pay References</option><option>No pay reference</option>{payReferences.map((option) => <option key={option}>{option}</option>)}</select></label>
+            </div>
+          </section>
+
+          <section className="billing-filter-group">
+            <header><strong>Academic & date</strong></header>
+            <div className="billing-filter-group-fields">
+              <label><span>School year / sem</span><select value={schoolYearSem} onChange={(event) => { setSchoolYearSem(event.target.value); setPage(1); }}><option>All School Years / Semesters</option>{schoolYearSemesters.map((option) => <option key={option}>{option}</option>)}</select></label>
+              <label><span>School type</span><select value={schoolType} onChange={(event) => { setSchoolType(event.target.value); setPage(1); }}><option>All School Types</option>{schoolTypes.map((option) => <option key={option}>{option}</option>)}</select></label>
+              <div className="billing-filter-date-range">
+                <label><span>Processed from</span><div className="billing-date"><CalendarRange size={14} /><input type="date" value={dateFrom} max={dateTo || undefined} onChange={(event) => { setDateFrom(event.target.value); setPage(1); }} /></div></label>
+                <label><span>Processed to</span><div className="billing-date"><CalendarRange size={14} /><input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => { setDateTo(event.target.value); setPage(1); }} /></div></label>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      {operationNotice && <div className={`billing-operation-notice ${operationNotice.tone}`} role="status">{operationNotice.tone === 'error' && <TriangleAlert size={16} />}<span>{operationNotice.text}</span><button type="button" onClick={() => setOperationNotice(null)} aria-label="Dismiss notification"><X size={14} /></button></div>}
+
+      <section className="billing-transfer-board">
+        <article className="billing-transfer-panel billing-source-panel">
+          <header className="billing-transfer-header">
+            <div><strong>List of Scholars</strong><small>{sourceRecords.length} filtered record{sourceRecords.length === 1 ? '' : 's'}</small></div>
+            <span><button type="button" onClick={() => setSourceSelection(movableSourceRecords.map(({ applicantId }) => applicantId))} disabled={!movableSourceRecords.length}>Select movable</button><button type="button" onClick={() => setSourceSelection([])} disabled={!sourceSelection.length}>Clear</button></span>
+          </header>
+          <div className="billing-queue-table billing-source-table">
+            <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>Status</span></div>
+            <div className="billing-queue-table-body">
+              {loading && !records.length && <div className="billing-queue-empty"><span className="scholars-spinner" />Loading scholars…</div>}
+              {!loading && !sourceRecords.length && <div className="billing-queue-empty"><Search size={20} /><strong>No scholar records</strong><span>{hasFilters ? 'No records match the selected filters.' : isPayroll ? 'Billed scholars awaiting payment will appear here.' : 'Newly accepted scholars will appear here automatically.'}</span></div>}
+              {sourceRecords.map((record) => {
+                const canMove = !record.isArchivedPeriod && (isPayroll ? record.billed && !record.paid : !record.billed);
+                const isSelected = canMove && sourceSelection.includes(record.applicantId);
+                const statusLabel = isPayroll
+                  ? record.paid ? 'Paid' : 'Not paid yet'
+                  : record.paid ? 'Paid' : record.billed ? 'Billed' : 'Not billed yet';
+                return <div className={`billing-queue-row ${isSelected ? 'selected' : ''} ${canMove ? '' : 'archived'}`} key={record.id}>
+                  <code>{record.controlNumber || '—'}</code>
+                  <button type="button" className="billing-queue-name" aria-pressed={isSelected} disabled={!canMove} title={canMove ? `Select ${record.name}` : `${record.name} is archived and cannot be moved again.`} onClick={() => toggleSelection(setSourceSelection, record.applicantId)}><strong>{record.name}</strong><small>{isSelected ? 'Selected' : record.email}</small></button>
+                  <span className={`billing-queue-ready ${canMove ? '' : 'archived'}`}>{statusLabel}</span>
+                </div>;
+              })}
+            </div>
+          </div>
+          <footer><span>Selected: <strong>{selectedMovableIds.length}</strong></span><span>Movable: <strong>{movableSourceRecords.length}</strong></span></footer>
+        </article>
+
+        <nav className="billing-transfer-controls" aria-label="Move scholars between lists">
+          <button type="button" className="primary" onClick={queueSelected} disabled={!selectedMovableIds.length} aria-label={`Move selected scholars to ${isPayroll ? 'payroll' : 'billing'}`}><ChevronRight size={17} /></button>
+          <button type="button" onClick={queueAll} disabled={!movableSourceRecords.length} aria-label={`Move all eligible scholars to ${isPayroll ? 'payroll' : 'billing'}`}><ChevronsRight size={17} /></button>
+          <button type="button" onClick={removeSelectedFromQueue} disabled={!queueSelection.length} aria-label="Return selected scholars to the source list"><ChevronLeft size={17} /></button>
+          <button type="button" onClick={clearQueue} disabled={!queuedRecords.length} aria-label="Return all scholars to the source list"><ChevronsLeft size={17} /></button>
+        </nav>
+
+        <article className="billing-transfer-panel billing-target-panel">
+          <header className="billing-transfer-header">
+            <div><strong>For {isPayroll ? 'Payroll' : 'Billing'}</strong><small>Review the current processing queue.</small></div>
+            <button type="button" className="billing-queue-export" onClick={() => exportRecords(queuedRecords)} disabled={!queuedRecords.length}><Download size={14} />Export CSV</button>
+          </header>
+          {isPayroll && <div className="billing-payment-reference"><label><span>Payment reference <small>(optional)</small></span><input value={paymentReference} maxLength={50} onChange={(event) => setPaymentReference(event.target.value)} placeholder="Auto-generated when blank" /></label><p>Recent refs: {payReferences.length ? payReferences.slice(-3).join(', ') : 'None yet'}</p></div>}
+          <div className="billing-queue-table billing-target-table">
+            <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>School year</span><span>Sem</span></div>
+            <div className="billing-queue-table-body">
+              {!queuedRecords.length && <div className="billing-queue-empty"><ReceiptText size={20} /><strong>No scholars queued</strong><span>Use the transfer controls to add scholars.</span></div>}
+              {queuedRecords.map((record) => <div className={`billing-queue-row ${queueSelection.includes(record.applicantId) ? 'selected' : ''}`} key={record.id}>
+                <code>{record.controlNumber || '—'}</code>
+                <button type="button" className="billing-queue-name" aria-pressed={queueSelection.includes(record.applicantId)} onClick={() => toggleSelection(setQueueSelection, record.applicantId)}><strong>{record.name}</strong><small>{queueSelection.includes(record.applicantId) ? 'Selected' : record.school}</small></button>
+                <span>{record.schoolYear}</span>
+                <span>{record.semester}</span>
+              </div>)}
+            </div>
+          </div>
+          <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Amount paid' : 'Billable amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing}>{processing ? 'Processing…' : isPayroll ? 'Complete payroll' : 'Process billing'}</button></footer>
+        </article>
+      </section>
+    </div>
+
+  </>;
+}

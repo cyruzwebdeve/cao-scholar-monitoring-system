@@ -1,0 +1,10 @@
+{
+  "name": "pgceap-scholarship-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "npm --prefix backend run dev"
+  }
+}

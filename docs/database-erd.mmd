@@ -1,0 +1,258 @@
+erDiagram
+    SCHOOLS ||--o{ APPLICANTS : "school_id"
+    APPLICANTS ||--o{ APPLICATION_SUBMISSIONS : "applicant_id"
+    APPLICANTS ||--o| CONTROL_ACCOUNTS : "applicant_id"
+
+    APPLICANTS ||--o{ EXAM_SLOTS : "applicant_id"
+    EXAMS ||--o{ EXAM_SLOTS : "exam_id"
+    EXAM_SLOTS ||--o| RESULTS : "exam_slot_id"
+    APPLICANTS ||--o{ RESULTS : "applicant_id"
+    EXAMS ||--o{ RESULTS : "exam_id"
+    ADMINS ||--o{ RESULTS : "recorded_by"
+
+    APPLICANTS ||--o| SCHOLAR_ACCOUNTS : "applicant_id"
+    RESULTS ||--o| SCHOLAR_ACCOUNTS : "result_id"
+    ADMINS ||--o{ SCHOLAR_ACCOUNTS : "issued_by"
+
+    APPLICANTS ||--o{ SCHOLAR_REQUIREMENTS : "applicant_id"
+    ACADEMIC_PERIODS ||--o{ SCHOLAR_REQUIREMENTS : "billing_period_id"
+    SCHOOLS ||--o{ SCHOLAR_REQUIREMENTS : "school_id"
+    ADMINS ||--o{ SCHOLAR_REQUIREMENTS : "updated_by"
+
+    ACADEMIC_PERIODS ||--o{ PAYROLL_BATCHES : "billing_period_id"
+    ADMINS ||--o{ PAYROLL_BATCHES : "prepared_by"
+    ADMINS ||--o{ PAYROLL_BATCHES : "released_by"
+    PAYROLL_BATCHES ||--o{ PAYROLL_CLAIMS : "payroll_batch_id"
+    APPLICANTS ||--o{ PAYROLL_CLAIMS : "applicant_id"
+
+    ADMINS ||--o{ ACADEMIC_PERIODS : "created_by"
+    ADMINS ||--o{ ANNOUNCEMENTS : "created_by"
+
+    ACADEMIC_PERIODS {
+        int id PK
+        string school_year UK
+        string semester UK
+        date start_date
+        date end_date
+        string status
+        boolean is_active
+        int created_by FK
+        datetime created_at
+        datetime updated_at
+    }
+
+    ACTIVITY_LOGS {
+        bigint id PK
+        string actor_type
+        int actor_id
+        string action
+        string target_table
+        int target_id
+        string description
+        string ip_address
+        datetime created_at
+    }
+
+    ANNOUNCEMENTS {
+        int id PK
+        string title
+        string content
+        string audience
+        string priority
+        string status
+        datetime publish_at
+        datetime expires_at
+        datetime published_at
+        string image_name
+        string image_type
+        string image_data
+        int created_by FK
+        datetime created_at
+        datetime updated_at
+    }
+
+    ADMINS {
+        int id PK
+        string full_name
+        string email UK
+        string password_hash
+        boolean is_active
+        boolean is_super_admin
+        string role
+        datetime last_login_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    APPLICANTS {
+        int id PK
+        string first_name
+        string middle_name
+        string last_name
+        string name_ext
+        string email UK
+        string phone
+        string street
+        string barangay
+        string municipality
+        int school_id FK
+        string gender
+        date date_of_birth
+        string birthplace
+        string civil_status
+        string family_income
+        decimal gwa
+        string guardians
+        int siblings_boys
+        int siblings_girls
+        string status
+        string school_year
+        datetime created_at
+        datetime updated_at
+        datetime deleted_at
+    }
+
+    APPLICATION_SUBMISSIONS {
+        int id PK
+        int applicant_id FK
+        string email
+        json identity
+        json address
+        json school_plan
+        json family
+        json eligibility
+        json initial_docs
+        string status
+        datetime submitted_at
+        datetime updated_at
+    }
+
+    CONTROL_ACCOUNTS {
+        int id PK
+        int applicant_id FK,UK
+        string control_number UK
+        string username UK
+        string password_hash
+        boolean is_active
+        datetime last_login_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    EXAMS {
+        int id PK
+        int created_by
+        string title
+        datetime exam_date
+        datetime exam_end_date
+        string venue
+        string municipality
+        string academic_year
+        string instructions
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+
+    EXAM_SLOTS {
+        int id PK
+        int applicant_id FK,UK
+        int exam_id FK,UK
+        boolean appeared
+        datetime appeared_at
+        datetime forfeited_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    RESULTS {
+        int id PK
+        int exam_slot_id FK,UK
+        int applicant_id FK
+        int exam_id FK
+        decimal score
+        decimal passing_score
+        boolean passed
+        string remarks
+        int recorded_by FK
+        datetime created_at
+        datetime updated_at
+    }
+
+    SCHOLAR_ACCOUNTS {
+        int id PK
+        int applicant_id FK,UK
+        int result_id FK,UK
+        string scholar_id UK
+        datetime issued_at
+        int issued_by FK
+        boolean is_active
+        string notes
+        datetime created_at
+        datetime updated_at
+    }
+
+    SCHOLAR_REQUIREMENTS {
+        int id PK
+        int applicant_id FK,UK
+        int billing_period_id FK,UK
+        int school_id FK
+        string year_level
+        string course
+        string major
+        string cert_tax_exemption_file
+        string cert_tax_exemption_review_status
+        string barangay_indigency_file
+        string barangay_indigency_review_status
+        string valid_id_photocopy_file
+        string valid_id_photocopy_review_status
+        string registration_form_file
+        string registration_form_review_status
+        string tuition_fee_receipt_file
+        string tuition_fee_receipt_review_status
+        boolean folder_physical_submitted
+        datetime folder_physical_submitted_at
+        string grade_report_file
+        string grade_report_review_status
+        int updated_by FK
+        datetime created_at
+        datetime updated_at
+    }
+
+    SCHOOLS {
+        int id PK
+        string name UK
+        string school_type
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+
+    PAYROLL_BATCHES {
+        int id PK
+        string batch_number UK
+        int billing_period_id FK
+        int total_scholars
+        decimal total_amount
+        string status
+        int prepared_by FK
+        int released_by FK
+        datetime prepared_at
+        datetime released_at
+        string remarks
+        datetime created_at
+        datetime updated_at
+    }
+
+    PAYROLL_CLAIMS {
+        int id PK
+        int payroll_batch_id FK,UK
+        int applicant_id FK,UK
+        decimal claim_amount
+        string claim_status
+        string notes
+        datetime claimed_date
+        string claimed_notes
+        datetime created_at
+        datetime updated_at
+    }
