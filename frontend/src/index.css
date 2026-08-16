@@ -5238,7 +5238,7 @@ body {
   }
   .login-intro {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 1;
     max-width: 620px;
     margin: 0 auto;
   }
@@ -5253,7 +5253,7 @@ body {
   }
   .login-card {
     grid-column: 1;
-    grid-row: 1;
+    grid-row: 2;
     margin: 0 auto;
   }
   .login-large-logo {
