@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
 import LoginForm from './components/LoginForm';
 import caologo from './assets/caologo.jpg';
+import './styles/login.css';
 
 function LoginPage({ token, user, onLogin }) {
   const navigate = useNavigate();

@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { API_BASE, authHeaders } from './services/api';
+import './styles/scholar-portal.css';
+import './styles/portal-responsive.css';
 
 const requirementItems = [
   { key: 'tax_exemption', label: 'Certificate of Tax Exemption' },

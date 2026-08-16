@@ -1,0 +1,314 @@
+.super-admin-dashboard .dashboard-section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+}
+.super-admin-dashboard .dashboard-section-header p {
+  margin: 6px 0 0;
+  color: #8c9690;
+  font-size: 0.82rem;
+}
+.dashboard-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border: 1px solid #d7edda;
+  border-radius: 999px;
+  background: #f1fbf2;
+  color: #2b8e3b;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.dashboard-live-indicator i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2fbd4b;
+  box-shadow: 0 0 0 4px #d8f4dc;
+}
+.super-admin-dashboard .dashboard-stat-card {
+  border: 1px solid #e8ece8;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.super-admin-dashboard .dashboard-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(15, 45, 24, 0.09);
+}
+.super-admin-dashboard .dashboard-surface {
+  border: 1px solid #e8ece8;
+  box-shadow: 0 10px 26px rgba(15, 45, 24, 0.045);
+}
+.super-admin-dashboard .dashboard-surface-header {
+  align-items: center;
+}
+.super-admin-dashboard .dashboard-surface-header p {
+  margin: 5px 0 0;
+  color: #9aa39d;
+  font-size: 0.76rem;
+}
+.dashboard-record-count {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f4f7f4;
+  color: #89958d;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.super-admin-dashboard .dashboard-table tbody tr {
+  transition: background 0.15s ease;
+}
+.super-admin-dashboard .dashboard-table tbody tr:hover {
+  background: #f8fbf8;
+}
+@media (max-width: 760px) {
+  .super-admin-dashboard .dashboard-section-header {
+    align-items: flex-start;
+  }
+  .dashboard-record-count {
+    display: none;
+  }
+}
+.applicants-management {
+  max-width: 100%;
+  color: #172033;
+}
+.applicants-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+}
+.applicants-heading h2 {
+  margin: 0;
+  font-size: 22px;
+}
+.applicants-heading p {
+  margin: 5px 0 0;
+  color: #9aa0aa;
+  font-size: 13px;
+}
+.applicants-export,
+.applicant-view {
+  border: 0;
+  border-radius: 8px;
+  background: #15920e;
+  color: #fff;
+  font-weight: 700;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+.applicant-view {
+  background: #42e65c;
+  box-shadow: 0 5px 12px #42e65c44;
+  padding: 8px 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.applicant-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.applicant-metrics article {
+  background: #fff;
+  border: 1px solid #e7e8eb;
+  border-radius: 10px;
+  padding: 18px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px #17203308;
+}
+.applicant-metrics span {
+  display: block;
+  color: #9a9da3;
+  font-size: 12px;
+  margin-bottom: 7px;
+}
+.applicant-metrics strong {
+  font-size: 27px;
+}
+.applicant-metric-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: #e5f7e8;
+  color: #128619;
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-size: 21px;
+}
+.applicant-filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.applicant-search,
+.applicant-filters select {
+  height: 34px;
+  box-sizing: border-box;
+  border: 1px solid #d9dadd;
+  border-radius: 8px;
+  background: #fff;
+  color: #6f737b;
+  font-size: 12px;
+}
+.applicant-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  width: 255px;
+}
+.applicant-search input {
+  border: 0;
+  outline: 0;
+  width: 100%;
+  font-size: 12px;
+}
+.applicant-filters select {
+  padding: 0 12px;
+  min-width: 130px;
+}
+.applicant-table-card {
+  background: #fff;
+  border: 1px solid #e5e6e8;
+  border-radius: 11px;
+  overflow: hidden;
+}
+.applicant-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.applicant-table th {
+  text-align: left;
+  color: #92959b;
+  font-size: 10px;
+  background: #fafafa;
+  padding: 12px;
+}
+.applicant-table td {
+  padding: 11px 12px;
+  border-top: 1px solid #f0f0f1;
+  color: #8f9298;
+  white-space: nowrap;
+}
+.applicant-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #202632;
+}
+.applicant-name b {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e7f6e9;
+  color: #277c35;
+  font-size: 10px;
+}
+.applicant-name strong,
+.applicant-name small {
+  display: block;
+}
+.applicant-name small {
+  color: #a4a6ab;
+  margin-top: 3px;
+  font-size: 10px;
+}
+.applicant-status {
+  display: inline-block;
+  border-radius: 12px;
+  padding: 4px 9px;
+  background: #fff1c9;
+  color: #a87600;
+  font-weight: 700;
+}
+.applicant-status.passed {
+  background: #d9f3df;
+  color: #15852c;
+}
+.applicant-status.exam-completed {
+  background: #e2efff;
+  color: #2773b8;
+}
+.applicant-table-footer {
+  padding: 13px 15px;
+  color: #999da3;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.applicant-pagination {
+  display: flex;
+  gap: 5px;
+}
+.applicant-pagination button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e1e2e5;
+  border-radius: 7px;
+  background: #fff;
+  color: #686d75;
+  cursor: pointer;
+}
+.applicant-pagination button.active {
+  background: #168c0f;
+  border-color: #168c0f;
+  color: #fff;
+}
+.applicant-pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.applicant-table {
+  font-size: 13px;
+}
+.applicant-table th {
+  font-size: 12px;
+  padding: 15px 14px;
+}
+.applicant-table td {
+  padding: 16px 14px;
+}
+.applicant-name {
+  gap: 11px;
+}
+.applicant-name b {
+  width: 34px;
+  height: 34px;
+  font-size: 11px;
+}
+.applicant-name small {
+  font-size: 11px;
+}
+.applicant-name strong {
+  font-size: 13px;
+}
+.applicant-table-footer {
+  font-size: 12px;
+  padding: 15px 16px;
+}
+@media (max-width: 1100px) {
+  .applicant-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .applicant-filters {
+    flex-wrap: wrap;
+  }
+  .applicant-table-card {
+    overflow-x: auto;
+  }
+}

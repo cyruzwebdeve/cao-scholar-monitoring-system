@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import './exam-source.css'
+import './styles/exam-responsive.css'
 import { API_BASE, authHeaders } from './services/api'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────

@@ -1,0 +1,120 @@
+/* Applicant and scholar portal responsiveness */
+@media (max-width: 520px) {
+  .scholar-header {
+    min-height: 64px;
+    padding: 11px 14px;
+  }
+
+  .scholar-brand {
+    min-width: 0;
+  }
+
+  .scholar-brand-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .scholar-brand span {
+    font-size: 0.58rem;
+  }
+
+  .scholar-brand strong {
+    overflow: hidden;
+    max-width: 150px;
+    font-size: 0.84rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .scholar-header-actions {
+    gap: 4px;
+  }
+
+  .scholar-dashboard-main,
+  .applicant-dashboard-main {
+    width: calc(100% - 24px);
+    padding-top: 16px;
+  }
+
+  .scholar-welcome-card,
+  .applicant-welcome-card {
+    padding: 20px;
+  }
+
+  .scholar-welcome-card h1,
+  .applicant-welcome-card h1 {
+    font-size: 1.55rem;
+  }
+
+  .scholar-welcome-card p:last-child,
+  .applicant-welcome-card p:last-child {
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+
+  .scholar-welcome-icon,
+  .applicant-welcome-icon {
+    display: none;
+  }
+
+  .scholar-panel,
+  .applicant-panel,
+  .scholar-stat-card,
+  .applicant-stat-card {
+    padding: 18px;
+  }
+
+  .scholar-profile-backdrop {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .scholar-profile-dialog {
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: 18px;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .scholar-requirement-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .scholar-requirement-copy small {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .scholar-profile-detail,
+  .applicant-detail {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .scholar-profile-detail strong,
+  .applicant-detail strong {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .applicant-notification-dropdown,
+  .scholar-notification-dropdown {
+    position: fixed;
+    top: 70px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
+
+  .app-toast {
+    top: 12px;
+    right: 12px;
+    width: calc(100% - 24px);
+  }
+}

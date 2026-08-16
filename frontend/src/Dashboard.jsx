@@ -50,6 +50,9 @@ import ReportsManagement from './ReportsManagement';
 import schoolsListData from '../../schools_list.json';
 import municipalitiesData from '../../municipality.json';
 import barangaysData from '../../brgy.json';
+import './styles/admin-prelude.css';
+import './styles/admin.css';
+import './styles/admin-responsive.css';
 
 const schoolCatalogFromJson = schoolsListData.schools.map((name) => ({
   name,

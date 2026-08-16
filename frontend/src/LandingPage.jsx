@@ -13,6 +13,7 @@ import {
 import { Link } from 'react-router-dom';
 import caologo from './assets/caologo.jpg';
 import communityPhoto from './assets/landing-community.jpg';
+import './styles/landing.css';
 
 const benefits = [
   {

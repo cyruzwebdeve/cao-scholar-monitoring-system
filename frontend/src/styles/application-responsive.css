@@ -1,0 +1,172 @@
+/* Application form responsiveness */
+@media (max-width: 1080px) {
+  .form-sidebar {
+    min-width: 0;
+  }
+
+  .steps-list {
+    display: flex;
+    gap: 9px;
+    padding-bottom: 5px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
+
+  .step-button {
+    min-width: 190px;
+    flex: 1 0 190px;
+    scroll-snap-align: start;
+  }
+
+  .progress-box,
+  .sidebar-warning {
+    max-width: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .application-page-header-inner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .application-page-pill {
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 640px) {
+  .application-page-header {
+    padding: 11px 0;
+  }
+
+  .application-page-header-inner {
+    width: calc(100% - 24px);
+    gap: 10px;
+  }
+
+  .application-brand-copy h1 {
+    font-size: 0.88rem;
+  }
+
+  .application-brand-kicker {
+    font-size: 0.58rem;
+  }
+
+  .application-page-pill {
+    width: 100%;
+    justify-content: center;
+    padding: 7px 10px;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    text-align: center;
+  }
+
+  .application-stage {
+    width: calc(100% - 20px);
+  }
+
+  .steps-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .step-button {
+    min-width: 0;
+    padding: 10px;
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .step-number {
+    width: 27px;
+    height: 27px;
+    min-width: 27px;
+  }
+
+  .step-text {
+    font-size: 0.76rem;
+  }
+
+  .form-card {
+    border-radius: 16px;
+  }
+
+  .form-card-header,
+  .form-card-body {
+    padding-right: 15px;
+    padding-left: 15px;
+  }
+
+  .form-card-header h2 {
+    font-size: 1.08rem;
+  }
+
+  .eligibility-grid {
+    padding: 10px;
+  }
+
+  .form-actions {
+    gap: 10px;
+  }
+
+  .application-page-footer {
+    padding-inline: 16px;
+    font-size: 0.68rem;
+    line-height: 1.5;
+  }
+
+  .application-stage:has(.submitted-overlay) {
+    margin-top: 10px;
+  }
+
+  .submitted-overlay {
+    padding: 0 0 18px;
+  }
+
+  .submitted-card {
+    padding: 24px 18px;
+    border-radius: 18px;
+  }
+
+  .submitted-icon {
+    width: 56px;
+    height: 56px;
+    margin-bottom: 16px;
+  }
+
+  .submitted-icon svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .submitted-card h2 {
+    font-size: 1.42rem;
+  }
+
+  .submitted-card .submitted-message {
+    margin-bottom: 16px;
+    font-size: 0.84rem;
+  }
+
+  .submission-account {
+    margin-bottom: 18px;
+    padding: 15px;
+  }
+
+  .submission-account-list > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 9px 0;
+  }
+
+  .submission-account-list dd {
+    text-align: left;
+  }
+
+  .btn-submit {
+    width: 100%;
+    min-height: 44px;
+  }
+}

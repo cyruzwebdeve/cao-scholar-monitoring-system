@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { API_BASE, authHeaders } from "./services/api";
+import './styles/applicant-prelude.css';
+import './styles/scholar-portal.css';
+import './styles/applicant-portal.css';
+import './styles/portal-responsive.css';
 
 const formatApplicantExamRange = (startValue, endValue) => {
   if (!startValue) return "Schedule not set";

@@ -1,0 +1,132 @@
+/* Examination-taking view responsiveness */
+@media (max-width: 900px) {
+  .exam-taking-page {
+    height: auto !important;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .exam-taking-header {
+    position: sticky;
+    z-index: 40;
+    top: 0;
+  }
+
+  .exam-taking-body {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .exam-taking-sidebar {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.55fr) minmax(300px, 1fr);
+    width: 100% !important;
+    overflow: visible;
+  }
+
+  .exam-taking-sidebar > :nth-child(3) {
+    display: none;
+  }
+
+  .exam-taking-main,
+  .exam-taking-main > div {
+    overflow: visible;
+  }
+
+  .exam-action-bar {
+    position: sticky;
+    z-index: 30;
+    bottom: 0;
+    margin: 0 -16px -16px;
+    padding: 12px 16px !important;
+    background: rgba(243, 248, 245, 0.96);
+    box-shadow: 0 -8px 24px rgba(15, 64, 36, 0.08);
+    backdrop-filter: blur(12px);
+  }
+}
+
+@media (max-width: 620px) {
+  .exam-taking-header {
+    height: auto !important;
+    min-height: 62px;
+    gap: 10px;
+    padding: 9px 12px !important;
+  }
+
+  .exam-taking-brand > div:last-child > div:first-child {
+    display: none;
+  }
+
+  .exam-taking-brand > div:last-child > div:last-child {
+    max-width: 130px;
+    overflow: hidden;
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .exam-timer {
+    min-width: 0 !important;
+    gap: 6px !important;
+    padding: 7px 10px !important;
+  }
+
+  .exam-timer > span:first-of-type {
+    display: none;
+  }
+
+  .exam-taking-body {
+    gap: 12px !important;
+    padding: 12px !important;
+  }
+
+  .exam-taking-sidebar {
+    display: flex;
+  }
+
+  .exam-taking-sidebar > :nth-child(2) {
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  .exam-question-card-header {
+    gap: 12px !important;
+    padding: 18px 16px 16px !important;
+  }
+
+  .exam-answer-area {
+    padding: 16px !important;
+  }
+
+  .exam-answer-area button {
+    gap: 10px !important;
+    padding-right: 14px !important;
+    padding-left: 14px !important;
+  }
+
+  .exam-action-bar {
+    gap: 8px;
+    margin: 0 -12px -12px;
+    padding: 10px 12px !important;
+  }
+
+  .exam-action-dots {
+    display: none;
+  }
+
+  .exam-action-bar > button,
+  .exam-action-primary button {
+    padding-right: 12px !important;
+    padding-left: 12px !important;
+    font-size: 0.72rem !important;
+  }
+
+  .exam-action-primary {
+    margin-left: auto;
+    gap: 6px !important;
+  }
+
+  .exam-action-primary button:last-child:not(:only-child) {
+    display: none;
+  }
+}

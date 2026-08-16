@@ -2,7 +2,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
-import './index.css';
 
 const ApplicantDashboard = lazy(() => import('./ApplicantDashboard'));
 const ApplicationPage = lazy(() => import('./ApplicationPage'));

@@ -3,6 +3,8 @@ import { GraduationCap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ApplicationForm from './components/ApplicationForm';
 import { API_BASE } from './services/api';
+import './styles/application.css';
+import './styles/application-responsive.css';
 
 function ApplicationPage({ token, user }) {
   const [step, setStep] = useState(0);
