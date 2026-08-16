@@ -67,7 +67,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
   const [completed, setCompleted] = useState(new Set());
   const [submitted, setSubmitted] = useState(false);
   const [accountCredentials, setAccountCredentials] = useState(null);
-  const [redirectSeconds, setRedirectSeconds] = useState(10);
+  const [redirectSeconds, setRedirectSeconds] = useState(30);
   const [draftHydrated, setDraftHydrated] = useState(false);
   const draftStorageKey = 'scholarship-application-draft';
 
@@ -287,11 +287,15 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
       },
     };
 
+    const generatedTemporaryPassword = !user
+      ? `Scholar@${Math.random().toString(36).slice(2, 10)}`
+      : null;
+
     try {
       const bodyPayload = { personalInfo, initialDocs: {} };
       if (!user) {
         bodyPayload.email = formState.email;
-        bodyPayload.password = `Scholar@${Math.random().toString(36).slice(2, 10)}`;
+        bodyPayload.password = generatedTemporaryPassword;
       }
 
       const response = await fetch(`${API_BASE}/applications`, {
@@ -305,13 +309,16 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
         setError(body.message || 'Application submission failed.');
         return;
       }
-      setAccountCredentials(body.applicant || null);
+      setAccountCredentials(body.applicant ? {
+        ...body.applicant,
+        temporaryPassword: body.applicant.temporaryPassword || generatedTemporaryPassword,
+      } : null);
       setFormState(createEmptyFormState());
       setCompleted(new Set());
       setStep(0);
       localStorage.removeItem(draftStorageKey);
       sessionStorage.setItem('application-submitted', 'true');
-      setRedirectSeconds(10);
+      setRedirectSeconds(30);
       setSuccess('Application submitted successfully.');
       setSubmitted(true);
       onCreated(body.scholar);
@@ -589,13 +596,31 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
             <CircleCheckBig />
           </div>
           <h2>Application Submitted</h2>
-          <p>Your scholarship application has been received. You will be notified via email once your application has been reviewed.</p>
-          {accountCredentials?.temporaryPassword && (
-            <div className="reference-box">
-              <p>Development Login</p>
-              <p>Control Number: <strong>{accountCredentials.controlNumber}</strong></p>
-              <p>Temporary Password: <strong>{accountCredentials.temporaryPassword}</strong></p>
-            </div>
+          <p className="submitted-message">Your scholarship application has been received. Save the account details below so you can track its progress.</p>
+          {accountCredentials && (
+            <section className="submission-account" aria-labelledby="submission-account-title">
+              <div className="submission-account-heading">
+                <span>Applicant account</span>
+                <strong id="submission-account-title">Your login details</strong>
+              </div>
+              <dl className="submission-account-list">
+                <div>
+                  <dt>Control number</dt>
+                  <dd>{accountCredentials.controlNumber}</dd>
+                </div>
+                <div>
+                  <dt>Email address</dt>
+                  <dd>{accountCredentials.email}</dd>
+                </div>
+                {accountCredentials.temporaryPassword && (
+                  <div>
+                    <dt>Temporary password</dt>
+                    <dd>{accountCredentials.temporaryPassword}</dd>
+                  </div>
+                )}
+              </dl>
+              <p className="submission-account-note">Keep these details private. You will need them to sign in to the applicant portal.</p>
+            </section>
           )}
           <button
             className="btn-submit"
@@ -603,7 +628,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
           >
             Go to Login
           </button>
-          <p className="redirect-countdown">Redirecting to login in {redirectSeconds} seconds...</p>
+          <p className="redirect-countdown" aria-live="polite">Redirecting to login in {redirectSeconds} seconds...</p>
         </div>
       </div>
     );
