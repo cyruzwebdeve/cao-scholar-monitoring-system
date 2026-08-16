@@ -35,3 +35,4 @@
 2026-08-16 | Reordered the responsive login page so the institutional introduction appears first and the login form follows beneath it on tablet and mobile screens, while preserving the desktop two-column layout.
 2026-08-16 | Corrected uneven mobile dashboard gutters by replacing the desktop flex sizing with a block-level mobile shell, allowing the main content width and equal 16px side padding to remain inside the viewport.
 2026-08-16 | Centered every mobile admin section with an explicit viewport gutter: dashboard content no longer compounds nested horizontal padding, and each section uses a calculated width with automatic left and right margins for exact 16px alignment.
+2026-08-16 | Removed the confirmed 12px rightward shift from the mobile admin shell by fully resetting its inherited responsive margin instead of overriding only the top margin. Browser measurements now place the shell at the viewport origin and preserve equal section gutters.
