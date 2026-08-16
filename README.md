@@ -70,6 +70,13 @@ npm --prefix backend run schema:audit
 The current ERD and database cutover notes are available in the
 [docs](docs) directory.
 
+## Production deployment
+
+The repository includes production configuration for a Vercel frontend,
+Render API, Prisma Postgres database, and Vercel Blob file storage. Follow the
+[deployment guide](docs/deployment-guide.md) for the required services,
+environment variables, first deployment, and post-deployment checks.
+
 ## Repository safety
 
 Local environment files, dependencies, compiled frontend output, generated

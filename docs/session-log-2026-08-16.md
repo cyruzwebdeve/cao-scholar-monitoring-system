@@ -7,6 +7,28 @@ applicant, scholar, examination, results, billing, payroll, announcement, and
 reporting workflows. The application has also been moved to an
 application-compatible clean database and placed under GitHub version control.
 
+The project is also production-ready for a free capstone deployment using a
+Vercel frontend, Render API, Prisma Postgres database, and Vercel Blob storage.
+
+## Production deployment preparation
+
+- Added Vercel SPA routing and a frontend API environment template.
+- Added a Render Blueprint with a health check and production environment
+  declarations.
+- Added the clean database's first committed baseline migration and verified it
+  against an isolated PostgreSQL database with no schema drift.
+- Added idempotent production bootstrap logic for the active academic period
+  and initial super administrator.
+- Separated pooled runtime database traffic from direct migration traffic.
+- Prevented production database URLs from receiving the local `_v2` suffix.
+- Added restricted CORS, security headers, API rate limits, graceful shutdown,
+  and a database-aware health endpoint.
+- Moved production scholar documents to a private Vercel Blob store and
+  announcement images to a public Vercel Blob store.
+- Replaced active runtime `last ID + 1` allocation with database-managed
+  auto-increment IDs for safer concurrent use.
+- Added `docs/deployment-guide.md` with the complete first-deployment procedure.
+
 ## Admin dashboard and design
 
 - Redesigned the Examination Management, Applicants, Results Management,

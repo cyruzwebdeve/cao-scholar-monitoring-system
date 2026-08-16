@@ -1,10 +1,13 @@
-const useApplicationDatabase = process.env.DATABASE_TARGET !== 'legacy';
+const databaseTarget = process.env.DATABASE_TARGET;
+const useApplicationDatabase = databaseTarget !== 'legacy';
+const useLocalSuffixedDatabase = useApplicationDatabase
+  && (databaseTarget === 'local-v2' || (!databaseTarget && process.env.NODE_ENV !== 'production'));
 const { PrismaClient } = useApplicationDatabase
   ? require('../generated/application-client')
   : require('@prisma/client');
 
 const databaseUrl = new URL(process.env.DATABASE_URL);
-if (useApplicationDatabase && !databaseUrl.pathname.endsWith('_v2')) {
+if (useLocalSuffixedDatabase && !databaseUrl.pathname.endsWith('_v2')) {
   databaseUrl.pathname = `${databaseUrl.pathname}_v2`;
 }
 

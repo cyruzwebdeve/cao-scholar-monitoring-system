@@ -1,5 +1,12 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../config/prisma');
+const {
+  BlobStorageConfigurationError,
+  deleteBlob,
+  isBlobUrl,
+  parseDataUrl,
+  uploadDataUrl,
+} = require('../services/blobStorage');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -103,17 +110,12 @@ const createApplication = async (req, res) => {
 
     const activePeriod = await getActiveAcademicPeriodRecord();
 
-    const nextApplicant = await prisma.applicants.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
-    const applicantId = (nextApplicant?.id || 0) + 1;
-    const nextAccount = await prisma.control_accounts.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
-    const accountId = (nextAccount?.id || 0) + 1;
     const generatedPassword = password || `Scholar@${Math.random().toString(36).slice(2, 10)}`;
     const passwordHash = await bcrypt.hash(generatedPassword, 12);
 
     const { application, account } = await prisma.$transaction(async (tx) => {
       const applicant = await tx.applicants.create({
         data: {
-          id: applicantId,
           first_name: identity.firstName,
           middle_name: identity.middleName || null,
           last_name: identity.familyName,
@@ -144,7 +146,6 @@ const createApplication = async (req, res) => {
       });
       const account = await tx.control_accounts.create({
         data: {
-          id: accountId,
           applicant_id: applicant.id,
           control_number: `PGCEAP-${String(applicant.id).padStart(3, '0')}`,
           username: normalizedEmail,
@@ -170,7 +171,7 @@ const createApplication = async (req, res) => {
     const response = {
       message: 'Application submitted and applicant account created.',
       application,
-      applicant: { id: applicantId, email: normalizedEmail, controlNumber: account.control_number },
+      applicant: { id: application.applicant_id, email: normalizedEmail, controlNumber: account.control_number },
     };
     if (process.env.NODE_ENV !== 'production') response.applicant.temporaryPassword = generatedPassword;
     return res.status(201).json(response);
@@ -560,11 +561,27 @@ const parseAnnouncementPayload = (body) => {
   if (publishAt && Number.isNaN(publishAt.getTime())) return { error: 'Enter a valid publishing date.' };
   if (expiresAt && Number.isNaN(expiresAt.getTime())) return { error: 'Enter a valid expiration date.' };
   if (status === 'scheduled' && !publishAt) return { error: 'A publishing date is required for scheduled announcements.' };
-  if (imageData && !/^data:image\/(jpeg|png|webp|gif);base64,/i.test(imageData)) return { error: 'Upload a valid JPG, PNG, WEBP, or GIF image.' };
-  if (imageData && imageData.length > 4.5 * 1024 * 1024) return { error: 'Announcement image must not exceed 3 MB.' };
+  const isImageDataUrl = /^data:image\/(jpeg|png|webp|gif);base64,/i.test(imageData || '');
+  if (imageData && !isImageDataUrl && !isBlobUrl(imageData)) return { error: 'Upload a valid JPG, PNG, WEBP, or GIF image.' };
+  if (isImageDataUrl && imageData.length > 4.5 * 1024 * 1024) return { error: 'Announcement image must not exceed 3 MB.' };
   const effectivePublishDate = publishAt || new Date();
   if (expiresAt && expiresAt <= effectivePublishDate) return { error: 'Expiration must be later than the publishing date.' };
   return { title, content, audience, priority, status, publishAt, expiresAt, imageName, imageType, imageData };
+};
+
+const persistAnnouncementImage = async (payload) => {
+  if (!payload.imageData || isBlobUrl(payload.imageData)) return payload.imageData;
+  const token = process.env.ANNOUNCEMENT_BLOB_READ_WRITE_TOKEN;
+  if (!token && process.env.NODE_ENV !== 'production') return payload.imageData;
+  const blob = await uploadDataUrl({
+    dataUrl: payload.imageData,
+    fileName: payload.imageName || 'announcement-image',
+    contentType: payload.imageType,
+    pathSegments: ['announcements', new Date().getUTCFullYear()],
+    token,
+    access: 'public',
+  });
+  return blob.url;
 };
 
 const publishDueAnnouncements = async () => {
@@ -622,6 +639,7 @@ const createAnnouncement = async (req, res) => {
   try {
     const payload = parseAnnouncementPayload(req.body);
     if (payload.error) return res.status(400).json({ message: payload.error });
+    const storedImage = await persistAnnouncementImage(payload);
     const announcement = await prisma.announcements.create({
       data: {
         title: payload.title,
@@ -634,13 +652,14 @@ const createAnnouncement = async (req, res) => {
         published_at: payload.status === 'published' ? new Date() : null,
         image_name: payload.imageName,
         image_type: payload.imageType,
-        image_data: payload.imageData,
+        image_data: storedImage,
         created_by: req.user.id,
       },
     });
     return res.status(201).json({ message: 'Announcement created successfully.', announcement: serializeAnnouncement(announcement) });
   } catch (error) {
     console.error(error);
+    if (error instanceof BlobStorageConfigurationError) return res.status(error.statusCode).json({ message: error.message });
     return res.status(500).json({ message: 'Server error creating announcement.' });
   }
 };
@@ -653,6 +672,7 @@ const updateAnnouncement = async (req, res) => {
     if (!existing) return res.status(404).json({ message: 'Announcement not found.' });
     const payload = parseAnnouncementPayload(req.body);
     if (payload.error) return res.status(400).json({ message: payload.error });
+    const storedImage = await persistAnnouncementImage(payload);
     const announcement = await prisma.announcements.update({
       where: { id },
       data: {
@@ -666,12 +686,16 @@ const updateAnnouncement = async (req, res) => {
         published_at: payload.status === 'published' ? existing.published_at || new Date() : existing.published_at,
         image_name: payload.imageName,
         image_type: payload.imageType,
-        image_data: payload.imageData,
+        image_data: storedImage,
       },
     });
+    if (existing.image_data && existing.image_data !== storedImage) {
+      await deleteBlob(existing.image_data, process.env.ANNOUNCEMENT_BLOB_READ_WRITE_TOKEN);
+    }
     return res.json({ message: 'Announcement updated successfully.', announcement: serializeAnnouncement(announcement) });
   } catch (error) {
     console.error(error);
+    if (error instanceof BlobStorageConfigurationError) return res.status(error.statusCode).json({ message: error.message });
     return res.status(500).json({ message: 'Server error updating the announcement.' });
   }
 };
@@ -893,17 +917,10 @@ const processBillingSelection = async (req, res) => {
     }
 
     const timestamp = new Date();
-    const batchNumber = `BILL-${timestamp.toISOString().replace(/\D/g, '').slice(0, 14)}`;
+    const batchNumber = `BILL-${timestamp.toISOString().replace(/\D/g, '').slice(0, 17)}`;
     const result = await prisma.$transaction(async (transaction) => {
-      const [lastBatch, lastClaim] = await Promise.all([
-        transaction.payroll_batches.findFirst({ orderBy: { id: 'desc' }, select: { id: true } }),
-        transaction.payroll_claims.findFirst({ orderBy: { id: 'desc' }, select: { id: true } }),
-      ]);
-      const batchId = (lastBatch?.id || 0) + 1;
-      const firstClaimId = (lastClaim?.id || 0) + 1;
       const batch = await transaction.payroll_batches.create({
         data: {
-          id: batchId,
           batch_number: batchNumber,
           billing_period_id: activePeriod.id,
           total_scholars: eligibleIds.length,
@@ -916,9 +933,8 @@ const processBillingSelection = async (req, res) => {
         },
       });
       await transaction.payroll_claims.createMany({
-        data: eligibleIds.map((applicantId, index) => ({
-          id: firstClaimId + index,
-          payroll_batch_id: batchId,
+        data: eligibleIds.map((applicantId) => ({
+          payroll_batch_id: batch.id,
           applicant_id: applicantId,
           claim_amount: 0,
           claim_status: 'pending',
@@ -1004,18 +1020,16 @@ const submitOnlineExam = async (req, res) => {
     const passingScore = 14;
     let exam = await prisma.exams.findFirst({ where: { is_active: true }, orderBy: { id: 'desc' } });
     if (!exam) {
-      const lastExam = await prisma.exams.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
-      exam = await prisma.exams.create({ data: { id: (lastExam?.id || 0) + 1, created_by: applicantId, title: 'PGCEAP Qualifying Examination', exam_date: new Date(), academic_year: activePeriod.school_year, is_active: true } });
+      exam = await prisma.exams.create({ data: { created_by: applicantId, title: 'PGCEAP Qualifying Examination', exam_date: new Date(), academic_year: activePeriod.school_year, is_active: true } });
     }
     let slot = await prisma.exam_slots.findFirst({ where: { applicant_id: applicantId, exam_id: exam.id } });
     if (!slot) {
-      const lastSlot = await prisma.exam_slots.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
-      slot = await prisma.exam_slots.create({ data: { id: (lastSlot?.id || 0) + 1, applicant_id: applicantId, exam_id: exam.id, appeared: true, appeared_at: new Date() } });
+      slot = await prisma.exam_slots.create({ data: { applicant_id: applicantId, exam_id: exam.id, appeared: true, appeared_at: new Date() } });
     }
     const existing = await prisma.results.findFirst({ where: { applicant_id: applicantId, exam_id: exam.id } });
     if (existing) return res.status(409).json({ message: 'This examination has already been submitted. Please wait for the Scholarship Office to release the result.' });
     const data = { score, passing_score: passingScore, passed: score >= passingScore, updated_at: new Date() };
-    const result = await prisma.results.create({ data: { id: ((await prisma.results.findFirst({ orderBy: { id: 'desc' }, select: { id: true } }))?.id || 0) + 1, exam_slot_id: slot.id, applicant_id: applicantId, exam_id: exam.id, ...data } });
+    const result = await prisma.results.create({ data: { exam_slot_id: slot.id, applicant_id: applicantId, exam_id: exam.id, ...data } });
     await prisma.application_submissions.updateMany({
       where: { applicant_id: applicantId, status: { not: 'Withdrawn' } },
       data: { status: APPLICATION_STATUSES.EXAMINED },
@@ -1105,17 +1119,61 @@ const uploadMyRequirement = async (req, res) => {
     if (fileData.length > 8 * 1024 * 1024) {
       return res.status(413).json({ message: 'File is too large. Please upload a file smaller than 6 MB.' });
     }
+    let parsedFile;
+    try {
+      parsedFile = parseDataUrl(fileData);
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
+    }
+    if (parsedFile.buffer.length > 6 * 1024 * 1024) {
+      return res.status(413).json({ message: 'File is too large. Please upload a file smaller than 6 MB.' });
+    }
     const application = await prisma.application_submissions.findFirst({
       where: { OR: [{ applicant_id: req.user.id }, { email: req.user.email }] },
       orderBy: { submitted_at: 'desc' },
     });
     if (!application) return res.status(404).json({ message: 'Application not found.' });
     const documents = application.initial_docs && typeof application.initial_docs === 'object' ? application.initial_docs : {};
-    documents.requirements = { ...(documents.requirements || {}), [requirement]: { fileName, fileType: fileType || 'application/octet-stream', fileData, status: 'Submitted', uploadedAt: new Date().toISOString() } };
+    const existingRequirement = documents.requirements?.[requirement];
+    const token = process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN;
+    let storedFile;
+    if (token || process.env.NODE_ENV === 'production') {
+      const blob = await uploadDataUrl({
+        dataUrl: fileData,
+        fileName,
+        contentType: fileType || parsedFile.contentType,
+        pathSegments: ['scholar-requirements', req.user.id, requirement],
+        token,
+        access: 'private',
+      });
+      storedFile = {
+        fileName,
+        fileType: blob.contentType,
+        fileUrl: blob.url,
+        pathname: blob.pathname,
+        storage: 'vercel-blob-private',
+        status: 'Submitted',
+        uploadedAt: new Date().toISOString(),
+      };
+    } else {
+      storedFile = {
+        fileName,
+        fileType: fileType || parsedFile.contentType,
+        fileData,
+        storage: 'database',
+        status: 'Submitted',
+        uploadedAt: new Date().toISOString(),
+      };
+    }
+    documents.requirements = { ...(documents.requirements || {}), [requirement]: storedFile };
     const updated = await prisma.application_submissions.update({ where: { id: application.id }, data: { initial_docs: documents } });
+    if (existingRequirement?.fileUrl && existingRequirement.fileUrl !== storedFile.fileUrl) {
+      await deleteBlob(existingRequirement.fileUrl, token);
+    }
     return res.json({ message: 'Requirement uploaded.', application: updated });
   } catch (error) {
     console.error(error);
+    if (error instanceof BlobStorageConfigurationError) return res.status(error.statusCode).json({ message: error.message });
     return res.status(500).json({ message: 'Server error uploading requirement.' });
   }
 };
@@ -1163,10 +1221,8 @@ const updateSchoolClassification = async (req, res) => {
         data: { school_type: classification, updated_at: new Date() },
       });
     } else {
-      const lastSchool = await prisma.schools.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
       school = await prisma.schools.create({
         data: {
-          id: (lastSchool?.id || 0) + 1,
           name,
           school_type: classification,
           updated_at: new Date(),
@@ -1275,9 +1331,8 @@ const acceptApplicantAsScholar = async (req, res) => {
         data: { result_id: passedResult.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id, issued_at: new Date(), updated_at: new Date() },
       });
     } else {
-      const lastScholar = await prisma.scholar_accounts.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
       scholar = await prisma.scholar_accounts.create({
-        data: { id: (lastScholar?.id || 0) + 1, applicant_id: applicantId, result_id: passedResult.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id },
+        data: { applicant_id: applicantId, result_id: passedResult.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id },
       });
     }
     return res.status(201).json({ message: 'Applicant accepted as a scholar.', scholar });

@@ -44,20 +44,20 @@ const register = async (req, res) => {
     const existing = await prisma.applicants.findFirst({ where: { email: normalizedEmail } });
     if (existing) return res.status(409).json({ message: 'User already exists.' });
 
-    const nextApplicant = await prisma.applicants.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
-    const nextAccount = await prisma.control_accounts.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
     const passwordHash = await bcrypt.hash(password, 12);
-    const applicant = await prisma.applicants.create({
-      data: { id: (nextApplicant?.id || 0) + 1, first_name: 'New', last_name: 'Applicant', email: normalizedEmail },
-    });
-    const account = await prisma.control_accounts.create({
-      data: {
-        id: (nextAccount?.id || 0) + 1,
-        applicant_id: applicant.id,
-        control_number: `PGCEAP-${String(applicant.id).padStart(3, '0')}`,
-        username: normalizedEmail,
-        password_hash: passwordHash,
-      },
+    const { applicant, account } = await prisma.$transaction(async (transaction) => {
+      const applicant = await transaction.applicants.create({
+        data: { first_name: 'New', last_name: 'Applicant', email: normalizedEmail },
+      });
+      const account = await transaction.control_accounts.create({
+        data: {
+          applicant_id: applicant.id,
+          control_number: `PGCEAP-${String(applicant.id).padStart(3, '0')}`,
+          username: normalizedEmail,
+          password_hash: passwordHash,
+        },
+      });
+      return { applicant, account };
     });
     const token = createToken(applicant.id, 'applicant', 'Applicant');
     return res.status(201).json({ token, user: { id: applicant.id, email: applicant.email, firstName: applicant.first_name, lastName: applicant.last_name, role: 'Applicant', controlNumber: account.control_number } });

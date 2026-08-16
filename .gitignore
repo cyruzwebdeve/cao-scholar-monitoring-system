@@ -27,6 +27,7 @@ pnpm-debug.log*
 *.dump
 *.backup
 *.sql
+!backend/prisma/migrations/**/migration.sql
 
 # Editors and operating systems
 .vscode/
@@ -38,4 +39,3 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
-
