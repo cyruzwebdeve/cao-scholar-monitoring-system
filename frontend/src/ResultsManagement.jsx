@@ -67,10 +67,20 @@ export default function ResultsManagement({ token }) {
       const response = await fetch(`${API_BASE}/applicants/management`, { headers: authHeaders(token) });
       if (!response.ok) throw new Error('Unable to load examination results.');
       const payload = await response.json();
+      let localScheduleByMunicipality = new Map();
+      try {
+        const storedSchedules = JSON.parse(localStorage.getItem('examVenueData') || '[]');
+        if (Array.isArray(storedSchedules)) {
+          localScheduleByMunicipality = new Map(storedSchedules.map((exam) => [exam.municipality, exam]));
+        }
+      } catch {
+        localScheduleByMunicipality = new Map();
+      }
       setApplicants((payload.applicants || []).map((applicant) => ({
         ...applicant,
         control: applicant.controlNo,
-        date: applicant.examDate || null,
+        date: applicant.examDate || localScheduleByMunicipality.get(applicant.municipality)?.date || null,
+        examEndDate: applicant.examEndDate || localScheduleByMunicipality.get(applicant.municipality)?.endDate || null,
         status: applicant.resultStatus || (applicant.status === 'Exam Completed' ? 'For review' : applicant.status),
         score: applicant.examScore,
         passingScore: applicant.passingScore,

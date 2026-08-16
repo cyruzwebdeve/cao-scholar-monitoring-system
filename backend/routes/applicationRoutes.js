@@ -31,6 +31,8 @@ const {
   getDashboardSummary,
   updateSchoolClassification,
   getApplicantManagement,
+  getExaminationManagement,
+  saveExaminationManagement,
   acceptApplicantAsScholar,
   reevaluateExamResult,
 } = require('../controllers/applicationController');
@@ -53,6 +55,8 @@ router.put('/academic-periods/:id/activate', authenticate, checkRole(['SuperAdmi
 router.get('/dashboard/summary', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getDashboardSummary);
 router.put('/schools/classification', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), updateSchoolClassification);
 router.get('/applicants/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getApplicantManagement);
+router.get('/examinations/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getExaminationManagement);
+router.put('/examinations/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), saveExaminationManagement);
 
 // Public route to create a baseline application and optionally register a user
 router.post('/applications', authenticateOptional, validateCreateApplication, createApplication);

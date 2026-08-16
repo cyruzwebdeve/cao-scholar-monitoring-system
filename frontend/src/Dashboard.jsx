@@ -931,6 +931,12 @@ const examVenueDefaults = {
 
 const formatExamScheduleDate = (date) => date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
+const formatStoredExamDate = (value, fallback = '') => {
+  if (!value) return fallback;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? fallback || String(value) : formatExamScheduleDate(date);
+};
+
 const formatExamDateRange = (startValue, endValue) => {
   if (!startValue) return 'Schedule not set';
   const start = new Date(startValue);
@@ -977,9 +983,74 @@ function ExaminationManagement({ token }) {
   const [examQuery, setExamQuery] = useState('');
   const [examStatusFilter, setExamStatusFilter] = useState('all');
   const [showDeactivateAllDialog, setShowDeactivateAllDialog] = useState(false);
+  const [scheduleReady, setScheduleReady] = useState(false);
+  const [scheduleSaveError, setScheduleSaveError] = useState('');
   const [activeExamMunicipalities, setActiveExamMunicipalities] = useState(() => {
     try { return JSON.parse(localStorage.getItem('activeExamMunicipalities') || '[]'); } catch { return []; }
   });
+
+  useEffect(() => {
+    let active = true;
+    fetch(`${API_BASE}/examinations/management`, { headers: authHeaders(token), cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Unable to load the saved examination schedules.');
+        return response.json();
+      })
+      .then((payload) => {
+        if (!active) return;
+        const savedSchedules = Array.isArray(payload?.examinations) ? payload.examinations : [];
+        if (savedSchedules.length) {
+          const scheduleByMunicipality = new Map(savedSchedules.map((exam) => [exam.municipality, exam]));
+          setExaminations((current) => examList.map((defaultExam) => {
+            const localExam = current.find((exam) => exam.municipality === defaultExam.municipality) || defaultExam;
+            const savedExam = scheduleByMunicipality.get(defaultExam.municipality);
+            if (!savedExam) return localExam;
+            const date = formatStoredExamDate(savedExam.date, localExam.date);
+            return {
+              ...localExam,
+              venue: savedExam.venue || localExam.venue,
+              date,
+              endDate: formatStoredExamDate(savedExam.endDate, date),
+            };
+          }));
+          setActiveExamMunicipalities(savedSchedules.filter((exam) => exam.isActive).map((exam) => exam.municipality));
+        }
+        setScheduleSaveError('');
+      })
+      .catch((error) => {
+        if (active) setScheduleSaveError(`${error.message || 'Unable to load examination schedules'} Local schedule data remains available.`);
+      })
+      .finally(() => { if (active) setScheduleReady(true); });
+    return () => { active = false; };
+  }, [token]);
+
+  useEffect(() => {
+    if (!scheduleReady) return undefined;
+    const saveTimer = window.setTimeout(() => {
+      fetch(`${API_BASE}/examinations/management`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+        body: JSON.stringify({
+          examinations: examinations.map((exam) => ({
+            municipality: exam.municipality,
+            venue: exam.venue,
+            date: exam.date,
+            endDate: exam.endDate || exam.date,
+            isActive: activeExamMunicipalities.includes(exam.municipality),
+          })),
+        }),
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.message || 'Unable to save examination schedules.');
+          }
+          setScheduleSaveError('');
+        })
+        .catch((error) => setScheduleSaveError(error.message || 'Unable to save examination schedules.'));
+    }, 450);
+    return () => window.clearTimeout(saveTimer);
+  }, [activeExamMunicipalities, examinations, scheduleReady, token]);
 
   useEffect(() => {
     if (!showDeactivateAllDialog) return undefined;
@@ -1134,6 +1205,7 @@ function ExaminationManagement({ token }) {
         </div>
         <div className="exam-heading-summary"><span>{activeExamMunicipalities.length} of {examinations.length}</span><small>examinations active</small></div>
       </header>
+      {scheduleSaveError && <div className="dashboard-overview-alert"><TriangleAlert size={17} /><span>{scheduleSaveError}</span></div>}
       <div className="exam-status-grid">
         <article className="total"><div className="exam-stat-icon"><ClipboardList size={20} /></div><div><span>Total Venues</span><strong>{examinations.length}</strong><small>Configured examination locations</small></div></article>
         <article className="active"><div className="exam-stat-icon"><Power size={20} /></div><div><span>Active Examinations</span><strong>{activeExamMunicipalities.length}</strong><small>Currently accessible to applicants</small></div></article>

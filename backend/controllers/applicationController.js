@@ -1249,13 +1249,23 @@ const getApplicantManagement = async (req, res) => {
       prisma.control_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, control_number: true, last_login_at: true } }),
       prisma.exam_slots.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, exam_id: true, appeared_at: true } }),
       prisma.results.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, exam_id: true, score: true, passing_score: true, passed: true, remarks: true, created_at: true, updated_at: true } }),
-      prisma.exams.findMany({ select: { id: true, title: true, exam_date: true, venue: true, municipality: true, academic_year: true } }),
+      prisma.exams.findMany({
+        orderBy: { updated_at: 'desc' },
+        select: { id: true, title: true, exam_date: true, exam_end_date: true, venue: true, municipality: true, academic_year: true, is_active: true, updated_at: true },
+      }),
       prisma.scholar_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, scholar_id: true, is_active: true } }),
     ]);
     const accountByApplicant = new Map(accounts.map((account) => [account.applicant_id, account]));
     const slotByApplicant = new Map(slots.map((slot) => [slot.applicant_id, slot]));
     const resultByApplicant = new Map(results.map((result) => [result.applicant_id, result]));
     const examById = new Map(exams.map((exam) => [exam.id, exam]));
+    const scheduledExamByMunicipality = new Map();
+    exams.forEach((exam) => {
+      const municipality = String(exam.municipality || '').trim().toLowerCase();
+      if (municipality && exam.academic_year === activePeriod.school_year && !scheduledExamByMunicipality.has(municipality)) {
+        scheduledExamByMunicipality.set(municipality, exam);
+      }
+    });
     const scholarByApplicant = new Map(scholarAccounts.map((scholar) => [scholar.applicant_id, scholar]));
     return res.json({
       stats: { total: applicants.length, scheduled: slots.length, completed: results.length, passed: results.filter(({ passed }) => passed).length },
@@ -1263,7 +1273,9 @@ const getApplicantManagement = async (req, res) => {
         const account = accountByApplicant.get(applicant.id);
         const slot = slotByApplicant.get(applicant.id);
         const result = resultByApplicant.get(applicant.id);
-        const exam = examById.get(result?.exam_id || slot?.exam_id);
+        const linkedExam = examById.get(result?.exam_id || slot?.exam_id);
+        const scheduledExam = scheduledExamByMunicipality.get(String(applicant.municipality || '').trim().toLowerCase());
+        const exam = linkedExam || scheduledExam;
         const scholar = scholarByApplicant.get(applicant.id);
         return {
           id: applicant.id,
@@ -1286,6 +1298,7 @@ const getApplicantManagement = async (req, res) => {
           reviewerNotes: result?.remarks || '',
           reviewerNotesUpdatedAt: result?.remarks ? result.updated_at : null,
           examDate: exam?.exam_date || result?.created_at || slot?.appeared_at || null,
+          examEndDate: exam?.exam_end_date || exam?.exam_date || null,
           examTitle: exam?.title || 'PGCEAP Qualifying Examination',
           examVenue: exam?.venue || null,
           examMunicipality: exam?.municipality || applicant.municipality || null,
@@ -1298,6 +1311,106 @@ const getApplicantManagement = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error fetching applicants.' });
+  }
+};
+
+const serializeExaminationSchedule = (exam) => ({
+  id: exam.id,
+  municipality: exam.municipality,
+  venue: exam.venue,
+  date: exam.exam_date,
+  endDate: exam.exam_end_date || exam.exam_date,
+  title: exam.title,
+  academicYear: exam.academic_year,
+  isActive: Boolean(exam.is_active),
+  updatedAt: exam.updated_at,
+});
+
+const getExaminationManagement = async (req, res) => {
+  try {
+    const activePeriod = await getActiveAcademicPeriodRecord();
+    const examinations = await prisma.exams.findMany({
+      where: { academic_year: activePeriod.school_year },
+      orderBy: [{ municipality: 'asc' }, { updated_at: 'desc' }],
+    });
+    const uniqueByMunicipality = new Map();
+    examinations.forEach((exam) => {
+      const key = String(exam.municipality || '').trim().toLowerCase();
+      if (key && !uniqueByMunicipality.has(key)) uniqueByMunicipality.set(key, exam);
+    });
+    return res.json({
+      examinations: [...uniqueByMunicipality.values()].map(serializeExaminationSchedule),
+      activePeriod: serializeAcademicPeriod(activePeriod),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error fetching examination schedules.' });
+  }
+};
+
+const saveExaminationManagement = async (req, res) => {
+  try {
+    const activePeriod = await getActiveAcademicPeriodRecord();
+    const schedules = Array.isArray(req.body.examinations) ? req.body.examinations : null;
+    if (!schedules || !schedules.length) return res.status(400).json({ message: 'At least one examination schedule is required.' });
+    if (schedules.length > 30) return res.status(400).json({ message: 'No more than 30 examination schedules can be saved at once.' });
+
+    const normalizedSchedules = [];
+    const municipalities = new Set();
+    for (const schedule of schedules) {
+      const municipality = String(schedule.municipality || '').trim();
+      const venue = String(schedule.venue || '').trim();
+      const examDate = new Date(schedule.date);
+      const examEndDate = new Date(schedule.endDate || schedule.date);
+      const municipalityKey = municipality.toLowerCase();
+      if (!municipality || municipality.length > 100 || municipalities.has(municipalityKey)) {
+        return res.status(400).json({ message: 'Every examination schedule must use a unique, valid municipality.' });
+      }
+      if (!venue || venue.length > 255) return res.status(400).json({ message: `A valid venue is required for ${municipality}.` });
+      if (Number.isNaN(examDate.getTime()) || Number.isNaN(examEndDate.getTime())) {
+        return res.status(400).json({ message: `A valid examination date is required for ${municipality}.` });
+      }
+      if (examEndDate < examDate) return res.status(400).json({ message: `The end date for ${municipality} cannot be before its start date.` });
+      municipalities.add(municipalityKey);
+      normalizedSchedules.push({ municipality, venue, examDate, examEndDate, isActive: Boolean(schedule.isActive) });
+    }
+
+    const saved = await prisma.$transaction(async (transaction) => {
+      const records = [];
+      for (const schedule of normalizedSchedules) {
+        const existing = await transaction.exams.findFirst({
+          where: {
+            municipality: { equals: schedule.municipality, mode: 'insensitive' },
+            academic_year: activePeriod.school_year,
+          },
+          orderBy: { updated_at: 'desc' },
+        });
+        const data = {
+          title: 'PGCEAP Qualifying Examination',
+          exam_date: schedule.examDate,
+          exam_end_date: schedule.examEndDate,
+          venue: schedule.venue,
+          municipality: schedule.municipality,
+          academic_year: activePeriod.school_year,
+          is_active: schedule.isActive,
+          updated_at: new Date(),
+        };
+        const record = existing
+          ? await transaction.exams.update({ where: { id: existing.id }, data })
+          : await transaction.exams.create({ data: { ...data, created_by: req.user.id } });
+        records.push(record);
+      }
+      return records;
+    });
+
+    return res.json({
+      message: 'Examination schedules saved successfully.',
+      examinations: saved.map(serializeExaminationSchedule),
+      activePeriod: serializeAcademicPeriod(activePeriod),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error saving examination schedules.' });
   }
 };
 
@@ -1424,6 +1537,8 @@ module.exports = {
   getDashboardSummary,
   updateSchoolClassification,
   getApplicantManagement,
+  getExaminationManagement,
+  saveExaminationManagement,
   acceptApplicantAsScholar,
   reevaluateExamResult,
 };
