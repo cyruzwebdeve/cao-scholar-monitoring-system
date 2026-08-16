@@ -2417,7 +2417,7 @@ body {
 
 @media (max-width: 720px) {
   .application-page-shell {
-    padding: 24px 18px;
+    padding: 0 0 32px;
   }
 
   .application-hero {
