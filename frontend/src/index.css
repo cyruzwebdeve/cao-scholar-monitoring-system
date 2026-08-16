@@ -13403,13 +13403,15 @@ body {
   }
 
   .app-shell {
+    display: block;
     min-height: calc(100vh - 60px);
     margin-top: 60px;
     padding-left: 0;
   }
 
   .dashboard-content {
-    width: 100%;
+    width: auto;
+    max-width: 100%;
     min-height: calc(100vh - 60px);
     padding: clamp(16px, 3vw, 24px);
     overflow-x: clip;
@@ -13586,7 +13588,7 @@ body {
   }
 
   .dashboard-content {
-    padding: 16px 12px 28px;
+    padding: 16px 16px 28px;
   }
 
   .admin-overview-dashboard .dashboard-section-header h2,
