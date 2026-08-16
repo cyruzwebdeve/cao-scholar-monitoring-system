@@ -76,9 +76,10 @@ During the first build, Render generates Prisma Client, applies committed
 migrations, creates the active `2026-2027 / 1st Semester` period, and creates the
 initial super administrator if it does not already exist.
 
-After the first successful deployment, remove
-`BOOTSTRAP_ADMIN_PASSWORD` from Render and deploy again. The bootstrap is
-idempotent and never replaces an existing administrator password.
+After the first successful deployment, remove `BOOTSTRAP_ADMIN_PASSWORD` from
+Render and deploy again. `BOOTSTRAP_ADMIN_EMAIL` may remain configured; without
+the temporary password, the bootstrap safely skips administrator creation. The
+bootstrap is idempotent and never replaces an existing administrator password.
 
 ## 5. Connect Vercel to Render
 

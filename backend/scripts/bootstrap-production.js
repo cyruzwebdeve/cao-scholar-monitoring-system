@@ -29,11 +29,11 @@ const ensureAcademicPeriod = async () => {
 const ensureSuperAdmin = async () => {
   const email = String(process.env.BOOTSTRAP_ADMIN_EMAIL || '').trim().toLowerCase();
   const password = String(process.env.BOOTSTRAP_ADMIN_PASSWORD || '');
-  if (!email && !password) {
-    console.log('Super administrator bootstrap skipped; credentials were not supplied.');
+  if (!password) {
+    console.log('Super administrator bootstrap skipped; no bootstrap password was supplied.');
     return;
   }
-  if (!email || !password) throw new Error('Both BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD are required.');
+  if (!email) throw new Error('BOOTSTRAP_ADMIN_EMAIL is required when BOOTSTRAP_ADMIN_PASSWORD is supplied.');
   if (password.length < 12) throw new Error('BOOTSTRAP_ADMIN_PASSWORD must contain at least 12 characters.');
 
   const existing = await prisma.admins.findUnique({ where: { email } });
