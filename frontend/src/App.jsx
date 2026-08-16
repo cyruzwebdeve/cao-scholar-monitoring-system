@@ -1,14 +1,16 @@
 // App.jsx
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Sidebar from './components/Sidebar';
-import Dashboard from './Dashboard';
-import LoginPage from './LoginPage';
-import ApplicationPage from './ApplicationPage';
-import ScholarDashboard from './ScholarDashboard';
-import ApplicantDashboard from './ApplicantDashboard';
 import './index.css';
-import ExamPage from './ExamPage';
+
+const ApplicantDashboard = lazy(() => import('./ApplicantDashboard'));
+const ApplicationPage = lazy(() => import('./ApplicationPage'));
+const Dashboard = lazy(() => import('./Dashboard'));
+const ExamPage = lazy(() => import('./ExamPage'));
+const LandingPage = lazy(() => import('./LandingPage'));
+const LoginPage = lazy(() => import('./LoginPage'));
+const ScholarDashboard = lazy(() => import('./ScholarDashboard'));
+const Sidebar = lazy(() => import('./components/Sidebar'));
 
 const isAdminRole = (role) =>
   role === 'BillingPayrollAdmin' || role === 'RegularAdmin' || role === 'SuperAdmin' || role === 'Moderator';
@@ -93,7 +95,8 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
+      <Suspense fallback={<div className="route-loading"><span className="route-loading-mark" />Loading PGCEAP...</div>}>
+        <Routes>
         <Route path="/examination" element={<ExamPage token={authToken} />} />
         <Route path="/exam" element={<ExamPage token={authToken} />} />
         <Route
@@ -174,9 +177,10 @@ function App() {
         />
         <Route
           path="/"
-          element={<Navigate to={getHomeRedirect()} replace />}
+          element={<LandingPage portalPath={authToken && user ? getHomeRedirect() : '/login'} isAuthenticated={Boolean(authToken && user)} />}
         />
-      </Routes>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
