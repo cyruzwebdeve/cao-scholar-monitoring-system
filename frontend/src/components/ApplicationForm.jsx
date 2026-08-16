@@ -380,7 +380,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
             <div className="form-row">
               <label className="form-group">
                 <FieldLabel required>BIRTHPLACE</FieldLabel>
-                <input type="text" value={formState.birthplace} onChange={(e) => handleChange('birthplace', e.target.value)} placeholder="e.g. Cebu City, Cebu" />
+                <input type="text" value={formState.birthplace} onChange={(e) => handleChange('birthplace', e.target.value)} placeholder="e.g. Daet City, Daet" />
               </label>
               <label className="form-group">
                 <FieldLabel required>SEX</FieldLabel>
