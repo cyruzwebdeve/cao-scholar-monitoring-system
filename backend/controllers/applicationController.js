@@ -1421,7 +1421,7 @@ const saveExaminationManagement = async (req, res) => {
         records.push(record);
       }
       return records;
-    });
+    }, { maxWait: 10_000, timeout: 30_000 });
 
     return res.json({
       message: 'Examination schedules saved successfully.',
