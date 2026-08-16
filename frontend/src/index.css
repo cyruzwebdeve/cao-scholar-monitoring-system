@@ -13588,7 +13588,22 @@ body {
   }
 
   .dashboard-content {
-    padding: 16px 16px 28px;
+    padding: 16px 0 28px;
+  }
+
+  .admin-overview-dashboard,
+  .applicants-management,
+  .examination-management,
+  .results-management,
+  .scholars-management,
+  .billing-management,
+  .announcement-management,
+  .reports-management,
+  .settings-management {
+    width: calc(100% - 32px);
+    max-width: calc(100% - 32px);
+    margin-right: auto;
+    margin-left: auto;
   }
 
   .admin-overview-dashboard .dashboard-section-header h2,
