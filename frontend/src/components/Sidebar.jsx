@@ -11,6 +11,7 @@ import {
   Megaphone,
   Settings2,
   UsersRound,
+  X,
 } from 'lucide-react';
 
 const navItemsByRole = {
@@ -53,11 +54,14 @@ navItemsByRole.RegularAdmin = navItemsByRole.SuperAdmin.filter(({ label }) => [
   'Scholars', 'Billing', 'Payroll', 'Announcements', 'Reports', 'Settings',
 ].includes(label));
 
-function Sidebar({ onLogout, activeSection, onSectionChange, role }) {
+function Sidebar({ onLogout, activeSection, onSectionChange, role, isOpen = false, onClose }) {
   const navItems = navItemsByRole[role] || navItemsByRole.Moderator;
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`} aria-label="Dashboard navigation">
+      <button className="sidebar-mobile-close" type="button" onClick={onClose} aria-label="Close dashboard navigation">
+        <X size={20} />
+      </button>
       <div className="sidebar-brand">
         <div className="brand-avatar">
           <img

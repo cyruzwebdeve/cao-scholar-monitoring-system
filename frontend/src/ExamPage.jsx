@@ -321,11 +321,11 @@ export default function App({ token }) {
   if (submitted || alreadySubmitted) return <SuccessScreen alreadySubmitted={alreadySubmitted} />
 
   return (
-    <div className="flex flex-col" style={{ height: '100vh', fontFamily: 'Inter, sans-serif', backgroundColor: '#F3F8F5' }}>
+    <div className="exam-taking-page flex flex-col" style={{ height: '100vh', fontFamily: 'Inter, sans-serif', backgroundColor: '#F3F8F5' }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between px-6 py-0 shrink-0" style={{ backgroundColor: '#008B47', height: '62px' }}>
-        <div className="flex items-center gap-3">
+      <header className="exam-taking-header flex items-center justify-between px-6 py-0 shrink-0" style={{ backgroundColor: '#008B47', height: '62px' }}>
+        <div className="exam-taking-brand flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
             <ShieldIcon />
           </div>
@@ -348,7 +348,7 @@ export default function App({ token }) {
 
           {/* Timer */}
           <div
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all"
+            className="exam-timer flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all"
             style={{
               backgroundColor: timerWarning ? '#FFF2E2' : 'rgba(255,255,255,0.12)',
               color: timerWarning ? '#7A4B1A' : 'white',
@@ -365,10 +365,10 @@ export default function App({ token }) {
       </header>
 
       {/* ── Body ────────────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden gap-4 p-4">
+      <div className="exam-taking-body flex flex-1 overflow-hidden gap-4 p-4">
 
         {/* ── Left Panel ──────────────────────────────────────────────────── */}
-        <aside className="flex flex-col gap-3 overflow-y-auto shrink-0" style={{ width: '300px' }}>
+        <aside className="exam-taking-sidebar flex flex-col gap-3 overflow-y-auto shrink-0" style={{ width: '300px' }}>
 
           {/* Progress Card */}
           <div className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: '1px solid #D6EDE3' }}>
@@ -457,7 +457,7 @@ export default function App({ token }) {
         </aside>
 
         {/* ── Main Content ─────────────────────────────────────────────────── */}
-        <main className="flex-1 flex flex-col overflow-hidden">
+        <main className="exam-taking-main flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto">
 
             {/* Part header */}
@@ -470,9 +470,9 @@ export default function App({ token }) {
             </div>
 
             {/* Question Card */}
-            <div className="bg-white rounded-2xl shadow-sm mb-4" style={{ border: '1px solid #D6EDE3' }}>
+            <div className="exam-question-card bg-white rounded-2xl shadow-sm mb-4" style={{ border: '1px solid #D6EDE3' }}>
               {/* Question header */}
-              <div className="flex items-start gap-4 px-6 pt-6 pb-5" style={{ borderBottom: '1px solid #F3F8F5' }}>
+              <div className="exam-question-card-header flex items-start gap-4 px-6 pt-6 pb-5" style={{ borderBottom: '1px solid #F3F8F5' }}>
                 <div
                   className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
                   style={{ backgroundColor: '#10A352', color: 'white', fontFamily: 'Outfit, sans-serif', marginTop: '2px' }}
@@ -498,7 +498,7 @@ export default function App({ token }) {
               </div>
 
               {/* Answer area */}
-              <div className="px-6 py-5">
+              <div className="exam-answer-area px-6 py-5">
 
                 {/* Multiple Choice */}
                 {current.type === 'multiple-choice' && current.options && (
@@ -636,7 +636,7 @@ export default function App({ token }) {
 
           {/* ── Bottom Action Bar ──────────────────────────────────────────── */}
           <div
-            className="flex items-center justify-between pt-3 mt-auto shrink-0"
+            className="exam-action-bar flex items-center justify-between pt-3 mt-auto shrink-0"
             style={{ borderTop: '1px solid #D6EDE3' }}
           >
             <button
@@ -648,7 +648,7 @@ export default function App({ token }) {
               <ChevronLeft /> Previous
             </button>
 
-            <div className="flex items-center gap-1.5">
+            <div className="exam-action-dots flex items-center gap-1.5">
               {questions.map((_, i) => (
                 <button
                   key={i}
@@ -664,7 +664,7 @@ export default function App({ token }) {
               ))}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="exam-action-primary flex items-center gap-3">
               {activeIndex < TOTAL - 1 ? (
                 <button
                   onClick={() => setActiveIndex(i => Math.min(TOTAL - 1, i + 1))}

@@ -1,6 +1,7 @@
 // App.jsx
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Menu } from 'lucide-react';
 import './index.css';
 
 const ApplicantDashboard = lazy(() => import('./ApplicantDashboard'));
@@ -58,6 +59,24 @@ function App() {
   const [activeSection, setActiveSection] = useState(
     getDefaultSectionForRole(initialAuthState.user?.role),
   );
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!sidebarOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setSidebarOpen(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [sidebarOpen]);
 
   const persistAuthState = (token, loggedUser) => {
     localStorage.setItem('authState', JSON.stringify({ token, user: loggedUser }));
@@ -78,7 +97,13 @@ function App() {
     setAuthToken('');
     setUser(null);
     setActiveSection('Dashboard');
+    setSidebarOpen(false);
     clearAuthState();
+  };
+
+  const handleSectionChange = (section) => {
+    setActiveSection(section);
+    setSidebarOpen(false);
   };
 
   const handleUserUpdate = (updatedUser) => {
@@ -117,6 +142,15 @@ function App() {
                 <div className="dashboard-page-wrapper">
                   <div className="dashboard-page-header">
                     <div className="dashboard-page-header-inner">
+                      <button
+                        type="button"
+                        className="dashboard-mobile-menu"
+                        onClick={() => setSidebarOpen(true)}
+                        aria-label="Open dashboard navigation"
+                        aria-expanded={sidebarOpen}
+                      >
+                        <Menu size={21} />
+                      </button>
                       <div className="dashboard-page-header-copy">
                         <h1>PGCEAP SCHOLARSHIP MANAGEMENT SYSTEM</h1>
                       </div>
@@ -136,14 +170,23 @@ function App() {
                     </div>
                   </div>
                   <div className="app-shell">
+                    <button
+                      type="button"
+                      className={`dashboard-sidebar-backdrop ${sidebarOpen ? 'is-visible' : ''}`}
+                      onClick={() => setSidebarOpen(false)}
+                      aria-label="Close dashboard navigation"
+                      tabIndex={sidebarOpen ? 0 : -1}
+                    />
                     <Sidebar
                       onLogout={handleLogout}
                       activeSection={activeSection}
-                      onSectionChange={setActiveSection}
+                      onSectionChange={handleSectionChange}
                       role={user.role}
+                      isOpen={sidebarOpen}
+                      onClose={() => setSidebarOpen(false)}
                     />
                     <main className="dashboard-content">
-                      <Dashboard token={authToken} user={user} activeSection={activeSection} onSectionChange={setActiveSection} />
+                      <Dashboard token={authToken} user={user} activeSection={activeSection} onSectionChange={handleSectionChange} />
                     </main>
                   </div>
                 </div>
