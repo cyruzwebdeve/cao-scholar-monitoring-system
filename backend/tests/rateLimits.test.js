@@ -1,0 +1,78 @@
+const assert = require('node:assert/strict');
+const { after, before, test } = require('node:test');
+const express = require('express');
+const { createRateLimiters } = require('../middleware/rateLimits');
+
+let server;
+let baseUrl;
+
+before(async () => {
+  const app = express();
+  const limiters = createRateLimiters({ isProduction: true });
+  app.use(express.json());
+
+  app.post('/login', limiters.loginRateLimiter, (req, res) => {
+    res.status(req.body.success ? 200 : 401).json({ ok: Boolean(req.body.success) });
+  });
+  app.post('/applications', limiters.applicationSubmissionRateLimiter, (req, res) => {
+    res.status(201).json({ ok: true });
+  });
+  app.put('/documents', (req, res, next) => {
+    req.user = { id: Number(req.headers['x-test-user']), role: 'Scholar' };
+    next();
+  }, limiters.documentUploadRateLimiter, (req, res) => {
+    res.json({ ok: true });
+  });
+
+  await new Promise((resolve) => {
+    server = app.listen(0, '127.0.0.1', resolve);
+  });
+  baseUrl = `http://127.0.0.1:${server.address().port}`;
+});
+
+after(async () => {
+  await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+});
+
+const request = (path, options = {}) => fetch(`${baseUrl}${path}`, {
+  headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+  ...options,
+});
+
+test('successful sign-ins do not consume the failed-login allowance', async () => {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const response = await request('/login', { method: 'POST', body: JSON.stringify({ success: true }) });
+    assert.equal(response.status, 200);
+  }
+});
+
+test('failed sign-ins are blocked after ten attempts', async () => {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const response = await request('/login', { method: 'POST', body: JSON.stringify({ success: false }) });
+    assert.equal(response.status, 401);
+  }
+  const blocked = await request('/login', { method: 'POST', body: JSON.stringify({ success: false }) });
+  assert.equal(blocked.status, 429);
+  assert.match((await blocked.json()).message, /failed sign-in attempts/i);
+});
+
+test('application submissions are limited to ten per connection each hour', async () => {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const response = await request('/applications', { method: 'POST' });
+    assert.equal(response.status, 201);
+  }
+  const blocked = await request('/applications', { method: 'POST' });
+  assert.equal(blocked.status, 429);
+});
+
+test('document upload limits are isolated per authenticated account', async () => {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const response = await request('/documents', { method: 'PUT', headers: { 'X-Test-User': '101' } });
+    assert.equal(response.status, 200);
+  }
+  const blocked = await request('/documents', { method: 'PUT', headers: { 'X-Test-User': '101' } });
+  assert.equal(blocked.status, 429);
+
+  const otherAccount = await request('/documents', { method: 'PUT', headers: { 'X-Test-User': '202' } });
+  assert.equal(otherAccount.status, 200);
+});

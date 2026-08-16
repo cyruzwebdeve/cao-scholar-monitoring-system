@@ -1059,11 +1059,21 @@ const getMyApplication = async (req, res) => {
       where: { billing_period_id: activePeriod.id },
       select: { id: true },
     });
-    const [result, scholar, scholarRequirement, payrollClaim] = applicantId ? await Promise.all([
+    const [result, scholar, scholarRequirement, payrollClaim, scheduledExam] = applicantId ? await Promise.all([
       prisma.results.findFirst({ where: { applicant_id: applicantId }, orderBy: { created_at: 'desc' } }),
       prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }),
       prisma.scholar_requirements.findFirst({ where: { applicant_id: applicantId }, orderBy: { updated_at: 'desc' } }),
       prisma.payroll_claims.findFirst({ where: { applicant_id: applicantId, payroll_batch_id: { in: activePayrollBatches.map(({ id }) => id) } }, orderBy: { updated_at: 'desc' } }),
+      applicant?.municipality
+        ? prisma.exams.findFirst({
+          where: {
+            municipality: { equals: applicant.municipality.trim(), mode: 'insensitive' },
+            academic_year: activePeriod.school_year,
+          },
+          orderBy: { updated_at: 'desc' },
+          select: { id: true, title: true, exam_date: true, exam_end_date: true, venue: true, municipality: true, academic_year: true, is_active: true },
+        })
+        : null,
     ]) : [null, null, null, null];
     const exam = result
       ? await prisma.exams.findUnique({ where: { id: result.exam_id }, select: { title: true, exam_date: true, academic_year: true } })
@@ -1100,6 +1110,16 @@ const getMyApplication = async (req, res) => {
         examDate: exam?.exam_date || null,
         academicYear: exam?.academic_year || activePeriod.school_year,
         isScholar: Boolean(scholar),
+        schedule: scheduledExam ? {
+          id: scheduledExam.id,
+          title: scheduledExam.title,
+          municipality: scheduledExam.municipality,
+          venue: scheduledExam.venue,
+          date: scheduledExam.exam_date,
+          endDate: scheduledExam.exam_end_date || scheduledExam.exam_date,
+          academicYear: scheduledExam.academic_year,
+          isActive: Boolean(scheduledExam.is_active),
+        } : null,
       },
       activePeriod: serializeAcademicPeriod(activePeriod),
     });

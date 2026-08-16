@@ -172,6 +172,41 @@
   padding-top: 16px;
   border-top: 1px solid #dcebea;
 }
+.applicant-exam-announcement {
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+  padding: 14px 15px;
+  border: 1px solid #cfe8d7;
+  border-radius: 11px;
+  background: #f1faf4;
+  color: #5c7866;
+}
+.applicant-exam-announcement.pending {
+  border-color: #eadfca;
+  background: #fffaf0;
+}
+.applicant-exam-announcement-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #198a4a;
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+.applicant-exam-announcement.pending .applicant-exam-announcement-heading {
+  color: #9a6a1d;
+}
+.applicant-exam-announcement strong {
+  color: #234a31;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+.applicant-exam-announcement > span:last-child {
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
 .applicant-announcement-meta {
   display: flex;
   align-items: center;

@@ -61,12 +61,27 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   const [examDetails, setExamDetails] = useState(null);
   const [latestAnnouncement, setLatestAnnouncement] = useState(null);
   useEffect(() => {
-    const syncExamStatus = () => { try { const activeMunicipalities = JSON.parse(localStorage.getItem('activeExamMunicipalities') || '[]'); const applicantMunicipality = application?.address?.municipality; setExamActivated(applicantMunicipality ? activeMunicipalities.includes(applicantMunicipality) : false); } catch { setExamActivated(false); } };
+    const syncExamStatus = () => {
+      try {
+        if (examination?.schedule) {
+          setExamActivated(Boolean(examination.schedule.isActive));
+          return;
+        }
+        const activeMunicipalities = JSON.parse(localStorage.getItem('activeExamMunicipalities') || '[]');
+        const applicantMunicipality = application?.address?.municipality;
+        setExamActivated(applicantMunicipality ? activeMunicipalities.includes(applicantMunicipality) : false);
+      } catch { setExamActivated(false); }
+    };
     window.addEventListener('storage', syncExamStatus);
     window.addEventListener('exam-activation-changed', syncExamStatus);
     const syncExamMode = () => setExamMode(localStorage.getItem('examDeliveryMode') || 'online');
     const syncExamDetails = () => {
       try {
+        if (examination?.schedule) {
+          const schedule = examination.schedule;
+          setExamDetails(schedule.isActive ? { municipality: schedule.municipality, venue: schedule.venue, date: schedule.date, endDate: schedule.endDate || schedule.date } : null);
+          return;
+        }
         const active = JSON.parse(localStorage.getItem('activeExamDetails') || 'null');
         const exams = JSON.parse(localStorage.getItem('examVenueData') || '[]');
         const activeMunicipalities = JSON.parse(localStorage.getItem('activeExamMunicipalities') || '[]');
@@ -89,7 +104,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
     window.addEventListener('exam-activation-changed', syncExamDetails);
     window.addEventListener('exam-schedule-changed', syncExamDetails);
     return () => { window.removeEventListener('storage', syncExamStatus); window.removeEventListener('exam-activation-changed', syncExamStatus); window.removeEventListener('storage', syncExamMode); window.removeEventListener('exam-mode-changed', syncExamMode); window.removeEventListener('storage', syncExamDetails); window.removeEventListener('exam-activation-changed', syncExamDetails); window.removeEventListener('exam-schedule-changed', syncExamDetails); };
-  }, [application, profile]);
+  }, [application, examination, profile]);
   useEffect(() => {
     let active = true;
     fetch(`${API_BASE}/auth/me`, { headers: authHeaders(token) })
@@ -151,6 +166,9 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
     scheduleExpiration();
     return () => window.clearTimeout(expirationTimer);
   }, [latestAnnouncement]);
+
+  const scheduledExam = examination?.schedule;
+  const showExamSchedule = Boolean(scheduledExam && !examination?.completed);
 
   useEffect(() => {
     if (!profileOpen) return undefined;
@@ -465,6 +483,16 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
               </div>
               <FileText size={20} className="applicant-heading-icon" />
             </div>
+            {showExamSchedule && (
+              <div className={`applicant-exam-announcement${scheduledExam.isActive ? '' : ' pending'}`}>
+                <div className="applicant-exam-announcement-heading">
+                  <CalendarDays size={16} />
+                  <span>{scheduledExam.isActive ? 'EXAMINATION SCHEDULE' : 'EXAMINATION SCHEDULE PENDING'}</span>
+                </div>
+                <strong>{scheduledExam.isActive ? formatApplicantExamRange(scheduledExam.date, scheduledExam.endDate) : 'Wait for the schedule of your examination'}</strong>
+                <span>{scheduledExam.isActive ? `${scheduledExam.venue} · ${scheduledExam.municipality}` : 'The Community Affairs Office will publish the schedule here once it is activated.'}</span>
+              </div>
+            )}
             {latestAnnouncement ? (
               <div className="applicant-announcement-content">
                 <div className="applicant-announcement-meta">
@@ -483,7 +511,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
                   />
                 )}
               </div>
-            ) : (
+            ) : !showExamSchedule ? (
               <div className="applicant-announcement-empty">
                 <FileText size={22} />
                 <div>
@@ -491,7 +519,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
                   <span>Official notices from CAO will appear here.</span>
                 </div>
               </div>
-            )}
+            ) : null}
           </article>
         </section>
         <footer className="scholar-footer">

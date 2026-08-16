@@ -7,6 +7,7 @@
     "node": ">=20.19 <25"
   },
   "scripts": {
+    "predev": "npm run prisma:generate",
     "dev": "nodemon server.js",
     "start": "node server.js",
     "prisma:migrate": "prisma migrate dev",
@@ -25,7 +26,8 @@
     "seed:complete-applicants": "node ./scripts/seed-complete-applicants.js",
     "seed:production": "node ./scripts/bootstrap-production.js",
     "render-build": "npm run prisma:generate && npm run prisma:deploy && npm run seed:production",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test",
+    "test:rate-limits": "node --test tests/rateLimits.test.js"
   },
   "keywords": [],
   "author": "",
