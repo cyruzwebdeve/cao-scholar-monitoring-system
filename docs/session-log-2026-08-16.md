@@ -17,8 +17,8 @@ Vercel frontend, Render API, Prisma Postgres database, and Vercel Blob storage.
   declarations.
 - Added the clean database's first committed baseline migration and verified it
   against an isolated PostgreSQL database with no schema drift.
-- Added idempotent production bootstrap logic for the active academic period
-  and initial super administrator.
+- Added idempotent production bootstrap logic for the active academic period,
+  Super Admin, Billing/Payroll Admin, and Content Moderator accounts.
 - Separated pooled runtime database traffic from direct migration traffic.
 - Prevented production database URLs from receiving the local `_v2` suffix.
 - Added restricted CORS, security headers, API rate limits, graceful shutdown,
