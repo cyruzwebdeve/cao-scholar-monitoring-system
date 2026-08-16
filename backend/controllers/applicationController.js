@@ -1429,7 +1429,7 @@ const saveExaminationManagement = async (req, res) => {
       activePeriod: serializeAcademicPeriod(activePeriod),
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error saving examination schedules:', error);
     return res.status(500).json({ message: 'Server error saving examination schedules.' });
   }
 };
