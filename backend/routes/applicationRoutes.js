@@ -37,6 +37,7 @@ const {
   getLatestPublishedAnnouncement,
   updateAnnouncement,
   getDashboardSummary,
+  getSchoolCatalog,
   updateSchoolClassification,
   getApplicantManagement,
   getExaminationManagement,
@@ -73,6 +74,7 @@ router.post('/academic-periods', authenticate, checkRole(['SuperAdmin', 'Regular
 router.put('/academic-periods/:id/activate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), activateAcademicPeriod);
 
 router.get('/dashboard/summary', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getDashboardSummary);
+router.get('/schools/catalog', authenticate, checkRole(['SuperAdmin']), getSchoolCatalog);
 router.get('/activity-logs', authenticate, checkRole(['SuperAdmin']), getActivityLogs);
 router.get('/staff/management', authenticate, checkRole(['SuperAdmin']), getStaffManagement);
 router.post('/staff', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin']), validateStaffCreate, createStaffAccount);

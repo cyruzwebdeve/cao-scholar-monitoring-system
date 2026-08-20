@@ -1246,11 +1246,10 @@ const uploadMyRequirement = async (req, res) => {
 
 const getDashboardSummary = async (req, res) => {
   try {
-    const [applicants, activeScholars, forfeitedAccounts, schools, activity] = await Promise.all([
+    const [applicants, activeScholars, forfeitedAccounts, activity] = await Promise.all([
       prisma.applicants.findMany({ where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 7, select: { id: true, first_name: true, middle_name: true, last_name: true, status: true } }),
       prisma.scholar_accounts.count({ where: { is_active: true } }),
       prisma.exam_slots.count({ where: { forfeited_at: { not: null } } }),
-      prisma.schools.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, school_type: true } }),
       prisma.activity_logs.findMany({ orderBy: { created_at: 'desc' }, take: 4, select: { id: true, action: true, description: true, created_at: true } }),
     ]);
     const applicantIds = applicants.map(({ id }) => id);
@@ -1259,12 +1258,30 @@ const getDashboardSummary = async (req, res) => {
     return res.json({
       stats: { activeScholars, forfeitedAccounts },
       recentApplications: applicants.map((applicant) => ({ name: [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' ').toUpperCase(), controlNo: controlNumbers.get(applicant.id) || `Applicant #${applicant.id}`, status: applicant.status })),
-      schoolCatalog: schools.map((school) => ({ id: school.id, name: school.name, classification: school.school_type })),
       recentActivity: activity.map((entry) => ({ title: entry.action, detail: entry.description || 'System activity recorded', status: 'INFO', time: entry.created_at })),
     });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error fetching dashboard summary.' });
+  }
+};
+
+const getSchoolCatalog = async (req, res) => {
+  try {
+    const schools = await prisma.schools.findMany({
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, school_type: true },
+    });
+    return res.json({
+      schools: schools.map((school) => ({
+        id: school.id,
+        name: school.name,
+        classification: school.school_type,
+      })),
+    });
+  } catch (error) {
+    console.error('Error fetching school catalog:', error);
+    return res.status(500).json({ message: 'Server error fetching the school catalog.' });
   }
 };
 
@@ -1619,6 +1636,7 @@ module.exports = {
   getLatestPublishedAnnouncement,
   updateAnnouncement,
   getDashboardSummary,
+  getSchoolCatalog,
   updateSchoolClassification,
   getApplicantManagement,
   getExaminationManagement,

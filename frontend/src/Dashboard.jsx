@@ -50,36 +50,14 @@ import ReportsManagement from './ReportsManagement';
 import ActivityLogsManagement from './ActivityLogsManagement';
 import StaffManagement from './StaffManagement';
 import DocumentReviewManagement from './DocumentReviewManagement';
+import SchoolCatalogManagement from './SchoolCatalogManagement';
 import SystemHealthPanel from './components/SystemHealthPanel';
-import schoolsListData from '../../schools_list.json';
 import municipalitiesData from '../../municipality.json';
 import barangaysData from '../../brgy.json';
 import './styles/admin-prelude.css';
 import './styles/admin.css';
 import './styles/admin-responsive.css';
 
-const schoolCatalogFromJson = schoolsListData.schools.map((name) => ({
-  name,
-  classification: 'Public',
-}));
-const formatSchoolClassification = (value) => {
-  const normalized = String(value || '').toLowerCase();
-  return ['public', 'private'].includes(normalized)
-    ? `${normalized[0].toUpperCase()}${normalized.slice(1)}`
-    : 'Public';
-};
-const mergeSchoolCatalog = (savedSchools = []) => {
-  const savedByName = new Map(savedSchools.map((school) => [String(school.name).trim().toLowerCase(), school]));
-  const catalogNames = new Set(schoolCatalogFromJson.map((school) => school.name.trim().toLowerCase()));
-  const catalog = schoolCatalogFromJson.map((school) => {
-    const saved = savedByName.get(school.name.trim().toLowerCase());
-    return { ...school, ...(saved || {}), classification: formatSchoolClassification(saved?.classification) };
-  });
-  const additionalSchools = savedSchools
-    .filter((school) => !catalogNames.has(String(school.name).trim().toLowerCase()))
-    .map((school) => ({ ...school, classification: formatSchoolClassification(school.classification) }));
-  return [...catalog, ...additionalSchools].sort((left, right) => left.name.localeCompare(right.name));
-};
 const municipalityNames = [...new Set(municipalitiesData.map((item) => item.name))];
 
 const metricIconByLabel = {
@@ -633,17 +611,12 @@ function DashboardOverview({ token, user, onSectionChange }) {
   const [overview, setOverview] = useState({
     stats: { activeScholars: 0, forfeitedAccounts: 0 },
     recentApplications: [],
-    schoolCatalog: schoolCatalogFromJson,
     recentActivity: [],
   });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [selectedSchool, setSelectedSchool] = useState(null);
-  const [schoolClassification, setSchoolClassification] = useState('public');
-  const [schoolSaveError, setSchoolSaveError] = useState('');
-  const [savingSchool, setSavingSchool] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -656,7 +629,6 @@ function DashboardOverview({ token, user, onSectionChange }) {
           setOverview({
             stats: { activeScholars: 0, forfeitedAccounts: 0, ...(data.stats || {}) },
             recentApplications: data.recentApplications || [],
-            schoolCatalog: mergeSchoolCatalog(data.schoolCatalog || []),
             recentActivity: data.recentActivity || [],
           });
           setLoadError('');
@@ -678,40 +650,6 @@ function DashboardOverview({ token, user, onSectionChange }) {
     { ...superAdminOverview.stats[0], value: String(overview.stats.activeScholars), detail: 'Currently active scholarship accounts' },
     { ...superAdminOverview.stats[1], value: String(overview.stats.forfeitedAccounts), detail: 'Accounts requiring follow-up' },
   ];
-
-  const openSchoolClassification = (school) => {
-    setSelectedSchool(school);
-    setSchoolClassification(['public', 'private'].includes(String(school.classification).toLowerCase())
-      ? String(school.classification).toLowerCase()
-      : 'public');
-    setSchoolSaveError('');
-  };
-
-  const saveSchoolClassification = async () => {
-    if (!selectedSchool || savingSchool) return;
-    setSavingSchool(true);
-    setSchoolSaveError('');
-    try {
-      const response = await fetch(`${API_BASE}/schools/classification`, {
-        method: 'PUT',
-        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: selectedSchool.name, classification: schoolClassification }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message || 'Unable to update the school classification.');
-      setOverview((current) => ({
-        ...current,
-        schoolCatalog: current.schoolCatalog.map((school) => school.name === selectedSchool.name
-          ? { ...school, ...body.school, classification: formatSchoolClassification(body.school.classification) }
-          : school),
-      }));
-      setSelectedSchool(null);
-    } catch (error) {
-      setSchoolSaveError(error.message || 'Unable to update the school classification.');
-    } finally {
-      setSavingSchool(false);
-    }
-  };
 
   return (
     <div className="super-admin-dashboard admin-overview-dashboard">
@@ -748,25 +686,8 @@ function DashboardOverview({ token, user, onSectionChange }) {
           {loading && !overview.recentActivity.length && <div className="dashboard-panel-loading"><span />Loading activity…</div>}
         </section>
 
-        <section className="dashboard-surface dashboard-school-directory">
-          <div className="dashboard-surface-header"><div><span className="dashboard-panel-icon gold"><School size={16} /></span><div><h3>School Directory</h3><p>Click a school to classify it as Public or Private.</p></div></div><span className="dashboard-record-count">{overview.schoolCatalog.length} schools</span></div>
-          <div className="dashboard-school-grid">{overview.schoolCatalog.map((row) => <button type="button" key={row.name} onClick={() => openSchoolClassification(row)}><span className="dashboard-school-icon"><School size={15} /></span><div><strong>{row.name}</strong><small className={`dashboard-school-type ${String(row.classification).toLowerCase().replace(/\s+/g, '-')}`}>{row.classification}</small></div><FilePenLine className="dashboard-school-edit" size={14} /></button>)}</div>
-        </section>
       </div>
 
-      {selectedSchool && <div className="school-classification-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !savingSchool) setSelectedSchool(null); }}>
-        <section className="school-classification-modal" role="dialog" aria-modal="true" aria-labelledby="school-classification-title">
-          <button type="button" className="school-classification-close" onClick={() => setSelectedSchool(null)} disabled={savingSchool} aria-label="Close classification window"><X size={18} /></button>
-          <div className="school-classification-heading"><span><School size={18} /></span><div><small>SCHOOL CATALOG</small><h3 id="school-classification-title">Classify school</h3></div></div>
-          <p className="school-classification-name">{selectedSchool.name}</p>
-          <p className="school-classification-help">Choose how this institution should be categorized in Billing and Payroll records.</p>
-          <div className="school-classification-options">
-            {['public', 'private'].map((option) => <button type="button" className={schoolClassification === option ? 'selected' : ''} key={option} onClick={() => setSchoolClassification(option)}><span>{option === 'public' ? 'Public' : 'Private'}</span><small>{option === 'public' ? 'Government-funded institution' : 'Privately operated institution'}</small><i>{schoolClassification === option ? '✓' : ''}</i></button>)}
-          </div>
-          {schoolSaveError && <div className="school-classification-error"><TriangleAlert size={15} />{schoolSaveError}</div>}
-          <footer><button type="button" className="secondary" onClick={() => setSelectedSchool(null)} disabled={savingSchool}>Cancel</button><button type="button" className="primary" onClick={saveSchoolClassification} disabled={savingSchool}>{savingSchool ? 'Saving…' : 'Save classification'}</button></footer>
-        </section>
-      </div>}
     </div>
   );
 }
@@ -1299,6 +1220,7 @@ function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange, 
   if (activeSection === 'Activity Logs' && user?.role === 'SuperAdmin') return <ActivityLogsManagement token={token} />;
   if (activeSection === 'Staff' && user?.role === 'SuperAdmin') return <StaffManagement token={token} onLogout={onLogout} />;
   if (activeSection === 'Document Reviews' && ['Moderator', 'SuperAdmin'].includes(user?.role)) return <DocumentReviewManagement token={token} />;
+  if (activeSection === 'School Catalog' && user?.role === 'SuperAdmin') return <SchoolCatalogManagement token={token} />;
   if (activeSection === 'Reports') return <ReportsManagement token={token} />;
   if (activeSection === 'Settings') return <SettingsManagement token={token} user={user} />;
 
