@@ -12,6 +12,13 @@ const {
   sendExamSubmittedEmail,
   sendScholarApprovedEmail,
 } = require('../services/mailer');
+const {
+  assignApplicantToMunicipalityExam,
+  assignApplicantsToMunicipalityExams,
+  countScheduledApplicants,
+  indexExamsByMunicipality,
+  normalizeMunicipality,
+} = require('../services/examAssignments');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -169,6 +176,11 @@ const createApplication = async (req, res) => {
           initial_docs: initialDocs || {},
           status: APPLICATION_STATUSES.APPLIED,
         },
+      });
+      await assignApplicantToMunicipalityExam(tx, {
+        applicantId: applicant.id,
+        municipality: applicant.municipality,
+        academicYear: activePeriod.school_year,
       });
       return { application, account };
     });
@@ -1031,32 +1043,39 @@ const submitOnlineExam = async (req, res) => {
     const score = Number(req.body.score);
     if (!Number.isFinite(score) || score < 0 || score > 20) return res.status(400).json({ message: 'Invalid examination score.' });
     const passingScore = 14;
-    let exam = await prisma.exams.findFirst({ where: { is_active: true }, orderBy: { id: 'desc' } });
+    const applicant = await prisma.applicants.findUnique({
+      where: { id: applicantId },
+      select: { email: true, first_name: true, municipality: true },
+    });
+    const exam = await prisma.exams.findFirst({
+      where: {
+        is_active: true,
+        academic_year: activePeriod.school_year,
+        municipality: { equals: String(applicant?.municipality || '').trim(), mode: 'insensitive' },
+      },
+      orderBy: { updated_at: 'desc' },
+    });
     if (!exam) {
-      exam = await prisma.exams.create({ data: { created_by: applicantId, title: 'PGCEAP Qualifying Examination', exam_date: new Date(), academic_year: activePeriod.school_year, is_active: true } });
-    }
-    let slot = await prisma.exam_slots.findFirst({ where: { applicant_id: applicantId, exam_id: exam.id } });
-    if (!slot) {
-      slot = await prisma.exam_slots.create({ data: { applicant_id: applicantId, exam_id: exam.id, appeared: true, appeared_at: new Date() } });
+      return res.status(409).json({ message: 'No active examination is available for your municipality.' });
     }
     const existing = await prisma.results.findFirst({ where: { applicant_id: applicantId, exam_id: exam.id } });
     if (existing) return res.status(409).json({ message: 'This examination has already been submitted. Please wait for the Scholarship Office to release the result.' });
+    const submittedAt = new Date();
+    const slot = await prisma.exam_slots.upsert({
+      where: { applicant_id_exam_id: { applicant_id: applicantId, exam_id: exam.id } },
+      create: { applicant_id: applicantId, exam_id: exam.id, appeared: true, appeared_at: submittedAt },
+      update: { appeared: true, appeared_at: submittedAt, forfeited_at: null },
+    });
     const data = { score, passing_score: passingScore, passed: score >= passingScore, updated_at: new Date() };
     const result = await prisma.results.create({ data: { exam_slot_id: slot.id, applicant_id: applicantId, exam_id: exam.id, ...data } });
     await prisma.application_submissions.updateMany({
       where: { applicant_id: applicantId, status: { not: 'Withdrawn' } },
       data: { status: APPLICATION_STATUSES.EXAMINED },
     });
-    const [applicant, account] = await Promise.all([
-      prisma.applicants.findUnique({
-        where: { id: applicantId },
-        select: { email: true, first_name: true },
-      }),
-      prisma.control_accounts.findFirst({
-        where: { applicant_id: applicantId },
-        select: { control_number: true },
-      }),
-    ]);
+    const account = await prisma.control_accounts.findFirst({
+      where: { applicant_id: applicantId },
+      select: { control_number: true },
+    });
     const emailDelivery = await sendExamSubmittedEmail({
       to: applicant?.email,
       firstName: applicant?.first_name,
@@ -1301,7 +1320,7 @@ const getApplicantManagement = async (req, res) => {
     const applicantIds = applicants.map(({ id }) => id);
     const [accounts, slots, results, exams, scholarAccounts] = await Promise.all([
       prisma.control_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, control_number: true, last_login_at: true } }),
-      prisma.exam_slots.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, exam_id: true, appeared_at: true } }),
+      prisma.exam_slots.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, exam_id: true, appeared: true, appeared_at: true } }),
       prisma.results.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, exam_id: true, score: true, passing_score: true, passed: true, remarks: true, created_at: true, updated_at: true } }),
       prisma.exams.findMany({
         orderBy: { updated_at: 'desc' },
@@ -1313,22 +1332,23 @@ const getApplicantManagement = async (req, res) => {
     const slotByApplicant = new Map(slots.map((slot) => [slot.applicant_id, slot]));
     const resultByApplicant = new Map(results.map((result) => [result.applicant_id, result]));
     const examById = new Map(exams.map((exam) => [exam.id, exam]));
-    const scheduledExamByMunicipality = new Map();
-    exams.forEach((exam) => {
-      const municipality = String(exam.municipality || '').trim().toLowerCase();
-      if (municipality && exam.academic_year === activePeriod.school_year && !scheduledExamByMunicipality.has(municipality)) {
-        scheduledExamByMunicipality.set(municipality, exam);
-      }
+    const scheduledExamByMunicipality = indexExamsByMunicipality(exams, activePeriod.school_year);
+    const scheduledApplicantCount = countScheduledApplicants({
+      applicants,
+      exams,
+      slots,
+      academicYear: activePeriod.school_year,
+      legacySchoolYear: STALE_DEFAULT_SCHOOL_YEAR,
     });
     const scholarByApplicant = new Map(scholarAccounts.map((scholar) => [scholar.applicant_id, scholar]));
     return res.json({
-      stats: { total: applicants.length, scheduled: slots.length, completed: results.length, passed: results.filter(({ passed }) => passed).length },
+      stats: { total: applicants.length, scheduled: scheduledApplicantCount, completed: results.length, passed: results.filter(({ passed }) => passed).length },
       applicants: applicants.map((applicant) => {
         const account = accountByApplicant.get(applicant.id);
         const slot = slotByApplicant.get(applicant.id);
         const result = resultByApplicant.get(applicant.id);
         const linkedExam = examById.get(result?.exam_id || slot?.exam_id);
-        const scheduledExam = scheduledExamByMunicipality.get(String(applicant.municipality || '').trim().toLowerCase());
+        const scheduledExam = scheduledExamByMunicipality.get(normalizeMunicipality(applicant.municipality));
         const exam = linkedExam || scheduledExam;
         const scholar = scholarByApplicant.get(applicant.id);
         return {
@@ -1346,7 +1366,7 @@ const getApplicantManagement = async (req, res) => {
           registered: applicant.created_at,
           lastLogin: account?.last_login_at || null,
           status: result?.passed ? 'Passed' : result ? 'Exam Completed' : applicant.status === 'pending' ? 'Pending' : applicant.status,
-          resultStatus: result ? (result.passed ? 'Passed' : 'Failed') : slot ? 'For review' : 'Pending',
+          resultStatus: result ? (result.passed ? 'Passed' : 'Failed') : slot?.appeared ? 'For review' : 'Pending',
           examScore: result?.score === null || result?.score === undefined ? null : Number(result.score),
           passingScore: result?.passing_score === null || result?.passing_score === undefined ? null : Number(result.passing_score),
           reviewerNotes: result?.remarks || '',
@@ -1454,12 +1474,17 @@ const saveExaminationManagement = async (req, res) => {
           : await transaction.exams.create({ data: { ...data, created_by: req.user.id } });
         records.push(record);
       }
-      return records;
+      const assignments = await assignApplicantsToMunicipalityExams(transaction, {
+        exams: records,
+        academicYear: activePeriod.school_year,
+        legacySchoolYear: STALE_DEFAULT_SCHOOL_YEAR,
+      });
+      return { records, assignments };
     }, { maxWait: 10_000, timeout: 30_000 });
 
     return res.json({
-      message: 'Examination schedules saved successfully.',
-      examinations: saved.map(serializeExaminationSchedule),
+      message: `Examination schedules saved successfully. ${saved.assignments.created} new applicant assignment${saved.assignments.created === 1 ? '' : 's'} created.`,
+      examinations: saved.records.map(serializeExaminationSchedule),
       activePeriod: serializeAcademicPeriod(activePeriod),
     });
   } catch (error) {
