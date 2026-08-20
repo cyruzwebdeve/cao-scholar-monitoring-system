@@ -12,6 +12,108 @@
   margin: 0 auto;
   padding: 38px 0 26px;
 }
+.applicant-dashboard-loading {
+  display: grid;
+  gap: 18px;
+}
+.applicant-loading-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #348e61;
+}
+.applicant-loading-message > svg {
+  flex: 0 0 auto;
+  animation: applicant-loading-spin 0.9s linear infinite;
+}
+.applicant-loading-message strong,
+.applicant-loading-message span {
+  display: block;
+}
+.applicant-loading-message strong {
+  color: #244c35;
+  font-size: 0.9rem;
+}
+.applicant-loading-message span {
+  margin-top: 3px;
+  color: #7b8d82;
+  font-size: 0.74rem;
+}
+.applicant-loading-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.applicant-loading-grid-large {
+  grid-template-columns: 1.15fr 0.85fr;
+}
+.applicant-skeleton {
+  border: 1px solid #e1eae4;
+  border-radius: 17px;
+  background: linear-gradient(100deg, #edf2ee 20%, #f8faf8 38%, #edf2ee 56%);
+  background-size: 220% 100%;
+  animation: applicant-skeleton-shimmer 1.35s ease-in-out infinite;
+}
+.applicant-skeleton-hero {
+  height: 178px;
+  border-radius: 20px;
+}
+.applicant-skeleton-stat {
+  height: 111px;
+}
+.applicant-skeleton-panel {
+  height: 260px;
+}
+.applicant-dashboard-error {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  border: 1px solid #f0c9c5;
+  border-radius: 16px;
+  background: #fff8f7;
+  box-shadow: 0 8px 22px rgba(92, 37, 31, 0.05);
+}
+.applicant-dashboard-error-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: #fde9e7;
+  color: #b64c43;
+}
+.applicant-dashboard-error strong {
+  color: #693b36;
+  font-size: 0.9rem;
+}
+.applicant-dashboard-error p {
+  margin: 4px 0 0;
+  color: #8a6561;
+  font-size: 0.76rem;
+}
+.applicant-dashboard-error button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #d9857d;
+  border-radius: 9px;
+  background: #fff;
+  color: #9e423b;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+@keyframes applicant-loading-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes applicant-skeleton-shimmer {
+  to { background-position-x: -220%; }
+}
 .applicant-welcome-card {
   display: flex;
   align-items: center;
@@ -116,6 +218,9 @@
   grid-template-columns: 1fr 1fr;
   align-items: start;
 }
+.applicant-content-grid.application-submitted {
+  grid-template-columns: 1fr;
+}
 .applicant-panel {
   padding: 23px;
   border: 1px solid #e0eae4;
@@ -154,38 +259,87 @@
 .applicant-guidance-panel {
   border-top: 3px solid #45a66b;
 }
-.applicant-guidance-panel .applicant-exam-details {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 20px;
-  padding: 0;
-  border: 0;
-  background: transparent;
+.applicant-guidance-schedule {
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid #cfe3d5;
+  border-radius: 13px;
+  background: #f7fbf8;
 }
-.applicant-guidance-panel .applicant-exam-details > div {
+.applicant-guidance-schedule-main {
   display: grid;
-  align-content: start;
-  gap: 5px;
-  min-width: 0;
-  padding: 13px 14px;
-  border: 1px solid #dce8df;
-  border-radius: 10px;
-  background: #f8fbf9;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
 }
-.applicant-guidance-panel .applicant-exam-details span,
-.applicant-guidance-panel .applicant-exam-details strong {
+.applicant-guidance-schedule-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: #e1f3e7;
+  color: #268b50;
+}
+.applicant-guidance-schedule-main > div,
+.applicant-guidance-location > div {
+  min-width: 0;
+}
+.applicant-guidance-schedule-main > div > span,
+.applicant-guidance-location span,
+.applicant-guidance-location strong,
+.applicant-guidance-location small {
   display: block;
-  min-width: 0;
 }
-.applicant-guidance-panel .applicant-exam-details span {
+.applicant-guidance-schedule-main > div > span,
+.applicant-guidance-location span {
   color: #7b8d82;
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
-.applicant-guidance-panel .applicant-exam-details strong {
+.applicant-guidance-schedule-main strong {
+  display: block;
+  margin-top: 4px;
+  color: #204a31;
+  font-size: 0.94rem;
+  line-height: 1.35;
+}
+.applicant-guidance-mode {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #e5f4e9;
+  color: #297b49;
+  font-size: 0.66rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.applicant-guidance-location {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 15px;
+  border-top: 1px solid #dce9e0;
+  background: #fff;
+  color: #429266;
+}
+.applicant-guidance-location > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.applicant-guidance-location strong {
+  margin-top: 3px;
   overflow-wrap: anywhere;
-  color: #234a31;
+  color: #294d36;
   font-size: 0.82rem;
   line-height: 1.4;
+}
+.applicant-guidance-location small {
+  margin-top: 2px;
+  color: #84948b;
+  font-size: 0.69rem;
 }
 .applicant-announcement-content {
   margin-top: 18px;
@@ -298,63 +452,6 @@
   margin-top: 3px;
   font-size: 0.72rem;
 }
-.applicant-progress-track {
-  height: 8px;
-  margin: 18px 0 23px;
-  border-radius: 99px;
-  background: #e4eee5;
-  overflow: hidden;
-}
-.applicant-progress-track span {
-  display: block;
-  width: 40%;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #59afb0, #317f89);
-}
-.applicant-step-list {
-  display: grid;
-  gap: 14px;
-}
-.applicant-step {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-}
-.applicant-step > span {
-  display: grid;
-  place-items: center;
-  width: 25px;
-  height: 25px;
-  border: 1px solid #dbe7df;
-  border-radius: 50%;
-  color: #91a198;
-  font-size: 0.74rem;
-  font-weight: 800;
-}
-.applicant-step.done > span {
-  border-color: #9ad0b0;
-  background: #e3f4e5;
-  color: #319058;
-}
-.applicant-step.active > span {
-  border-color: #54a7ab;
-  background: #3e9298;
-  color: #fff;
-}
-.applicant-step strong,
-.applicant-step small {
-  display: block;
-}
-.applicant-step strong {
-  color: #355742;
-  font-size: 0.81rem;
-}
-.applicant-step small {
-  margin-top: 2px;
-  color: #8a998f;
-  font-size: 0.7rem;
-}
 .applicant-primary-button {
   display: flex;
   align-items: center;
@@ -370,6 +467,7 @@
   font: inherit;
   font-size: 0.79rem;
   font-weight: 800;
+  text-decoration: none;
   cursor: pointer;
 }
 .applicant-primary-button:hover {
@@ -426,11 +524,17 @@
   }
   .applicant-stat-grid,
   .applicant-content-grid,
-  .applicant-bottom-grid {
+  .applicant-bottom-grid,
+  .applicant-loading-grid,
+  .applicant-loading-grid-large {
     grid-template-columns: 1fr;
   }
-  .applicant-guidance-panel .applicant-exam-details {
-    grid-template-columns: 1fr;
+  .applicant-dashboard-error {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .applicant-dashboard-error button {
+    grid-column: 1 / -1;
+    justify-content: center;
   }
   .applicant-announcement-meta {
     align-items: flex-start;
@@ -443,5 +547,20 @@
   .applicant-welcome-icon {
     width: 64px;
     height: 64px;
+  }
+}
+@media (max-width: 520px) {
+  .applicant-guidance-schedule-main {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .applicant-guidance-mode {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .applicant-loading-message > svg,
+  .applicant-skeleton {
+    animation: none;
   }
 }

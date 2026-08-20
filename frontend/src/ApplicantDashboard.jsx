@@ -5,8 +5,11 @@ import {
   ClipboardList,
   FileText,
   LogOut,
+  MapPin,
   MessageCircleQuestion,
+  RefreshCw,
   UserRound,
+  WifiOff,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -85,6 +88,9 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   const [examMode, setExamMode] = useState(() => localStorage.getItem('examDeliveryMode') || 'online');
   const [examDetails, setExamDetails] = useState(null);
   const [latestAnnouncement, setLatestAnnouncement] = useState(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
+  const [dashboardReloadKey, setDashboardReloadKey] = useState(0);
   useEffect(() => {
     const syncExamStatus = () => {
       try {
@@ -142,18 +148,31 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
       })
       .catch(() => {});
     fetch(`${API_BASE}/applications/me`, { headers: authHeaders(token) })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((body) => {
-        if (active && body?.application) {
-          setApplication(body.application);
-          setExamination(body.examination || null);
+      .then(async (response) => {
+        const body = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(body?.message || "Unable to load your application record.");
         }
+        return body;
       })
-      .catch(() => {});
+      .then((body) => {
+        if (!active) return;
+        setApplication(body?.application || null);
+        setExamination(body?.examination || null);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setApplication(null);
+        setExamination(null);
+        setDashboardError(error.message || "Unable to load your dashboard.");
+      })
+      .finally(() => {
+        if (active) setDashboardLoading(false);
+      });
     return () => {
       active = false;
     };
-  }, [token, onUserUpdate, user?.role]);
+  }, [token, onUserUpdate, user?.role, dashboardReloadKey]);
 
   useEffect(() => {
     let active = true;
@@ -209,7 +228,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
       .filter(Boolean)
       .join(" ") || "Applicant";
   const firstName = profile?.firstName || displayName.split(" ")[0];
-  const controlNumber = profile?.controlNumber || "PGCEAP-APP-021";
+  const controlNumber = profile?.controlNumber || "Not assigned";
   const examCompleted = Boolean(examination?.completed);
   const waitingForResults = examCompleted && !examination?.isScholar;
   const applicationStatus = waitingForResults
@@ -277,6 +296,42 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
       </header>
 
       <main className="applicant-dashboard-main">
+        {dashboardLoading ? (
+          <section className="applicant-dashboard-loading" role="status" aria-live="polite">
+            <div className="applicant-loading-message">
+              <RefreshCw size={18} aria-hidden="true" />
+              <div>
+                <strong>Loading your dashboard</strong>
+                <span>Retrieving your latest application and examination updates.</span>
+              </div>
+            </div>
+            <div className="applicant-skeleton applicant-skeleton-hero" aria-hidden="true" />
+            <div className="applicant-loading-grid" aria-hidden="true">
+              <div className="applicant-skeleton applicant-skeleton-stat" />
+              <div className="applicant-skeleton applicant-skeleton-stat" />
+            </div>
+            <div className="applicant-loading-grid applicant-loading-grid-large" aria-hidden="true">
+              <div className="applicant-skeleton applicant-skeleton-panel" />
+              <div className="applicant-skeleton applicant-skeleton-panel" />
+            </div>
+          </section>
+        ) : dashboardError ? (
+          <section className="applicant-dashboard-error" role="alert">
+            <span className="applicant-dashboard-error-icon"><WifiOff size={22} /></span>
+            <div>
+              <strong>We could not load your dashboard</strong>
+              <p>{dashboardError}</p>
+            </div>
+            <button type="button" onClick={() => {
+              setDashboardLoading(true);
+              setDashboardError("");
+              setDashboardReloadKey((key) => key + 1);
+            }}>
+              <RefreshCw size={15} /> Try again
+            </button>
+          </section>
+        ) : (
+          <>
         {profileOpen && (
           <div className="scholar-profile-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProfileOpen(false); }}>
             <section className="scholar-profile-dialog applicant-profile-dialog" role="dialog" aria-modal="true" aria-labelledby="applicant-profile-title">
@@ -395,56 +450,25 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
           </article>
         </section>
 
-        <div className="applicant-content-grid">
-          <section className="applicant-panel applicant-continue-panel">
+        <div className={`applicant-content-grid${application ? " application-submitted" : ""}`}>
+          {!application && (
+          <section className="applicant-panel applicant-continue-panel applicant-empty-application">
             <div className="applicant-panel-heading">
               <div>
                 <p className="applicant-eyebrow">YOUR APPLICATION</p>
-                <h2>Continue your application</h2>
+                <h2>Start your application</h2>
               </div>
-              <span className="applicant-progress-badge">40% complete</span>
+              <span className="applicant-progress-badge">Not submitted</span>
             </div>
             <p className="applicant-panel-copy">
-              You’ve completed your personal information. Continue with your
-              academic and family details to submit your application.
+              We could not find a submitted application for this account. Open the
+              application form to complete your scholarship information.
             </p>
-            <div className="applicant-progress-track">
-              <span />
-            </div>
-            <div className="applicant-step-list">
-              <div className="applicant-step done">
-                <span>✓</span>
-                <div>
-                  <strong>Personal information</strong>
-                  <small>Completed</small>
-                </div>
-              </div>
-              <div className="applicant-step active">
-                <span>2</span>
-                <div>
-                  <strong>Academic information</strong>
-                  <small>Next step</small>
-                </div>
-              </div>
-              <div className="applicant-step">
-                <span>3</span>
-                <div>
-                  <strong>Family and financial information</strong>
-                  <small>Not started</small>
-                </div>
-              </div>
-              <div className="applicant-step">
-                <span>4</span>
-                <div>
-                  <strong>Review and submit</strong>
-                  <small>Not started</small>
-                </div>
-              </div>
-            </div>
-            <button type="button" className="applicant-primary-button">
-              Continue application <ChevronRight size={17} />
-            </button>
+            <a href="/application" className="applicant-primary-button">
+              Open application form <ChevronRight size={17} />
+            </a>
           </section>
+          )}
           <section className="applicant-panel applicant-info-panel">
             <div className="applicant-panel-heading">
               <div>
@@ -459,7 +483,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
             </div>
             <div className="applicant-detail">
               <span>Email address</span>
-              <strong>{user?.email || "applicant@example.com"}</strong>
+              <strong>{profile?.email || user?.email || "Not provided"}</strong>
             </div>
             <div className="applicant-detail">
               <span>Account status</span>
@@ -489,16 +513,32 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
                 : "After submitting your application, the admin will review your information and notify you about the qualifying examination schedule."}
             </p>
             {!examCompleted && examActivated && examMode === 'face-to-face' && examDetails && (
-              <div className="applicant-exam-details">
-                <div><span>Schedule</span><strong>{formatApplicantExamRange(examDetails.date, examDetails.endDate)}</strong></div>
-                <div><span>Venue</span><strong>{examDetails.venue}</strong></div>
+              <div className="applicant-guidance-schedule">
+                <div className="applicant-guidance-schedule-main">
+                  <span className="applicant-guidance-schedule-icon"><CalendarDays size={18} /></span>
+                  <div>
+                    <span>Qualifying examination</span>
+                    <strong>{formatApplicantExamRange(examDetails.date, examDetails.endDate)}</strong>
+                  </div>
+                  <span className="applicant-guidance-mode">Face-to-face</span>
+                </div>
+                <div className="applicant-guidance-location">
+                  <MapPin size={16} />
+                  <div>
+                    <span>Venue</span>
+                    <strong>{examDetails.venue}</strong>
+                    {examDetails.municipality && <small>{examDetails.municipality}</small>}
+                  </div>
+                </div>
               </div>
             )}
             {waitingForResults
               ? <span className="applicant-exam-pending waiting">Examination completed · Waiting for results</span>
               : examActivated && examMode === 'online'
                 ? <a className="applicant-primary-button" href="/examination">Take examination <ChevronRight size={15} /></a>
-                : <span className="applicant-exam-pending">{examActivated ? 'Face-to-face examination' : 'Waiting for examination schedule'}</span>}
+                : examActivated && examMode === 'face-to-face' && examDetails
+                  ? null
+                  : <span className="applicant-exam-pending">Waiting for examination schedule</span>}
           </article>
           <article className="applicant-panel applicant-notice-panel">
             <div className="applicant-panel-heading">
@@ -551,6 +591,8 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
           <CalendarDays size={14} /> Need help? Contact the Community Affairs
           Office for assistance.
         </footer>
+          </>
+        )}
       </main>
     </div>
   );
