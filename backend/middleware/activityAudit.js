@@ -21,7 +21,9 @@ const ACTIONS = {
   'PUT /results/:applicantId/re-evaluate': ['EXAMINATION_RESULT_REEVALUATED', 'results', 'Re-evaluated an examination result.'],
   'POST /announcements': ['ANNOUNCEMENT_CREATED', 'announcements', 'Created an announcement.'],
   'PUT /announcements/:id': ['ANNOUNCEMENT_UPDATED', 'announcements', 'Updated an announcement.'],
-  'PUT /users/:id/role': ['USER_ROLE_UPDATED', 'admins', 'Updated a staff role.'],
+  'POST /staff': ['STAFF_ACCOUNT_CREATED', 'admins', 'Created a staff account.'],
+  'PUT /staff/:id': ['STAFF_ACCOUNT_UPDATED', 'admins', 'Updated a staff account.'],
+  'PUT /staff/:id/password': ['STAFF_PASSWORD_CHANGED', 'admins', 'Changed a staff account password.'],
 };
 
 const resolveTargetId = (req) => {
@@ -42,7 +44,7 @@ const createActivityAudit = ({ client = prisma, recorder = recordActivitySafely 
       action,
       description,
       targetTable,
-      targetId: resolveTargetId(req),
+      targetId: res.locals?.auditTargetId || resolveTargetId(req),
       ipAddress: req.ip,
     });
   });

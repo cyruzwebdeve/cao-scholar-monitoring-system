@@ -4,6 +4,12 @@ const { auditSuccessfulMutation } = require('../middleware/activityAudit');
 const { checkRole } = require('../middleware/rbac');
 const { getActivityLogs } = require('../controllers/activityController');
 const {
+  changeStaffPassword,
+  createStaffAccount,
+  getStaffManagement,
+  updateStaffAccount,
+} = require('../controllers/staffController');
+const {
   getActiveAcademicPeriod,
   getAcademicPeriods,
   createAcademicPeriod,
@@ -29,7 +35,6 @@ const {
   getAnnouncementManagement,
   getLatestPublishedAnnouncement,
   updateAnnouncement,
-  updateUserRole,
   getDashboardSummary,
   updateSchoolClassification,
   getApplicantManagement,
@@ -44,12 +49,15 @@ const {
   validateRequirements,
   validatePayrollBatch,
   validateAnnouncement,
-  validateRoleUpdate,
+  validateStaffCreate,
+  validateStaffPassword,
+  validateStaffUpdate,
 } = require('../middleware/validators');
 const {
   announcementWriteRateLimiter,
   applicationSubmissionRateLimiter,
   documentUploadRateLimiter,
+  staffWriteRateLimiter,
 } = require('../middleware/rateLimits');
 
 const router = express.Router();
@@ -63,6 +71,10 @@ router.put('/academic-periods/:id/activate', authenticate, checkRole(['SuperAdmi
 
 router.get('/dashboard/summary', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getDashboardSummary);
 router.get('/activity-logs', authenticate, checkRole(['SuperAdmin']), getActivityLogs);
+router.get('/staff/management', authenticate, checkRole(['SuperAdmin']), getStaffManagement);
+router.post('/staff', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin']), validateStaffCreate, createStaffAccount);
+router.put('/staff/:id', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin']), validateStaffUpdate, updateStaffAccount);
+router.put('/staff/:id/password', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin']), validateStaffPassword, changeStaffPassword);
 router.put('/schools/classification', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), updateSchoolClassification);
 router.get('/applicants/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getApplicantManagement);
 router.get('/examinations/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getExaminationManagement);
@@ -113,8 +125,5 @@ router.get('/announcements/latest', authenticate, checkRole(['Applicant', 'Schol
 router.get('/announcements/management', authenticate, checkRole(['Moderator', 'SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getAnnouncementManagement);
 router.post('/announcements', authenticate, announcementWriteRateLimiter, checkRole(['Moderator', 'SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), validateAnnouncement, createAnnouncement);
 router.put('/announcements/:id', authenticate, announcementWriteRateLimiter, checkRole(['Moderator', 'SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), validateAnnouncement, updateAnnouncement);
-
-// Super Admin route to update a user's role
-router.put('/users/:id/role', authenticate, checkRole(['SuperAdmin']), validateRoleUpdate, updateUserRole);
 
 module.exports = router;

@@ -48,6 +48,7 @@ import BillingPayrollManagement from './BillingPayrollManagement';
 import AnnouncementsManagement from './AnnouncementsManagement';
 import ReportsManagement from './ReportsManagement';
 import ActivityLogsManagement from './ActivityLogsManagement';
+import StaffManagement from './StaffManagement';
 import SystemHealthPanel from './components/SystemHealthPanel';
 import schoolsListData from '../../schools_list.json';
 import municipalitiesData from '../../municipality.json';
@@ -1283,7 +1284,7 @@ function ExaminationManagement({ token }) {
   );
 }
 
-function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange }) {
+function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange, onLogout }) {
   if (activeSection === 'Dashboard' && ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role)) {
     return <DashboardOverview token={token} user={user} onSectionChange={onSectionChange} />;
   }
@@ -1295,6 +1296,7 @@ function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange }
   if (activeSection === 'Payroll') return <BillingPayrollManagement key="payroll" token={token} mode="payroll" />;
   if (activeSection === 'Announcements') return <AnnouncementsManagement token={token} />;
   if (activeSection === 'Activity Logs' && user?.role === 'SuperAdmin') return <ActivityLogsManagement token={token} />;
+  if (activeSection === 'Staff' && user?.role === 'SuperAdmin') return <StaffManagement token={token} onLogout={onLogout} />;
   if (activeSection === 'Reports') return <ReportsManagement token={token} />;
   if (activeSection === 'Settings') return <SettingsManagement token={token} user={user} />;
 

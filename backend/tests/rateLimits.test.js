@@ -26,6 +26,12 @@ before(async () => {
   }, limiters.documentUploadRateLimiter, (req, res) => {
     res.json({ ok: true });
   });
+  app.put('/staff', (req, res, next) => {
+    req.user = { id: Number(req.headers['x-test-user']), role: 'SuperAdmin' };
+    next();
+  }, limiters.staffWriteRateLimiter, (req, res) => {
+    res.json({ ok: true });
+  });
 
   await new Promise((resolve) => {
     server = app.listen(0, '127.0.0.1', resolve);
@@ -88,4 +94,17 @@ test('document upload limits are isolated per authenticated account', async () =
 
   const otherAccount = await request('/documents', { method: 'PUT', headers: { 'X-Test-User': '202' } });
   assert.equal(otherAccount.status, 200);
+});
+
+test('staff account mutations are limited and isolated per Super Administrator', async () => {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const response = await request('/staff', { method: 'PUT', headers: { 'X-Test-User': '301' } });
+    assert.equal(response.status, 200);
+  }
+  const blocked = await request('/staff', { method: 'PUT', headers: { 'X-Test-User': '301' } });
+  assert.equal(blocked.status, 429);
+  assert.match((await blocked.json()).message, /staff account update limit/i);
+
+  const otherAdministrator = await request('/staff', { method: 'PUT', headers: { 'X-Test-User': '302' } });
+  assert.equal(otherAdministrator.status, 200);
 });

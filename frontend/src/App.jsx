@@ -188,7 +188,7 @@ function App() {
                       onClose={() => setSidebarOpen(false)}
                     />
                     <main className="dashboard-content">
-                      <Dashboard token={authToken} user={user} activeSection={activeSection} onSectionChange={handleSectionChange} />
+                      <Dashboard token={authToken} user={user} activeSection={activeSection} onSectionChange={handleSectionChange} onLogout={handleLogout} />
                     </main>
                   </div>
                 </div>

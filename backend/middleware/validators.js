@@ -325,15 +325,44 @@ const validateAnnouncement = (req, res, next) => {
   next();
 };
 
-const validateRoleUpdate = (req, res, next) => {
-  const { role } = req.body;
-  const allowedRoles = ['Applicant', 'Scholar', 'Moderator', 'BillingPayrollAdmin', 'SuperAdmin'];
+const staffRoles = ['RegularAdmin', 'BillingPayrollAdmin', 'Moderator', 'SuperAdmin'];
 
-  if (!isNonEmptyString(role) || !allowedRoles.includes(role)) {
-    return res.status(400).json({ message: `Role must be one of: ${allowedRoles.join(', ')}.` });
+const validateStaffFields = (req, res, next) => {
+  const { fullName, email, role } = req.body;
+  if (!isNonEmptyString(fullName) || fullName.trim().length < 2 || fullName.trim().length > 150) {
+    return res.status(400).json({ message: 'Full name must contain between 2 and 150 characters.' });
   }
+  if (!validateEmail(email) || email.trim().length > 150) {
+    return res.status(400).json({ message: 'A valid staff email address is required.' });
+  }
+  if (!staffRoles.includes(role)) {
+    return res.status(400).json({ message: `Role must be one of: ${staffRoles.join(', ')}.` });
+  }
+  return next();
+};
 
-  next();
+const validateStaffCreate = (req, res, next) => validateStaffFields(req, res, () => {
+  if (!isStrongPassword(req.body.password)) {
+    return res.status(400).json({ message: 'Password must be 12-128 characters and include uppercase, lowercase, and a number.' });
+  }
+  return next();
+});
+
+const validateStaffUpdate = (req, res, next) => validateStaffFields(req, res, () => {
+  if (typeof req.body.isActive !== 'boolean') {
+    return res.status(400).json({ message: 'Account status must be active or inactive.' });
+  }
+  return next();
+});
+
+const validateStaffPassword = (req, res, next) => {
+  if (!isNonEmptyString(req.body.currentPassword)) {
+    return res.status(400).json({ message: 'Your current administrator password is required.' });
+  }
+  if (!isStrongPassword(req.body.newPassword)) {
+    return res.status(400).json({ message: 'New password must be 12-128 characters and include uppercase, lowercase, and a number.' });
+  }
+  return next();
 };
 
 module.exports = {
@@ -346,5 +375,7 @@ module.exports = {
   validateRequirements,
   validatePayrollBatch,
   validateAnnouncement,
-  validateRoleUpdate,
+  validateStaffCreate,
+  validateStaffPassword,
+  validateStaffUpdate,
 };

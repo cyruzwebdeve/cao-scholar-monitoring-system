@@ -735,27 +735,6 @@ const updateAnnouncement = async (req, res) => {
   }
 };
 
-const updateUserRole = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { role } = req.body;
-
-    if (req.user.id === Number(id)) {
-      return res.status(400).json({ message: 'Super Admin cannot change their own role through this endpoint.' });
-    }
-
-    const updatedUser = await prisma.user.update({
-      where: { id: Number(id) },
-      data: { role },
-    });
-
-    return res.status(200).json({ message: 'User role updated.', user: { id: updatedUser.id, email: updatedUser.email, role: updatedUser.role } });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Server error updating user role.' });
-  }
-};
-
 const getScholarManagement = async (req, res) => {
   try {
     const activePeriod = await getActiveAcademicPeriodRecord();
@@ -1635,7 +1614,6 @@ module.exports = {
   getAnnouncementManagement,
   getLatestPublishedAnnouncement,
   updateAnnouncement,
-  updateUserRole,
   getDashboardSummary,
   updateSchoolClassification,
   getApplicantManagement,
