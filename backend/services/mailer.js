@@ -13,6 +13,38 @@ const escapeHtml = (value) => clean(value)
 
 const normalizeAppUrl = (value) => (clean(value) || DEFAULT_APP_URL).replace(/\/+$/, '');
 
+const sanitizeHeader = (value) => clean(value).replace(/[\r\n]+/g, ' ');
+const encodeHeader = (value) => `=?UTF-8?B?${Buffer.from(sanitizeHeader(value), 'utf8').toString('base64')}?=`;
+const wrapBase64 = (value) => Buffer.from(String(value || ''), 'utf8')
+  .toString('base64')
+  .match(/.{1,76}/g)
+  ?.join('\r\n') || '';
+
+const buildRawMessage = ({ fromName, fromEmail, to, subject, text, html }) => {
+  const boundary = `pgceap_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  const message = [
+    `From: ${encodeHeader(fromName)} <${sanitizeHeader(fromEmail)}>`,
+    `To: ${sanitizeHeader(to)}`,
+    `Subject: ${encodeHeader(subject)}`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    wrapBase64(text),
+    `--${boundary}`,
+    'Content-Type: text/html; charset=UTF-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    wrapBase64(html),
+    `--${boundary}--`,
+    '',
+  ].join('\r\n');
+  return Buffer.from(message, 'utf8').toString('base64url');
+};
+
 const maskEmail = (email) => {
   const [name, domain] = clean(email).split('@');
   if (!domain) return 'invalid-recipient';
@@ -64,13 +96,26 @@ const renderEmail = ({ eyebrow, title, greeting, body, details = [], actionLabel
   </body>
 </html>`;
 
-const createMailer = ({ env = process.env, transportFactory = nodemailer.createTransport } = {}) => {
+const createMailer = ({
+  env = process.env,
+  transportFactory = nodemailer.createTransport,
+  fetchImpl = global.fetch,
+  now = () => Date.now(),
+} = {}) => {
   const gmailUser = clean(env.GMAIL_USER).toLowerCase();
   const gmailAppPassword = clean(env.GMAIL_APP_PASSWORD).replace(/\s/g, '');
+  const gmailClientId = clean(env.GMAIL_CLIENT_ID);
+  const gmailClientSecret = clean(env.GMAIL_CLIENT_SECRET);
+  const gmailRefreshToken = clean(env.GMAIL_REFRESH_TOKEN);
   const fromName = clean(env.MAIL_FROM_NAME) || DEFAULT_FROM_NAME;
   const appUrl = normalizeAppUrl(env.APP_BASE_URL);
-  const configured = Boolean(gmailUser && gmailAppPassword);
+  const apiConfigured = Boolean(gmailUser && gmailClientId && gmailClientSecret && gmailRefreshToken);
+  const smtpConfigured = Boolean(gmailUser && gmailAppPassword);
+  const configured = apiConfigured || smtpConfigured;
+  const provider = apiConfigured ? 'gmail_api' : smtpConfigured ? 'gmail_smtp' : null;
   let transporter = null;
+  let cachedAccessToken = null;
+  let accessTokenExpiresAt = 0;
   let warnedAboutConfiguration = false;
 
   const getTransporter = () => {
@@ -89,10 +134,64 @@ const createMailer = ({ env = process.env, transportFactory = nodemailer.createT
     return transporter;
   };
 
+  const getAccessToken = async () => {
+    if (cachedAccessToken && accessTokenExpiresAt > now() + 60_000) return cachedAccessToken;
+
+    const response = await fetchImpl('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: gmailClientId,
+        client_secret: gmailClientSecret,
+        refresh_token: gmailRefreshToken,
+        grant_type: 'refresh_token',
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.access_token) {
+      const error = new Error('Google OAuth token refresh failed.');
+      error.code = `GOOGLE_OAUTH_${response.status || 'ERROR'}`;
+      error.stage = 'oauth_token';
+      throw error;
+    }
+    cachedAccessToken = data.access_token;
+    accessTokenExpiresAt = now() + (Number(data.expires_in) || 3600) * 1000;
+    return cachedAccessToken;
+  };
+
+  const sendWithGmailApi = async (message) => {
+    const accessToken = await getAccessToken();
+    const response = await fetchImpl('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        raw: buildRawMessage({ fromName, fromEmail: gmailUser, ...message }),
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.id) {
+      const error = new Error('Gmail API delivery failed.');
+      error.code = `GMAIL_API_${response.status || 'ERROR'}`;
+      error.stage = 'gmail_api';
+      throw error;
+    }
+    return { messageId: data.id };
+  };
+
+  const sendWithSmtp = (message) => getTransporter().sendMail({
+    from: `"${fromName.replace(/["<>]/g, '')}" <${gmailUser}>`,
+    ...message,
+  });
+
   const send = async ({ to, subject, text, html, template }) => {
     if (!configured) {
       if (!warnedAboutConfiguration) {
-        console.warn('Email delivery is disabled because GMAIL_USER or GMAIL_APP_PASSWORD is not configured.');
+        console.warn('Email delivery is disabled because Gmail API or SMTP credentials are not configured.');
         warnedAboutConfiguration = true;
       }
       return { sent: false, skipped: true, reason: 'mailer_not_configured' };
@@ -101,18 +200,17 @@ const createMailer = ({ env = process.env, transportFactory = nodemailer.createT
     if (!clean(to)) return { sent: false, skipped: true, reason: 'recipient_missing' };
 
     try {
-      const info = await getTransporter().sendMail({
-        from: `"${fromName.replace(/["<>]/g, '')}" <${gmailUser}>`,
-        to,
-        subject,
-        text,
-        html,
-      });
+      const message = { to, subject, text, html };
+      const info = apiConfigured
+        ? await sendWithGmailApi(message)
+        : await sendWithSmtp(message);
       return { sent: true, skipped: false, messageId: info.messageId };
     } catch (error) {
       console.error('Email delivery failed.', {
         template,
         recipient: maskEmail(to),
+        provider,
+        stage: error.stage || 'delivery',
         code: error.code || 'MAIL_DELIVERY_ERROR',
       });
       return { sent: false, skipped: false, reason: 'delivery_failed' };
@@ -217,8 +315,9 @@ const createMailer = ({ env = process.env, transportFactory = nodemailer.createT
   const verifyConnection = async () => {
     if (!configured) return { verified: false, reason: 'mailer_not_configured' };
     try {
-      await getTransporter().verify();
-      return { verified: true };
+      if (apiConfigured) await getAccessToken();
+      else await getTransporter().verify();
+      return { verified: true, provider };
     } catch (error) {
       return { verified: false, reason: error.code || 'verification_failed' };
     }
@@ -226,6 +325,7 @@ const createMailer = ({ env = process.env, transportFactory = nodemailer.createT
 
   return {
     configured,
+    provider,
     sendApplicantAccountEmail,
     sendExamSubmittedEmail,
     sendScholarApprovedEmail,

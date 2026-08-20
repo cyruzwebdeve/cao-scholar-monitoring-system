@@ -67,7 +67,9 @@ the local database, so the cloud tokens are optional locally.
 | `DOCUMENT_BLOB_READ_WRITE_TOKEN` | Private Blob store token |
 | `ANNOUNCEMENT_BLOB_READ_WRITE_TOKEN` | Public Blob store token |
 | `GMAIL_USER` | Gmail address used to send applicant lifecycle updates |
-| `GMAIL_APP_PASSWORD` | A 16-character Google App Password, not the Gmail account password |
+| `GMAIL_CLIENT_ID` | Google Desktop OAuth client ID |
+| `GMAIL_CLIENT_SECRET` | Google Desktop OAuth client secret |
+| `GMAIL_REFRESH_TOKEN` | Offline token authorized only for `gmail.send` |
 | `MAIL_FROM_NAME` | Display name, normally `PGCEAP Community Affairs Office` |
 | `APP_BASE_URL` | Vercel frontend URL, with no trailing slash |
 | `BOOTSTRAP_ADMIN_EMAIL` | Initial super administrator email |
@@ -98,13 +100,30 @@ applicant becomes a scholar. Email delivery happens after the database change;
 an unavailable mail service does not undo a submitted application or status
 update.
 
-Enable 2-Step Verification on the sender's Google account, create a Google App
-Password, and store that 16-character value in `GMAIL_APP_PASSWORD`. Do not use
-or commit the normal Gmail password. After saving the variables and redeploying,
-verify the credentials locally with `npm --prefix backend run mailer:verify`, or
-submit a test application using an email address you control. If either Gmail
-variable is absent, delivery is safely skipped and the API records a warning in
-its logs.
+Render Free blocks outbound SMTP ports, so production sends through the Gmail
+HTTPS API instead of Gmail SMTP. In Google Cloud, enable the Gmail API, configure
+an External OAuth app, add only the `gmail.send` sensitive scope, add the sender
+account as a test user, and create a Desktop OAuth client. Download its JSON and
+run the following command locally without moving the file into this repository:
+
+~~~powershell
+npm --prefix backend run gmail:authorize -- "C:\path\to\downloaded-client.json"
+~~~
+
+Open the printed Google authorization URL using the sender account. The local
+callback writes `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, and
+`GMAIL_REFRESH_TOKEN` to the git-ignored `backend/.env.gmail.generated` file.
+Copy those values directly into Render without sharing them, close the file,
+and delete it immediately afterward. The helper requests offline access with
+PKCE and only the `https://www.googleapis.com/auth/gmail.send` scope.
+
+An External OAuth app left in Testing issues refresh tokens that expire after
+seven days. Before the final presentation, publish the OAuth app to Production
+or repeat local authorization whenever the testing token expires. After saving
+the Render variables and redeploying, verify them locally with
+`npm --prefix backend run mailer:verify`, or submit a test application using an
+email address you control. If the API credentials are absent, the backend may
+use the App Password SMTP fallback locally or on paid hosts that permit SMTP.
 
 ## 5. Connect Vercel to Render
 

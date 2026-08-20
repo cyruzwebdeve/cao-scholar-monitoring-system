@@ -9,7 +9,7 @@ const run = async () => {
     process.exitCode = 1;
     return;
   }
-  console.log('Gmail connection verified successfully.');
+  console.log(`Gmail connection verified successfully using ${result.provider}.`);
 };
 
 run();

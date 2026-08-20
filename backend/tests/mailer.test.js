@@ -10,6 +10,15 @@ const configuredEnv = {
   APP_BASE_URL: 'https://example.vercel.app/',
 };
 
+const gmailApiEnv = {
+  GMAIL_USER: 'cao@example.com',
+  GMAIL_CLIENT_ID: 'oauth-client-id',
+  GMAIL_CLIENT_SECRET: 'oauth-client-secret',
+  GMAIL_REFRESH_TOKEN: 'oauth-refresh-token',
+  MAIL_FROM_NAME: 'PGCEAP CAO',
+  APP_BASE_URL: 'https://example.vercel.app/',
+};
+
 test('skips delivery when Gmail credentials are not configured', async () => {
   const mailer = createMailer({ env: {}, transportFactory: () => { throw new Error('must not initialize'); } });
   const result = await mailer.sendExamSubmittedEmail({ to: 'applicant@example.com' });
@@ -48,6 +57,47 @@ test('sends an applicant account email with the portal URL and credentials', asy
   assert.match(message.html, /https:\/\/example\.vercel\.app\/login/);
   assert.doesNotMatch(message.html, /<Andrea>/);
   assert.match(message.html, /&lt;Andrea&gt;/);
+});
+
+test('prefers the Gmail HTTPS API and sends a MIME message with a refreshed token', async () => {
+  const calls = [];
+  const mailer = createMailer({
+    env: gmailApiEnv,
+    transportFactory: () => { throw new Error('SMTP must not initialize'); },
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      if (url.includes('oauth2.googleapis.com')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ access_token: 'short-lived-access-token', expires_in: 3600 }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'gmail-api-message-id' }),
+      };
+    },
+  });
+
+  const result = await mailer.sendScholarApprovedEmail({
+    to: 'applicant@example.com',
+    firstName: 'Andrea',
+    scholarId: 'PGCEAP-2026-00001',
+    schoolYear: '2026-2027',
+  });
+
+  assert.equal(mailer.provider, 'gmail_api');
+  assert.equal(result.sent, true);
+  assert.equal(result.messageId, 'gmail-api-message-id');
+  assert.equal(calls.length, 2);
+  assert.match(String(calls[0].options.body), /grant_type=refresh_token/);
+  assert.equal(calls[1].options.headers.Authorization, 'Bearer short-lived-access-token');
+  const raw = JSON.parse(calls[1].options.body).raw;
+  const decodedMessage = Buffer.from(raw, 'base64url').toString('utf8');
+  assert.match(decodedMessage, /To: applicant@example\.com/);
+  assert.match(decodedMessage, /Content-Type: multipart\/alternative/);
 });
 
 test('exam receipt does not expose the examination score', async () => {

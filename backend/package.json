@@ -28,7 +28,8 @@
     "render-build": "npm run prisma:generate && npm run prisma:deploy && npm run seed:production",
     "test": "node --test",
     "test:rate-limits": "node --test tests/rateLimits.test.js",
-    "mailer:verify": "node ./scripts/verify-mailer.js"
+    "mailer:verify": "node ./scripts/verify-mailer.js",
+    "gmail:authorize": "node ./scripts/authorize-gmail.js"
   },
   "keywords": [],
   "author": "",
