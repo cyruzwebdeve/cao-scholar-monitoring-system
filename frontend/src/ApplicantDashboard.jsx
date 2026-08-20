@@ -18,14 +18,39 @@ import './styles/portal-responsive.css';
 
 const formatApplicantExamRange = (startValue, endValue) => {
   if (!startValue) return "Schedule not set";
-  if (!endValue || endValue === startValue) return startValue;
   const start = new Date(startValue);
+  if (Number.isNaN(start.getTime())) return String(startValue);
+
+  const dateOptions = { timeZone: "Asia/Manila" };
+  const formatFullDate = (date) => date.toLocaleDateString("en-US", {
+    ...dateOptions,
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  if (!endValue) return formatFullDate(start);
+
   const end = new Date(endValue);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return `${startValue} – ${endValue}`;
-  if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()) {
-    return `${start.toLocaleDateString("en-US", { month: "long" })} ${start.getDate()}–${end.getDate()}, ${start.getFullYear()}`;
+  if (Number.isNaN(end.getTime())) return formatFullDate(start);
+
+  const startDay = start.toLocaleDateString("en-CA", dateOptions);
+  const endDay = end.toLocaleDateString("en-CA", dateOptions);
+  if (startDay === endDay) return formatFullDate(start);
+
+  const startYear = start.toLocaleDateString("en-US", { ...dateOptions, year: "numeric" });
+  const endYear = end.toLocaleDateString("en-US", { ...dateOptions, year: "numeric" });
+  const startMonth = start.toLocaleDateString("en-US", { ...dateOptions, month: "long" });
+  const endMonth = end.toLocaleDateString("en-US", { ...dateOptions, month: "long" });
+  const startDate = start.toLocaleDateString("en-US", { ...dateOptions, day: "numeric" });
+  const endDate = end.toLocaleDateString("en-US", { ...dateOptions, day: "numeric" });
+
+  if (startYear === endYear && startMonth === endMonth) {
+    return `${startMonth} ${startDate}–${endDate}, ${startYear}`;
   }
-  return `${startValue} – ${endValue}`;
+  if (startYear === endYear) {
+    return `${startMonth} ${startDate} – ${endMonth} ${endDate}, ${startYear}`;
+  }
+  return `${formatFullDate(start)} – ${formatFullDate(end)}`;
 };
 
 const formatApplicantDate = (value) => {

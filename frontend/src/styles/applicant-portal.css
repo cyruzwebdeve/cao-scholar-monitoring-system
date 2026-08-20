@@ -162,10 +162,30 @@
   background: transparent;
 }
 .applicant-guidance-panel .applicant-exam-details > div {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
   padding: 13px 14px;
   border: 1px solid #dce8df;
   border-radius: 10px;
   background: #f8fbf9;
+}
+.applicant-guidance-panel .applicant-exam-details span,
+.applicant-guidance-panel .applicant-exam-details strong {
+  display: block;
+  min-width: 0;
+}
+.applicant-guidance-panel .applicant-exam-details span {
+  color: #7b8d82;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.applicant-guidance-panel .applicant-exam-details strong {
+  overflow-wrap: anywhere;
+  color: #234a31;
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 .applicant-announcement-content {
   margin-top: 18px;
