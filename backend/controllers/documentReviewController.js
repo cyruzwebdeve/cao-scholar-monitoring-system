@@ -3,6 +3,7 @@ const prisma = require('../config/prisma');
 const { parseDataUrl } = require('../services/blobStorage');
 const {
   REQUIREMENT_DEFINITIONS,
+  applyPendingApprovals,
   applyReviewDecision,
   buildReviewRecords,
   getRequirementDocument,
@@ -169,6 +170,48 @@ const reviewDocument = async (req, res) => {
   }
 };
 
+const approvePendingDocuments = async (req, res) => {
+  try {
+    const applicationId = parseApplicationId(req.params.applicationId);
+    if (!applicationId) return res.status(400).json({ message: 'A valid scholar application is required.' });
+
+    const application = await prisma.application_submissions.findUnique({ where: { id: applicationId } });
+    if (!application) return res.status(404).json({ message: 'Scholar application not found.' });
+    const scholar = await prisma.scholar_accounts.findFirst({ where: { applicant_id: application.applicant_id, is_active: true } });
+    if (!scholar) return res.status(403).json({ message: 'Only accepted scholar documents can be reviewed.' });
+
+    const approval = applyPendingApprovals({
+      initialDocs: application.initial_docs || {},
+      reviewerId: req.user.id,
+      notes: 'Approved together from the document review queue.',
+    });
+    if (!approval) return res.status(409).json({ message: 'This scholar has no pending documents to approve.' });
+
+    const activePeriod = await prisma.academic_periods.findFirst({ where: { is_active: true }, orderBy: { updated_at: 'desc' } });
+    const statusUpdates = Object.fromEntries(approval.approvedKeys.map((key) => [REQUIREMENT_DEFINITIONS[key].statusField, 'approved']));
+    const operations = [prisma.application_submissions.update({
+      where: { id: applicationId },
+      data: { initial_docs: approval.updatedDocuments },
+    })];
+    if (activePeriod && Object.keys(statusUpdates).length) {
+      operations.push(prisma.scholar_requirements.updateMany({
+        where: { applicant_id: application.applicant_id, billing_period_id: activePeriod.id },
+        data: { ...statusUpdates, updated_by: req.user.id },
+      }));
+    }
+    await prisma.$transaction(operations);
+    res.locals.auditTargetId = applicationId;
+    return res.json({
+      message: `${approval.approvedKeys.length} pending ${approval.approvedKeys.length === 1 ? 'document was' : 'documents were'} approved successfully.`,
+      approvedCount: approval.approvedKeys.length,
+      approvedKeys: approval.approvedKeys,
+    });
+  } catch (error) {
+    console.error('Error bulk approving scholar documents:', error);
+    return res.status(500).json({ message: 'Server error approving the pending documents.' });
+  }
+};
+
 const streamDocument = async (req, res) => {
   try {
     const applicationId = parseApplicationId(req.params.applicationId);
@@ -206,4 +249,4 @@ const streamDocument = async (req, res) => {
   }
 };
 
-module.exports = { getDocumentReviews, reviewDocument, streamDocument, updatePhysicalFolder };
+module.exports = { approvePendingDocuments, getDocumentReviews, reviewDocument, streamDocument, updatePhysicalFolder };

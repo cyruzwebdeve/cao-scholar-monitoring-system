@@ -25,6 +25,7 @@ const ACTIONS = {
   'PUT /staff/:id': ['STAFF_ACCOUNT_UPDATED', 'admins', 'Updated a staff account.'],
   'PUT /staff/:id/password': ['STAFF_PASSWORD_CHANGED', 'admins', 'Changed a staff account password.'],
   'PUT /document-reviews/:applicationId/:requirementKey': ['SCHOLAR_DOCUMENT_REVIEWED', 'application_submissions', 'Reviewed a scholar requirement document.'],
+  'PUT /document-reviews/:applicationId/approve-pending': ['SCHOLAR_DOCUMENTS_BULK_APPROVED', 'application_submissions', 'Approved all pending requirement documents for a scholar.'],
   'PUT /document-reviews/:applicantId/physical-folder': ['PHYSICAL_FOLDER_RECEIPT_UPDATED', 'scholar_requirements', 'Updated a scholar physical folder receipt.'],
   'PUT /notifications/:id/read': ['SCHOLAR_NOTIFICATION_READ', 'scholar_notifications', 'Read a targeted scholar notification.'],
 };

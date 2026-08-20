@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  applyPendingApprovals,
   applyReviewDecision,
   buildReviewRecords,
   normalizeReviewStatus,
@@ -49,6 +50,38 @@ test('rejection stores the correction reason without deleting the upload', () =>
 test('refuses decisions for missing or unsupported requirement documents', () => {
   assert.equal(applyReviewDecision({ initialDocs: {}, requirementKey: 'valid_id', decision: 'approved', reviewerId: 1 }), null);
   assert.equal(applyReviewDecision({ initialDocs: { requirements: { unknown: { fileName: 'x.pdf' } } }, requirementKey: 'unknown', decision: 'approved', reviewerId: 1 }), null);
+});
+
+test('[SUCCESS] bulk approval updates only pending supported documents', () => {
+  const reviewedAt = new Date('2026-08-20T12:00:00Z');
+  const result = applyPendingApprovals({
+    initialDocs: {
+      requirements: {
+        tax_exemption: { fileName: 'tax.pdf', status: 'Pending' },
+        indigency: { fileName: 'indigency.pdf', status: 'Approved', reviewedBy: 2 },
+        grades: { fileName: 'grades.pdf', status: 'Rejected', reviewNotes: 'Unreadable.' },
+        unsupported: { fileName: 'other.pdf', status: 'Pending' },
+      },
+    },
+    reviewerId: 9,
+    reviewedAt,
+  });
+
+  assert.deepEqual(result.approvedKeys, ['tax_exemption']);
+  assert.equal(result.updatedDocuments.requirements.tax_exemption.status, 'Approved');
+  assert.equal(result.updatedDocuments.requirements.tax_exemption.reviewedBy, 9);
+  assert.equal(result.updatedDocuments.requirements.tax_exemption.reviewedAt, reviewedAt.toISOString());
+  assert.equal(result.updatedDocuments.requirements.indigency.reviewedBy, 2);
+  assert.equal(result.updatedDocuments.requirements.grades.status, 'Rejected');
+  assert.equal(result.updatedDocuments.requirements.unsupported.status, 'Pending');
+});
+
+test('[FAILED] bulk approval refuses a scholar with no pending supported documents', () => {
+  const result = applyPendingApprovals({
+    initialDocs: { requirements: { valid_id: { fileName: 'id.pdf', status: 'Approved' } } },
+    reviewerId: 9,
+  });
+  assert.equal(result, null);
 });
 
 test('builds a review queue without exposing private URLs or encoded file data', () => {

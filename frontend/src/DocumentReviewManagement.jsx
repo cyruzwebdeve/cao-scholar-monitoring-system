@@ -98,6 +98,20 @@ function DecisionModal({ review, decision, saving, error, onClose, onConfirm }) 
   );
 }
 
+function BulkApprovalModal({ group, saving, error, onClose, onConfirm }) {
+  return (
+    <div className="review-decision-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !saving && onClose()}>
+      <section className="review-decision bulk-approval-dialog" role="dialog" aria-modal="true" aria-label="Approve all pending documents">
+        <header><i className="approved"><CheckCircle2 size={22} /></i><div><span>BULK DOCUMENT REVIEW</span><h3>Approve all pending files?</h3></div></header>
+        <p>This will approve <strong>{group.pendingTotal}</strong> pending {group.pendingTotal === 1 ? 'requirement' : 'requirements'} uploaded by <strong>{group.scholarName}</strong>. Rejected files will remain unchanged.</p>
+        <div className="bulk-approval-summary"><ShieldCheck size={18} /><span><strong>One recorded decision</strong><small>The complete batch will be saved together and added to Activity Logs.</small></span></div>
+        {error && <div className="review-decision-error"><TriangleAlert size={16} />{error}</div>}
+        <footer><button type="button" onClick={onClose} disabled={saving}>Cancel</button><button type="button" className="success" onClick={onConfirm} disabled={saving}>{saving ? 'Approving…' : `Approve ${group.pendingTotal} pending`}</button></footer>
+      </section>
+    </div>
+  );
+}
+
 function DocumentReviewManagement({ token }) {
   const [data, setData] = useState(emptyData);
   const [loading, setLoading] = useState(true);
@@ -113,6 +127,8 @@ function DocumentReviewManagement({ token }) {
   const [previewError, setPreviewError] = useState('');
   const [decision, setDecision] = useState('');
   const [decisionError, setDecisionError] = useState('');
+  const [bulkGroup, setBulkGroup] = useState(null);
+  const [bulkError, setBulkError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const fetchReviews = useCallback(async () => {
@@ -155,6 +171,12 @@ function DocumentReviewManagement({ token }) {
         .some((value) => String(value || '').toLowerCase().includes(query))));
   }, [data.reviews, requirement, search, status]);
   const groupedReviews = useMemo(() => {
+    const pendingByGroup = new Map();
+    data.reviews.forEach((item) => {
+      if (item.status !== 'pending') return;
+      const key = String(item.applicationId || item.applicantId || `${item.controlNumber}-${item.email}`);
+      pendingByGroup.set(key, (pendingByGroup.get(key) || 0) + 1);
+    });
     const groups = new Map();
     visibleReviews.forEach((item) => {
       const key = String(item.applicationId || item.applicantId || `${item.controlNumber}-${item.email}`);
@@ -171,12 +193,13 @@ function DocumentReviewManagement({ token }) {
     });
     return [...groups.values()].map((group) => ({
       ...group,
+      pendingTotal: pendingByGroup.get(group.key) || 0,
       counts: group.items.reduce((totals, item) => ({
         ...totals,
         [item.status]: (totals[item.status] || 0) + 1,
       }), { pending: 0, approved: 0, rejected: 0 }),
     }));
-  }, [visibleReviews]);
+  }, [data.reviews, visibleReviews]);
 
   const closeReview = useCallback(() => {
     if (preview) URL.revokeObjectURL(preview);
@@ -246,6 +269,27 @@ function DocumentReviewManagement({ token }) {
     }
   };
 
+  const approvePendingForScholar = async () => {
+    if (!bulkGroup) return;
+    setSaving(true);
+    setBulkError('');
+    try {
+      const response = await fetch(`${API_BASE}/document-reviews/${bulkGroup.key}/approve-pending`, {
+        method: 'PUT',
+        headers: authHeaders(token),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message || 'Unable to approve the pending documents.');
+      setNotice({ tone: 'success', message: payload.message });
+      setBulkGroup(null);
+      await loadReviews();
+    } catch (approvalError) {
+      setBulkError(approvalError.message || 'Unable to approve the pending documents.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const metrics = [
     ['Pending review', data.stats.pending, Clock3, 'amber', 'Files waiting for a decision'],
     ['Approved', data.stats.approved, FileCheck2, 'green', 'Accepted scholar documents'],
@@ -283,6 +327,7 @@ function DocumentReviewManagement({ token }) {
                 </button>
                 {expanded && (
                   <div className="document-review-requirements" id={panelId}>
+                    {group.pendingTotal > 0 && <div className="document-review-bulk-bar"><span><strong>{group.pendingTotal} pending {group.pendingTotal === 1 ? 'file' : 'files'}</strong><small>Approve this scholar's pending uploads together.</small></span><button type="button" onClick={() => { setBulkError(''); setBulkGroup(group); }}><CheckCircle2 size={15} />Approve all pending</button></div>}
                     <div className="document-review-requirement-head"><span>Requirement</span><span>Uploaded</span><span>Status</span><span>Reviewed by</span><span>Action</span></div>
                     {group.items.map((item) => (
                       <div className="document-review-requirement" key={item.id}>
@@ -309,6 +354,7 @@ function DocumentReviewManagement({ token }) {
       </section>
       {selected && <ReviewModal review={selected} preview={preview} previewLoading={previewLoading} previewError={previewError} onClose={closeReview} onDecision={(value) => { setDecisionError(''); setDecision(value); }} />}
       {decision && selected && <DecisionModal review={selected} decision={decision} saving={saving} error={decisionError} onClose={() => !saving && setDecision('')} onConfirm={saveDecision} />}
+      {bulkGroup && <BulkApprovalModal group={bulkGroup} saving={saving} error={bulkError} onClose={() => !saving && setBulkGroup(null)} onConfirm={approvePendingForScholar} />}
     </div>
   );
 }

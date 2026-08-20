@@ -76,8 +76,31 @@ const applyReviewDecision = ({ initialDocs, requirementKey, decision, reviewerId
   };
 };
 
+const applyPendingApprovals = ({ initialDocs, reviewerId, notes = '', reviewedAt = new Date() }) => {
+  const pendingKeys = Object.keys(initialDocs?.requirements || {}).filter((requirementKey) => {
+    const document = getRequirementDocument({ initial_docs: initialDocs }, requirementKey);
+    return REQUIREMENT_DEFINITIONS[requirementKey]
+      && document?.fileName
+      && normalizeReviewStatus(document.status) === 'pending';
+  });
+  if (!pendingKeys.length) return null;
+
+  const timestamp = reviewedAt instanceof Date ? reviewedAt : new Date(reviewedAt);
+  const updatedDocuments = pendingKeys.reduce((documents, requirementKey) => applyReviewDecision({
+    initialDocs: documents,
+    requirementKey,
+    decision: 'approved',
+    reviewerId,
+    notes,
+    reviewedAt: timestamp,
+  }), initialDocs);
+
+  return { updatedDocuments, approvedKeys: pendingKeys };
+};
+
 module.exports = {
   REQUIREMENT_DEFINITIONS,
+  applyPendingApprovals,
   applyReviewDecision,
   buildReviewRecords,
   getRequirementDocument,

@@ -5,7 +5,7 @@ const { checkRole } = require('../middleware/rbac');
 const { getActivityLogs } = require('../controllers/activityController');
 const { getLifecycleReport } = require('../controllers/lifecycleReportController');
 const { getMyNotifications, markMyNotificationRead } = require('../controllers/notificationController');
-const { getDocumentReviews, reviewDocument, streamDocument, updatePhysicalFolder } = require('../controllers/documentReviewController');
+const { approvePendingDocuments, getDocumentReviews, reviewDocument, streamDocument, updatePhysicalFolder } = require('../controllers/documentReviewController');
 const {
   changeStaffPassword,
   createStaffAccount,
@@ -86,6 +86,7 @@ router.put('/staff/:id/password', authenticate, staffWriteRateLimiter, checkRole
 router.get('/document-reviews', authenticate, checkRole(['Moderator', 'SuperAdmin']), getDocumentReviews);
 router.get('/document-reviews/:applicationId/:requirementKey/file', authenticate, checkRole(['Moderator', 'SuperAdmin']), streamDocument);
 router.put('/document-reviews/:applicantId/physical-folder', authenticate, documentReviewRateLimiter, checkRole(['Moderator', 'SuperAdmin']), updatePhysicalFolder);
+router.put('/document-reviews/:applicationId/approve-pending', authenticate, documentReviewRateLimiter, checkRole(['Moderator', 'SuperAdmin']), approvePendingDocuments);
 router.put('/document-reviews/:applicationId/:requirementKey', authenticate, documentReviewRateLimiter, checkRole(['Moderator', 'SuperAdmin']), validateDocumentReview, reviewDocument);
 router.put('/schools/classification', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), updateSchoolClassification);
 router.get('/applicants/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getApplicantManagement);
