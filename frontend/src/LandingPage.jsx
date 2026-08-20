@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  ArrowUp,
   BellRing,
   Check,
   ChevronRight,
@@ -10,6 +11,7 @@ import {
   MapPin,
   ShieldCheck,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import caologo from './assets/caologo-96.webp';
 import caologoLarge from './assets/caologo-400.webp';
@@ -66,6 +68,19 @@ const guidance = [
 
 function LandingPage({ portalPath = '/login', isAuthenticated = false }) {
   const portalLabel = isAuthenticated ? 'Open your portal' : 'Sign in';
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  useEffect(() => {
+    const updateVisibility = () => setShowBackToTop(window.scrollY > 520);
+    updateVisibility();
+    window.addEventListener('scroll', updateVisibility, { passive: true });
+    return () => window.removeEventListener('scroll', updateVisibility);
+  }, []);
+
+  const scrollToTop = () => {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+  };
 
   return (
     <div className="landing-page">
@@ -302,6 +317,17 @@ function LandingPage({ portalPath = '/login', isAuthenticated = false }) {
           </div>
         </div>
       </footer>
+
+      <button
+        type="button"
+        className={`landing-back-to-top ${showBackToTop ? 'is-visible' : ''}`}
+        onClick={scrollToTop}
+        aria-label="Back to top"
+        title="Back to top"
+        tabIndex={showBackToTop ? 0 : -1}
+      >
+        <ArrowUp size={20} strokeWidth={2.4} />
+      </button>
     </div>
   );
 }
