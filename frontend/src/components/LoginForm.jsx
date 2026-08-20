@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { API_BASE } from '../services/api';
 
 function LoginForm({ onLogin }) {
@@ -53,7 +54,7 @@ function LoginForm({ onLogin }) {
         </div>
       </div>
       <div className="login-links">
-        <button type="button" className="login-forgot" onClick={() => setError('Forgot password support is not yet available.')}>Forgot Password?</button>
+        <Link className="login-forgot" to="/forgot-password">Forgot Password?</Link>
       </div>
       <button type="submit" className="login-submit" disabled={loading}>
         {loading ? 'Signing in...' : `Continue as ${email && isAdminFormat ? 'Admin' : 'Applicant / Scholar'}`} <ArrowRight size={18} />

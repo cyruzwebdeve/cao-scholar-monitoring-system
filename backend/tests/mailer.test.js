@@ -126,6 +126,32 @@ test('exam receipt does not expose the examination score', async () => {
   assert.doesNotMatch(message.html, />20</);
 });
 
+test('sends a single-use password reset link without exposing the token outside the link', async () => {
+  let message;
+  const mailer = createMailer({
+    env: configuredEnv,
+    transportFactory: () => ({
+      sendMail: async (payload) => {
+        message = payload;
+        return { messageId: 'password-reset-message-id' };
+      },
+    }),
+  });
+
+  const result = await mailer.sendPasswordResetEmail({
+    to: 'applicant@example.com',
+    firstName: 'Andrea',
+    resetToken: 'secure_reset_token',
+    expiresInMinutes: 30,
+  });
+
+  assert.equal(result.sent, true);
+  assert.match(message.subject, /reset your pgceap portal password/i);
+  assert.match(message.text, /reset-password\?token=secure_reset_token/);
+  assert.match(message.html, /single use only/i);
+  assert.match(message.html, /30 minutes/i);
+});
+
 test('converts transport failures into a safe delivery result', async () => {
   const originalError = console.error;
   console.error = () => {};

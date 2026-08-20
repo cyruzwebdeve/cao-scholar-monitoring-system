@@ -312,6 +312,35 @@ const createMailer = ({
     });
   };
 
+  const sendPasswordResetEmail = ({ to, firstName, resetToken, expiresInMinutes = 30 }) => {
+    const resetUrl = `${appUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
+    return send({
+      to,
+      template: 'password_reset',
+      subject: 'Reset your PGCEAP portal password',
+      text: [
+        `Hello ${clean(firstName) || 'PGCEAP user'},`,
+        'We received a request to reset the password for your PGCEAP portal account.',
+        `Reset your password: ${resetUrl}`,
+        `This link expires in ${expiresInMinutes} minutes and can only be used once.`,
+        'If you did not request this change, you can safely ignore this email. Your current password will remain unchanged.',
+      ].join('\n\n'),
+      html: renderEmail({
+        eyebrow: 'Account security',
+        title: 'Reset your portal password',
+        greeting: `Hello ${clean(firstName) || 'PGCEAP user'},`,
+        body: 'We received a request to reset the password for your PGCEAP portal account. Use the secure link below to choose a new password.',
+        details: [
+          { label: 'Link validity', value: `${expiresInMinutes} minutes` },
+          { label: 'Usage', value: 'Single use only' },
+        ],
+        notice: 'If you did not request this change, ignore this email. Your current password will remain unchanged.',
+        actionLabel: 'Reset password',
+        actionUrl: resetUrl,
+      }),
+    });
+  };
+
   const verifyConnection = async () => {
     if (!configured) return { verified: false, reason: 'mailer_not_configured' };
     try {
@@ -328,6 +357,7 @@ const createMailer = ({
     provider,
     sendApplicantAccountEmail,
     sendExamSubmittedEmail,
+    sendPasswordResetEmail,
     sendScholarApprovedEmail,
     verifyConnection,
   };

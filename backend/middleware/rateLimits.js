@@ -29,6 +29,18 @@ const createRateLimiters = ({ isProduction = process.env.NODE_ENV === 'productio
     limit: isProduction ? 5 : 100,
     message: rateLimitMessage('Too many account registrations from this connection. Please try again later.'),
   }),
+  passwordResetRequestRateLimiter: rateLimit({
+    ...commonOptions,
+    windowMs: HOUR,
+    limit: isProduction ? 5 : 100,
+    message: rateLimitMessage('Too many password reset requests. Please wait before trying again.'),
+  }),
+  passwordResetAttemptRateLimiter: rateLimit({
+    ...commonOptions,
+    windowMs: 15 * MINUTE,
+    limit: isProduction ? 10 : 200,
+    message: rateLimitMessage('Too many password reset attempts. Please wait 15 minutes and try again.'),
+  }),
   applicationSubmissionRateLimiter: rateLimit({
     ...commonOptions,
     windowMs: HOUR,

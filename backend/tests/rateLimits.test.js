@@ -17,6 +17,9 @@ before(async () => {
   app.post('/applications', limiters.applicationSubmissionRateLimiter, (req, res) => {
     res.status(201).json({ ok: true });
   });
+  app.post('/forgot-password', limiters.passwordResetRequestRateLimiter, (req, res) => {
+    res.status(200).json({ ok: true });
+  });
   app.put('/documents', (req, res, next) => {
     req.user = { id: Number(req.headers['x-test-user']), role: 'Scholar' };
     next();
@@ -63,6 +66,16 @@ test('application submissions are limited to ten per connection each hour', asyn
   }
   const blocked = await request('/applications', { method: 'POST' });
   assert.equal(blocked.status, 429);
+});
+
+test('password reset emails are limited to five requests per connection each hour', async () => {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const response = await request('/forgot-password', { method: 'POST' });
+    assert.equal(response.status, 200);
+  }
+  const blocked = await request('/forgot-password', { method: 'POST' });
+  assert.equal(blocked.status, 429);
+  assert.match((await blocked.json()).message, /password reset requests/i);
 });
 
 test('document upload limits are isolated per authenticated account', async () => {

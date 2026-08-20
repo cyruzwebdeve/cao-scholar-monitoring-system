@@ -95,10 +95,12 @@ is idempotent and never replaces an existing administrator password or role.
 ### Gmail lifecycle mailer
 
 The API sends an account-creation email after a new application, an examination
-receipt after the applicant submits an exam, and an approval email when the
-applicant becomes a scholar. Email delivery happens after the database change;
-an unavailable mail service does not undo a submitted application or status
-update.
+receipt after the applicant submits an exam, an approval email when the
+applicant becomes a scholar, and secure password-reset links when a portal user
+requests account recovery. Reset links expire after 30 minutes, can be used only
+once, and invalidate existing signed-in sessions after the password changes.
+Lifecycle email delivery happens after the database change; an unavailable mail
+service does not undo a submitted application or status update.
 
 Render Free blocks outbound SMTP ports, so production sends through the Gmail
 HTTPS API instead of Gmail SMTP. In Google Cloud, enable the Gmail API, configure
@@ -143,6 +145,8 @@ use the App Password SMTP fallback locally or on paid hosts that permit SMTP.
    `healthy` and `database: connected`.
 2. Sign in with the bootstrap administrator account.
 3. Submit a test application and confirm its applicant-account email arrives.
+4. Use **Forgot Password?** with that account, confirm the reset email arrives,
+   set a new password, and verify that the same reset link cannot be used again.
 4. Create and expire a test announcement.
 5. Upload a small test scholar requirement and verify the record remains after
    a Render restart.

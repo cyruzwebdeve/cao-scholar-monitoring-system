@@ -5,12 +5,14 @@ const resolveUser = async (payload) => {
   if (payload.accountType === 'admin') {
     const admin = await prisma.admins.findUnique({ where: { id: payload.userId } });
     if (!admin || !admin.is_active) return null;
+    if ((payload.authVersion ?? 0) !== admin.auth_version) return null;
     return { id: admin.id, email: admin.email, role: admin.is_super_admin ? 'SuperAdmin' : admin.role === 'moderator' ? 'Moderator' : admin.role === 'admin' ? 'RegularAdmin' : 'BillingPayrollAdmin' };
   }
 
   const account = await prisma.control_accounts.findFirst({ where: { applicant_id: payload.userId } });
   const applicant = await prisma.applicants.findUnique({ where: { id: payload.userId } });
   if (!account || !applicant || !account.is_active) return null;
+  if ((payload.authVersion ?? 0) !== account.auth_version) return null;
   const scholar = await prisma.scholar_accounts.findFirst({ where: { applicant_id: applicant.id, is_active: true } });
   return { id: applicant.id, email: applicant.email, firstName: applicant.first_name, middleName: applicant.middle_name, lastName: applicant.last_name, role: scholar ? 'Scholar' : 'Applicant', controlNumber: account.control_number };
 };

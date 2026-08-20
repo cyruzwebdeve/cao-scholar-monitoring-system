@@ -337,6 +337,11 @@
 .login-forgot {
   color: #25834a;
   font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.login-forgot:hover {
+  text-decoration: underline;
 }
 .login-submit {
   display: flex;
@@ -351,6 +356,11 @@
 .login-submit:hover:not(:disabled) {
   filter: brightness(1.06);
   transform: translateY(-1px);
+}
+.login-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  box-shadow: none;
 }
 .login-apply-link {
   justify-self: center;
@@ -380,6 +390,90 @@
 }
 .login-security-note svg {
   color: #4aa66b;
+}
+
+.recovery-card-header {
+  position: relative;
+  padding-right: 54px;
+}
+.recovery-heading-icon {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: #e7f5eb;
+  color: #24864a;
+}
+.recovery-form {
+  gap: 15px;
+}
+.recovery-password-hint,
+.recovery-privacy-note {
+  margin: -2px 0 1px;
+  color: #7a897f;
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+.recovery-back-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  justify-self: center;
+  color: #34734a;
+  font-size: 0.77rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+.recovery-back-link:hover {
+  text-decoration: underline;
+}
+.recovery-success {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 13px;
+  margin-top: 25px;
+  padding: 18px;
+  border: 1px solid #cce5d2;
+  border-radius: 14px;
+  background: #f1faf3;
+}
+.recovery-success > span {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #dff2e5;
+  color: #278c4d;
+}
+.recovery-success strong {
+  color: #234a31;
+  font-size: 0.9rem;
+}
+.recovery-success p {
+  margin: 5px 0 0;
+  color: #65786c;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+.recovery-success > a {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  border-radius: 10px;
+  background: #248747;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 @media (max-width: 900px) {

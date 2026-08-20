@@ -1,6 +1,7 @@
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
 const isNonNegativeNumber = (value) => typeof value === 'number' && value >= 0;
 const isPlainObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
+const { isStrongPassword } = require('../services/passwordReset');
 
 const validateEmail = (email) => {
   return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -91,6 +92,27 @@ const validateLogin = (req, res, next) => {
     return res.status(400).json({ message: 'Control number/email and password are required.' });
   }
 
+  next();
+};
+
+const validatePasswordResetRequest = (req, res, next) => {
+  const { identifier } = req.body;
+  if (!isNonEmptyString(identifier) || identifier.trim().length > 150) {
+    return res.status(400).json({ message: 'Enter a valid email address or control number.' });
+  }
+  next();
+};
+
+const validatePasswordReset = (req, res, next) => {
+  const { token, password } = req.body;
+  if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token)) {
+    return res.status(400).json({ message: 'This password reset link is invalid or has expired.' });
+  }
+  if (!isStrongPassword(password)) {
+    return res.status(400).json({
+      message: 'Use 12–128 characters with at least one uppercase letter, one lowercase letter, and one number.',
+    });
+  }
   next();
 };
 
@@ -317,6 +339,8 @@ const validateRoleUpdate = (req, res, next) => {
 module.exports = {
   validateRegister,
   validateLogin,
+  validatePasswordResetRequest,
+  validatePasswordReset,
   validateCreateApplication,
   validateExamInput,
   validateRequirements,

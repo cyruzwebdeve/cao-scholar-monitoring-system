@@ -9,6 +9,7 @@ const Dashboard = lazy(() => import('./Dashboard'));
 const ExamPage = lazy(() => import('./ExamPage'));
 const LandingPage = lazy(() => import('./LandingPage'));
 const LoginPage = lazy(() => import('./LoginPage'));
+const PasswordRecoveryPage = lazy(() => import('./PasswordRecoveryPage'));
 const ScholarDashboard = lazy(() => import('./ScholarDashboard'));
 const Sidebar = lazy(() => import('./components/Sidebar'));
 
@@ -123,6 +124,8 @@ function App() {
         <Routes>
         <Route path="/examination" element={<ExamPage token={authToken} />} />
         <Route path="/exam" element={<ExamPage token={authToken} />} />
+        <Route path="/forgot-password" element={<PasswordRecoveryPage mode="forgot" />} />
+        <Route path="/reset-password" element={<PasswordRecoveryPage mode="reset" />} />
         <Route
           path="/login"
           element={
