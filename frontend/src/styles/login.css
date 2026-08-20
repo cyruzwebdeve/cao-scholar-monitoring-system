@@ -1,5 +1,6 @@
 /* Unified role login */
 .login-page {
+  --login-background-image: url("../assets/login-background-1920.webp");
   position: relative;
   isolation: isolate;
   min-height: 100vh;
@@ -24,7 +25,7 @@
       rgba(15, 91, 49, 0.72) 48%,
       rgba(28, 112, 57, 0.46) 100%
     ),
-    url("../assets/login_background.png");
+    var(--login-background-image);
   background-position: center;
   background-size: cover;
 }
@@ -383,6 +384,7 @@
 
 @media (max-width: 900px) {
   .login-page {
+    --login-background-image: url("../assets/login-background-768.webp");
     grid-template-columns: 1fr;
     gap: 44px;
     padding: 38px 24px;
@@ -436,9 +438,6 @@
     display: none;
   }
   .login-large-logo {
-    left: -45vw;
-    width: 100vw;
-    height: 100vw;
-    opacity: 0.11;
+    display: none;
   }
 }

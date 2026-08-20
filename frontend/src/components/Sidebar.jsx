@@ -1,5 +1,5 @@
 import './Sidebar.css';
-import caologo from '../assets/caologo.jpg';
+import caologo from '../assets/caologo-96.webp';
 import {
   BadgeCheck,
   Boxes,
@@ -66,6 +66,8 @@ function Sidebar({ onLogout, activeSection, onSectionChange, role, isOpen = fals
         <div className="brand-avatar">
           <img
             src={caologo}
+            width="96"
+            height="96"
             alt="Admin avatar"
             className="brand-avatar-image"
           />

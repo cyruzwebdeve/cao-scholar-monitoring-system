@@ -11,8 +11,10 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import caologo from './assets/caologo.jpg';
-import communityPhoto from './assets/landing-community.jpg';
+import caologo from './assets/caologo-96.webp';
+import caologoLarge from './assets/caologo-400.webp';
+import communityPhoto from './assets/landing-community-720.webp';
+import communityPhotoLarge from './assets/landing-community-1200.webp';
 import './styles/landing.css';
 
 const benefits = [
@@ -70,7 +72,7 @@ function LandingPage({ portalPath = '/login', isAuthenticated = false }) {
       <header className="landing-header">
         <div className="landing-container landing-nav">
           <Link className="landing-brand" to="/" aria-label="PGCEAP home">
-            <img src={caologo} alt="Community Affairs Office seal" />
+            <img src={caologo} width="96" height="96" alt="Community Affairs Office seal" />
             <span>
               <strong>PGCEAP</strong>
               <small>Scholarship Management System</small>
@@ -124,7 +126,15 @@ function LandingPage({ portalPath = '/login', isAuthenticated = false }) {
 
             <div className="landing-hero-visual" aria-label="PGCEAP scholars and Community Affairs Office representatives">
               <div className="landing-photo-frame">
-                <img src={communityPhoto} alt="PGCEAP community members and scholars" />
+                <img
+                  src={communityPhoto}
+                  srcSet={`${communityPhoto} 720w, ${communityPhotoLarge} 1200w`}
+                  sizes="(max-width: 700px) calc(100vw - 32px), (max-width: 1080px) 45vw, 540px"
+                  width="1200"
+                  height="720"
+                  fetchPriority="high"
+                  alt="PGCEAP community members and scholars"
+                />
                 <div className="landing-photo-shade" aria-hidden="true" />
                 <div className="landing-photo-caption">
                   <span>PGCEAP scholar portal</span>
@@ -203,7 +213,7 @@ function LandingPage({ portalPath = '/login', isAuthenticated = false }) {
           <div className="landing-container landing-guidance-grid">
             <div className="landing-guidance-card">
               <div className="landing-guidance-seal" aria-hidden="true">
-                <img src={caologo} alt="" />
+                <img src={caologoLarge} width="400" height="400" loading="lazy" decoding="async" alt="" />
               </div>
               <div className="landing-section-heading">
                 <span>Before you apply</span>
@@ -226,7 +236,7 @@ function LandingPage({ portalPath = '/login', isAuthenticated = false }) {
               <h3>We’re here to help.</h3>
               <p>Contact the Community Affairs Office for questions about your application, examination, or scholar record.</p>
               <div className="landing-help-office">
-                <img src={caologo} alt="" />
+                <img src={caologo} width="96" height="96" loading="lazy" decoding="async" alt="" />
                 <span><strong>Community Affairs Office</strong><small>Province of Camarines Norte</small></span>
               </div>
               <Link className="landing-button landing-button-light landing-button-wide" to="/login">
@@ -281,7 +291,7 @@ function LandingPage({ portalPath = '/login', isAuthenticated = false }) {
       <footer className="landing-footer">
         <div className="landing-container landing-footer-grid">
           <div className="landing-footer-brand">
-            <img src={caologo} alt="Community Affairs Office seal" />
+            <img src={caologo} width="96" height="96" loading="lazy" decoding="async" alt="Community Affairs Office seal" />
             <span><strong>PGCEAP</strong><small>Scholarship Management System</small></span>
           </div>
           <p>Community Affairs Office · Province of Camarines Norte</p>

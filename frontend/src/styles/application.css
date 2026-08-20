@@ -17,7 +17,7 @@
 }
 
 .sidebar-label {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -95,7 +95,7 @@
 }
 
 .step-label {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #94a3b8;
@@ -295,7 +295,7 @@
 }
 
 .sidebar-title {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -387,7 +387,7 @@
 }
 
 .progress-label {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: #4b5f56;
   margin: 0;
@@ -866,7 +866,7 @@ body {
 .application-brand-kicker {
   margin: 0 0 4px;
   color: #5ad08d;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -924,7 +924,7 @@ body {
 .sidebar-title {
   margin: 0 0 12px;
   color: #6d7a73;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -1005,7 +1005,7 @@ body {
 
 .progress-label {
   margin: 0 0 10px;
-  color: #6d7a73;
+  color: #56655d;
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -1072,8 +1072,8 @@ body {
 
 .section-number {
   margin: 0 0 4px;
-  color: #6f7e76;
-  font-size: 0.72rem;
+  color: #596860;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1090,7 +1090,7 @@ body {
 
 .section-title {
   margin: 0;
-  color: #19a85f;
+  color: #087a43;
   font-size: 0.78rem;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -1189,7 +1189,7 @@ body {
 
 .form-group .label {
   color: #5f7269;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1437,7 +1437,7 @@ body {
 
 .submission-account-heading span {
   color: #16834d;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.11em;
   text-transform: uppercase;
@@ -1482,7 +1482,7 @@ body {
 .submitted-card .submission-account-note {
   margin: 2px 0 0;
   color: #6b7d72;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 

@@ -2,7 +2,9 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
 import LoginForm from './components/LoginForm';
-import caologo from './assets/caologo.jpg';
+import caologo from './assets/caologo-96.webp';
+import caologoLarge from './assets/caologo-512.webp';
+import caologoLarge2x from './assets/caologo-1024.webp';
 import './styles/login.css';
 
 function LoginPage({ token, user, onLogin }) {
@@ -17,10 +19,20 @@ function LoginPage({ token, user, onLogin }) {
   return (
     <div className="login-page">
       <div className="login-backdrop-seal" aria-hidden="true" />
-      <img src={caologo} alt="" className="login-large-logo" aria-hidden="true" />
+      <img
+        src={caologoLarge}
+        srcSet={`${caologo} 96w, ${caologoLarge} 512w, ${caologoLarge2x} 1024w`}
+        sizes="(max-width: 500px) 1px, (max-width: 900px) 92vw, 1200px"
+        width="1024"
+        height="1024"
+        fetchPriority="high"
+        alt=""
+        className="login-large-logo"
+        aria-hidden="true"
+      />
       <section className="login-intro">
         <div className="login-intro-topline">
-          <img src={caologo} alt="" className="login-logo" />
+          <img src={caologo} width="96" height="96" alt="" className="login-logo" />
           <div>
             <span className="login-kicker">Province of Camarines Norte</span>
             <strong>Community Affairs Office</strong>
@@ -36,7 +48,7 @@ function LoginPage({ token, user, onLogin }) {
 
       <section className="login-card">
         <div className="login-card-brand">
-          <img src={caologo} alt="Community Affairs Office seal" />
+          <img src={caologo} width="96" height="96" alt="Community Affairs Office seal" />
           <span>PGCEAP PORTAL</span>
         </div>
         <div className="login-card-header">

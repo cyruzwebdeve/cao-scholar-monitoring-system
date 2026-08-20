@@ -4,7 +4,7 @@
   --landing-green-900: #0d4328;
   --landing-green-800: #145c35;
   --landing-green-700: #197342;
-  --landing-green-600: #238c50;
+  --landing-green-600: #176d3e;
   --landing-green-100: #e5f3e8;
   --landing-green-50: #f2f8f3;
   --landing-gold: #d8a62d;
@@ -94,8 +94,8 @@
 .landing-brand small,
 .landing-footer-brand small {
   margin-top: 2px;
-  color: #718177;
-  font-size: 0.68rem;
+  color: #5e6f65;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.015em;
 }
@@ -503,7 +503,7 @@
   display: block;
   margin: 0 0 14px;
   color: var(--landing-green-600);
-  font-size: 0.69rem;
+  font-size: 0.75rem;
   font-weight: 850;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -1049,8 +1049,8 @@
 }
 
 .landing-footer-grid > p {
-  color: #78887d;
-  font-size: 0.7rem;
+  color: #5f7066;
+  font-size: 0.75rem;
   text-align: center;
 }
 
