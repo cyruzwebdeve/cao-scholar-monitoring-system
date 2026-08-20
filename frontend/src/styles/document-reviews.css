@@ -1,4 +1,4 @@
-.document-reviews { padding: 28px 24px 42px; color: #12291d; }
+.document-reviews { width: min(100%, 1220px); margin: 0 auto; padding: 0 0 36px; color: #12291d; }
 .document-review-heading,
 .document-review-heading > button,
 .document-review-toolbar,
@@ -16,7 +16,7 @@
 .document-review-heading > div > span,
 .review-modal > header span,
 .review-decision header span { display: block; margin-bottom: 7px; color: #008b43; font-size: 10px; font-weight: 800; letter-spacing: .13em; }
-.document-review-heading h2 { margin: 0; font-size: 25px; font-weight: 500; line-height: 1.2; }
+.document-review-heading h2 { margin: 0; font-size: 24px; font-weight: 500; line-height: 1.2; }
 .document-review-heading p { margin: 7px 0 0; color: #708077; font-size: 12px; }
 .document-review-heading > button { justify-content: center; gap: 7px; min-height: 40px; padding: 0 14px; border: 1px solid #cbdad1; border-radius: 9px; background: #fff; color: #28523a; cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; }
 .document-review-heading > button:disabled { cursor: not-allowed; opacity: .55; }
@@ -137,7 +137,8 @@
 }
 
 @media (max-width: 760px) {
-  .document-reviews { padding: 22px 18px 36px; }
+  .document-reviews { padding-bottom: 34px; }
+  .document-review-heading h2 { font-size: 21px; }
   .document-review-heading { align-items: flex-start; flex-direction: column; }
   .document-review-heading > button { width: 100%; }
   .document-review-metrics { grid-template-columns: 1fr; }
@@ -164,7 +165,6 @@
 }
 
 @media (max-width: 440px) {
-  .document-reviews { padding-inline: 12px; }
   .review-modal > header { align-items: flex-start; }
   .review-modal > footer { align-items: stretch; flex-direction: column-reverse; }
   .review-modal > footer button { width: 100%; }

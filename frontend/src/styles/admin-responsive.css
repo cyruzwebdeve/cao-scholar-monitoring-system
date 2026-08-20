@@ -116,6 +116,9 @@ body {
   .scholars-management,
   .billing-management,
   .announcement-management,
+  .staff-management,
+  .document-reviews,
+  .school-catalog-page,
   .reports-management,
   .settings-management {
     max-width: 100%;
@@ -279,6 +282,9 @@ body {
   .scholars-management,
   .billing-management,
   .announcement-management,
+  .staff-management,
+  .document-reviews,
+  .school-catalog-page,
   .reports-management,
   .settings-management {
     width: calc(100% - 32px);

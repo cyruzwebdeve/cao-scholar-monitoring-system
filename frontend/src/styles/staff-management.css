@@ -1,5 +1,7 @@
 .staff-management {
-  padding: 28px 24px 40px;
+  width: min(100%, 1220px);
+  margin: 0 auto;
+  padding: 0 0 36px;
   color: #10271c;
 }
 
@@ -29,14 +31,14 @@
   display: block;
   margin-bottom: 7px;
   color: #00883e;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: .13em;
 }
 
 .staff-heading h2 {
   margin: 0;
-  font-size: 25px;
+  font-size: 24px;
   font-weight: 500;
   line-height: 1.2;
 }
@@ -329,7 +331,8 @@
 }
 
 @media (max-width: 720px) {
-  .staff-management { padding: 22px 18px 34px; }
+  .staff-management { padding-bottom: 34px; }
+  .staff-heading h2 { font-size: 21px; }
   .staff-heading { align-items: flex-start; flex-direction: column; }
   .staff-heading-actions { width: 100%; }
   .staff-heading-actions button { flex: 1; }
@@ -356,7 +359,6 @@
 }
 
 @media (max-width: 430px) {
-  .staff-management { padding-inline: 12px; }
   .staff-heading-actions { flex-direction: column-reverse; }
   .staff-heading-actions button { width: 100%; }
   .staff-modal > header,
