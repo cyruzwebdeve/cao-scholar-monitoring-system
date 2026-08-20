@@ -24,10 +24,11 @@ const ACTIONS = {
   'POST /staff': ['STAFF_ACCOUNT_CREATED', 'admins', 'Created a staff account.'],
   'PUT /staff/:id': ['STAFF_ACCOUNT_UPDATED', 'admins', 'Updated a staff account.'],
   'PUT /staff/:id/password': ['STAFF_PASSWORD_CHANGED', 'admins', 'Changed a staff account password.'],
+  'PUT /document-reviews/:applicationId/:requirementKey': ['SCHOLAR_DOCUMENT_REVIEWED', 'application_submissions', 'Reviewed a scholar requirement document.'],
 };
 
 const resolveTargetId = (req) => {
-  const rawId = req.params?.id || req.params?.applicantId;
+  const rawId = req.params?.id || req.params?.applicantId || req.params?.applicationId;
   const targetId = Number(rawId);
   return Number.isInteger(targetId) && targetId > 0 ? targetId : null;
 };

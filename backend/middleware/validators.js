@@ -365,6 +365,20 @@ const validateStaffPassword = (req, res, next) => {
   return next();
 };
 
+const validateDocumentReview = (req, res, next) => {
+  const { decision, notes = '' } = req.body;
+  if (!['approved', 'rejected'].includes(decision)) {
+    return res.status(400).json({ message: 'Review decision must be approved or rejected.' });
+  }
+  if (typeof notes !== 'string' || notes.trim().length > 500) {
+    return res.status(400).json({ message: 'Review notes cannot exceed 500 characters.' });
+  }
+  if (decision === 'rejected' && notes.trim().length < 3) {
+    return res.status(400).json({ message: 'Please explain why the document was rejected.' });
+  }
+  return next();
+};
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -378,4 +392,5 @@ module.exports = {
   validateStaffCreate,
   validateStaffPassword,
   validateStaffUpdate,
+  validateDocumentReview,
 };

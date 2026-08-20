@@ -3,6 +3,7 @@ const { authenticate, authenticateOptional } = require('../middleware/auth');
 const { auditSuccessfulMutation } = require('../middleware/activityAudit');
 const { checkRole } = require('../middleware/rbac');
 const { getActivityLogs } = require('../controllers/activityController');
+const { getDocumentReviews, reviewDocument, streamDocument } = require('../controllers/documentReviewController');
 const {
   changeStaffPassword,
   createStaffAccount,
@@ -52,12 +53,14 @@ const {
   validateStaffCreate,
   validateStaffPassword,
   validateStaffUpdate,
+  validateDocumentReview,
 } = require('../middleware/validators');
 const {
   announcementWriteRateLimiter,
   applicationSubmissionRateLimiter,
   documentUploadRateLimiter,
   staffWriteRateLimiter,
+  documentReviewRateLimiter,
 } = require('../middleware/rateLimits');
 
 const router = express.Router();
@@ -75,6 +78,9 @@ router.get('/staff/management', authenticate, checkRole(['SuperAdmin']), getStaf
 router.post('/staff', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin']), validateStaffCreate, createStaffAccount);
 router.put('/staff/:id', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin']), validateStaffUpdate, updateStaffAccount);
 router.put('/staff/:id/password', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin']), validateStaffPassword, changeStaffPassword);
+router.get('/document-reviews', authenticate, checkRole(['Moderator', 'SuperAdmin']), getDocumentReviews);
+router.get('/document-reviews/:applicationId/:requirementKey/file', authenticate, checkRole(['Moderator', 'SuperAdmin']), streamDocument);
+router.put('/document-reviews/:applicationId/:requirementKey', authenticate, documentReviewRateLimiter, checkRole(['Moderator', 'SuperAdmin']), validateDocumentReview, reviewDocument);
 router.put('/schools/classification', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), updateSchoolClassification);
 router.get('/applicants/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getApplicantManagement);
 router.get('/examinations/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getExaminationManagement);

@@ -32,6 +32,12 @@ before(async () => {
   }, limiters.staffWriteRateLimiter, (req, res) => {
     res.json({ ok: true });
   });
+  app.put('/document-reviews', (req, res, next) => {
+    req.user = { id: Number(req.headers['x-test-user']), role: 'Moderator' };
+    next();
+  }, limiters.documentReviewRateLimiter, (req, res) => {
+    res.json({ ok: true });
+  });
 
   await new Promise((resolve) => {
     server = app.listen(0, '127.0.0.1', resolve);
@@ -107,4 +113,16 @@ test('staff account mutations are limited and isolated per Super Administrator',
 
   const otherAdministrator = await request('/staff', { method: 'PUT', headers: { 'X-Test-User': '302' } });
   assert.equal(otherAdministrator.status, 200);
+});
+
+test('document review decisions are rate limited per moderator account', async () => {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    const response = await request('/document-reviews', { method: 'PUT', headers: { 'X-Test-User': '401' } });
+    assert.equal(response.status, 200);
+  }
+  const blocked = await request('/document-reviews', { method: 'PUT', headers: { 'X-Test-User': '401' } });
+  assert.equal(blocked.status, 429);
+
+  const otherModerator = await request('/document-reviews', { method: 'PUT', headers: { 'X-Test-User': '402' } });
+  assert.equal(otherModerator.status, 200);
 });

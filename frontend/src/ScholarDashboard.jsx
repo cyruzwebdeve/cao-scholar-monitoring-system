@@ -44,6 +44,14 @@ const formatAllowanceStatus = (allowance) => {
   return String(status).replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 };
 
+const getRequirementReviewStatus = (item) => {
+  if (!item?.fileName) return 'missing';
+  const status = String(item.status || '').toLowerCase();
+  if (['approved', 'complete', 'completed'].includes(status)) return 'approved';
+  if (['rejected', 'declined'].includes(status)) return 'rejected';
+  return 'pending';
+};
+
 function ScholarDashboard({ token, user, onLogout }) {
   const [application, setApplication] = useState(null);
   const [portalData, setPortalData] = useState({});
@@ -166,9 +174,13 @@ function ScholarDashboard({ token, user, onLogout }) {
   const submittedCount = uploadableRequirements.filter(
     ({ key }) => uploadedRequirements[key]?.fileName,
   ).length;
-  const pendingCount = uploadableRequirements.length - submittedCount;
+  const approvedCount = uploadableRequirements.filter(({ key }) => getRequirementReviewStatus(uploadedRequirements[key]) === 'approved').length;
+  const pendingReviewCount = uploadableRequirements.filter(({ key }) => getRequirementReviewStatus(uploadedRequirements[key]) === 'pending').length;
+  const rejectedCount = uploadableRequirements.filter(({ key }) => getRequirementReviewStatus(uploadedRequirements[key]) === 'rejected').length;
+  const missingCount = uploadableRequirements.length - submittedCount;
+  const attentionCount = missingCount + rejectedCount;
   const physicalFolderSubmitted = Boolean(portalData.scholarRequirements?.physicalFolderSubmitted);
-  const onlineRequirementsComplete = pendingCount === 0;
+  const onlineRequirementsComplete = approvedCount === uploadableRequirements.length;
   const requirementsComplete = onlineRequirementsComplete && physicalFolderSubmitted;
   const allowance = portalData.allowance;
   const allowanceComplete = Boolean(allowance?.claimedDate) || ['paid', 'claimed', 'released'].includes(String(allowance?.status || allowance?.batchStatus || '').toLowerCase());
@@ -176,7 +188,7 @@ function ScholarDashboard({ token, user, onLogout }) {
     (application ? 1 : 0) +
     (portalData.examination?.completed ? 1 : 0) +
     (portalData.scholar?.isActive ? 1 : 0) +
-    ((submittedCount + (physicalFolderSubmitted ? 1 : 0)) / requirementItems.length) +
+    ((approvedCount + (physicalFolderSubmitted ? 1 : 0)) / requirementItems.length) +
     (allowanceComplete ? 1 : 0);
   const progressPercent = Math.min(100, Math.round((milestoneProgress / 5) * 100));
   const allowanceStatus = formatAllowanceStatus(allowance);
@@ -184,15 +196,19 @@ function ScholarDashboard({ token, user, onLogout }) {
     ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(allowance.amount)
     : 'Not scheduled';
   const notifications = [
-    pendingCount > 0
-      ? `${pendingCount} online requirement${pendingCount === 1 ? '' : 's'} still need to be uploaded.`
-      : 'All online requirements have been uploaded.',
+    rejectedCount > 0
+      ? `${rejectedCount} requirement${rejectedCount === 1 ? ' was' : 's were'} returned for correction.`
+      : attentionCount > 0
+        ? `${attentionCount} online requirement${attentionCount === 1 ? '' : 's'} still need your attention.`
+        : pendingReviewCount > 0
+          ? `${pendingReviewCount} uploaded document${pendingReviewCount === 1 ? ' is' : 's are'} awaiting moderator review.`
+          : 'All online requirements are approved.',
     physicalFolderSubmitted
       ? 'Your physical folder has been received by CAO.'
       : 'Submit your white long folder with fastener directly to CAO.',
     allowance ? `Allowance status: ${allowanceStatus}.` : 'No allowance release has been scheduled yet.',
   ];
-  const hasActionNotifications = pendingCount > 0 || !physicalFolderSubmitted || !allowance;
+  const hasActionNotifications = attentionCount > 0 || pendingReviewCount > 0 || !physicalFolderSubmitted || !allowance;
   const timeline = [
     { label: 'Application submitted', date: formatPortalDate(application?.submitted_at), complete: Boolean(application) },
     { label: 'Qualifying examination', date: formatPortalDate(portalData.examination?.submittedAt), complete: Boolean(portalData.examination?.completed) },
@@ -201,9 +217,9 @@ function ScholarDashboard({ token, user, onLogout }) {
       label: 'Submit current requirements',
       date: requirementsComplete
         ? 'All requirements received'
-        : onlineRequirementsComplete
-          ? 'Online files complete — submit folder to CAO'
-          : `${pendingCount} online file${pendingCount === 1 ? '' : 's'} remaining`,
+        : pendingReviewCount > 0 && attentionCount === 0
+          ? `${pendingReviewCount} file${pendingReviewCount === 1 ? '' : 's'} awaiting review`
+          : `${attentionCount} online file${attentionCount === 1 ? '' : 's'} need attention`,
       complete: requirementsComplete,
       active: !requirementsComplete,
     },
@@ -238,7 +254,7 @@ function ScholarDashboard({ token, user, onLogout }) {
         if (!response.ok) throw new Error(body.message || 'Upload failed.');
         setApplication(body.application);
         setRequirementsError('');
-        setNotice({ tone: 'success', message: `${file.name} was uploaded successfully.` });
+        setNotice({ tone: 'success', message: `${file.name} was submitted for moderator review.` });
       } catch (error) {
         setNotice({ tone: 'error', message: error.message || 'Unable to upload this requirement.' });
       } finally {
@@ -257,7 +273,7 @@ function ScholarDashboard({ token, user, onLogout }) {
       {notice && (
         <div className={`app-toast ${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'} aria-live="polite">
           <span className="app-toast-icon">{notice.tone === 'success' ? <CheckCircle2 size={19} /> : <X size={18} />}</span>
-          <div><strong>{notice.tone === 'success' ? 'Upload complete' : 'Unable to upload'}</strong><p>{notice.message}</p></div>
+          <div><strong>{notice.tone === 'success' ? 'Submitted for review' : 'Unable to upload'}</strong><p>{notice.message}</p></div>
           <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss notification"><X size={15} /></button>
         </div>
       )}
@@ -337,8 +353,8 @@ function ScholarDashboard({ token, user, onLogout }) {
             <div className="scholar-stat-icon blue"><FileCheck2 size={21} /></div>
             <div>
               <span>Requirements</span>
-              <strong>{submittedCount} of {uploadableRequirements.length} files uploaded</strong>
-              <small>{requirementsComplete ? 'Submit the physical folder to CAO' : `${pendingCount} online document${pendingCount === 1 ? '' : 's'} need your attention`}</small>
+              <strong>{approvedCount} of {uploadableRequirements.length} files approved</strong>
+              <small>{requirementsComplete ? 'All requirements cleared' : onlineRequirementsComplete ? 'Submit the physical folder to CAO' : rejectedCount > 0 ? `${rejectedCount} returned for correction` : pendingReviewCount > 0 ? `${pendingReviewCount} awaiting moderator review` : `${missingCount} still need to be uploaded`}</small>
             </div>
           </article>
         </section>
@@ -357,13 +373,14 @@ function ScholarDashboard({ token, user, onLogout }) {
 
           <div className="scholar-portal-column">
             <section className="scholar-panel scholar-action-panel" id="requirements">
-            <div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{requirementsComplete ? 'REQUIREMENTS COMPLETE' : 'ACTION NEEDED'}</p><h2>{requirementsComplete ? 'Requirements received' : 'Complete your requirements'}</h2></div><FileCheck2 size={21} className="scholar-heading-icon" /></div>
-            <p className="scholar-panel-copy">{requirementsComplete ? 'All online files and the physical folder have been recorded.' : 'Upload the required documents to complete your scholar record and remain eligible for allowance processing.'}</p>
+            <div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{requirementsComplete ? 'REQUIREMENTS COMPLETE' : rejectedCount > 0 ? 'CORRECTION REQUIRED' : 'ACTION NEEDED'}</p><h2>{requirementsComplete ? 'Requirements approved' : rejectedCount > 0 ? 'Review returned documents' : 'Complete your requirements'}</h2></div><FileCheck2 size={21} className="scholar-heading-icon" /></div>
+            <p className="scholar-panel-copy">{requirementsComplete ? 'All online files and the physical folder have been approved and recorded.' : 'Uploaded files are checked by a Moderator before they count as completed requirements.'}</p>
             {requirementsError && <div className="scholar-requirements-error"><span>{requirementsError}</span><button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry now</button></div>}
             <div className="scholar-requirements-list" aria-busy={loadingRequirements}>
               {requirementItems.map(({ key, label, note, physical }) => {
                 const item = uploadedRequirements[key];
                 const isUploading = uploadingRequirement === key;
+                const reviewStatus = physical ? null : getRequirementReviewStatus(item);
                 return (
                   <div className="scholar-requirement-row" key={key}>
                     <span className="scholar-requirement-copy">
@@ -375,21 +392,30 @@ function ScholarDashboard({ token, user, onLogout }) {
                             : 'Physical requirement — submit directly to the Community Affairs Office'
                           : loadingRequirements
                             ? 'Checking submission…'
-                            : item?.fileName || note || 'No file uploaded'}
+                            : reviewStatus === 'approved'
+                              ? `${item.fileName} · Approved${item.reviewedAt ? ` ${formatPortalDate(item.reviewedAt)}` : ''}`
+                              : reviewStatus === 'rejected'
+                                ? `Returned: ${item.reviewNotes || 'Please upload a clearer or corrected document.'}`
+                                : reviewStatus === 'pending'
+                                  ? `${item.fileName} · Pending moderator review`
+                                  : note || 'No file uploaded'}
                       </small>
                     </span>
                     {physical ? (
                       <span className={`scholar-physical-badge ${physicalFolderSubmitted ? 'received' : ''}`}>{physicalFolderSubmitted ? 'Received' : 'Submit to CAO'}</span>
                     ) : (
-                      <label className={`scholar-upload-button ${item?.fileName ? 'submitted' : ''}`}>
-                        {isUploading ? 'Uploading…' : item?.fileName ? 'Replace' : 'Upload'}
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(event) => uploadRequirement(key, event.target.files?.[0])}
-                          disabled={loadingRequirements || Boolean(uploadingRequirement)}
-                        />
-                      </label>
+                      <span className="scholar-requirement-actions">
+                        {reviewStatus !== 'missing' && <span className={`scholar-review-badge ${reviewStatus}`}>{reviewStatus === 'approved' ? 'Approved' : reviewStatus === 'rejected' ? 'Rejected' : 'Pending'}</span>}
+                        {reviewStatus !== 'approved' && <label className={`scholar-upload-button ${item?.fileName ? 'submitted' : ''}`}>
+                          {isUploading ? 'Uploading…' : reviewStatus === 'rejected' ? 'Upload again' : item?.fileName ? 'Replace' : 'Upload'}
+                          <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={(event) => uploadRequirement(key, event.target.files?.[0])}
+                            disabled={loadingRequirements || Boolean(uploadingRequirement)}
+                          />
+                        </label>}
+                      </span>
                     )}
                   </div>
                 );

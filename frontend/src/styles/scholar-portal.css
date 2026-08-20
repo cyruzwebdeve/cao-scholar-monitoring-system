@@ -543,6 +543,30 @@
   background: #f4f8f5;
   color: #557161;
 }
+.scholar-requirement-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+.scholar-review-badge {
+  padding: 6px 8px;
+  border-radius: 15px;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+.scholar-review-badge.pending {
+  background: #fff1dd;
+  color: #a66317;
+}
+.scholar-review-badge.approved {
+  background: #e5f7ec;
+  color: #168247;
+}
+.scholar-review-badge.rejected {
+  background: #fde9e9;
+  color: #b63838;
+}
 .scholar-upload-button:has(input:disabled) {
   cursor: wait;
   opacity: 0.65;

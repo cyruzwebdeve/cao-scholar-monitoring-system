@@ -843,7 +843,7 @@ const getScholarManagement = async (req, res) => {
           label,
           submitted,
           status: statusField
-            ? requirement?.[statusField] || uploadedDocument?.status || 'pending'
+            ? uploadedDocument?.status || requirement?.[statusField] || 'pending'
             : submitted ? 'approved' : 'pending',
         };
       });
@@ -1173,7 +1173,7 @@ const getMyApplication = async (req, res) => {
 
 const uploadMyRequirement = async (req, res) => {
   try {
-    const { requirement, fileName, fileType, fileData } = req.body;
+    const { requirement, fileName, fileData } = req.body;
     const allowed = ['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form', 'tuition_receipt'];
     if (!allowed.includes(requirement) || typeof fileName !== 'string' || typeof fileData !== 'string') {
       return res.status(400).json({ message: 'A valid requirement and file are required.' });
@@ -1186,6 +1186,10 @@ const uploadMyRequirement = async (req, res) => {
       parsedFile = parseDataUrl(fileData);
     } catch (error) {
       return res.status(400).json({ message: error.message });
+    }
+    const allowedFileTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+    if (!allowedFileTypes.includes(parsedFile.contentType)) {
+      return res.status(400).json({ message: 'Only PDF, JPG, and PNG requirement files are allowed.' });
     }
     if (parsedFile.buffer.length > 6 * 1024 * 1024) {
       return res.status(413).json({ message: 'File is too large. Please upload a file smaller than 6 MB.' });
@@ -1203,7 +1207,7 @@ const uploadMyRequirement = async (req, res) => {
       const blob = await uploadDataUrl({
         dataUrl: fileData,
         fileName,
-        contentType: fileType || parsedFile.contentType,
+        contentType: parsedFile.contentType,
         pathSegments: ['scholar-requirements', req.user.id, requirement],
         token,
         access: 'private',
@@ -1214,16 +1218,16 @@ const uploadMyRequirement = async (req, res) => {
         fileUrl: blob.url,
         pathname: blob.pathname,
         storage: 'vercel-blob-private',
-        status: 'Submitted',
+        status: 'Pending',
         uploadedAt: new Date().toISOString(),
       };
     } else {
       storedFile = {
         fileName,
-        fileType: fileType || parsedFile.contentType,
+        fileType: parsedFile.contentType,
         fileData,
         storage: 'database',
-        status: 'Submitted',
+        status: 'Pending',
         uploadedAt: new Date().toISOString(),
       };
     }
@@ -1232,7 +1236,7 @@ const uploadMyRequirement = async (req, res) => {
     if (existingRequirement?.fileUrl && existingRequirement.fileUrl !== storedFile.fileUrl) {
       await deleteBlob(existingRequirement.fileUrl, token);
     }
-    return res.json({ message: 'Requirement uploaded.', application: updated });
+    return res.json({ message: 'Requirement uploaded and submitted for moderator review.', application: updated });
   } catch (error) {
     console.error(error);
     if (error instanceof BlobStorageConfigurationError) return res.status(error.statusCode).json({ message: error.message });

@@ -1,0 +1,72 @@
+const assert = require('node:assert/strict');
+const test = require('node:test');
+
+const {
+  applyReviewDecision,
+  buildReviewRecords,
+  normalizeReviewStatus,
+} = require('../services/documentReview');
+
+test('normalizes new, legacy, approved, and rejected document states', () => {
+  assert.equal(normalizeReviewStatus('Submitted'), 'pending');
+  assert.equal(normalizeReviewStatus('Pending'), 'pending');
+  assert.equal(normalizeReviewStatus('Complete'), 'approved');
+  assert.equal(normalizeReviewStatus('Rejected'), 'rejected');
+});
+
+test('approval preserves the uploaded file and records review metadata', () => {
+  const reviewedAt = new Date('2026-08-20T10:00:00Z');
+  const result = applyReviewDecision({
+    initialDocs: { requirements: { valid_id: { fileName: 'id.pdf', fileUrl: 'private-url', status: 'Pending' } } },
+    requirementKey: 'valid_id',
+    decision: 'approved',
+    reviewerId: 4,
+    notes: 'Readable and current.',
+    reviewedAt,
+  });
+
+  assert.equal(result.requirements.valid_id.fileName, 'id.pdf');
+  assert.equal(result.requirements.valid_id.fileUrl, 'private-url');
+  assert.equal(result.requirements.valid_id.status, 'Approved');
+  assert.equal(result.requirements.valid_id.reviewedBy, 4);
+  assert.equal(result.requirements.valid_id.reviewedAt, reviewedAt.toISOString());
+});
+
+test('rejection stores the correction reason without deleting the upload', () => {
+  const result = applyReviewDecision({
+    initialDocs: { requirements: { grades: { fileName: 'grades.jpg', status: 'Pending' } } },
+    requirementKey: 'grades',
+    decision: 'rejected',
+    reviewerId: 5,
+    notes: 'The lower half is unreadable.',
+  });
+
+  assert.equal(result.requirements.grades.status, 'Rejected');
+  assert.equal(result.requirements.grades.reviewNotes, 'The lower half is unreadable.');
+  assert.equal(result.requirements.grades.fileName, 'grades.jpg');
+});
+
+test('refuses decisions for missing or unsupported requirement documents', () => {
+  assert.equal(applyReviewDecision({ initialDocs: {}, requirementKey: 'valid_id', decision: 'approved', reviewerId: 1 }), null);
+  assert.equal(applyReviewDecision({ initialDocs: { requirements: { unknown: { fileName: 'x.pdf' } } }, requirementKey: 'unknown', decision: 'approved', reviewerId: 1 }), null);
+});
+
+test('builds a review queue without exposing private URLs or encoded file data', () => {
+  const records = buildReviewRecords({
+    applications: [{
+      id: 12,
+      applicant_id: 7,
+      email: 'scholar@example.com',
+      updated_at: new Date('2026-08-20T09:00:00Z'),
+      initial_docs: { requirements: { tax_exemption: { fileName: 'tax.pdf', fileType: 'application/pdf', fileUrl: 'secret-url', fileData: 'secret-data', status: 'Pending', uploadedAt: '2026-08-20T08:00:00Z' } } },
+    }],
+    applicantsById: new Map([[7, { first_name: 'Ana', last_name: 'Cruz', email: 'scholar@example.com', municipality: 'Daet' }]]),
+    accountsByApplicant: new Map([[7, { control_number: 'PGCEAP-007' }]]),
+  });
+
+  assert.equal(records.length, 1);
+  assert.equal(records[0].scholarName, 'ANA CRUZ');
+  assert.equal(records[0].status, 'pending');
+  assert.equal(Object.hasOwn(records[0], 'fileUrl'), false);
+  assert.equal(Object.hasOwn(records[0], 'fileData'), false);
+});

@@ -17,7 +17,7 @@ const isAdminRole = (role) =>
   role === 'BillingPayrollAdmin' || role === 'RegularAdmin' || role === 'SuperAdmin' || role === 'Moderator';
 
 const getDefaultSectionForRole = (role) =>
-  role === 'Moderator' ? 'Content Management' : 'Dashboard';
+  role === 'Moderator' ? 'Document Reviews' : 'Dashboard';
 
 const getRoleLabel = (role) => {
   if (role === 'SuperAdmin') return 'Super Administrator';

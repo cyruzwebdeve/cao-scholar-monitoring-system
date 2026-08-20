@@ -90,6 +90,11 @@
     white-space: normal;
   }
 
+  .scholar-requirement-actions {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+
   .scholar-profile-detail,
   .applicant-detail {
     align-items: flex-start;

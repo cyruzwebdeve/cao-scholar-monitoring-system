@@ -68,6 +68,13 @@ const createRateLimiters = ({ isProduction = process.env.NODE_ENV === 'productio
     keyGenerator: accountOrIpKey,
     message: rateLimitMessage('Staff account update limit reached. Please wait before trying again.'),
   }),
+  documentReviewRateLimiter: rateLimit({
+    ...commonOptions,
+    windowMs: HOUR,
+    limit: isProduction ? 120 : 500,
+    keyGenerator: accountOrIpKey,
+    message: rateLimitMessage('Document review limit reached. Please wait before reviewing another file.'),
+  }),
 });
 
 module.exports = {

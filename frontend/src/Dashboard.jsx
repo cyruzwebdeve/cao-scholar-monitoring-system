@@ -49,6 +49,7 @@ import AnnouncementsManagement from './AnnouncementsManagement';
 import ReportsManagement from './ReportsManagement';
 import ActivityLogsManagement from './ActivityLogsManagement';
 import StaffManagement from './StaffManagement';
+import DocumentReviewManagement from './DocumentReviewManagement';
 import SystemHealthPanel from './components/SystemHealthPanel';
 import schoolsListData from '../../schools_list.json';
 import municipalitiesData from '../../municipality.json';
@@ -1297,6 +1298,7 @@ function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange, 
   if (activeSection === 'Announcements') return <AnnouncementsManagement token={token} />;
   if (activeSection === 'Activity Logs' && user?.role === 'SuperAdmin') return <ActivityLogsManagement token={token} />;
   if (activeSection === 'Staff' && user?.role === 'SuperAdmin') return <StaffManagement token={token} onLogout={onLogout} />;
+  if (activeSection === 'Document Reviews' && ['Moderator', 'SuperAdmin'].includes(user?.role)) return <DocumentReviewManagement token={token} />;
   if (activeSection === 'Reports') return <ReportsManagement token={token} />;
   if (activeSection === 'Settings') return <SettingsManagement token={token} user={user} />;
 

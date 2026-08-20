@@ -43,7 +43,7 @@ const navItemsByRole = {
     { label: 'Settings', icon: Settings2 },
   ],
   Moderator: [
-    { label: 'Content Management', icon: Megaphone },
+    { label: 'Document Reviews', icon: ClipboardList },
     { label: 'Announcements', icon: Megaphone },
     { label: 'Settings', icon: Settings2 },
   ],
