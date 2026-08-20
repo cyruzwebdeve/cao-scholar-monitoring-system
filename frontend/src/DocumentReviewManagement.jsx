@@ -46,15 +46,21 @@ function ReviewModal({ review, preview, previewLoading, previewError, onClose, o
           <button type="button" onClick={onClose} aria-label="Close review"><X size={19} /></button>
         </header>
         <div className="review-modal-body">
-          <div className="review-preview">
+          <section className="review-preview-column">
+            <header className="review-preview-toolbar">
+              <div><i><FileText size={16} /></i><span><small>SECURE DOCUMENT PREVIEW</small><strong title={review.fileName}>{review.fileName}</strong></span></div>
+              {preview && !previewLoading && !previewError && <a href={preview} target="_blank" rel="noreferrer"><ExternalLink size={14} />Open original</a>}
+            </header>
+            <div className={`review-preview ${isPdf ? 'pdf' : ''}`}>
             {previewLoading && <div className="review-preview-state"><span className="review-loader" /><strong>Opening secure document…</strong></div>}
             {previewError && <div className="review-preview-state error"><TriangleAlert size={25} /><strong>Preview unavailable</strong><p>{previewError}</p></div>}
             {!previewLoading && !previewError && preview && isImage && <img src={preview} alt={review.fileName} />}
             {!previewLoading && !previewError && preview && isPdf && <iframe src={preview} title={review.fileName} />}
             {!previewLoading && !previewError && preview && !isImage && !isPdf && <div className="review-preview-state"><FileText size={30} /><strong>{review.fileName}</strong><a href={preview} target="_blank" rel="noreferrer"><ExternalLink size={14} />Open file</a></div>}
-          </div>
+            </div>
+          </section>
           <aside className="review-details">
-            <div className="review-current-status"><span>Current status</span><strong className={`review-status ${review.status}`}>{titleCase(review.status)}</strong></div>
+            <header><div><span>REVIEW DETAILS</span><h4>Submission information</h4></div><strong className={`review-status ${review.status}`}>{titleCase(review.status)}</strong></header>
             <dl>
               <div><dt>File name</dt><dd>{review.fileName}</dd></div>
               <div><dt>File type</dt><dd>{review.fileType}</dd></div>
@@ -63,12 +69,12 @@ function ReviewModal({ review, preview, previewLoading, previewError, onClose, o
               {review.reviewedAt && <div><dt>Last reviewed</dt><dd>{formatDate(review.reviewedAt)}{review.reviewerName ? ` by ${review.reviewerName}` : ''}</dd></div>}
             </dl>
             {review.reviewNotes && <div className="review-existing-note"><span>Review notes</span><p>{review.reviewNotes}</p></div>}
-            <div className="review-guidance"><ShieldCheck size={18} /><p>Confirm that the document is readable, current, and matches the scholar record before approval.</p></div>
+            <div className="review-guidance"><ShieldCheck size={18} /><div><strong>Reviewer checklist</strong><p>Confirm that the document is readable, current, and matches the scholar record before approval.</p></div></div>
           </aside>
         </div>
         <footer>
-          <button type="button" className="review-reject" onClick={() => onDecision('rejected')}><XCircle size={16} />Reject document</button>
-          <button type="button" className="review-approve" onClick={() => onDecision('approved')}><CheckCircle2 size={16} />Approve document</button>
+          <div className="review-decision-helper"><ShieldCheck size={16} /><span><strong>Ready to decide?</strong><small>Your decision and notes will be recorded in Activity Logs.</small></span></div>
+          <div className="review-modal-actions"><button type="button" className="review-reject" onClick={() => onDecision('rejected')}><XCircle size={16} />Reject document</button><button type="button" className="review-approve" onClick={() => onDecision('approved')}><CheckCircle2 size={16} />Approve document</button></div>
         </footer>
       </section>
     </div>
