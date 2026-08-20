@@ -1,5 +1,6 @@
 import {
   CheckCircle2,
+  ChevronDown,
   ClipboardCheck,
   Clock3,
   ExternalLink,
@@ -105,6 +106,7 @@ function DocumentReviewManagement({ token }) {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('pending');
   const [requirement, setRequirement] = useState('');
+  const [expandedScholar, setExpandedScholar] = useState(null);
   const [selected, setSelected] = useState(null);
   const [preview, setPreview] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -149,8 +151,32 @@ function DocumentReviewManagement({ token }) {
     const query = search.trim().toLowerCase();
     return data.reviews.filter((item) => (!status || item.status === status)
       && (!requirement || item.requirementKey === requirement)
-      && (!query || [item.scholarName, item.email, item.controlNumber, item.fileName].some((value) => String(value || '').toLowerCase().includes(query))));
+      && (!query || [item.scholarName, item.email, item.controlNumber, item.fileName, item.requirementLabel]
+        .some((value) => String(value || '').toLowerCase().includes(query))));
   }, [data.reviews, requirement, search, status]);
+  const groupedReviews = useMemo(() => {
+    const groups = new Map();
+    visibleReviews.forEach((item) => {
+      const key = String(item.applicationId || item.applicantId || `${item.controlNumber}-${item.email}`);
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          scholarName: item.scholarName,
+          controlNumber: item.controlNumber,
+          email: item.email,
+          items: [],
+        });
+      }
+      groups.get(key).items.push(item);
+    });
+    return [...groups.values()].map((group) => ({
+      ...group,
+      counts: group.items.reduce((totals, item) => ({
+        ...totals,
+        [item.status]: (totals[item.status] || 0) + 1,
+      }), { pending: 0, approved: 0, rejected: 0 }),
+    }));
+  }, [visibleReviews]);
 
   const closeReview = useCallback(() => {
     if (preview) URL.revokeObjectURL(preview);
@@ -234,18 +260,51 @@ function DocumentReviewManagement({ token }) {
       {notice && <div className={`document-review-notice ${notice.tone}`} role="status">{notice.tone === 'success' ? <CheckCircle2 size={18} /> : <TriangleAlert size={18} />}<span>{notice.message}</span><button type="button" onClick={() => setNotice(null)} aria-label="Dismiss"><X size={16} /></button></div>}
       {error && <div className="document-review-notice error" role="status"><TriangleAlert size={18} /><span>{error}</span><button type="button" onClick={loadReviews}>Retry</button></div>}
       <section className="document-review-directory">
-        <div className="document-review-toolbar"><div><i><ClipboardCheck size={19} /></i><section><h3>Review queue</h3><p>{visibleReviews.length} of {data.reviews.length} uploaded files shown</p></section></div><div className="document-review-filters"><label><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Scholar, control number, or file" /></label><select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Filter review status"><option value="pending">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="">All statuses</option></select><select value={requirement} onChange={(event) => setRequirement(event.target.value)} aria-label="Filter requirement"><option value="">All requirements</option>{requirementOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div></div>
-        <div className="document-review-table-wrap"><table className="document-review-table"><thead><tr><th>Scholar</th><th>Requirement</th><th>Uploaded</th><th>Status</th><th>Reviewed by</th><th>Action</th></tr></thead><tbody>
-          {loading && !data.reviews.length && <tr className="document-review-empty"><td colSpan="6"><span className="review-loader" />Loading secure document queue…</td></tr>}
-          {!loading && !visibleReviews.length && <tr className="document-review-empty"><td colSpan="6"><ClipboardCheck size={27} /><strong>{status === 'pending' ? 'Review queue is clear' : 'No documents found'}</strong><span>{status === 'pending' ? 'New scholar uploads will appear here automatically.' : 'Try changing the current filters.'}</span></td></tr>}
-          {visibleReviews.map((item) => <tr key={item.id}><td data-label="Scholar"><strong>{item.scholarName}</strong><small>{item.controlNumber || item.email}</small></td><td data-label="Requirement"><strong>{item.requirementLabel}</strong><small>{item.fileName}</small></td><td data-label="Uploaded"><span>{formatDate(item.uploadedAt)}</span></td><td data-label="Status"><span className={`review-status ${item.status}`}>{titleCase(item.status)}</span></td><td data-label="Reviewed by"><span>{item.reviewerName || '—'}</span>{item.reviewedAt && <small>{formatDate(item.reviewedAt)}</small>}</td><td data-label="Action"><button type="button" className="document-review-open" onClick={() => openReview(item)}><Eye size={15} />Review file</button></td></tr>)}
-        </tbody></table></div>
+        <div className="document-review-toolbar"><div><i><ClipboardCheck size={19} /></i><section><h3>Review queue</h3><p>{groupedReviews.length} {groupedReviews.length === 1 ? 'scholar' : 'scholars'} · {visibleReviews.length} of {data.reviews.length} files shown</p></section></div><div className="document-review-filters"><label><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Scholar, control number, or file" /></label><select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Filter review status"><option value="pending">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="">All statuses</option></select><select value={requirement} onChange={(event) => setRequirement(event.target.value)} aria-label="Filter requirement"><option value="">All requirements</option>{requirementOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div></div>
+        <div className="document-review-groups">
+          {loading && !data.reviews.length && <div className="document-review-group-empty"><span className="review-loader" />Loading secure document queue…</div>}
+          {!loading && !visibleReviews.length && <div className="document-review-group-empty"><ClipboardCheck size={27} /><strong>{status === 'pending' ? 'Review queue is clear' : 'No documents found'}</strong><span>{status === 'pending' ? 'New scholar uploads will appear here automatically.' : 'Try changing the current filters.'}</span></div>}
+          {groupedReviews.map((group) => {
+            const expanded = expandedScholar === group.key;
+            const panelId = `scholar-review-${group.key.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+            const initials = group.scholarName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('');
+            return (
+              <article className={`document-review-scholar ${expanded ? 'expanded' : ''}`} key={group.key}>
+                <button type="button" className="document-review-scholar-trigger" onClick={() => setExpandedScholar(expanded ? null : group.key)} aria-expanded={expanded} aria-controls={panelId}>
+                  <span className="document-review-scholar-avatar" aria-hidden="true">{initials}</span>
+                  <span className="document-review-scholar-identity"><strong>{group.scholarName}</strong><small>{[group.controlNumber, group.email].filter(Boolean).join(' · ')}</small></span>
+                  <span className="document-review-scholar-summary">
+                    {group.counts.pending > 0 && <span className="pending">{group.counts.pending} pending</span>}
+                    {group.counts.approved > 0 && <span className="approved">{group.counts.approved} approved</span>}
+                    {group.counts.rejected > 0 && <span className="rejected">{group.counts.rejected} rejected</span>}
+                  </span>
+                  <span className="document-review-scholar-total"><strong>{group.items.length}</strong><small>{group.items.length === 1 ? 'file' : 'files'}</small></span>
+                  <ChevronDown className="document-review-chevron" size={19} aria-hidden="true" />
+                </button>
+                {expanded && (
+                  <div className="document-review-requirements" id={panelId}>
+                    <div className="document-review-requirement-head"><span>Requirement</span><span>Uploaded</span><span>Status</span><span>Reviewed by</span><span>Action</span></div>
+                    {group.items.map((item) => (
+                      <div className="document-review-requirement" key={item.id}>
+                        <div className="document-review-requirement-name"><strong>{item.requirementLabel}</strong><small title={item.fileName}>{item.fileName}</small></div>
+                        <div data-label="Uploaded">{formatDate(item.uploadedAt)}</div>
+                        <div data-label="Status"><span className={`review-status ${item.status}`}>{titleCase(item.status)}</span></div>
+                        <div data-label="Reviewed by"><span>{item.reviewerName || '—'}</span>{item.reviewedAt && <small>{formatDate(item.reviewedAt)}</small>}</div>
+                        <div data-label="Action"><button type="button" className="document-review-open" onClick={() => openReview(item)}><Eye size={15} />Review file</button></div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
       </section>
       <section className="document-review-directory physical-folder-directory">
         <div className="document-review-toolbar"><div><i><FileCheck2 size={19} /></i><section><h3>Physical folder receipts</h3><p>Record the white long folder before a scholar becomes eligible for Billing.</p></section></div><span className="physical-folder-count">{(data.physicalFolders || []).filter(({ received }) => received).length} of {(data.physicalFolders || []).length} received</span></div>
         <div className="physical-folder-list">
           {(data.physicalFolders || []).map((item) => <article key={item.applicantId}><div><strong>{item.scholarName}</strong><small>{item.controlNumber || `Scholar #${item.applicantId}`}</small></div><span className={item.received ? 'received' : 'missing'}>{item.received ? `Received ${formatDate(item.receivedAt)}` : 'Not received'}</span><button type="button" className={item.received ? 'remove' : 'receive'} disabled={saving} onClick={() => updatePhysicalFolder(item)}>{item.received ? 'Undo receipt' : 'Mark received'}</button></article>)}
-          {!loading && !(data.physicalFolders || []).length && <div className="document-review-empty"><FileCheck2 size={25} /><strong>No active scholars</strong><span>Accepted scholars will appear here.</span></div>}
+          {!loading && !(data.physicalFolders || []).length && <div className="document-review-group-empty"><FileCheck2 size={25} /><strong>No active scholars</strong><span>Accepted scholars will appear here.</span></div>}
         </div>
       </section>
       {selected && <ReviewModal review={selected} preview={preview} previewLoading={previewLoading} previewError={previewError} onClose={closeReview} onDecision={(value) => { setDecisionError(''); setDecision(value); }} />}
