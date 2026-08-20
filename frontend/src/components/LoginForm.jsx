@@ -9,7 +9,7 @@ function LoginForm({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const isAdminFormat = email.includes('@');
+  const isAdminIdentifier = email.trim().toLowerCase().includes('admin');
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -57,7 +57,7 @@ function LoginForm({ onLogin }) {
         <Link className="login-forgot" to="/forgot-password">Forgot Password?</Link>
       </div>
       <button type="submit" className="login-submit" disabled={loading}>
-        {loading ? 'Signing in...' : `Continue as ${email && isAdminFormat ? 'Admin' : 'Applicant / Scholar'}`} <ArrowRight size={18} />
+        {loading ? 'Signing in...' : `Continue as ${email && isAdminIdentifier ? 'Admin' : 'Applicant / Scholar'}`} <ArrowRight size={18} />
       </button>
         <button type="button" className="login-apply-link" onClick={() => window.open('/application', '_blank', 'noopener,noreferrer')}>
           No account? <span>Apply Here</span>
