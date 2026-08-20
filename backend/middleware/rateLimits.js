@@ -75,6 +75,13 @@ const createRateLimiters = ({ isProduction = process.env.NODE_ENV === 'productio
     keyGenerator: accountOrIpKey,
     message: rateLimitMessage('Document review limit reached. Please wait before reviewing another file.'),
   }),
+  billingWriteRateLimiter: rateLimit({
+    ...commonOptions,
+    windowMs: HOUR,
+    limit: isProduction ? 60 : 500,
+    keyGenerator: accountOrIpKey,
+    message: rateLimitMessage('Billing processing limit reached. Please wait before trying again.'),
+  }),
 });
 
 module.exports = {

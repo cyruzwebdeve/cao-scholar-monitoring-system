@@ -8,6 +8,11 @@ const ONLINE_REQUIREMENTS = [
 ];
 
 const APPROVED_STATUSES = new Set(['approved', 'complete', 'completed']);
+const OVERRIDABLE_BILLING_REASON_CODES = new Set([
+  'REQUIREMENT_MISSING',
+  'REQUIREMENT_NOT_APPROVED',
+  'PHYSICAL_FOLDER_MISSING',
+]);
 
 const normalizeStatus = (value) => String(value || '').trim().toLowerCase();
 
@@ -51,6 +56,25 @@ const evaluateBillingEligibility = ({ isActive, alreadyBilled, initialDocs, requ
   return { eligible: reasons.length === 0, reasons, snapshot };
 };
 
+const evaluateBillingOverride = ({ eligibility, reason } = {}) => {
+  const normalizedReason = String(reason || '').trim().replace(/\s+/g, ' ');
+  const eligibilityReasons = Array.isArray(eligibility?.reasons) ? eligibility.reasons : [];
+  const hardBlockers = eligibilityReasons.filter(({ code }) => !OVERRIDABLE_BILLING_REASON_CODES.has(code));
+  const errors = [];
+
+  if (normalizedReason.length < 10) errors.push('Provide an override reason with at least 10 characters.');
+  if (normalizedReason.length > 500) errors.push('The override reason must not exceed 500 characters.');
+  if (!eligibilityReasons.length) errors.push('This scholar does not require a billing eligibility override.');
+  if (hardBlockers.length) errors.push(...hardBlockers.map(({ message }) => message));
+
+  return {
+    allowed: errors.length === 0,
+    reason: normalizedReason,
+    errors,
+    hardBlockers,
+  };
+};
+
 const isPayableClaim = (claim) => {
   if (!claim) return false;
   const status = normalizeStatus(claim.claim_status);
@@ -60,7 +84,9 @@ const isPayableClaim = (claim) => {
 module.exports = {
   APPROVED_STATUSES,
   ONLINE_REQUIREMENTS,
+  OVERRIDABLE_BILLING_REASON_CODES,
   evaluateBillingEligibility,
+  evaluateBillingOverride,
   getRequirementSnapshot,
   isPayableClaim,
 };

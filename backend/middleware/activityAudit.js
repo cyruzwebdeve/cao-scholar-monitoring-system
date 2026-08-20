@@ -42,11 +42,11 @@ const createActivityAudit = ({ client = prisma, recorder = recordActivitySafely 
     const routePath = req.route?.path;
     const definition = ACTIONS[`${req.method} ${routePath}`];
     if (!definition) return;
-    const [action, targetTable, description] = definition;
+    const [defaultAction, targetTable, defaultDescription] = definition;
     void recorder(client, {
       user: req.user,
-      action,
-      description,
+      action: res.locals?.auditAction || defaultAction,
+      description: res.locals?.auditDescription || defaultDescription,
       targetTable,
       targetId: res.locals?.auditTargetId || resolveTargetId(req),
       ipAddress: req.ip,

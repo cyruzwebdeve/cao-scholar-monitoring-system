@@ -10,6 +10,7 @@ import {
   Filter,
   ReceiptText,
   Search,
+  ShieldAlert,
   TriangleAlert,
   UsersRound,
   X,
@@ -53,8 +54,9 @@ const matchesDateRange = (value, from, to) => {
   return true;
 };
 
-export default function BillingPayrollManagement({ token, mode = 'billing' }) {
+export default function BillingPayrollManagement({ token, mode = 'billing', userRole }) {
   const isPayroll = mode === 'payroll';
+  const canUseBillingOverride = !isPayroll && ['SuperAdmin', 'BillingPayrollAdmin'].includes(userRole);
   const defaultBilledFilter = isPayroll ? 'All Billing Statuses' : 'Not billed yet';
   const defaultPaidFilter = isPayroll ? 'Not paid yet' : 'All Payroll Statuses';
   const [records, setRecords] = useState([]);
@@ -67,6 +69,10 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
   const [paymentReference, setPaymentReference] = useState('');
   const [processing, setProcessing] = useState(false);
   const [operationNotice, setOperationNotice] = useState(null);
+  const [billingOverrides, setBillingOverrides] = useState({});
+  const [overrideCandidate, setOverrideCandidate] = useState(null);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [overrideError, setOverrideError] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [scholarStatus, setScholarStatus] = useState('All Scholar Statuses');
@@ -113,6 +119,20 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
     window.addEventListener('focus', refresh);
     return () => { window.clearTimeout(initialLoad); window.clearInterval(timer); window.removeEventListener('focus', refresh); };
   }, [loadRecords]);
+
+  useEffect(() => {
+    if (!overrideCandidate) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setOverrideCandidate(null);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [overrideCandidate]);
 
   const scholarStatuses = useMemo(() => [...new Set(records.map(({ status }) => status).filter(Boolean))].sort(), [records]);
   const payReferences = useMemo(() => [...new Set(records.map((item) => item.payReference).filter(Boolean))].sort(), [records]);
@@ -195,14 +215,43 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
     setOperationNotice(null);
   };
 
+  const openBillingOverride = (record) => {
+    setOverrideCandidate(record);
+    setOverrideReason('');
+    setOverrideError('');
+  };
+
+  const closeBillingOverride = () => {
+    setOverrideCandidate(null);
+    setOverrideReason('');
+    setOverrideError('');
+  };
+
+  const confirmBillingOverride = () => {
+    if (!overrideCandidate) return;
+    const reason = overrideReason.trim().replace(/\s+/g, ' ');
+    if (reason.length < 10) {
+      setOverrideError('Enter a clear reason with at least 10 characters.');
+      return;
+    }
+    setQueuedIds((current) => [...new Set([...current, overrideCandidate.applicantId])]);
+    setBillingOverrides((current) => ({ ...current, [overrideCandidate.applicantId]: reason }));
+    setSourceSelection((current) => current.filter((id) => id !== overrideCandidate.applicantId));
+    setOperationNotice({ tone: 'success', text: `${overrideCandidate.name} was added to For Billing with an eligibility override.` });
+    closeBillingOverride();
+  };
+
   const removeSelectedFromQueue = () => {
     setQueuedIds((current) => current.filter((id) => !queueSelection.includes(id)));
+    setBillingOverrides((current) => Object.fromEntries(Object.entries(current)
+      .filter(([applicantId]) => !queueSelection.includes(Number(applicantId)))));
     setQueueSelection([]);
     setOperationNotice(null);
   };
 
   const clearQueue = () => {
     setQueuedIds([]);
+    setBillingOverrides({});
     setQueueSelection([]);
     setOperationNotice(null);
   };
@@ -217,12 +266,18 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({
           applicantIds: queuedRecords.map(({ applicantId }) => applicantId),
+          ...(!isPayroll ? {
+            billingOverrides: queuedRecords
+              .filter(({ applicantId }) => billingOverrides[applicantId])
+              .map(({ applicantId }) => ({ applicantId, reason: billingOverrides[applicantId] })),
+          } : {}),
           ...(isPayroll ? { payReference: paymentReference } : {}),
         }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || `Unable to process ${mode} records.`);
       setQueuedIds([]);
+      setBillingOverrides({});
       setSourceSelection([]);
       setQueueSelection([]);
       if (isPayroll) setPaymentReference('');
@@ -303,15 +358,17 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
               {!loading && !sourceRecords.length && <div className="billing-queue-empty"><Search size={20} /><strong>No scholar records</strong><span>{hasFilters ? 'No records match the selected filters.' : isPayroll ? 'Billed scholars awaiting payment will appear here.' : 'Newly accepted scholars will appear here automatically.'}</span></div>}
               {sourceRecords.map((record) => {
                 const canMove = !record.isArchivedPeriod && (isPayroll ? record.billed && !record.paid : !record.billed && record.billingEligible);
+                const canOverride = canUseBillingOverride && !record.isArchivedPeriod && !record.billed
+                  && record.status === 'Active' && !record.billingEligible;
                 const isSelected = canMove && sourceSelection.includes(record.applicantId);
                 const statusLabel = isPayroll
                   ? record.paid ? 'Paid' : 'Not paid yet'
-                  : record.paid ? 'Paid' : record.billed ? 'Billed' : record.billingEligible ? 'Ready to bill' : 'Requirements incomplete';
+                  : record.paid ? 'Paid' : record.billed ? 'Billed' : record.billingEligible ? 'Ready to bill' : canOverride ? 'Override available' : 'Requirements incomplete';
                 const unavailableReason = record.billingEligibilityReasons?.[0]?.message;
-                return <div className={`billing-queue-row ${isSelected ? 'selected' : ''} ${canMove ? '' : 'archived'}`} key={record.id}>
+                return <div className={`billing-queue-row ${isSelected ? 'selected' : ''} ${canMove || canOverride ? '' : 'archived'} ${canOverride ? 'override-available' : ''}`} key={record.id}>
                   <code>{record.controlNumber || '—'}</code>
-                  <button type="button" className="billing-queue-name" aria-pressed={isSelected} disabled={!canMove} title={canMove ? `Select ${record.name}` : unavailableReason || `${record.name} cannot be moved again.`} onClick={() => toggleSelection(setSourceSelection, record.applicantId)}><strong>{record.name}</strong><small>{isSelected ? 'Selected' : record.email}</small></button>
-                  <span className={`billing-queue-ready ${canMove ? '' : 'archived'}`}>{statusLabel}</span>
+                  <button type="button" className="billing-queue-name" aria-pressed={isSelected} disabled={!canMove && !canOverride} title={canMove ? `Select ${record.name}` : canOverride ? `Override billing eligibility for ${record.name}` : unavailableReason || `${record.name} cannot be moved again.`} onClick={() => canMove ? toggleSelection(setSourceSelection, record.applicantId) : openBillingOverride(record)}><strong>{record.name}</strong><small>{isSelected ? 'Selected' : canOverride ? 'Click to authorize override' : record.email}</small></button>
+                  <span className={`billing-queue-ready ${canOverride ? 'override' : canMove ? '' : 'archived'}`}>{statusLabel}</span>
                 </div>;
               })}
             </div>
@@ -336,9 +393,9 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
             <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>School year</span><span>Sem</span></div>
             <div className="billing-queue-table-body">
               {!queuedRecords.length && <div className="billing-queue-empty"><ReceiptText size={20} /><strong>No scholars queued</strong><span>Use the transfer controls to add scholars.</span></div>}
-              {queuedRecords.map((record) => <div className={`billing-queue-row ${queueSelection.includes(record.applicantId) ? 'selected' : ''}`} key={record.id}>
+              {queuedRecords.map((record) => <div className={`billing-queue-row ${queueSelection.includes(record.applicantId) ? 'selected' : ''} ${billingOverrides[record.applicantId] ? 'overridden' : ''}`} key={record.id}>
                 <code>{record.controlNumber || '—'}</code>
-                <button type="button" className="billing-queue-name" aria-pressed={queueSelection.includes(record.applicantId)} onClick={() => toggleSelection(setQueueSelection, record.applicantId)}><strong>{record.name}</strong><small>{queueSelection.includes(record.applicantId) ? 'Selected' : record.school}</small></button>
+                <button type="button" className="billing-queue-name" aria-pressed={queueSelection.includes(record.applicantId)} title={billingOverrides[record.applicantId] || undefined} onClick={() => toggleSelection(setQueueSelection, record.applicantId)}><strong>{record.name}</strong><small>{queueSelection.includes(record.applicantId) ? 'Selected' : billingOverrides[record.applicantId] ? 'Eligibility override' : record.school}</small></button>
                 <span>{record.schoolYear}</span>
                 <span>{record.semester}</span>
               </div>)}
@@ -348,6 +405,26 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
         </article>
       </section>
       {exportOpen && <CsvExportModal title={`Export ${isPayroll ? 'payroll' : 'billing'} queue`} description="Choose which scholar, academic, and processing fields to include in this CSV file." columns={billingExportColumns} rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `${mode}-records-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(queuedRecords, columns) })} />}
+      {overrideCandidate && <div className="billing-override-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeBillingOverride()}>
+        <section className="billing-override-modal" role="dialog" aria-modal="true" aria-labelledby="billing-override-title" aria-describedby="billing-override-description">
+          <header>
+            <i><ShieldAlert size={21} /></i>
+            <div><span>BILLING OVERRIDE</span><h2 id="billing-override-title">Add scholar to For Billing</h2><p id="billing-override-description">Authorize an exception to the normal requirement-readiness checks.</p></div>
+            <button type="button" onClick={closeBillingOverride} aria-label="Close billing override"><X size={18} /></button>
+          </header>
+          <div className="billing-override-content">
+            <div className="billing-override-scholar"><span>{overrideCandidate.initials}</span><div><strong>{overrideCandidate.name}</strong><small>{overrideCandidate.controlNumber} · {overrideCandidate.schoolYearSemester}</small></div></div>
+            <section className="billing-override-blockers">
+              <strong>Readiness checks being overridden</strong>
+              <ul>{(overrideCandidate.billingEligibilityReasons || []).map((item, index) => <li key={`${item.code}-${item.requirement || index}`}>{item.message}</li>)}</ul>
+            </section>
+            <label className="billing-override-reason"><span>Reason for override <em>Required</em></span><textarea value={overrideReason} maxLength={500} autoFocus onChange={(event) => { setOverrideReason(event.target.value); setOverrideError(''); }} placeholder="Explain why this scholar must be billed before completing the normal readiness checks." /> <small>{overrideReason.length}/500 characters</small></label>
+            {overrideError && <p className="billing-override-error" role="alert">{overrideError}</p>}
+            <p className="billing-override-audit"><ShieldAlert size={15} />When billing is processed, this reason will be stored with the claim and the action will appear in Activity Logs.</p>
+          </div>
+          <footer><button type="button" className="secondary" onClick={closeBillingOverride}>Cancel</button><button type="button" className="primary" onClick={confirmBillingOverride} disabled={overrideReason.trim().length < 10}>Authorize override</button></footer>
+        </section>
+      </div>}
     </div>
 
   </>;

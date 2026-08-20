@@ -15,6 +15,7 @@ const {
 } = require('../services/mailer');
 const {
   evaluateBillingEligibility,
+  evaluateBillingOverride,
   isPayableClaim,
 } = require('../services/lifecycleIntegrity');
 const {
@@ -915,8 +916,26 @@ const processBillingSelection = async (req, res) => {
   try {
     const activePeriod = await getActiveAcademicPeriodRecord();
     const applicantIds = normalizeApplicantIds(req.body.applicantIds);
+    const suppliedOverrides = Array.isArray(req.body.billingOverrides) ? req.body.billingOverrides : [];
     if (!applicantIds.length) return res.status(400).json({ message: 'Select at least one scholar for billing.' });
     if (applicantIds.length > 500) return res.status(400).json({ message: 'A billing batch cannot exceed 500 scholars.' });
+    if (suppliedOverrides.length > applicantIds.length) return res.status(400).json({ message: 'The billing override selection is invalid.' });
+    if (suppliedOverrides.length && !['SuperAdmin', 'BillingPayrollAdmin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Only a Billing / Payroll Admin or Super Administrator can authorize billing overrides.' });
+    }
+
+    const overrideByApplicant = new Map();
+    for (const suppliedOverride of suppliedOverrides) {
+      const applicantId = Number(suppliedOverride?.applicantId);
+      const reason = String(suppliedOverride?.reason || '').trim().replace(/\s+/g, ' ');
+      if (!Number.isInteger(applicantId) || !applicantIds.includes(applicantId) || overrideByApplicant.has(applicantId)) {
+        return res.status(400).json({ message: 'The billing override selection is invalid.' });
+      }
+      if (reason.length < 10 || reason.length > 500) {
+        return res.status(400).json({ message: 'Each billing override requires a reason between 10 and 500 characters.' });
+      }
+      overrideByApplicant.set(applicantId, reason);
+    }
 
     const [scholarAccounts, applications, requirements, periodBatches] = await Promise.all([
       prisma.scholar_accounts.findMany({
@@ -966,23 +985,32 @@ const processBillingSelection = async (req, res) => {
       if (!applicationByApplicant.has(application.applicant_id)) applicationByApplicant.set(application.applicant_id, application);
     });
     const requirementByApplicant = new Map(requirements.map((requirement) => [requirement.applicant_id, requirement]));
-    const eligibility = applicantIds.map((applicantId) => ({
-      applicantId,
-      ...evaluateBillingEligibility({
+    const eligibility = applicantIds.map((applicantId) => {
+      const result = evaluateBillingEligibility({
         isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
         alreadyBilled: billedIds.has(applicantId),
         initialDocs: applicationByApplicant.get(applicantId)?.initial_docs,
         requirement: requirementByApplicant.get(applicantId),
-      }),
-    }));
-    const ineligible = eligibility.filter(({ eligible }) => !eligible);
+      });
+      const suppliedReason = overrideByApplicant.get(applicantId);
+      const override = suppliedReason ? evaluateBillingOverride({ eligibility: result, reason: suppliedReason }) : null;
+      return { applicantId, ...result, override };
+    });
+    const ineligible = eligibility.filter(({ eligible, override }) => !eligible && !override?.allowed);
     if (ineligible.length) {
       return res.status(409).json({
-        message: 'Every selected scholar must be active, fully approved by a Moderator, have a recorded physical folder, and not be billed for this period.',
-        ineligible: ineligible.map(({ applicantId, reasons }) => ({ applicantId, reasons })),
+        message: 'Some selected scholars are not ready for billing. Use an authorized override for incomplete requirements; inactive or already-billed scholars cannot be overridden.',
+        ineligible: ineligible.map(({ applicantId, reasons, override }) => ({
+          applicantId,
+          reasons,
+          overrideErrors: override?.errors || [],
+        })),
       });
     }
     const eligibleIds = eligibility.map(({ applicantId }) => applicantId);
+    const appliedOverrides = new Map(eligibility
+      .filter(({ eligible, override }) => !eligible && override?.allowed)
+      .map(({ applicantId, override }) => [applicantId, override.reason]));
 
     const timestamp = new Date();
     const batchNumber = `BILL-${timestamp.toISOString().replace(/\D/g, '').slice(0, 17)}`;
@@ -996,7 +1024,7 @@ const processBillingSelection = async (req, res) => {
           status: 'billed',
           prepared_by: req.user.id,
           prepared_at: timestamp,
-          remarks: `${activePeriod.school_year} · ${activePeriod.semester} billing batch`,
+          remarks: `${activePeriod.school_year} · ${activePeriod.semester} billing batch${appliedOverrides.size ? ` · ${appliedOverrides.size} eligibility override${appliedOverrides.size === 1 ? '' : 's'}` : ''}`,
           updated_at: timestamp,
         },
       });
@@ -1007,16 +1035,25 @@ const processBillingSelection = async (req, res) => {
           applicant_id: applicantId,
           claim_amount: 0,
           claim_status: 'pending',
-          notes: 'Added through Billing Management',
+          notes: appliedOverrides.has(applicantId)
+            ? `Billing eligibility override: ${appliedOverrides.get(applicantId)}`
+            : 'Added through Billing Management',
           updated_at: timestamp,
         })),
       });
       return batch;
     });
 
+    res.locals.auditTargetId = result.id;
+    if (appliedOverrides.size) {
+      res.locals.auditAction = 'BILLING_OVERRIDE_PROCESSED';
+      res.locals.auditDescription = `Processed ${eligibleIds.length} scholar${eligibleIds.length === 1 ? '' : 's'} for billing with ${appliedOverrides.size} eligibility override${appliedOverrides.size === 1 ? '' : 's'}.`;
+    }
+
     return res.status(201).json({
-      message: `${eligibleIds.length} scholar${eligibleIds.length === 1 ? '' : 's'} moved to payroll.`,
+      message: `${eligibleIds.length} scholar${eligibleIds.length === 1 ? '' : 's'} processed for billing and moved to For Payroll.`,
       batch: { id: result.id, batchNumber: result.batch_number, totalScholars: result.total_scholars },
+      overrideCount: appliedOverrides.size,
       activePeriod: serializeAcademicPeriod(activePeriod),
     });
   } catch (error) {

@@ -1208,8 +1208,8 @@ function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange, 
   if (activeSection === 'Examination Management') return <ExaminationManagement token={token} />;
   if (activeSection === 'Results Management') return <ResultsManagement token={token} />;
   if (activeSection === 'Scholars') return <ScholarsManagement token={token} />;
-  if (activeSection === 'Billing') return <BillingPayrollManagement key="billing" token={token} mode="billing" />;
-  if (activeSection === 'Payroll') return <BillingPayrollManagement key="payroll" token={token} mode="payroll" />;
+  if (activeSection === 'Billing') return <BillingPayrollManagement key="billing" token={token} mode="billing" userRole={user?.role} />;
+  if (activeSection === 'Payroll') return <BillingPayrollManagement key="payroll" token={token} mode="payroll" userRole={user?.role} />;
   if (activeSection === 'Announcements') return <AnnouncementsManagement token={token} />;
   if (activeSection === 'Activity Logs' && user?.role === 'SuperAdmin') return <ActivityLogsManagement token={token} />;
   if (activeSection === 'Staff' && user?.role === 'SuperAdmin') return <StaffManagement token={token} onLogout={onLogout} />;

@@ -143,6 +143,38 @@ test('successful authenticated mutations are recorded after the response complet
   assert.equal(recorded.details.targetId, 12);
 });
 
+test('successful mutations can provide a more specific audit action and description', async () => {
+  let recorded;
+  const middleware = createActivityAudit({
+    recorder: async (_client, details) => { recorded = details; },
+  });
+  const req = {
+    method: 'POST',
+    params: {},
+    ip: '127.0.0.1',
+    user: { id: 4, role: 'BillingPayrollAdmin' },
+  };
+  const res = new EventEmitter();
+  res.statusCode = 201;
+  res.locals = {
+    auditAction: 'BILLING_OVERRIDE_PROCESSED',
+    auditDescription: 'Processed billing with one eligibility override.',
+    auditTargetId: 31,
+  };
+
+  await new Promise((resolve) => {
+    middleware(req, res, () => {
+      req.route = { path: '/billing/process' };
+      res.emit('finish');
+      setImmediate(resolve);
+    });
+  });
+
+  assert.equal(recorded.action, 'BILLING_OVERRIDE_PROCESSED');
+  assert.equal(recorded.description, 'Processed billing with one eligibility override.');
+  assert.equal(recorded.targetId, 31);
+});
+
 test('failed mutations are not added to the audit trail', async () => {
   let calls = 0;
   const middleware = createActivityAudit({ recorder: async () => { calls += 1; } });

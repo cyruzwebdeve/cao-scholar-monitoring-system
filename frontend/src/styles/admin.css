@@ -6028,7 +6028,7 @@
 .billing-queue-table-head,
 .billing-queue-row { display: grid; align-items: center; }
 .billing-source-table .billing-queue-table-head,
-.billing-source-table .billing-queue-row { grid-template-columns: 105px minmax(180px, 1fr) 74px; min-width: 390px; }
+.billing-source-table .billing-queue-row { grid-template-columns: 105px minmax(180px, 1fr) 96px; min-width: 412px; }
 .billing-target-table .billing-queue-table-head,
 .billing-target-table .billing-queue-row { grid-template-columns: 105px minmax(170px, 1fr) 88px 58px; min-width: 445px; }
 .billing-queue-table-head { min-height: 34px; padding: 0 11px; border-bottom: 1px solid #e5ebe7; background: #f8faf8; }
@@ -6038,6 +6038,8 @@
 .billing-queue-row:last-child { border-bottom: 0; }
 .billing-queue-row:hover { background: #fafcfb; }
 .billing-queue-row.selected { background: #eef8f2; }
+.billing-queue-row.override-available { background: #fffcf5; }
+.billing-queue-row.overridden { box-shadow: inset 3px 0 #d58a2b; }
 .billing-queue-row.archived { background: #fbfcfb; }
 .billing-queue-row > span,
 .billing-queue-row > code,
@@ -6054,6 +6056,7 @@
 .billing-queue-row.selected > button small { color: #16864c; }
 .billing-queue-ready { width: max-content; padding: 4px 6px !important; border-radius: 999px; background: #edf7f0; color: #258251; font-size: 7px; font-weight: 900; }
 .billing-queue-ready.archived { background: #eef1ef; color: #6f7b73; }
+.billing-queue-ready.override { background: #fff0d9; color: #a45f0b; }
 .billing-queue-empty { min-height: 190px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; padding: 20px; color: #8c9890; font-size: 8px; text-align: center; }
 .billing-queue-empty strong { color: #485b4f; font-size: 10px; }
 .billing-queue-empty > span:last-child { max-width: 240px; line-height: 1.5; }
@@ -6075,6 +6078,37 @@
 .billing-target-footer > div { display: flex; gap: 13px; }
 .billing-target-footer > button { min-height: 31px; padding: 0 11px; border: 1px solid #148149; border-radius: 7px; background: #188c50; color: #fff; font: inherit; font-size: 8px; font-weight: 900; cursor: pointer; }
 .billing-target-footer > button:disabled { opacity: 0.45; cursor: not-allowed; }
+.billing-override-backdrop { position: fixed; inset: 0; z-index: 230; display: grid; place-items: center; padding: 20px; background: rgba(13, 31, 19, 0.66); backdrop-filter: blur(3px); }
+.billing-override-modal { width: min(520px, 100%); max-height: min(760px, calc(100vh - 40px)); overflow: hidden auto; border: 1px solid #dbe6de; border-radius: 17px; background: #fff; box-shadow: 0 24px 75px rgba(8, 28, 15, 0.28); }
+.billing-override-modal > header { position: relative; display: grid; grid-template-columns: 42px minmax(0, 1fr) 34px; align-items: start; gap: 12px; padding: 22px 22px 18px; border-bottom: 1px solid #e3ebe5; }
+.billing-override-modal > header > i { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: #fff0dc; color: #b86b11; }
+.billing-override-modal > header span { color: #ba6b0f; font-size: 8px; font-weight: 900; letter-spacing: 0.13em; }
+.billing-override-modal > header h2 { margin: 5px 0 4px; color: #263c2e; font-size: 18px; font-weight: 600; }
+.billing-override-modal > header p { margin: 0; color: #849087; font-size: 9px; line-height: 1.5; }
+.billing-override-modal > header > button { display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; background: #eef4ef; color: #53665a; cursor: pointer; }
+.billing-override-content { display: grid; gap: 14px; padding: 18px 22px; }
+.billing-override-scholar { display: flex; align-items: center; gap: 10px; }
+.billing-override-scholar > span { display: grid; place-items: center; width: 38px; height: 38px; flex: 0 0 auto; border-radius: 10px; background: #e8f6ed; color: #17894e; font-size: 10px; font-weight: 900; }
+.billing-override-scholar strong,
+.billing-override-scholar small { display: block; }
+.billing-override-scholar strong { color: #294032; font-size: 11px; }
+.billing-override-scholar small { margin-top: 3px; color: #849188; font-size: 8px; }
+.billing-override-blockers { padding: 12px 14px; border: 1px solid #f0d3ad; border-radius: 10px; background: #fffaf2; }
+.billing-override-blockers > strong { color: #8d5818; font-size: 9px; }
+.billing-override-blockers ul { display: grid; gap: 5px; margin: 8px 0 0; padding-left: 17px; color: #765f43; font-size: 8px; line-height: 1.45; }
+.billing-override-reason > span { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; color: #53675a; font-size: 9px; font-weight: 900; }
+.billing-override-reason em { color: #b3660d; font-size: 8px; font-style: normal; text-transform: uppercase; }
+.billing-override-reason textarea { width: 100%; min-height: 96px; resize: vertical; box-sizing: border-box; padding: 10px 11px; border: 1px solid #cddad1; border-radius: 9px; background: #fbfcfb; color: #31473a; font: inherit; font-size: 10px; line-height: 1.55; outline: 0; }
+.billing-override-reason textarea:focus { border-color: #d18a37; box-shadow: 0 0 0 3px rgba(209, 138, 55, 0.12); }
+.billing-override-reason > small { display: block; margin-top: 5px; color: #8c9890; font-size: 8px; text-align: right; }
+.billing-override-error { margin: -5px 0 0; color: #b13f39; font-size: 9px; }
+.billing-override-audit { display: flex; align-items: flex-start; gap: 7px; margin: 0; padding: 10px 11px; border-radius: 9px; background: #edf7f0; color: #39704d; font-size: 8px; line-height: 1.5; }
+.billing-override-audit svg { flex: 0 0 auto; }
+.billing-override-modal > footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px 18px; border-top: 1px solid #e5ece7; }
+.billing-override-modal > footer button { min-height: 35px; padding: 0 13px; border-radius: 8px; font: inherit; font-size: 9px; font-weight: 900; cursor: pointer; }
+.billing-override-modal > footer .secondary { border: 1px solid #d4ded7; background: #fff; color: #58695f; }
+.billing-override-modal > footer .primary { border: 1px solid #bd711b; background: #c97c24; color: #fff; }
+.billing-override-modal > footer button:disabled { opacity: 0.45; cursor: not-allowed; }
 .billing-record-count { margin: 0 0 9px; color: #738078; font-size: 10px; }
 .billing-table-card { overflow: hidden; border: 1px solid #dfe7e1; border-radius: 12px; background: #fff; box-shadow: 0 3px 10px rgba(17, 47, 28, 0.04); }
 .billing-table-scroll { overflow-x: auto; }
@@ -6151,6 +6185,12 @@
   .billing-target-footer { align-items: stretch !important; flex-direction: column; padding: 10px 13px !important; }
   .billing-target-footer > div { justify-content: space-between; }
   .billing-table-footer { align-items: flex-start; flex-direction: column; padding: 11px 14px; }
+  .billing-override-backdrop { align-items: end; padding: 10px; }
+  .billing-override-modal { max-height: calc(100vh - 20px); border-radius: 15px; }
+  .billing-override-modal > header { grid-template-columns: 38px minmax(0, 1fr) 32px; gap: 9px; padding: 17px 16px 14px; }
+  .billing-override-modal > header > i { width: 38px; height: 38px; }
+  .billing-override-content { padding: 15px 16px; }
+  .billing-override-modal > footer { padding: 12px 16px 15px; }
 }
 
 /* Announcement management */

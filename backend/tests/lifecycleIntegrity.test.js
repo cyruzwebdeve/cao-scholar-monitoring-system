@@ -4,6 +4,7 @@ const test = require('node:test');
 const {
   ONLINE_REQUIREMENTS,
   evaluateBillingEligibility,
+  evaluateBillingOverride,
   getRequirementSnapshot,
   isPayableClaim,
 } = require('../services/lifecycleIntegrity');
@@ -74,4 +75,47 @@ test('[FAILED] only a pending billed claim can enter payroll', () => {
   assert.equal(isPayableClaim({ claim_status: 'pending', claimed_date: null }), true);
   assert.equal(isPayableClaim({ claim_status: 'paid', claimed_date: new Date() }), false);
   assert.equal(isPayableClaim(null), false);
+});
+
+test('[SUCCESS] requirement blockers can be overridden with an accountable reason', () => {
+  const eligibility = evaluateBillingEligibility({
+    isActive: true,
+    alreadyBilled: false,
+    initialDocs: { requirements: {} },
+    requirement: { folder_physical_submitted: false },
+  });
+  const override = evaluateBillingOverride({
+    eligibility,
+    reason: '  Approved for emergency processing by the CAO director.  ',
+  });
+
+  assert.equal(override.allowed, true);
+  assert.equal(override.reason, 'Approved for emergency processing by the CAO director.');
+});
+
+test('[FAILED] billing override cannot bypass an inactive or already-billed scholar', () => {
+  const eligibility = evaluateBillingEligibility({
+    isActive: false,
+    alreadyBilled: true,
+    initialDocs: approvedDocuments(),
+    requirement: { folder_physical_submitted: true },
+  });
+  const override = evaluateBillingOverride({ eligibility, reason: 'Approved as an exceptional case.' });
+
+  assert.equal(override.allowed, false);
+  assert.deepEqual(
+    new Set(override.hardBlockers.map(({ code }) => code)),
+    new Set(['SCHOLAR_INACTIVE', 'ALREADY_BILLED']),
+  );
+});
+
+test('[FAILED] billing override requires a meaningful reason', () => {
+  const eligibility = evaluateBillingEligibility({
+    isActive: true,
+    alreadyBilled: false,
+    initialDocs: { requirements: {} },
+    requirement: { folder_physical_submitted: false },
+  });
+
+  assert.equal(evaluateBillingOverride({ eligibility, reason: 'urgent' }).allowed, false);
 });

@@ -38,6 +38,12 @@ before(async () => {
   }, limiters.documentReviewRateLimiter, (req, res) => {
     res.json({ ok: true });
   });
+  app.post('/billing', (req, res, next) => {
+    req.user = { id: Number(req.headers['x-test-user']), role: 'BillingPayrollAdmin' };
+    next();
+  }, limiters.billingWriteRateLimiter, (req, res) => {
+    res.json({ ok: true });
+  });
 
   await new Promise((resolve) => {
     server = app.listen(0, '127.0.0.1', resolve);
@@ -125,4 +131,17 @@ test('document review decisions are rate limited per moderator account', async (
 
   const otherModerator = await request('/document-reviews', { method: 'PUT', headers: { 'X-Test-User': '402' } });
   assert.equal(otherModerator.status, 200);
+});
+
+test('billing operations are rate limited per administrator account', async () => {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const response = await request('/billing', { method: 'POST', headers: { 'X-Test-User': '501' } });
+    assert.equal(response.status, 200);
+  }
+  const blocked = await request('/billing', { method: 'POST', headers: { 'X-Test-User': '501' } });
+  assert.equal(blocked.status, 429);
+  assert.match((await blocked.json()).message, /billing processing limit/i);
+
+  const otherAdministrator = await request('/billing', { method: 'POST', headers: { 'X-Test-User': '502' } });
+  assert.equal(otherAdministrator.status, 200);
 });

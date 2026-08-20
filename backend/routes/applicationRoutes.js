@@ -64,6 +64,7 @@ const {
   documentUploadRateLimiter,
   staffWriteRateLimiter,
   documentReviewRateLimiter,
+  billingWriteRateLimiter,
 } = require('../middleware/rateLimits');
 
 const router = express.Router();
@@ -131,7 +132,7 @@ router.get('/scholars/eligible', authenticate, checkRole(['SuperAdmin', 'Billing
 // List scholars by workflow status
 router.get('/scholars', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin', 'Moderator']), getScholarsByStatus);
 router.get('/scholars/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getScholarManagement);
-router.post('/billing/process', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), processBillingSelection);
+router.post('/billing/process', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), processBillingSelection);
 router.post('/payroll/process', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), processPayrollSelection);
 router.post('/scholars/:applicantId/accept', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), acceptApplicantAsScholar);
 router.put('/results/:applicantId/re-evaluate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), reevaluateExamResult);
