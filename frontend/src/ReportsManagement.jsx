@@ -2,7 +2,6 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ChartColumn,
   ChevronDown,
-  CircleDollarSign,
   ClipboardCheck,
   Download,
   GraduationCap,
@@ -276,7 +275,7 @@ export default function ReportsManagement({ token }) {
       )}
 
       {lifecycleReport && (
-        <section className="reports-lifecycle-grid" aria-label="Lifecycle and financial audit">
+        <section className="reports-lifecycle-grid" aria-label="Scholar lifecycle audit">
           <article className="reports-surface reports-lifecycle-card">
             <header><div><h2>Scholar lifecycle</h2><p>{lifecycleReport.period.schoolYear} · {lifecycleReport.period.semester}</p></div><span><ClipboardCheck size={16} /> Auditable flow</span></header>
             <div className="reports-funnel">
@@ -294,11 +293,6 @@ export default function ReportsManagement({ token }) {
                 return <div key={label}><span><strong>{label}</strong><em>{count}</em></span><i><b style={{ width: `${(count / maximum) * 100}%` }} /></i></div>;
               })}
             </div>
-          </article>
-          <article className="reports-surface reports-financial-audit-card">
-            <header><div><h2>Financial and activity audit</h2><p>Processed records and the latest accountable actions.</p></div><CircleDollarSign size={19} /></header>
-            <div className="reports-finance-summary"><span><small>Billing batches</small><strong>{lifecycleReport.finance.billingBatches}</strong></span><span><small>Billed claims</small><strong>{lifecycleReport.finance.billedClaims}</strong></span><span><small>Paid claims</small><strong>{lifecycleReport.finance.paidClaims}</strong></span><span><small>Paid amount</small><strong>{new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(lifecycleReport.finance.paidAmount)}</strong></span></div>
-            <div className="reports-audit-list">{lifecycleReport.audit.recent.slice(0, 5).map((log) => <div key={log.id}><span><strong>{String(log.action).replaceAll('_', ' ')}</strong><small>{log.description}</small></span><time>{new Date(log.created_at).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}</time></div>)}{!lifecycleReport.audit.recent.length && <p>No activity has been recorded yet.</p>}</div>
           </article>
         </section>
       )}
