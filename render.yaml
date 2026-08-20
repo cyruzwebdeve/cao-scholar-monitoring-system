@@ -25,6 +25,14 @@ services:
         sync: false
       - key: ANNOUNCEMENT_BLOB_READ_WRITE_TOKEN
         sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: PGCEAP Community Affairs Office
+      - key: APP_BASE_URL
+        sync: false
       - key: BOOTSTRAP_ADMIN_NAME
         value: PGCEAP Super Administrator
       - key: BOOTSTRAP_ADMIN_EMAIL

@@ -66,6 +66,10 @@ the local database, so the cloud tokens are optional locally.
 | `CORS_ORIGINS` | Vercel frontend URL, with no trailing slash |
 | `DOCUMENT_BLOB_READ_WRITE_TOKEN` | Private Blob store token |
 | `ANNOUNCEMENT_BLOB_READ_WRITE_TOKEN` | Public Blob store token |
+| `GMAIL_USER` | Gmail address used to send applicant lifecycle updates |
+| `GMAIL_APP_PASSWORD` | A 16-character Google App Password, not the Gmail account password |
+| `MAIL_FROM_NAME` | Display name, normally `PGCEAP Community Affairs Office` |
+| `APP_BASE_URL` | Vercel frontend URL, with no trailing slash |
 | `BOOTSTRAP_ADMIN_EMAIL` | Initial super administrator email |
 | `BOOTSTRAP_ADMIN_PASSWORD` | A temporary password of at least 12 characters |
 | `BOOTSTRAP_BILLING_ADMIN_EMAIL` | Optional initial Billing/Payroll Admin email |
@@ -86,6 +90,22 @@ Render, then deploy again. The email and optional name variables may remain;
 without their temporary passwords, bootstrap safely skips account creation. It
 is idempotent and never replaces an existing administrator password or role.
 
+### Gmail lifecycle mailer
+
+The API sends an account-creation email after a new application, an examination
+receipt after the applicant submits an exam, and an approval email when the
+applicant becomes a scholar. Email delivery happens after the database change;
+an unavailable mail service does not undo a submitted application or status
+update.
+
+Enable 2-Step Verification on the sender's Google account, create a Google App
+Password, and store that 16-character value in `GMAIL_APP_PASSWORD`. Do not use
+or commit the normal Gmail password. After saving the variables and redeploying,
+verify the credentials locally with `npm --prefix backend run mailer:verify`, or
+submit a test application using an email address you control. If either Gmail
+variable is absent, delivery is safely skipped and the API records a warning in
+its logs.
+
 ## 5. Connect Vercel to Render
 
 1. Copy the Render service URL, for example
@@ -103,10 +123,11 @@ is idempotent and never replaces an existing administrator password or role.
 1. Open `https://your-render-service.onrender.com/api/health`. It should report
    `healthy` and `database: connected`.
 2. Sign in with the bootstrap administrator account.
-3. Create and expire a test announcement.
-4. Upload a small test scholar requirement and verify the record remains after
+3. Submit a test application and confirm its applicant-account email arrives.
+4. Create and expire a test announcement.
+5. Upload a small test scholar requirement and verify the record remains after
    a Render restart.
-5. Open applicant, scholar, examination, billing, payroll, announcement,
+6. Open applicant, scholar, examination, billing, payroll, announcement,
    report, and settings pages once to confirm API access.
 
 Render Free services sleep after inactivity, so the first API request may take

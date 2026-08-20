@@ -7,6 +7,11 @@ const {
   parseDataUrl,
   uploadDataUrl,
 } = require('../services/blobStorage');
+const {
+  sendApplicantAccountEmail,
+  sendExamSubmittedEmail,
+  sendScholarApprovedEmail,
+} = require('../services/mailer');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -168,10 +173,18 @@ const createApplication = async (req, res) => {
       return { application, account };
     });
 
+    const emailDelivery = await sendApplicantAccountEmail({
+      to: normalizedEmail,
+      firstName: identity.firstName,
+      controlNumber: account.control_number,
+      temporaryPassword: generatedPassword,
+    });
+
     const response = {
       message: 'Application submitted and applicant account created.',
       application,
       applicant: { id: application.applicant_id, email: normalizedEmail, controlNumber: account.control_number },
+      notification: { accountEmailSent: emailDelivery.sent },
     };
     if (process.env.NODE_ENV !== 'production') response.applicant.temporaryPassword = generatedPassword;
     return res.status(201).json(response);
@@ -1034,7 +1047,28 @@ const submitOnlineExam = async (req, res) => {
       where: { applicant_id: applicantId, status: { not: 'Withdrawn' } },
       data: { status: APPLICATION_STATUSES.EXAMINED },
     });
-    return res.status(201).json({ message: 'Examination submitted.', result });
+    const [applicant, account] = await Promise.all([
+      prisma.applicants.findUnique({
+        where: { id: applicantId },
+        select: { email: true, first_name: true },
+      }),
+      prisma.control_accounts.findFirst({
+        where: { applicant_id: applicantId },
+        select: { control_number: true },
+      }),
+    ]);
+    const emailDelivery = await sendExamSubmittedEmail({
+      to: applicant?.email,
+      firstName: applicant?.first_name,
+      controlNumber: account?.control_number,
+      examTitle: exam.title,
+      submittedAt: result.created_at,
+    });
+    return res.status(201).json({
+      message: 'Examination submitted.',
+      result,
+      notification: { examReceiptEmailSent: emailDelivery.sent },
+    });
   } catch (error) { console.error(error); return res.status(500).json({ message: 'Server error submitting examination.' }); }
 };
 
@@ -1441,7 +1475,10 @@ const acceptApplicantAsScholar = async (req, res) => {
     if (!Number.isInteger(applicantId) || applicantId <= 0) return res.status(400).json({ message: 'A valid applicant is required.' });
 
     const [applicant, passedResult, existingScholar] = await Promise.all([
-      prisma.applicants.findFirst({ where: { id: applicantId, deleted_at: null }, select: { id: true, school_year: true } }),
+      prisma.applicants.findFirst({
+        where: { id: applicantId, deleted_at: null },
+        select: { id: true, email: true, first_name: true, school_year: true },
+      }),
       prisma.results.findFirst({ where: { applicant_id: applicantId, passed: true }, orderBy: { created_at: 'desc' }, select: { id: true } }),
       prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId } }),
     ]);
@@ -1468,7 +1505,17 @@ const acceptApplicantAsScholar = async (req, res) => {
         data: { applicant_id: applicantId, result_id: passedResult.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id },
       });
     }
-    return res.status(201).json({ message: 'Applicant accepted as a scholar.', scholar });
+    const emailDelivery = await sendScholarApprovedEmail({
+      to: applicant.email,
+      firstName: applicant.first_name,
+      scholarId: scholar.scholar_id,
+      schoolYear,
+    });
+    return res.status(201).json({
+      message: 'Applicant accepted as a scholar.',
+      scholar,
+      notification: { scholarApprovalEmailSent: emailDelivery.sent },
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error accepting applicant as a scholar.' });
