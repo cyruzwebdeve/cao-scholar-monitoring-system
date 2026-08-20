@@ -47,6 +47,7 @@ import SettingsManagement from './SettingsManagement';
 import BillingPayrollManagement from './BillingPayrollManagement';
 import AnnouncementsManagement from './AnnouncementsManagement';
 import ReportsManagement from './ReportsManagement';
+import SystemHealthPanel from './components/SystemHealthPanel';
 import schoolsListData from '../../schools_list.json';
 import municipalitiesData from '../../municipality.json';
 import barangaysData from '../../brgy.json';
@@ -625,7 +626,7 @@ const formatDashboardTime = (value) => {
   return parsed.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
-function DashboardOverview({ token, onSectionChange }) {
+function DashboardOverview({ token, user, onSectionChange }) {
   const [overview, setOverview] = useState({
     stats: { activeScholars: 0, forfeitedAccounts: 0 },
     recentApplications: [],
@@ -724,6 +725,8 @@ function DashboardOverview({ token, onSectionChange }) {
           return <article key={stat.label} className={`dashboard-stat-card dashboard-stat-card-${stat.tone}`}><div><p className="dashboard-stat-label">{stat.label}</p><h3>{loading ? '—' : stat.value}</h3><small>{stat.detail}</small></div><div className={`dashboard-stat-icon dashboard-stat-icon-${stat.accent}`}><Icon size={22} strokeWidth={2.1} /></div></article>;
         })}
       </div>
+
+      {user?.role === 'SuperAdmin' && <SystemHealthPanel />}
 
       <div className="dashboard-overview-grid">
         <section className="dashboard-surface dashboard-recent-applications">
@@ -1281,7 +1284,7 @@ function ExaminationManagement({ token }) {
 
 function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange }) {
   if (activeSection === 'Dashboard' && ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role)) {
-    return <DashboardOverview token={token} onSectionChange={onSectionChange} />;
+    return <DashboardOverview token={token} user={user} onSectionChange={onSectionChange} />;
   }
   if (activeSection === 'Applicants' && ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role)) return <ApplicantsManagement token={token} />;
   if (activeSection === 'Examination Management') return <ExaminationManagement token={token} />;

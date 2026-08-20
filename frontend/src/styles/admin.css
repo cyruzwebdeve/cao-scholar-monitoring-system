@@ -3909,6 +3909,205 @@
   height: 42px;
   border-radius: 11px;
 }
+.system-health-panel {
+  display: grid;
+  gap: 14px;
+}
+.admin-overview-dashboard .system-health-panel .dashboard-surface-header {
+  margin-bottom: 0;
+}
+.system-health-refresh {
+  min-height: 32px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid #cbd9ce;
+  border-radius: 8px;
+  background: #fff;
+  color: #286c45;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.system-health-refresh:hover:not(:disabled) {
+  border-color: #70bb8d;
+  background: #f4fbf6;
+}
+.system-health-refresh:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.system-health-refresh .spinning {
+  animation: system-health-spin 0.8s linear infinite;
+}
+.system-health-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.system-health-card {
+  min-width: 0;
+  overflow: hidden;
+  padding: 14px;
+  border: 1px solid #e2e9e4;
+  border-top: 3px solid #28a466;
+  border-radius: 11px;
+  background: #fbfdfb;
+}
+.system-health-card.degraded { border-top-color: #e7a230; }
+.system-health-card.slow,
+.system-health-card.offline { border-top-color: #e05252; }
+.system-health-card > header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+.system-health-card-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #e8f1ff;
+  color: #3579bd;
+}
+.system-health-card:nth-child(2) .system-health-card-icon {
+  background: #e7f6ed;
+  color: #168c50;
+}
+.system-health-card h4 {
+  margin: 0;
+  color: #29382f;
+  font-size: 12px;
+}
+.system-health-card header p {
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: #87918a;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.system-health-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: #e4f5ea;
+  color: #1a7f48;
+  font-size: 8px;
+  font-weight: 800;
+}
+.system-health-state i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.system-health-state.degraded,
+.system-health-state.checking { background: #fff2dd; color: #9b650c; }
+.system-health-state.slow,
+.system-health-state.offline { background: #fde8e8; color: #bd3737; }
+.system-health-reading {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+.system-health-card:first-child .system-health-reading {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.system-health-reading > div {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid #e6ece8;
+  border-radius: 8px;
+  background: #fff;
+}
+.system-health-reading strong,
+.system-health-reading span {
+  display: block;
+}
+.system-health-reading strong {
+  color: #243b2c;
+  font-size: 18px;
+  line-height: 1.1;
+}
+.system-health-reading span {
+  margin-top: 3px;
+  color: #929d96;
+  font-size: 8px;
+}
+.system-health-chart {
+  position: relative;
+  height: 112px;
+  padding: 7px 6px 7px 38px;
+  border: 1px solid #e7ede9;
+  border-radius: 8px;
+  background: #fff;
+}
+.system-health-chart svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.system-health-axis {
+  position: absolute;
+  inset: 8px auto 8px 7px;
+  display: flex;
+  justify-content: space-between;
+  flex-direction: column;
+  color: #99a39c;
+  font-size: 7px;
+}
+.system-health-gridline {
+  stroke: #e9eeeb;
+  stroke-width: 1;
+}
+.system-health-chart-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-left: 32px;
+  color: #929d96;
+  font-size: 9px;
+}
+.system-health-card > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 9px;
+  color: #8c9790;
+  font-size: 8px;
+}
+.system-health-warning {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 11px;
+  border: 1px solid #efb2b2;
+  border-radius: 8px;
+  background: #fff4f4;
+  color: #a13232;
+  font-size: 10px;
+}
+.system-health-note {
+  margin: -2px 0 0;
+  color: #8d9891;
+  font-size: 8px;
+  line-height: 1.5;
+}
+@keyframes system-health-spin {
+  to { transform: rotate(360deg); }
+}
 .dashboard-overview-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(310px, 0.85fr);
@@ -4253,6 +4452,9 @@
   .dashboard-school-grid {
     grid-template-columns: 1fr;
   }
+  .system-health-grid {
+    grid-template-columns: 1fr;
+  }
 }
 @media (max-width: 560px) {
   .admin-overview-dashboard .dashboard-stat-grid {
@@ -4270,6 +4472,16 @@
   }
   .admin-overview-dashboard .dashboard-surface-header p {
     white-space: normal;
+  }
+  .system-health-card > header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .system-health-state {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .system-health-reading {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .admin-overview-dashboard .dashboard-applications-table,
   .admin-overview-dashboard .dashboard-applications-table tbody,

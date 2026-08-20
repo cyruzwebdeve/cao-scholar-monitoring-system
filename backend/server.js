@@ -60,12 +60,14 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/health', async (req, res) => {
+  const databaseStartedAt = process.hrtime.bigint();
   try {
-    await prisma.$queryRawUnsafe('SELECT 1');
-    return res.json({ status: 'healthy', database: 'connected', timestamp: new Date().toISOString() });
+    await prisma.$queryRaw`SELECT 1`;
+    const databaseLatencyMs = Number(process.hrtime.bigint() - databaseStartedAt) / 1_000_000;
+    return res.json({ status: 'healthy', database: 'connected', databaseLatencyMs: Math.round(databaseLatencyMs * 10) / 10, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('Health check failed:', error.message);
-    return res.status(503).json({ status: 'unhealthy', database: 'unavailable', timestamp: new Date().toISOString() });
+    return res.status(503).json({ status: 'unhealthy', database: 'unavailable', databaseLatencyMs: null, timestamp: new Date().toISOString() });
   }
 });
 
