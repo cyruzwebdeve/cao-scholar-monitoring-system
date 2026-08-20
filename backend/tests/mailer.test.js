@@ -126,6 +126,32 @@ test('exam receipt does not expose the examination score', async () => {
   assert.doesNotMatch(message.html, />20</);
 });
 
+test('[SUCCESS] sends a targeted payroll email with the reference, period, and amount', async () => {
+  let message;
+  const mailer = createMailer({
+    env: configuredEnv,
+    transportFactory: () => ({
+      sendMail: async (payload) => {
+        message = payload;
+        return { messageId: 'payroll-message-id' };
+      },
+    }),
+  });
+  const result = await mailer.sendPayrollCompletedEmail({
+    to: 'scholar@example.com',
+    firstName: 'Andrea',
+    payReference: 'PAY-202608200001',
+    amount: 2500,
+    processedAt: new Date('2026-08-20T08:00:00Z'),
+    schoolYear: '2026-2027',
+    semester: '1st Semester',
+  });
+  assert.equal(result.sent, true);
+  assert.match(message.text, /PAY-202608200001/);
+  assert.match(message.text, /2,500/);
+  assert.match(message.html, /2026-2027 - 1st Semester/);
+});
+
 test('sends a single-use password reset link without exposing the token outside the link', async () => {
   let message;
   const mailer = createMailer({

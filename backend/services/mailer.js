@@ -312,6 +312,42 @@ const createMailer = ({
     });
   };
 
+  const sendPayrollCompletedEmail = ({ to, firstName, payReference, amount, processedAt, schoolYear, semester }) => {
+    const portalUrl = `${appUrl}/dashboard`;
+    const formattedAmount = new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: 'PHP',
+    }).format(Number(amount) || 0);
+    return send({
+      to,
+      template: 'payroll_completed',
+      subject: 'Your PGCEAP allowance has been processed',
+      text: [
+        `Hello ${clean(firstName) || 'Scholar'},`,
+        'Your allowance has been processed by the Community Affairs Office.',
+        `Payment reference: ${payReference}`,
+        `Amount: ${formattedAmount}`,
+        `Academic period: ${schoolYear} - ${semester}`,
+        `Processed: ${formatDate(processedAt)}`,
+        `View your update: ${portalUrl}`,
+      ].join('\n\n'),
+      html: renderEmail({
+        eyebrow: 'Payroll update',
+        title: 'Your allowance has been processed',
+        greeting: `Hello ${clean(firstName) || 'Scholar'},`,
+        body: 'The Community Affairs Office has completed your payroll record. Your personal payment details are available in the scholar portal.',
+        details: [
+          { label: 'Payment reference', value: payReference },
+          { label: 'Amount', value: formattedAmount },
+          { label: 'Academic period', value: `${schoolYear} - ${semester}` },
+          { label: 'Processed', value: formatDate(processedAt) },
+        ],
+        actionLabel: 'Open scholar portal',
+        actionUrl: portalUrl,
+      }),
+    });
+  };
+
   const sendPasswordResetEmail = ({ to, firstName, resetToken, expiresInMinutes = 30 }) => {
     const resetUrl = `${appUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
     return send({
@@ -358,6 +394,7 @@ const createMailer = ({
     sendApplicantAccountEmail,
     sendExamSubmittedEmail,
     sendPasswordResetEmail,
+    sendPayrollCompletedEmail,
     sendScholarApprovedEmail,
     verifyConnection,
   };

@@ -35,10 +35,15 @@ const getDocumentReviews = async (req, res) => {
     const reviewerIds = [...new Set(applications.flatMap((application) => Object.values(application.initial_docs?.requirements || {}))
       .map((file) => Number(file?.reviewedBy))
       .filter(Number.isInteger))];
-    const [applicants, accounts, reviewers] = await Promise.all([
+    const activePeriod = await prisma.academic_periods.findFirst({ where: { is_active: true }, orderBy: { updated_at: 'desc' } });
+    const [applicants, accounts, reviewers, physicalRequirements] = await Promise.all([
       prisma.applicants.findMany({ where: { id: { in: applicantIds } } }),
       prisma.control_accounts.findMany({ where: { applicant_id: { in: applicantIds } } }),
       reviewerIds.length ? prisma.admins.findMany({ where: { id: { in: reviewerIds } }, select: { id: true, full_name: true } }) : [],
+      activePeriod ? prisma.scholar_requirements.findMany({
+        where: { applicant_id: { in: applicantIds }, billing_period_id: activePeriod.id },
+        select: { applicant_id: true, folder_physical_submitted: true, folder_physical_submitted_at: true },
+      }) : [],
     ]);
     const records = buildReviewRecords({
       applications,
@@ -54,10 +59,60 @@ const getDocumentReviews = async (req, res) => {
         rejected: records.filter(({ status }) => status === 'rejected').length,
       },
       reviews: records,
+      physicalFolders: applicants.map((applicant) => {
+        const requirement = physicalRequirements.find((item) => item.applicant_id === applicant.id);
+        const account = accounts.find((item) => item.applicant_id === applicant.id);
+        return {
+          applicantId: applicant.id,
+          scholarName: [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' '),
+          controlNumber: account?.control_number || null,
+          received: Boolean(requirement?.folder_physical_submitted),
+          receivedAt: requirement?.folder_physical_submitted_at || null,
+        };
+      }),
     });
   } catch (error) {
     console.error('Error loading document reviews:', error);
     return res.status(500).json({ message: 'Server error loading document reviews.' });
+  }
+};
+
+const updatePhysicalFolder = async (req, res) => {
+  try {
+    const applicantId = parseApplicationId(req.params.applicantId);
+    if (!applicantId || typeof req.body.received !== 'boolean') {
+      return res.status(400).json({ message: 'A valid scholar and received status are required.' });
+    }
+    const [activePeriod, scholar] = await Promise.all([
+      prisma.academic_periods.findFirst({ where: { is_active: true }, orderBy: { updated_at: 'desc' } }),
+      prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }),
+    ]);
+    if (!activePeriod) return res.status(409).json({ message: 'No active academic period is configured.' });
+    if (!scholar) return res.status(404).json({ message: 'Active scholar record not found.' });
+    const timestamp = new Date();
+    const requirement = await prisma.scholar_requirements.upsert({
+      where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: activePeriod.id } },
+      create: {
+        applicant_id: applicantId,
+        billing_period_id: activePeriod.id,
+        folder_physical_submitted: req.body.received,
+        folder_physical_submitted_at: req.body.received ? timestamp : null,
+        updated_by: req.user.id,
+      },
+      update: {
+        folder_physical_submitted: req.body.received,
+        folder_physical_submitted_at: req.body.received ? timestamp : null,
+        updated_by: req.user.id,
+      },
+    });
+    res.locals.auditTargetId = applicantId;
+    return res.json({
+      message: req.body.received ? 'Physical folder marked as received.' : 'Physical folder receipt was removed.',
+      physicalFolder: { applicantId, received: requirement.folder_physical_submitted, receivedAt: requirement.folder_physical_submitted_at },
+    });
+  } catch (error) {
+    console.error('Error updating physical folder:', error);
+    return res.status(500).json({ message: 'Server error updating the physical folder.' });
   }
 };
 
@@ -151,4 +206,4 @@ const streamDocument = async (req, res) => {
   }
 };
 
-module.exports = { getDocumentReviews, reviewDocument, streamDocument };
+module.exports = { getDocumentReviews, reviewDocument, streamDocument, updatePhysicalFolder };

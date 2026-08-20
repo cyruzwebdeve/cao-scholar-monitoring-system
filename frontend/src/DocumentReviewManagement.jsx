@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_BASE, authHeaders } from './services/api';
 import './styles/document-reviews.css';
 
-const emptyData = { stats: { total: 0, pending: 0, approved: 0, rejected: 0 }, reviews: [] };
+const emptyData = { stats: { total: 0, pending: 0, approved: 0, rejected: 0 }, reviews: [], physicalFolders: [] };
 
 const formatDate = (value, fallback = 'Not available') => {
   if (!value) return fallback;
@@ -195,6 +195,25 @@ function DocumentReviewManagement({ token }) {
     }
   };
 
+  const updatePhysicalFolder = async (item) => {
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_BASE}/document-reviews/${item.applicantId}/physical-folder`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+        body: JSON.stringify({ received: !item.received }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message || 'Unable to update the physical folder.');
+      setNotice({ tone: 'success', message: payload.message });
+      await loadReviews();
+    } catch (saveError) {
+      setNotice({ tone: 'error', message: saveError.message || 'Unable to update the physical folder.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const metrics = [
     ['Pending review', data.stats.pending, Clock3, 'amber', 'Files waiting for a decision'],
     ['Approved', data.stats.approved, FileCheck2, 'green', 'Accepted scholar documents'],
@@ -206,7 +225,7 @@ function DocumentReviewManagement({ token }) {
     <div className="document-reviews">
       <header className="document-review-heading"><div><span>CONTENT MODERATION</span><h2>Document Reviews</h2><p>Verify scholar uploads before they count toward completed requirements.</p></div><button type="button" onClick={loadReviews} disabled={loading}><RefreshCw size={16} className={loading ? 'spinning' : ''} />Refresh queue</button></header>
       <div className="document-review-metrics">{metrics.map(([label, value, Icon, tone, helper]) => <article className={tone} key={label}><div><span>{label}</span><strong>{value}</strong><small>{helper}</small></div><i><Icon size={21} /></i></article>)}</div>
-      {notice && <div className="document-review-notice success" role="status"><CheckCircle2 size={18} /><span>{notice.message}</span><button type="button" onClick={() => setNotice(null)} aria-label="Dismiss"><X size={16} /></button></div>}
+      {notice && <div className={`document-review-notice ${notice.tone}`} role="status">{notice.tone === 'success' ? <CheckCircle2 size={18} /> : <TriangleAlert size={18} />}<span>{notice.message}</span><button type="button" onClick={() => setNotice(null)} aria-label="Dismiss"><X size={16} /></button></div>}
       {error && <div className="document-review-notice error" role="status"><TriangleAlert size={18} /><span>{error}</span><button type="button" onClick={loadReviews}>Retry</button></div>}
       <section className="document-review-directory">
         <div className="document-review-toolbar"><div><i><ClipboardCheck size={19} /></i><section><h3>Review queue</h3><p>{visibleReviews.length} of {data.reviews.length} uploaded files shown</p></section></div><div className="document-review-filters"><label><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Scholar, control number, or file" /></label><select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Filter review status"><option value="pending">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="">All statuses</option></select><select value={requirement} onChange={(event) => setRequirement(event.target.value)} aria-label="Filter requirement"><option value="">All requirements</option>{requirementOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div></div>
@@ -215,6 +234,13 @@ function DocumentReviewManagement({ token }) {
           {!loading && !visibleReviews.length && <tr className="document-review-empty"><td colSpan="6"><ClipboardCheck size={27} /><strong>{status === 'pending' ? 'Review queue is clear' : 'No documents found'}</strong><span>{status === 'pending' ? 'New scholar uploads will appear here automatically.' : 'Try changing the current filters.'}</span></td></tr>}
           {visibleReviews.map((item) => <tr key={item.id}><td data-label="Scholar"><strong>{item.scholarName}</strong><small>{item.controlNumber || item.email}</small></td><td data-label="Requirement"><strong>{item.requirementLabel}</strong><small>{item.fileName}</small></td><td data-label="Uploaded"><span>{formatDate(item.uploadedAt)}</span></td><td data-label="Status"><span className={`review-status ${item.status}`}>{titleCase(item.status)}</span></td><td data-label="Reviewed by"><span>{item.reviewerName || '—'}</span>{item.reviewedAt && <small>{formatDate(item.reviewedAt)}</small>}</td><td data-label="Action"><button type="button" className="document-review-open" onClick={() => openReview(item)}><Eye size={15} />Review file</button></td></tr>)}
         </tbody></table></div>
+      </section>
+      <section className="document-review-directory physical-folder-directory">
+        <div className="document-review-toolbar"><div><i><FileCheck2 size={19} /></i><section><h3>Physical folder receipts</h3><p>Record the white long folder before a scholar becomes eligible for Billing.</p></section></div><span className="physical-folder-count">{(data.physicalFolders || []).filter(({ received }) => received).length} of {(data.physicalFolders || []).length} received</span></div>
+        <div className="physical-folder-list">
+          {(data.physicalFolders || []).map((item) => <article key={item.applicantId}><div><strong>{item.scholarName}</strong><small>{item.controlNumber || `Scholar #${item.applicantId}`}</small></div><span className={item.received ? 'received' : 'missing'}>{item.received ? `Received ${formatDate(item.receivedAt)}` : 'Not received'}</span><button type="button" className={item.received ? 'remove' : 'receive'} disabled={saving} onClick={() => updatePhysicalFolder(item)}>{item.received ? 'Undo receipt' : 'Mark received'}</button></article>)}
+          {!loading && !(data.physicalFolders || []).length && <div className="document-review-empty"><FileCheck2 size={25} /><strong>No active scholars</strong><span>Accepted scholars will appear here.</span></div>}
+        </div>
       </section>
       {selected && <ReviewModal review={selected} preview={preview} previewLoading={previewLoading} previewError={previewError} onClose={closeReview} onDecision={(value) => { setDecisionError(''); setDecision(value); }} />}
       {decision && selected && <DecisionModal review={selected} decision={decision} saving={saving} error={decisionError} onClose={() => !saving && setDecision('')} onConfirm={saveDecision} />}

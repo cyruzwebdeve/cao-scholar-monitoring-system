@@ -140,7 +140,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
     && (isPayroll ? record.billed && !record.paid : !record.billed)), [records, queuedIds, isPayroll]);
   const sourceRecords = useMemo(() => visibleRecords.filter((record) => !queuedIds.includes(record.applicantId)), [visibleRecords, queuedIds]);
   const movableSourceRecords = useMemo(() => sourceRecords.filter((record) => (
-    !record.isArchivedPeriod && (isPayroll ? record.billed && !record.paid : !record.billed)
+    !record.isArchivedPeriod && (isPayroll ? record.billed && !record.paid : !record.billed && record.billingEligible)
   )), [sourceRecords, isPayroll]);
   const selectedMovableIds = sourceSelection.filter((id) => movableSourceRecords.some((record) => record.applicantId === id));
   const queuedTotalAmount = queuedRecords.reduce((sum, record) => sum + Number(record.claimAmount || 0), 0);
@@ -295,14 +295,15 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
               {loading && !records.length && <div className="billing-queue-empty"><span className="scholars-spinner" />Loading scholars…</div>}
               {!loading && !sourceRecords.length && <div className="billing-queue-empty"><Search size={20} /><strong>No scholar records</strong><span>{hasFilters ? 'No records match the selected filters.' : isPayroll ? 'Billed scholars awaiting payment will appear here.' : 'Newly accepted scholars will appear here automatically.'}</span></div>}
               {sourceRecords.map((record) => {
-                const canMove = !record.isArchivedPeriod && (isPayroll ? record.billed && !record.paid : !record.billed);
+                const canMove = !record.isArchivedPeriod && (isPayroll ? record.billed && !record.paid : !record.billed && record.billingEligible);
                 const isSelected = canMove && sourceSelection.includes(record.applicantId);
                 const statusLabel = isPayroll
                   ? record.paid ? 'Paid' : 'Not paid yet'
-                  : record.paid ? 'Paid' : record.billed ? 'Billed' : 'Not billed yet';
+                  : record.paid ? 'Paid' : record.billed ? 'Billed' : record.billingEligible ? 'Ready to bill' : 'Requirements incomplete';
+                const unavailableReason = record.billingEligibilityReasons?.[0]?.message;
                 return <div className={`billing-queue-row ${isSelected ? 'selected' : ''} ${canMove ? '' : 'archived'}`} key={record.id}>
                   <code>{record.controlNumber || '—'}</code>
-                  <button type="button" className="billing-queue-name" aria-pressed={isSelected} disabled={!canMove} title={canMove ? `Select ${record.name}` : `${record.name} is archived and cannot be moved again.`} onClick={() => toggleSelection(setSourceSelection, record.applicantId)}><strong>{record.name}</strong><small>{isSelected ? 'Selected' : record.email}</small></button>
+                  <button type="button" className="billing-queue-name" aria-pressed={isSelected} disabled={!canMove} title={canMove ? `Select ${record.name}` : unavailableReason || `${record.name} cannot be moved again.`} onClick={() => toggleSelection(setSourceSelection, record.applicantId)}><strong>{record.name}</strong><small>{isSelected ? 'Selected' : record.email}</small></button>
                   <span className={`billing-queue-ready ${canMove ? '' : 'archived'}`}>{statusLabel}</span>
                 </div>;
               })}

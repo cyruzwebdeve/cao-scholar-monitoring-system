@@ -10,8 +10,13 @@ const {
 const {
   sendApplicantAccountEmail,
   sendExamSubmittedEmail,
+  sendPayrollCompletedEmail,
   sendScholarApprovedEmail,
 } = require('../services/mailer');
+const {
+  evaluateBillingEligibility,
+  isPayableClaim,
+} = require('../services/lifecycleIntegrity');
 const {
   assignApplicantToMunicipalityExam,
   assignApplicantsToMunicipalityExams,
@@ -743,7 +748,7 @@ const getScholarManagement = async (req, res) => {
     const [applicants, accounts, requirements, schools, applications, payrollClaims, academicPeriods] = await Promise.all([
       prisma.applicants.findMany({ where: { id: { in: applicantIds }, deleted_at: null }, select: { id: true, first_name: true, middle_name: true, last_name: true, email: true, municipality: true, barangay: true, school_id: true, school_year: true } }),
       prisma.control_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, control_number: true } }),
-      prisma.scholar_requirements.findMany({ where: { applicant_id: { in: applicantIds } }, orderBy: { updated_at: 'desc' } }),
+      prisma.scholar_requirements.findMany({ where: { applicant_id: { in: applicantIds }, billing_period_id: activePeriod.id }, orderBy: { updated_at: 'desc' } }),
       prisma.schools.findMany({ select: { id: true, name: true, school_type: true } }),
       prisma.application_submissions.findMany({
         where: { applicant_id: { in: applicantIds } },
@@ -850,6 +855,12 @@ const getScholarManagement = async (req, res) => {
       const submittedDocuments = documents.filter(({ submitted }) => submitted);
       const hasReviewItems = submittedDocuments.some(({ status }) => !['approved', 'complete', 'completed'].includes(String(status).toLowerCase()));
       const documentsComplete = submittedDocuments.length === documents.length && !hasReviewItems;
+      const billingEligibility = evaluateBillingEligibility({
+        isActive: scholar.is_active,
+        alreadyBilled: Boolean(payrollClaim),
+        initialDocs: application?.initial_docs,
+        requirement,
+      });
       return {
         id: scholar.id,
         applicantId: applicant.id,
@@ -873,6 +884,8 @@ const getScholarManagement = async (req, res) => {
         documentsSubmitted: submittedDocuments.length,
         documentsTotal: documents.length,
         documents,
+        billingEligible: billingEligibility.eligible,
+        billingEligibilityReasons: billingEligibility.reasons,
         issuedAt: scholar.issued_at,
         notes: scholar.notes || '',
         billed: Boolean(payrollClaim),
@@ -905,10 +918,34 @@ const processBillingSelection = async (req, res) => {
     if (!applicantIds.length) return res.status(400).json({ message: 'Select at least one scholar for billing.' });
     if (applicantIds.length > 500) return res.status(400).json({ message: 'A billing batch cannot exceed 500 scholars.' });
 
-    const [activeScholars, periodBatches] = await Promise.all([
+    const [scholarAccounts, applications, requirements, periodBatches] = await Promise.all([
       prisma.scholar_accounts.findMany({
-        where: { applicant_id: { in: applicantIds }, is_active: true },
-        select: { applicant_id: true },
+        where: { applicant_id: { in: applicantIds } },
+        select: { applicant_id: true, is_active: true },
+      }),
+      prisma.application_submissions.findMany({
+        where: { applicant_id: { in: applicantIds } },
+        orderBy: { submitted_at: 'desc' },
+        select: { applicant_id: true, initial_docs: true },
+      }),
+      prisma.scholar_requirements.findMany({
+        where: { applicant_id: { in: applicantIds }, billing_period_id: activePeriod.id },
+        select: {
+          applicant_id: true,
+          cert_tax_exemption_file: true,
+          cert_tax_exemption_review_status: true,
+          barangay_indigency_file: true,
+          barangay_indigency_review_status: true,
+          valid_id_photocopy_file: true,
+          valid_id_photocopy_review_status: true,
+          grade_report_file: true,
+          grade_report_review_status: true,
+          registration_form_file: true,
+          registration_form_review_status: true,
+          tuition_fee_receipt_file: true,
+          tuition_fee_receipt_review_status: true,
+          folder_physical_submitted: true,
+        },
       }),
       prisma.payroll_batches.findMany({
         where: { billing_period_id: activePeriod.id },
@@ -922,13 +959,30 @@ const processBillingSelection = async (req, res) => {
         select: { applicant_id: true },
       })
       : [];
-    const activeIds = new Set(activeScholars.map(({ applicant_id }) => applicant_id));
     const billedIds = new Set(existingClaims.map(({ applicant_id }) => applicant_id));
-    const eligibleIds = applicantIds.filter((id) => activeIds.has(id) && !billedIds.has(id));
-    if (!eligibleIds.length) return res.status(409).json({ message: 'The selected scholars have already been billed or are no longer active.' });
-    if (eligibleIds.length !== applicantIds.length) {
-      return res.status(409).json({ message: 'Some selected scholars are no longer eligible for billing. Refresh the list and try again.' });
+    const scholarByApplicant = new Map(scholarAccounts.map((scholar) => [scholar.applicant_id, scholar]));
+    const applicationByApplicant = new Map();
+    applications.forEach((application) => {
+      if (!applicationByApplicant.has(application.applicant_id)) applicationByApplicant.set(application.applicant_id, application);
+    });
+    const requirementByApplicant = new Map(requirements.map((requirement) => [requirement.applicant_id, requirement]));
+    const eligibility = applicantIds.map((applicantId) => ({
+      applicantId,
+      ...evaluateBillingEligibility({
+        isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
+        alreadyBilled: billedIds.has(applicantId),
+        initialDocs: applicationByApplicant.get(applicantId)?.initial_docs,
+        requirement: requirementByApplicant.get(applicantId),
+      }),
+    }));
+    const ineligible = eligibility.filter(({ eligible }) => !eligible);
+    if (ineligible.length) {
+      return res.status(409).json({
+        message: 'Every selected scholar must be active, fully approved by a Moderator, have a recorded physical folder, and not be billed for this period.',
+        ineligible: ineligible.map(({ applicantId, reasons }) => ({ applicantId, reasons })),
+      });
     }
+    const eligibleIds = eligibility.map(({ applicantId }) => applicantId);
 
     const timestamp = new Date();
     const batchNumber = `BILL-${timestamp.toISOString().replace(/\D/g, '').slice(0, 17)}`;
@@ -949,6 +1003,7 @@ const processBillingSelection = async (req, res) => {
       await transaction.payroll_claims.createMany({
         data: eligibleIds.map((applicantId) => ({
           payroll_batch_id: batch.id,
+          academic_period_id: activePeriod.id,
           applicant_id: applicantId,
           claim_amount: 0,
           claim_status: 'pending',
@@ -966,6 +1021,9 @@ const processBillingSelection = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    if (error?.code === 'P2002') {
+      return res.status(409).json({ message: 'One or more selected scholars were already billed for this academic period. Refresh the list and try again.' });
+    }
     return res.status(500).json({ message: 'Server error processing the billing selection.' });
   }
 };
@@ -991,11 +1049,7 @@ const processPayrollSelection = async (req, res) => {
     claims.forEach((claim) => {
       if (!claimByApplicant.has(claim.applicant_id)) claimByApplicant.set(claim.applicant_id, claim);
     });
-    const payableClaims = applicantIds.map((id) => claimByApplicant.get(id)).filter((claim) => {
-      if (!claim) return false;
-      const status = String(claim.claim_status || '').toLowerCase();
-      return !claim.claimed_date && !['paid', 'claimed', 'released'].includes(status);
-    });
+    const payableClaims = applicantIds.map((id) => claimByApplicant.get(id)).filter(isPayableClaim);
     if (!payableClaims.length) return res.status(409).json({ message: 'The selected scholars have already been paid or are not yet billed.' });
     if (payableClaims.length !== applicantIds.length) {
       return res.status(409).json({ message: 'Some selected scholars are no longer ready for payroll. Refresh the list and try again.' });
@@ -1003,24 +1057,72 @@ const processPayrollSelection = async (req, res) => {
 
     const timestamp = new Date();
     const payReference = suppliedReference || `PAY-${timestamp.toISOString().replace(/\D/g, '').slice(0, 14)}`;
-    await prisma.payroll_claims.updateMany({
-      where: { id: { in: payableClaims.map(({ id }) => id) } },
-      data: {
-        claim_status: 'paid',
-        claimed_date: timestamp,
-        claimed_notes: payReference,
-        updated_at: timestamp,
-      },
+    const applicantRecords = await prisma.applicants.findMany({
+      where: { id: { in: applicantIds }, deleted_at: null },
+      select: { id: true, first_name: true, email: true },
     });
+    const applicantById = new Map(applicantRecords.map((applicant) => [applicant.id, applicant]));
+    await prisma.$transaction(async (transaction) => {
+      const updated = await transaction.payroll_claims.updateMany({
+        where: {
+          id: { in: payableClaims.map(({ id }) => id) },
+          claimed_date: null,
+          claim_status: { notIn: ['paid', 'claimed', 'released'] },
+        },
+        data: {
+          claim_status: 'paid',
+          claimed_date: timestamp,
+          claimed_notes: payReference,
+          updated_at: timestamp,
+        },
+      });
+      if (updated.count !== payableClaims.length) {
+        const conflict = new Error('Payroll selection changed while it was being processed.');
+        conflict.code = 'PAYROLL_CONFLICT';
+        throw conflict;
+      }
+      await transaction.scholar_notifications.createMany({
+        data: payableClaims.map((claim) => ({
+          applicant_id: claim.applicant_id,
+          academic_period_id: activePeriod.id,
+          payroll_claim_id: claim.id,
+          notification_type: 'payroll_processed',
+          title: 'Your allowance has been processed',
+          message: `Payroll for ${activePeriod.school_year} - ${activePeriod.semester} was completed.`,
+          reference: payReference,
+          amount: claim.claim_amount,
+          created_at: timestamp,
+        })),
+        skipDuplicates: true,
+      });
+    });
+
+    const emailResults = await Promise.all(payableClaims.map((claim) => {
+      const applicant = applicantById.get(claim.applicant_id);
+      return sendPayrollCompletedEmail({
+        to: applicant?.email,
+        firstName: applicant?.first_name,
+        payReference,
+        amount: claim.claim_amount,
+        processedAt: timestamp,
+        schoolYear: activePeriod.school_year,
+        semester: activePeriod.semester,
+      });
+    }));
 
     return res.json({
       message: `${payableClaims.length} scholar${payableClaims.length === 1 ? '' : 's'} marked as paid.`,
       payReference,
       totalScholars: payableClaims.length,
+      notificationsCreated: payableClaims.length,
+      emailsSent: emailResults.filter(({ sent }) => sent).length,
       activePeriod: serializeAcademicPeriod(activePeriod),
     });
   } catch (error) {
     console.error(error);
+    if (error?.code === 'PAYROLL_CONFLICT' || error?.code === 'P2002') {
+      return res.status(409).json({ message: 'The payroll selection was already processed or changed. Refresh the list and try again.' });
+    }
     return res.status(500).json({ message: 'Server error processing the payroll selection.' });
   }
 };
@@ -1104,7 +1206,7 @@ const getMyApplication = async (req, res) => {
     const [result, scholar, scholarRequirement, payrollClaim, scheduledExam] = applicantId ? await Promise.all([
       prisma.results.findFirst({ where: { applicant_id: applicantId }, orderBy: { created_at: 'desc' } }),
       prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }),
-      prisma.scholar_requirements.findFirst({ where: { applicant_id: applicantId }, orderBy: { updated_at: 'desc' } }),
+      prisma.scholar_requirements.findFirst({ where: { applicant_id: applicantId, billing_period_id: activePeriod.id } }),
       prisma.payroll_claims.findFirst({ where: { applicant_id: applicantId, payroll_batch_id: { in: activePayrollBatches.map(({ id }) => id) } }, orderBy: { updated_at: 'desc' } }),
       applicant?.municipality
         ? prisma.exams.findFirst({
@@ -1141,6 +1243,7 @@ const getMyApplication = async (req, res) => {
         amount: Number(payrollClaim.claim_amount),
         status: payrollClaim.claim_status,
         claimedDate: payrollClaim.claimed_date,
+        payReference: payrollClaim.claimed_notes,
         batchStatus: payrollBatch?.status || null,
         releasedAt: payrollBatch?.released_at || null,
       } : null,
@@ -1529,17 +1632,22 @@ const acceptApplicantAsScholar = async (req, res) => {
       : applicant.school_year;
     const yearPrefix = String(schoolYear).split('-')[0];
     const scholarId = existingScholar?.scholar_id || `PGCEAP-${yearPrefix}-${String(applicantId).padStart(5, '0')}`;
-    let scholar;
-    if (existingScholar) {
-      scholar = await prisma.scholar_accounts.update({
-        where: { id: existingScholar.id },
-        data: { result_id: passedResult.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id, issued_at: new Date(), updated_at: new Date() },
+    const scholar = await prisma.$transaction(async (transaction) => {
+      const savedScholar = existingScholar
+        ? await transaction.scholar_accounts.update({
+          where: { id: existingScholar.id },
+          data: { result_id: passedResult.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id, issued_at: new Date(), updated_at: new Date() },
+        })
+        : await transaction.scholar_accounts.create({
+          data: { applicant_id: applicantId, result_id: passedResult.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id },
+        });
+      await transaction.scholar_requirements.upsert({
+        where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: activePeriod.id } },
+        create: { applicant_id: applicantId, billing_period_id: activePeriod.id, updated_by: req.user.id },
+        update: { updated_by: req.user.id },
       });
-    } else {
-      scholar = await prisma.scholar_accounts.create({
-        data: { applicant_id: applicantId, result_id: passedResult.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id },
-      });
-    }
+      return savedScholar;
+    });
     const emailDelivery = await sendScholarApprovedEmail({
       to: applicant.email,
       firstName: applicant.first_name,

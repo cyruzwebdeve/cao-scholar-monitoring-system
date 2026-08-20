@@ -181,6 +181,37 @@
   font-size: 0.73rem;
   line-height: 1.45;
 }
+.scholar-notification-dropdown article {
+  padding: 11px;
+  margin: 8px 0;
+  border: 1px solid #dce8df;
+  border-radius: 9px;
+  background: #f8fbf9;
+}
+.scholar-notification-dropdown article.unread {
+  border-color: #9ed2ad;
+  background: #eff9f2;
+}
+.scholar-notification-dropdown article strong,
+.scholar-notification-dropdown article small {
+  display: block;
+}
+.scholar-notification-dropdown article p {
+  padding: 5px 0;
+  border: 0;
+}
+.scholar-notification-dropdown article small {
+  color: #42614d;
+  font-size: 0.68rem;
+}
+.scholar-notification-dropdown article button {
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 0;
+  color: #1b8544;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
 .scholar-user-chip {
   gap: 9px;
   padding-left: 18px;
@@ -649,6 +680,40 @@
   color: #708077;
   font-size: 0.8rem;
   line-height: 1.6;
+}
+.scholar-announcement-panel.personal-notice {
+  border-top: 3px solid #2e9b59;
+  background: linear-gradient(145deg, #ffffff, #f2faf4);
+}
+.scholar-payroll-notice-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+.scholar-payroll-notice-details span {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #dbe9df;
+  border-radius: 9px;
+  background: #fff;
+}
+.scholar-payroll-notice-details small,
+.scholar-payroll-notice-details strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.scholar-payroll-notice-details small {
+  color: #7b8d82;
+  font-size: 0.64rem;
+}
+.scholar-payroll-notice-details strong {
+  margin-top: 4px;
+  color: #244b32;
+  font-size: 0.75rem;
+}
+@media (max-width: 620px) {
+  .scholar-payroll-notice-details { grid-template-columns: 1fr; }
 }
 .scholar-announcement-panel a,
 .scholar-text-button {

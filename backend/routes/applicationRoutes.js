@@ -3,7 +3,9 @@ const { authenticate, authenticateOptional } = require('../middleware/auth');
 const { auditSuccessfulMutation } = require('../middleware/activityAudit');
 const { checkRole } = require('../middleware/rbac');
 const { getActivityLogs } = require('../controllers/activityController');
-const { getDocumentReviews, reviewDocument, streamDocument } = require('../controllers/documentReviewController');
+const { getLifecycleReport } = require('../controllers/lifecycleReportController');
+const { getMyNotifications, markMyNotificationRead } = require('../controllers/notificationController');
+const { getDocumentReviews, reviewDocument, streamDocument, updatePhysicalFolder } = require('../controllers/documentReviewController');
 const {
   changeStaffPassword,
   createStaffAccount,
@@ -76,12 +78,14 @@ router.put('/academic-periods/:id/activate', authenticate, checkRole(['SuperAdmi
 router.get('/dashboard/summary', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getDashboardSummary);
 router.get('/schools/catalog', authenticate, checkRole(['SuperAdmin']), getSchoolCatalog);
 router.get('/activity-logs', authenticate, checkRole(['SuperAdmin']), getActivityLogs);
+router.get('/reports/lifecycle', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getLifecycleReport);
 router.get('/staff/management', authenticate, checkRole(['SuperAdmin']), getStaffManagement);
 router.post('/staff', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin']), validateStaffCreate, createStaffAccount);
 router.put('/staff/:id', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin']), validateStaffUpdate, updateStaffAccount);
 router.put('/staff/:id/password', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin']), validateStaffPassword, changeStaffPassword);
 router.get('/document-reviews', authenticate, checkRole(['Moderator', 'SuperAdmin']), getDocumentReviews);
 router.get('/document-reviews/:applicationId/:requirementKey/file', authenticate, checkRole(['Moderator', 'SuperAdmin']), streamDocument);
+router.put('/document-reviews/:applicantId/physical-folder', authenticate, documentReviewRateLimiter, checkRole(['Moderator', 'SuperAdmin']), updatePhysicalFolder);
 router.put('/document-reviews/:applicationId/:requirementKey', authenticate, documentReviewRateLimiter, checkRole(['Moderator', 'SuperAdmin']), validateDocumentReview, reviewDocument);
 router.put('/schools/classification', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), updateSchoolClassification);
 router.get('/applicants/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getApplicantManagement);
@@ -93,6 +97,8 @@ router.post('/applications', applicationSubmissionRateLimiter, authenticateOptio
 
 // Get application by ID (owner or privileged roles)
 router.get('/applications/me', authenticate, checkRole(['Applicant', 'Scholar']), getMyApplication);
+router.get('/notifications/me', authenticate, checkRole(['Applicant', 'Scholar']), getMyNotifications);
+router.put('/notifications/:id/read', authenticate, checkRole(['Applicant', 'Scholar']), markMyNotificationRead);
 router.put('/applications/me/requirements', authenticate, documentUploadRateLimiter, checkRole(['Scholar']), uploadMyRequirement);
 router.get('/applications/:id', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin', 'Applicant', 'Scholar']), getApplicationById);
 

@@ -63,6 +63,7 @@ function ScholarDashboard({ token, user, onLogout }) {
   const [refreshRequest, setRefreshRequest] = useState(0);
   const [notice, setNotice] = useState(null);
   const [latestAnnouncement, setLatestAnnouncement] = useState(null);
+  const [scholarNotifications, setScholarNotifications] = useState([]);
   const displayName =
     [user?.firstName, user?.middleName, user?.lastName].filter(Boolean).join(' ') ||
     user?.email?.split('@')[0]?.replace(/[._-]/g, ' ') ||
@@ -131,6 +132,22 @@ function ScholarDashboard({ token, user, onLogout }) {
   }, [token]);
 
   useEffect(() => {
+    let active = true;
+    const loadNotifications = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/notifications/me`, { headers: authHeaders(token), cache: 'no-store' });
+        const body = response.ok ? await response.json() : null;
+        if (active && body) setScholarNotifications(body.notifications || []);
+      } catch {
+        // Allowance data remains available if the notification service is temporarily unavailable.
+      }
+    };
+    loadNotifications();
+    const timer = window.setInterval(loadNotifications, 30000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [token]);
+
+  useEffect(() => {
     const expirationTime = latestAnnouncement?.expiresAt
       ? new Date(latestAnnouncement.expiresAt).getTime()
       : Number.NaN;
@@ -195,7 +212,7 @@ function ScholarDashboard({ token, user, onLogout }) {
   const allowanceAmount = allowance
     ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(allowance.amount)
     : 'Not scheduled';
-  const notifications = [
+  const summaryNotifications = [
     rejectedCount > 0
       ? `${rejectedCount} requirement${rejectedCount === 1 ? ' was' : 's were'} returned for correction.`
       : attentionCount > 0
@@ -208,7 +225,9 @@ function ScholarDashboard({ token, user, onLogout }) {
       : 'Submit your white long folder with fastener directly to CAO.',
     allowance ? `Allowance status: ${allowanceStatus}.` : 'No allowance release has been scheduled yet.',
   ];
-  const hasActionNotifications = attentionCount > 0 || pendingReviewCount > 0 || !physicalFolderSubmitted || !allowance;
+  const unreadScholarNotifications = scholarNotifications.filter(({ isRead }) => !isRead);
+  const latestScholarNotification = scholarNotifications[0] || null;
+  const hasActionNotifications = unreadScholarNotifications.length > 0 || attentionCount > 0 || pendingReviewCount > 0 || !physicalFolderSubmitted || !allowance;
   const timeline = [
     { label: 'Application submitted', date: formatPortalDate(application?.submitted_at), complete: Boolean(application) },
     { label: 'Qualifying examination', date: formatPortalDate(portalData.examination?.submittedAt), complete: Boolean(portalData.examination?.completed) },
@@ -268,6 +287,20 @@ function ScholarDashboard({ token, user, onLogout }) {
     reader.readAsDataURL(file);
   };
 
+  const markNotificationRead = async (notificationId) => {
+    try {
+      const response = await fetch(`${API_BASE}/notifications/${notificationId}/read`, {
+        method: 'PUT',
+        headers: authHeaders(token),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to update notification.');
+      setScholarNotifications((current) => current.map((item) => item.id === notificationId ? body.notification : item));
+    } catch (error) {
+      setNotice({ tone: 'error', message: error.message || 'Unable to update the notification.' });
+    }
+  };
+
   return (
     <div className="scholar-dashboard">
       {notice && (
@@ -296,7 +329,8 @@ function ScholarDashboard({ token, user, onLogout }) {
             {notificationsOpen && (
               <div className="scholar-notification-dropdown">
                 <div><strong>Notifications</strong><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={15} /></button></div>
-                {notifications.map((notification) => <p key={notification}>{notification}</p>)}
+                {scholarNotifications.map((notification) => <article className={notification.isRead ? 'read' : 'unread'} key={notification.id}><strong>{notification.title}</strong><p>{notification.message}</p>{notification.reference && <small>Reference: {notification.reference}</small>}{!notification.isRead && <button type="button" onClick={() => markNotificationRead(notification.id)}>Mark as read</button>}</article>)}
+                {summaryNotifications.map((notification) => <p key={notification}>{notification}</p>)}
               </div>
             )}
           </div>
@@ -368,7 +402,7 @@ function ScholarDashboard({ token, user, onLogout }) {
               {timeline.map((item) => <div className={`scholar-timeline-item ${item.active ? 'active' : ''}`} key={item.label}><span className="scholar-timeline-dot">{item.complete ? <CheckCircle2 size={15} /> : item.active ? <span /> : null}</span><div><strong>{item.label}</strong><small>{item.date}</small></div></div>)}
             </div>
             </section>
-            <article className="scholar-panel scholar-announcement-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">FROM CAO</p><h2>Latest announcement</h2></div><Bell size={20} className="scholar-heading-icon" /></div><h3>{latestAnnouncement?.title || (requirementsComplete ? 'Requirements submitted' : 'Complete your scholar requirements')}</h3><p>{latestAnnouncement?.content || (requirementsComplete ? 'Your required documents and physical folder are recorded. Watch this portal for allowance updates.' : 'Submit the remaining requirements so your scholar record can proceed to allowance processing.')}</p>{latestAnnouncement?.imageData && <img className="portal-announcement-image" src={latestAnnouncement.imageData} alt={latestAnnouncement.imageName || latestAnnouncement.title} />}<a href="#requirements">View requirements <ChevronRight size={15} /></a></article>
+            <article className={`scholar-panel scholar-announcement-panel ${latestScholarNotification ? 'personal-notice' : ''}`}><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{latestScholarNotification ? 'PERSONAL PAYROLL UPDATE' : 'FROM CAO'}</p><h2>{latestScholarNotification ? 'Your latest update' : 'Latest announcement'}</h2></div><Bell size={20} className="scholar-heading-icon" /></div><h3>{latestScholarNotification?.title || latestAnnouncement?.title || (requirementsComplete ? 'Requirements submitted' : 'Complete your scholar requirements')}</h3><p>{latestScholarNotification?.message || latestAnnouncement?.content || (requirementsComplete ? 'Your required documents and physical folder are recorded. Watch this portal for allowance updates.' : 'Submit the remaining requirements so your scholar record can proceed to allowance processing.')}</p>{latestScholarNotification && <div className="scholar-payroll-notice-details"><span><small>Payment reference</small><strong>{latestScholarNotification.reference || 'Not assigned'}</strong></span><span><small>Amount</small><strong>{new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(latestScholarNotification.amount || 0)}</strong></span><span><small>Processed</small><strong>{formatPortalDate(latestScholarNotification.createdAt)}</strong></span></div>}{latestScholarNotification && !latestScholarNotification.isRead && <button type="button" className="scholar-text-button" onClick={() => markNotificationRead(latestScholarNotification.id)}>Mark as read <ChevronRight size={15} /></button>}{!latestScholarNotification && latestAnnouncement?.imageData && <img className="portal-announcement-image" src={latestAnnouncement.imageData} alt={latestAnnouncement.imageName || latestAnnouncement.title} />}{!latestScholarNotification && <a href="#requirements">View requirements <ChevronRight size={15} /></a>}</article>
           </div>
 
           <div className="scholar-portal-column">

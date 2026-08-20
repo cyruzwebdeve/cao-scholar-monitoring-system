@@ -2,6 +2,8 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ChartColumn,
   ChevronDown,
+  CircleDollarSign,
+  ClipboardCheck,
   Download,
   GraduationCap,
   MapPin,
@@ -42,24 +44,28 @@ export default function ReportsManagement({ token }) {
   const [locationLevel, setLocationLevel] = useState('municipality');
   const [coverageFilter, setCoverageFilter] = useState('attention');
   const [expandedMunicipality, setExpandedMunicipality] = useState(null);
+  const [lifecycleReport, setLifecycleReport] = useState(null);
 
   const loadReports = useCallback(async ({ showLoader = false } = {}) => {
     if (showLoader) setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/scholars/management`, {
-        headers: authHeaders(token),
-        cache: 'no-store',
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message || 'Unable to load report data.');
-      setScholars(body.scholars || []);
+      const lifecycleQuery = schoolYear === 'All School Years' ? '' : `?schoolYear=${encodeURIComponent(schoolYear)}`;
+      const [scholarResponse, lifecycleResponse] = await Promise.all([
+        fetch(`${API_BASE}/scholars/management`, { headers: authHeaders(token), cache: 'no-store' }),
+        fetch(`${API_BASE}/reports/lifecycle${lifecycleQuery}`, { headers: authHeaders(token), cache: 'no-store' }),
+      ]);
+      const [scholarBody, lifecycleBody] = await Promise.all([scholarResponse.json(), lifecycleResponse.json()]);
+      if (!scholarResponse.ok) throw new Error(scholarBody.message || 'Unable to load report data.');
+      setScholars(scholarBody.scholars || []);
+      if (!lifecycleResponse.ok) throw new Error(lifecycleBody.message || 'Unable to load lifecycle audit data.');
+      setLifecycleReport(lifecycleBody);
       setLoadError('');
     } catch (error) {
       setLoadError(error.message || 'Unable to load report data.');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [schoolYear, token]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => loadReports({ showLoader: true }), 0);
@@ -70,9 +76,10 @@ export default function ReportsManagement({ token }) {
     };
   }, [loadReports]);
 
-  const schoolYears = useMemo(() => [...new Set(scholars
-    .map((scholar) => scholar.schoolYear)
-    .filter(Boolean))].sort().reverse(), [scholars]);
+  const schoolYears = useMemo(() => [...new Set([
+    ...scholars.map((scholar) => scholar.schoolYear),
+    ...(lifecycleReport?.periods || []).map((period) => period.schoolYear),
+  ].filter(Boolean))].sort().reverse(), [lifecycleReport, scholars]);
 
   const activeScholars = useMemo(() => scholars.filter((scholar) => (
     scholar.status === 'Active'
@@ -257,6 +264,34 @@ export default function ReportsManagement({ token }) {
           <span>{loadError}</span>
           <button type="button" onClick={() => loadReports({ showLoader: true })}><RefreshCw size={14} /> Retry</button>
         </div>
+      )}
+
+      {lifecycleReport && (
+        <section className="reports-lifecycle-grid" aria-label="Lifecycle and financial audit">
+          <article className="reports-surface reports-lifecycle-card">
+            <header><div><h2>Scholar lifecycle</h2><p>{lifecycleReport.period.schoolYear} · {lifecycleReport.period.semester}</p></div><span><ClipboardCheck size={16} /> Auditable flow</span></header>
+            <div className="reports-funnel">
+              {[
+                ['Applied', lifecycleReport.funnel.applied],
+                ['Scheduled', lifecycleReport.funnel.scheduled],
+                ['Examined', lifecycleReport.funnel.examined],
+                ['Passed', lifecycleReport.funnel.passed],
+                ['Scholars', lifecycleReport.funnel.scholars],
+                ['Requirements cleared', lifecycleReport.funnel.requirementsCleared],
+                ['Billed', lifecycleReport.funnel.billed],
+                ['Paid', lifecycleReport.funnel.paid],
+              ].map(([label, count], index, stages) => {
+                const maximum = Math.max(1, ...stages.map(([, value]) => value));
+                return <div key={label}><span><strong>{label}</strong><em>{count}</em></span><i><b style={{ width: `${(count / maximum) * 100}%` }} /></i></div>;
+              })}
+            </div>
+          </article>
+          <article className="reports-surface reports-financial-audit-card">
+            <header><div><h2>Financial and activity audit</h2><p>Processed records and the latest accountable actions.</p></div><CircleDollarSign size={19} /></header>
+            <div className="reports-finance-summary"><span><small>Billing batches</small><strong>{lifecycleReport.finance.billingBatches}</strong></span><span><small>Billed claims</small><strong>{lifecycleReport.finance.billedClaims}</strong></span><span><small>Paid claims</small><strong>{lifecycleReport.finance.paidClaims}</strong></span><span><small>Paid amount</small><strong>{new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(lifecycleReport.finance.paidAmount)}</strong></span></div>
+            <div className="reports-audit-list">{lifecycleReport.audit.recent.slice(0, 5).map((log) => <div key={log.id}><span><strong>{String(log.action).replaceAll('_', ' ')}</strong><small>{log.description}</small></span><time>{new Date(log.created_at).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}</time></div>)}{!lifecycleReport.audit.recent.length && <p>No activity has been recorded yet.</p>}</div>
+          </article>
+        </section>
       )}
 
       <section className="reports-analytics-grid" aria-label="Scholar analytics">
