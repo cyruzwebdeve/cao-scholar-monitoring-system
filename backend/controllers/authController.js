@@ -7,6 +7,7 @@ const {
   generateResetToken,
   hashResetToken,
 } = require('../services/passwordReset');
+const { recordSuccessfulLogin } = require('../services/activityLog');
 
 const createToken = (id, accountType, role, authVersion = 0) => jwt.sign(
   { userId: id, accountType, role, authVersion },
@@ -84,6 +85,8 @@ const login = async (req, res) => {
       accountUser = await getApplicantAccount(identifier);
       if (!accountUser || !(await bcrypt.compare(password, accountUser.account.password_hash))) return res.status(401).json({ message: 'Invalid credentials.' });
     }
+
+    await recordSuccessfulLogin(prisma, accountUser, { ipAddress: req.ip });
 
     const token = createToken(
       accountUser.id,

@@ -19,6 +19,7 @@ const {
   indexExamsByMunicipality,
   normalizeMunicipality,
 } = require('../services/examAssignments');
+const { recordActivitySafely } = require('../services/activityLog');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -183,6 +184,15 @@ const createApplication = async (req, res) => {
         academicYear: activePeriod.school_year,
       });
       return { application, account };
+    });
+
+    await recordActivitySafely(prisma, {
+      user: { id: application.applicant_id, role: 'Applicant' },
+      action: 'APPLICATION_SUBMITTED',
+      description: 'Submitted a scholarship application.',
+      targetTable: 'application_submissions',
+      targetId: application.id,
+      ipAddress: req.ip,
     });
 
     const emailDelivery = await sendApplicantAccountEmail({

@@ -1,6 +1,8 @@
 const express = require('express');
 const { authenticate, authenticateOptional } = require('../middleware/auth');
+const { auditSuccessfulMutation } = require('../middleware/activityAudit');
 const { checkRole } = require('../middleware/rbac');
+const { getActivityLogs } = require('../controllers/activityController');
 const {
   getActiveAcademicPeriod,
   getAcademicPeriods,
@@ -52,12 +54,15 @@ const {
 
 const router = express.Router();
 
+router.use(auditSuccessfulMutation);
+
 router.get('/academic-periods/active', getActiveAcademicPeriod);
 router.get('/academic-periods', authenticate, checkRole(['Moderator', 'SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getAcademicPeriods);
 router.post('/academic-periods', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), createAcademicPeriod);
 router.put('/academic-periods/:id/activate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), activateAcademicPeriod);
 
 router.get('/dashboard/summary', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getDashboardSummary);
+router.get('/activity-logs', authenticate, checkRole(['SuperAdmin']), getActivityLogs);
 router.put('/schools/classification', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), updateSchoolClassification);
 router.get('/applicants/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getApplicantManagement);
 router.get('/examinations/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getExaminationManagement);

@@ -47,6 +47,7 @@ import SettingsManagement from './SettingsManagement';
 import BillingPayrollManagement from './BillingPayrollManagement';
 import AnnouncementsManagement from './AnnouncementsManagement';
 import ReportsManagement from './ReportsManagement';
+import ActivityLogsManagement from './ActivityLogsManagement';
 import SystemHealthPanel from './components/SystemHealthPanel';
 import schoolsListData from '../../schools_list.json';
 import municipalitiesData from '../../municipality.json';
@@ -1293,6 +1294,7 @@ function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange }
   if (activeSection === 'Billing') return <BillingPayrollManagement key="billing" token={token} mode="billing" />;
   if (activeSection === 'Payroll') return <BillingPayrollManagement key="payroll" token={token} mode="payroll" />;
   if (activeSection === 'Announcements') return <AnnouncementsManagement token={token} />;
+  if (activeSection === 'Activity Logs' && user?.role === 'SuperAdmin') return <ActivityLogsManagement token={token} />;
   if (activeSection === 'Reports') return <ReportsManagement token={token} />;
   if (activeSection === 'Settings') return <SettingsManagement token={token} user={user} />;
 
