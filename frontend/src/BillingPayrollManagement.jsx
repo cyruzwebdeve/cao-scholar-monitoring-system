@@ -15,6 +15,8 @@ import {
   X,
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
+import CsvExportModal from './components/CsvExportModal';
+import { buildRecordRows, downloadCsv } from './utils/csvExport';
 
 const formatDate = (value) => {
   if (!value) return 'Not processed';
@@ -25,6 +27,21 @@ const formatDate = (value) => {
 const formatAmount = (value) => value === null || value === undefined
   ? 'Not assigned'
   : new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value);
+
+const billingExportColumns = [
+  { key: 'name', label: 'Scholar Name', group: 'Scholar' },
+  { key: 'controlNumber', label: 'Control Number', group: 'Scholar' },
+  { key: 'email', label: 'Email', group: 'Scholar' },
+  { key: 'status', label: 'Scholar Status', group: 'Scholar' },
+  { key: 'billingStatus', label: 'Billed', group: 'Billing & payroll' },
+  { key: 'payReference', label: 'Pay Reference', group: 'Billing & payroll' },
+  { key: 'payrollStatus', label: 'Paid', group: 'Billing & payroll' },
+  { key: 'claimAmount', label: 'Amount', group: 'Billing & payroll', value: (record) => formatAmount(record.claimAmount) },
+  { key: 'schoolYearSemester', label: 'School Year / Semester', group: 'Academic' },
+  { key: 'school', label: 'School', group: 'Academic' },
+  { key: 'schoolType', label: 'School Type', group: 'Academic', value: (record) => record.schoolType || 'Public' },
+  { key: 'dateProcessed', label: 'Date Processed', group: 'Processing', value: (record) => formatDate(record.dateProcessed) },
+];
 
 const matchesDateRange = (value, from, to) => {
   if (!from && !to) return true;
@@ -50,6 +67,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
   const [paymentReference, setPaymentReference] = useState('');
   const [processing, setProcessing] = useState(false);
   const [operationNotice, setOperationNotice] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [scholarStatus, setScholarStatus] = useState('All Scholar Statuses');
   const [billed, setBilled] = useState(defaultBilledFilter);
@@ -160,17 +178,6 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
         { label: 'Billed', value: billedCount, detail: 'Included in billing records', tone: 'blue', Icon: ReceiptText },
         { label: 'Paid', value: paidCount, detail: 'Completed through payroll', tone: 'violet', Icon: Banknote },
       ];
-
-  const exportRecords = (items) => {
-    const headers = ['Scholar Name', 'Email', 'Scholar Status', 'Billed', 'Pay Reference', 'Paid', 'School Year / Semester', 'School', 'School Type', 'Date Processed'];
-    const rows = items.map((item) => [item.name, item.email, item.status, item.billingStatus, item.payReference || '', item.payrollStatus, item.schoolYearSemester, item.school, item.schoolType || 'Public', formatDate(item.dateProcessed)]);
-    const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-    const blob = new Blob([[headers, ...rows].map((row) => row.map(escape).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url; anchor.download = `${mode}-records-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
-  };
 
   const toggleSelection = (setter, id) => setter((current) => current.includes(id)
     ? current.filter((item) => item !== id)
@@ -322,7 +329,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
         <article className="billing-transfer-panel billing-target-panel">
           <header className="billing-transfer-header">
             <div><strong>For {isPayroll ? 'Payroll' : 'Billing'}</strong><small>Review the current processing queue.</small></div>
-            <button type="button" className="billing-queue-export" onClick={() => exportRecords(queuedRecords)} disabled={!queuedRecords.length}><Download size={14} />Export CSV</button>
+            <button type="button" className="billing-queue-export" onClick={() => setExportOpen(true)} disabled={!queuedRecords.length}><Download size={14} />Export CSV</button>
           </header>
           {isPayroll && <div className="billing-payment-reference"><label><span>Payment reference <small>(optional)</small></span><input value={paymentReference} maxLength={50} onChange={(event) => setPaymentReference(event.target.value)} placeholder="Auto-generated when blank" /></label><p>Recent refs: {payReferences.length ? payReferences.slice(-3).join(', ') : 'None yet'}</p></div>}
           <div className="billing-queue-table billing-target-table">
@@ -340,6 +347,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
           <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Amount paid' : 'Billable amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing}>{processing ? 'Processing…' : isPayroll ? 'Complete payroll' : 'Process billing'}</button></footer>
         </article>
       </section>
+      {exportOpen && <CsvExportModal title={`Export ${isPayroll ? 'payroll' : 'billing'} queue`} description="Choose which scholar, academic, and processing fields to include in this CSV file." columns={billingExportColumns} rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `${mode}-records-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(queuedRecords, columns) })} />}
     </div>
 
   </>;

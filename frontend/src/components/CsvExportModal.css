@@ -1,0 +1,116 @@
+.csv-export-backdrop {
+  position: fixed;
+  z-index: 1300;
+  inset: 0;
+  display: grid;
+  padding: 20px;
+  place-items: center;
+  overflow-y: auto;
+  background: rgba(10, 34, 21, .65);
+  backdrop-filter: blur(3px);
+}
+
+.csv-export-modal {
+  width: min(650px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: hidden;
+  border: 1px solid #d8e4dc;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 26px 70px rgba(6, 30, 17, .28);
+  color: #173625;
+}
+
+.csv-export-modal > header {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 34px;
+  gap: 12px;
+  align-items: start;
+  padding: 19px 20px 16px;
+  border-bottom: 1px solid #e0e8e3;
+}
+
+.csv-export-modal > header > i {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 11px;
+  background: #e8f7ee;
+  color: #078d47;
+  font-style: normal;
+}
+
+.csv-export-modal > header span {
+  display: block;
+  margin-bottom: 4px;
+  color: #078d47;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.csv-export-modal > header h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.csv-export-modal > header p { margin: 5px 0 0; color: #708077; font-size: 10px; line-height: 1.5; }
+.csv-export-modal > header > button { display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 50%; background: #edf5ef; color: #486455; cursor: pointer; }
+
+.csv-export-selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 20px;
+  border-bottom: 1px solid #e5ece7;
+  background: #f7faf8;
+  color: #667b6e;
+  font-size: 9px;
+}
+
+.csv-export-selection-bar > div { display: flex; gap: 6px; }
+.csv-export-selection-bar button { min-height: 29px; padding: 0 9px; border: 1px solid #cbdad1; border-radius: 7px; background: #fff; color: #287047; cursor: pointer; font: inherit; font-size: 8px; font-weight: 800; }
+.csv-export-selection-bar button:disabled { cursor: not-allowed; opacity: .45; }
+
+.csv-export-groups { max-height: min(455px, calc(100vh - 260px)); overflow-y: auto; padding: 16px 20px; }
+.csv-export-groups fieldset { min-width: 0; margin: 0 0 17px; padding: 0; border: 0; }
+.csv-export-groups fieldset:last-child { margin-bottom: 0; }
+.csv-export-groups legend { width: 100%; margin-bottom: 8px; color: #51675a; font-size: 9px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.csv-export-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.csv-export-options label { display: flex; min-width: 0; min-height: 51px; align-items: center; gap: 9px; padding: 9px 10px; border: 1px solid #dbe5de; border-radius: 9px; background: #fff; cursor: pointer; transition: border-color .16s ease, background .16s ease; }
+.csv-export-options label:hover { border-color: #b8d8c4; background: #fbfdfb; }
+.csv-export-options label.selected { border-color: #8dceaa; background: #f0f9f3; }
+.csv-export-options input { width: 15px; height: 15px; flex: 0 0 auto; accent-color: #078d47; }
+.csv-export-options label > span { min-width: 0; }
+.csv-export-options strong,
+.csv-export-options small { display: block; }
+.csv-export-options strong { overflow: hidden; color: #203c2c; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.csv-export-options small { margin-top: 3px; color: #819087; font-size: 8px; line-height: 1.35; }
+
+.csv-export-modal > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 20px;
+  border-top: 1px solid #e0e8e3;
+  background: #fff;
+}
+
+.csv-export-modal > footer > span { color: #71837a; font-size: 9px; }
+.csv-export-modal > footer > div { display: flex; gap: 8px; }
+.csv-export-modal > footer button { display: inline-flex; min-height: 37px; align-items: center; justify-content: center; gap: 6px; padding: 0 13px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 9px; font-weight: 800; }
+.csv-export-cancel { border: 1px solid #ccd9d1; background: #fff; color: #415c4c; }
+.csv-export-confirm { border: 1px solid #078d47; background: #078d47; color: #fff; }
+.csv-export-confirm:hover { background: #087f42; }
+.csv-export-confirm:disabled { cursor: not-allowed; opacity: .45; }
+
+@media (max-width: 600px) {
+  .csv-export-backdrop { padding: 10px; }
+  .csv-export-modal { max-height: calc(100vh - 20px); }
+  .csv-export-modal > header { padding: 15px; }
+  .csv-export-selection-bar { align-items: flex-start; padding: 10px 15px; }
+  .csv-export-groups { max-height: calc(100vh - 282px); padding: 13px 15px; }
+  .csv-export-options { grid-template-columns: 1fr; }
+  .csv-export-modal > footer { align-items: stretch; flex-direction: column; padding: 12px 15px; }
+  .csv-export-modal > footer > div { width: 100%; }
+  .csv-export-modal > footer button { flex: 1; }
+}

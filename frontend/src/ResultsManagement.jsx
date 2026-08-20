@@ -16,6 +16,8 @@ import {
   X,
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
+import CsvExportModal from './components/CsvExportModal';
+import { buildRecordRows, downloadCsv } from './utils/csvExport';
 
 const formatResultDate = (value) => {
   if (!value) return 'Not scheduled';
@@ -36,6 +38,20 @@ const formatResultTimestamp = (value) => {
     minute: '2-digit',
   });
 };
+
+const resultExportColumns = [
+  { key: 'name', label: 'Applicant', group: 'Applicant' },
+  { key: 'control', label: 'Control Number', group: 'Applicant' },
+  { key: 'email', label: 'Email', group: 'Applicant' },
+  { key: 'municipality', label: 'Municipality', group: 'Location' },
+  { key: 'barangay', label: 'Barangay', group: 'Location' },
+  { key: 'date', label: 'Examination Date', group: 'Examination', value: (record) => formatResultDate(record.date) },
+  { key: 'score', label: 'Score', group: 'Examination' },
+  { key: 'passingScore', label: 'Passing Score', group: 'Examination' },
+  { key: 'status', label: 'Status', group: 'Examination' },
+  { key: 'academicYear', label: 'Academic Year', group: 'Examination' },
+  { key: 'notes', label: 'Remarks', group: 'Examination' },
+];
 
 function StatusBadge({ status }) {
   return <span className={`rm-status ${status.toLowerCase().replace(/\s+/g, '-')}`}>{status}</span>;
@@ -59,6 +75,7 @@ export default function ResultsManagement({ token }) {
   const [reevaluationError, setReevaluationError] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
   const [page, setPage] = useState(1);
+  const [exportOpen, setExportOpen] = useState(false);
   const pageSize = 10;
 
   const loadResults = useCallback(async ({ showLoader = false } = {}) => {
@@ -234,29 +251,6 @@ export default function ResultsManagement({ token }) {
     }
   };
 
-  const exportResults = () => {
-    const columns = [
-      ['Applicant', 'name'], ['Control Number', 'control'], ['Email', 'email'], ['Municipality', 'municipality'],
-      ['Barangay', 'barangay'], ['Examination Date', 'date'], ['Score', 'score'], ['Passing Score', 'passingScore'],
-      ['Status', 'status'], ['Academic Year', 'academicYear'], ['Remarks', 'notes'],
-    ];
-    const escapeCsv = (value) => {
-      let text = value === null || value === undefined ? '' : String(value);
-      if (/^[=+\-@]/.test(text)) text = `'${text}`;
-      return `"${text.replace(/"/g, '""')}"`;
-    };
-    const rows = [columns.map(([label]) => label), ...sorted.map((item) => columns.map(([, key]) => item[key] ?? ''))];
-    const blob = new Blob([rows.map((row) => row.map(escapeCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `examination-results-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-  };
-
   const paginationItems = [];
   let previousVisiblePage = 0;
   for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
@@ -277,7 +271,7 @@ export default function ResultsManagement({ token }) {
     <div className="results-management">
       <header className="rm-heading">
         <div><span className="rm-eyebrow">EXAMINATION OUTCOMES</span><h2>Results Management</h2><p>Review examination outcomes and track applicant qualification status.</p></div>
-        <div className="rm-heading-actions"><span className="rm-live"><i />Refreshes every 30 seconds</span><button type="button" className="rm-export" onClick={exportResults} disabled={!sorted.length}><Download size={15} />Export results</button></div>
+        <div className="rm-heading-actions"><span className="rm-live"><i />Refreshes every 30 seconds</span><button type="button" className="rm-export" onClick={() => setExportOpen(true)} disabled={!sorted.length}><Download size={15} />Export CSV</button></div>
       </header>
 
       <div className="rm-stats">{stats.map(({ label, value, detail, tone, Icon }) => <article key={label} className={tone}><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div><i className="rm-stat-icon"><Icon size={20} /></i></article>)}</div>
@@ -312,6 +306,7 @@ export default function ResultsManagement({ token }) {
         </div>
       </section>
     </div>
+    {exportOpen && <CsvExportModal title="Export examination results" description="Choose the applicant, location, and examination fields to include. Current filters and sorting will be preserved." columns={resultExportColumns} rowCount={sorted.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `examination-results-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(sorted, columns) })} />}
 
     {selected && (
       <div className="rm-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}>

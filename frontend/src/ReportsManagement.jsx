@@ -13,6 +13,8 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
+import CsvExportModal from './components/CsvExportModal';
+import { downloadCsv } from './utils/csvExport';
 import municipalitiesData from '../../municipality.json';
 import barangaysData from '../../brgy.json';
 
@@ -24,7 +26,19 @@ const municipalityByCode = new Map(
 
 const isGraduating = (yearLevel) => /(?:graduating|4th\s*year|fourth\s*year)/i.test(String(yearLevel || ''));
 
-const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+const reportExportColumns = [
+  { key: 'coverageLocation', label: 'Location', group: 'Priority locations', value: (record) => record.location },
+  { key: 'coverageMunicipality', label: 'Municipality', group: 'Priority locations', value: (record) => record.municipality },
+  { key: 'coverageType', label: 'Type', group: 'Priority locations', value: (record) => record.type },
+  { key: 'activeScholars', label: 'Active Scholars', group: 'Priority locations', value: (record) => record.count },
+  { key: 'coverageStatus', label: 'Coverage Status', group: 'Priority locations', value: (record) => record.count === 0 ? 'No scholars' : record.count <= 2 ? 'Low coverage' : 'Covered' },
+  { key: 'graduateControlNumber', label: 'Control Number', group: 'Graduating scholars', value: (record) => record.controlNumber },
+  { key: 'graduateName', label: 'Name', group: 'Graduating scholars', value: (record) => record.name },
+  { key: 'graduateSchool', label: 'School', group: 'Graduating scholars', value: (record) => record.school },
+  { key: 'graduateCourse', label: 'Course', group: 'Graduating scholars', value: (record) => record.course },
+  { key: 'graduateYearLevel', label: 'Year Level', group: 'Graduating scholars', value: (record) => record.yearLevel },
+  { key: 'graduateMunicipality', label: 'Municipality', group: 'Graduating scholars', value: (record) => record.municipality },
+];
 
 function CoverageStatus({ count }) {
   const tone = count === 0 ? 'none' : count <= 2 ? 'low' : 'covered';
@@ -45,6 +59,7 @@ export default function ReportsManagement({ token }) {
   const [coverageFilter, setCoverageFilter] = useState('attention');
   const [expandedMunicipality, setExpandedMunicipality] = useState(null);
   const [lifecycleReport, setLifecycleReport] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const loadReports = useCallback(async ({ showLoader = false } = {}) => {
     if (showLoader) setLoading(true);
@@ -216,25 +231,19 @@ export default function ReportsManagement({ token }) {
     }).length;
   }, [activeScholars]);
 
-  const exportReport = () => {
-    const rows = [
-      ['Scholar Coverage Report'],
-      ['School Year', schoolYear],
-      [],
-      ['Location', 'Municipality', 'Type', 'Active Scholars', 'Coverage Status'],
-      ...filteredCoverage.map((row) => [row.location, row.municipality, row.type, row.count, row.count === 0 ? 'No scholars' : 'Low coverage']),
-      [],
-      ['Graduating Scholars'],
-      ['Control Number', 'Name', 'School', 'Course', 'Year Level', 'Municipality'],
-      ...graduatingScholars.map((scholar) => [scholar.controlNumber, scholar.name, scholar.school, scholar.course, scholar.yearLevel, scholar.municipality]),
-    ];
-    const blob = new Blob([rows.map((row) => row.map(csvCell).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `pgceap-priority-report-${schoolYear.replace(/\s+/g, '-').toLowerCase()}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+  const exportReport = (selectedColumns) => {
+    const coverageColumns = selectedColumns.filter(({ group }) => group === 'Priority locations');
+    const graduateColumns = selectedColumns.filter(({ group }) => group === 'Graduating scholars');
+    const rows = [['Scholar Coverage Report'], ['School Year', schoolYear]];
+    if (coverageColumns.length) {
+      rows.push([], ['Priority Locations'], coverageColumns.map(({ label }) => label));
+      rows.push(...filteredCoverage.map((record) => coverageColumns.map(({ value }) => value(record))));
+    }
+    if (graduateColumns.length) {
+      rows.push([], ['Graduating Scholars'], graduateColumns.map(({ label }) => label));
+      rows.push(...graduatingScholars.map((record) => graduateColumns.map(({ value }) => value(record))));
+    }
+    downloadCsv({ filename: `pgceap-priority-report-${schoolYear.replace(/\s+/g, '-').toLowerCase()}.csv`, rows });
   };
 
   return (
@@ -247,7 +256,7 @@ export default function ReportsManagement({ token }) {
         </div>
         <div className="reports-heading-actions">
           <label><span>School year</span><select value={schoolYear} onChange={(event) => { setSchoolYear(event.target.value); setExpandedMunicipality(null); }}><option>All School Years</option>{schoolYears.map((year) => <option key={year}>{year}</option>)}</select></label>
-          <button type="button" onClick={exportReport} disabled={loading}><Download size={16} /> Export report</button>
+          <button type="button" onClick={() => setExportOpen(true)} disabled={loading}><Download size={16} /> Export CSV</button>
         </div>
       </header>
 
@@ -423,6 +432,7 @@ export default function ReportsManagement({ token }) {
           </div>
         </article>
       </section>
+      {exportOpen && <CsvExportModal title="Export reports and insights" description="Choose columns from the priority-location and graduating-scholar report sections." columns={reportExportColumns} rowCount={filteredCoverage.length + graduatingScholars.length} getRowCount={(columns) => (columns.some(({ group }) => group === 'Priority locations') ? filteredCoverage.length : 0) + (columns.some(({ group }) => group === 'Graduating scholars') ? graduatingScholars.length : 0)} onClose={() => setExportOpen(false)} onExport={exportReport} />}
     </div>
   );
 }

@@ -15,6 +15,8 @@ import {
   X,
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
+import CsvExportModal from './components/CsvExportModal';
+import { buildRecordRows, downloadCsv } from './utils/csvExport';
 
 const formatScholarDate = (value) => {
   if (!value) return 'Not available';
@@ -28,6 +30,18 @@ const formatScholarAmount = (value) => {
   if (!Number.isFinite(amount)) return String(value);
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 };
+
+const scholarExportColumns = [
+  { key: 'name', label: 'Scholar Name', group: 'Scholar' },
+  { key: 'controlNumber', label: 'Control Number', group: 'Scholar', value: (record) => record.controlNumber || record.scholarId },
+  { key: 'email', label: 'Email', group: 'Scholar' },
+  { key: 'municipality', label: 'Municipality', group: 'Education & location' },
+  { key: 'school', label: 'School', group: 'Education & location' },
+  { key: 'barangay', label: 'Barangay', group: 'Education & location' },
+  { key: 'schoolYear', label: 'School Year', group: 'Education & location' },
+  { key: 'status', label: 'Status', group: 'Record status' },
+  { key: 'documentStatus', label: 'Documents', group: 'Record status' },
+];
 
 function ScholarBadge({ value, type }) {
   return <span className={`scholar-admin-badge ${type} ${value.toLowerCase().replace(/\s+/g, '-')}`}>{type === 'status' ? <BadgeCheck size={13} /> : <FileCheck2 size={13} />}{value}</span>;
@@ -45,6 +59,7 @@ export default function ScholarsManagement({ token }) {
   const [selected, setSelected] = useState(null);
   const [drawerTab, setDrawerTab] = useState('overview');
   const [page, setPage] = useState(1);
+  const [exportOpen, setExportOpen] = useState(false);
   const pageSize = 10;
 
   const loadScholars = useCallback(async ({ showLoader = false } = {}) => {
@@ -116,28 +131,6 @@ export default function ScholarsManagement({ token }) {
     setPage(1);
   };
 
-  const exportScholars = () => {
-    const columns = [
-      ['Scholar Name', 'name'], ['Control Number', 'controlNumber'], ['Email', 'email'], ['Municipality', 'municipality'],
-      ['School', 'school'], ['Barangay', 'barangay'], ['Status', 'status'], ['Documents', 'documentStatus'], ['School Year', 'schoolYear'],
-    ];
-    const escapeCsv = (value) => {
-      let text = value === null || value === undefined ? '' : String(value);
-      if (/^[=+\-@]/.test(text)) text = `'${text}`;
-      return `"${text.replace(/"/g, '""')}"`;
-    };
-    const rows = [columns.map(([label]) => label), ...filtered.map((item) => columns.map(([, key]) => item[key] || ''))];
-    const blob = new Blob([rows.map((row) => row.map(escapeCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `scholars-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-  };
-
   const paginationItems = [];
   let previousVisiblePage = 0;
   for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
@@ -158,7 +151,7 @@ export default function ScholarsManagement({ token }) {
 
   return <>
     <div className="scholars-management">
-      <header className="scholars-admin-heading"><div><span className="scholars-admin-eyebrow">SCHOLAR RECORDS</span><h2>Scholars Management</h2><p>Manage scholar accounts, review documents, and track status updates.</p></div><button type="button" className="scholars-export" onClick={exportScholars} disabled={!filtered.length}><Download size={15} />Export scholars</button></header>
+      <header className="scholars-admin-heading"><div><span className="scholars-admin-eyebrow">SCHOLAR RECORDS</span><h2>Scholars Management</h2><p>Manage scholar accounts, review documents, and track status updates.</p></div><button type="button" className="scholars-export" onClick={() => setExportOpen(true)} disabled={!filtered.length}><Download size={15} />Export CSV</button></header>
 
       <div className="scholars-admin-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading ? '—' : value}</strong><small>{detail}</small></div><i><Icon size={20} /></i></article>)}</div>
 
@@ -195,6 +188,7 @@ export default function ScholarsManagement({ token }) {
         {!!filtered.length && <footer className="scholars-table-footer"><span>Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}</span><nav className="scholars-pagination" aria-label="Scholar pages"><button type="button" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" key={item} aria-label={`Page ${item}`} className={item === currentPage ? 'active' : ''} aria-current={item === currentPage ? 'page' : undefined} onClick={() => setPage(item)}>{item}</button> : <span key={item}>…</span>)}<button type="button" aria-label="Next page" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>›</button></nav></footer>}
       </section>
     </div>
+    {exportOpen && <CsvExportModal title="Export scholar records" description="Choose which scholar fields to include. The current directory filters will be preserved." columns={scholarExportColumns} rowCount={filtered.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `scholars-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(filtered, columns) })} />}
 
     {selected && (
       <div className="scholars-drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}>

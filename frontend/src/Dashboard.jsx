@@ -41,6 +41,8 @@ import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { API_BASE, authHeaders } from './services/api';
+import CsvExportModal from './components/CsvExportModal';
+import { buildRecordRows, downloadCsv } from './utils/csvExport';
 import ResultsManagement from './ResultsManagement';
 import ScholarsManagement from './ScholarsManagement';
 import SettingsManagement from './SettingsManagement';
@@ -694,6 +696,17 @@ function DashboardOverview({ token, user, onSectionChange }) {
 
 const formatDate = (value) => value ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Never';
 const formatDateTime = (value) => value ? new Date(value).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'Never';
+const applicantExportColumns = [
+  { key: 'name', label: 'Applicant' },
+  { key: 'controlNo', label: 'Control Number' },
+  { key: 'email', label: 'Email' },
+  { key: 'municipality', label: 'Municipality' },
+  { key: 'barangay', label: 'Barangay' },
+  { key: 'schoolYear', label: 'School Year' },
+  { key: 'status', label: 'Status' },
+  { key: 'registered', label: 'Registered' },
+  { key: 'lastLogin', label: 'Last Login' },
+];
 
 function ApplicantsManagement({ token }) {
   const [data, setData] = useState({ stats: { total: 0, scheduled: 0, completed: 0, passed: 0 }, applicants: [] });
@@ -705,6 +718,7 @@ function ApplicantsManagement({ token }) {
   const [page, setPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({ key: 'registered', direction: 'desc' });
   const [selectedApplicant, setSelectedApplicant] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
@@ -774,27 +788,6 @@ function ApplicantsManagement({ token }) {
     setSortConfig((current) => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }));
     setPage(1);
   };
-  const exportApplicants = () => {
-    const csvColumns = [
-      ['Applicant', 'name'], ['Control Number', 'controlNo'], ['Email', 'email'], ['Municipality', 'municipality'],
-      ['Barangay', 'barangay'], ['School Year', 'schoolYear'], ['Status', 'status'], ['Registered', 'registered'], ['Last Login', 'lastLogin'],
-    ];
-    const escapeCsvValue = (value) => {
-      let text = value === null || value === undefined ? '' : String(value);
-      if (/^[=+\-@]/.test(text)) text = `'${text}`;
-      return `"${text.replace(/"/g, '""')}"`;
-    };
-    const rows = [csvColumns.map(([label]) => label), ...sortedApplicants.map((applicant) => csvColumns.map(([, key]) => applicant[key] || ''))];
-    const blob = new Blob([rows.map((row) => row.map(escapeCsvValue).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
-    const downloadUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = downloadUrl;
-    anchor.download = `applicants-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(downloadUrl);
-  };
   const paginationItems = [];
   let previousVisiblePage = 0;
   for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
@@ -811,7 +804,7 @@ function ApplicantsManagement({ token }) {
 
   return <>
     <div className="applicants-management">
-      <header className="applicants-heading"><div><span className="applicants-eyebrow">APPLICANT RECORDS</span><h2>Manage Applicants</h2><p>Review registrations, examination progress, and applicant activity.</p></div><button type="button" className="applicants-export" onClick={exportApplicants} disabled={!sortedApplicants.length}><Download size={15} />Export CSV</button></header>
+      <header className="applicants-heading"><div><span className="applicants-eyebrow">APPLICANT RECORDS</span><h2>Manage Applicants</h2><p>Review registrations, examination progress, and applicant activity.</p></div><button type="button" className="applicants-export" onClick={() => setExportOpen(true)} disabled={!sortedApplicants.length}><Download size={15} />Export CSV</button></header>
       <div className="applicant-metrics">{metricCards.map(([label, value, Icon, tone]) => <article className={tone} key={label}><div><span>{label}</span><strong>{value}</strong><small>{label === 'Total Applicants' ? 'Registered records' : label === 'Scheduled for Exam' ? 'Matched to municipality schedules' : label === 'Exam Completed' ? 'Results submitted' : 'Qualified applicants'}</small></div><i className={`applicant-metric-icon ${tone}`}><Icon size={20} strokeWidth={2.2} /></i></article>)}</div>
       {loadError && <div className="applicants-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => { setLoading(true); setReloadKey((current) => current + 1); }}>Retry</button></div>}
       <section className="applicant-records-panel">
@@ -843,6 +836,7 @@ function ApplicantsManagement({ token }) {
           {!!sortedApplicants.length && <footer className="applicant-table-footer"><span>Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, sortedApplicants.length)} of {sortedApplicants.length}</span><nav className="applicant-pagination" aria-label="Applicant pages"><button type="button" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" aria-label={`Page ${item}`} aria-current={item === currentPage ? 'page' : undefined} className={item === currentPage ? 'active' : ''} key={item} onClick={() => setPage(item)}>{item}</button> : <span key={item}>…</span>)}<button type="button" aria-label="Next page" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>›</button></nav></footer>}
         </div>
       </section>
+      {exportOpen && <CsvExportModal title="Export applicant records" description="Choose the applicant fields to include. Current filters and sorting will be preserved." columns={applicantExportColumns} rowCount={sortedApplicants.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `applicants-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(sortedApplicants, columns) })} />}
     </div>
     {selectedApplicant && <div className="applicant-drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedApplicant(null); }}><aside className="applicant-detail-drawer" role="dialog" aria-modal="true" aria-labelledby="applicant-detail-title"><button type="button" className="applicant-drawer-close" onClick={() => setSelectedApplicant(null)} aria-label="Close applicant details"><X size={19} /></button><div className="applicant-drawer-profile"><span className="applicant-drawer-avatar">{selectedApplicant.initials}</span><div><span className="applicants-eyebrow">APPLICANT RECORD</span><h3 id="applicant-detail-title">{selectedApplicant.name}</h3><p>{selectedApplicant.controlNo}</p></div></div><span className={`applicant-status applicant-drawer-status ${selectedApplicant.status.toLowerCase().replace(/\s+/g, '-')}`}>{selectedApplicant.status}</span><div className="applicant-detail-section"><h4>Contact information</h4><dl><div><dt>Email address</dt><dd>{selectedApplicant.email || 'Not provided'}</dd></div><div><dt>Username</dt><dd>{selectedApplicant.username || 'Not available'}</dd></div></dl></div><div className="applicant-detail-section"><h4>Application details</h4><dl><div><dt>Municipality</dt><dd>{selectedApplicant.municipality}</dd></div><div><dt>Barangay</dt><dd>{selectedApplicant.barangay}</dd></div><div><dt>School year</dt><dd>{selectedApplicant.schoolYear}</dd></div></dl></div><div className="applicant-detail-section"><h4>Account activity</h4><dl><div><dt>Registered</dt><dd>{formatDateTime(selectedApplicant.registered)}</dd></div><div><dt>Last login</dt><dd>{formatDateTime(selectedApplicant.lastLogin)}</dd></div></dl></div></aside></div>}
   </>;
