@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  CalendarClock,
   CalendarRange,
   Check,
   Monitor,
+  Power,
   Plus,
+  RotateCcw,
   Save,
   TriangleAlert,
   UsersRound,
@@ -12,6 +15,31 @@ import {
 import { API_BASE, authHeaders } from './services/api';
 
 const emptyPeriodForm = { schoolYear: '', semester: '1st Semester', startDate: '', endDate: '' };
+const emptyAvailability = { isEnabled: true, opensAt: '', closesAt: '', state: 'open', isOpen: true };
+
+const toPhilippineDateTimeInput = (value) => {
+  if (!value) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(value));
+  const part = (type) => parts.find((item) => item.type === type)?.value || '';
+  return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`;
+};
+
+const philippineDateTimeToIso = (value) => {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const [, year, month, day, hour, minute] = match;
+  return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour) - 8, Number(minute))).toISOString();
+};
+
+const formatApplicationDateTime = (value) => value
+  ? new Intl.DateTimeFormat('en-PH', {
+    timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short',
+  }).format(new Date(value))
+  : 'No schedule set';
 
 const formatPeriodDate = (value) => {
   if (!value) return 'Date not set';
@@ -36,7 +64,13 @@ export default function SettingsManagement({ token, user }) {
   const [savingPeriod, setSavingPeriod] = useState(false);
   const [pendingActivation, setPendingActivation] = useState(null);
   const [activatingPeriod, setActivatingPeriod] = useState(false);
+  const [availability, setAvailability] = useState(emptyAvailability);
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState('');
+  const [availabilityNotice, setAvailabilityNotice] = useState('');
   const canManagePeriods = ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role);
+  const canManageApplications = ['SuperAdmin', 'RegularAdmin'].includes(user?.role);
   const activePeriod = periods.find((period) => period.isActive) || null;
 
   const loadPeriods = useCallback(async () => {
@@ -54,10 +88,34 @@ export default function SettingsManagement({ token, user }) {
     }
   }, [token]);
 
+  const loadAvailability = useCallback(async () => {
+    setAvailabilityLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/application-settings`, { cache: 'no-store' });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to load application availability.');
+      setAvailability({
+        ...body.availability,
+        opensAt: toPhilippineDateTimeInput(body.availability?.opensAt),
+        closesAt: toPhilippineDateTimeInput(body.availability?.closesAt),
+      });
+      setAvailabilityError('');
+    } catch (error) {
+      setAvailabilityError(error.message || 'Unable to load application availability.');
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const initialLoad = window.setTimeout(loadPeriods, 0);
     return () => window.clearTimeout(initialLoad);
   }, [loadPeriods]);
+
+  useEffect(() => {
+    const initialLoad = window.setTimeout(loadAvailability, 0);
+    return () => window.clearTimeout(initialLoad);
+  }, [loadAvailability]);
 
   useEffect(() => {
     if (!pendingActivation) return undefined;
@@ -130,12 +188,97 @@ export default function SettingsManagement({ token, user }) {
     }
   };
 
+  const saveAvailability = async (event) => {
+    event.preventDefault();
+    if (!canManageApplications || availabilitySaving) return;
+    if ((availability.opensAt && !availability.closesAt) || (!availability.opensAt && availability.closesAt)) {
+      setAvailabilityError('Set both the opening and closing time, or clear both fields.');
+      return;
+    }
+
+    setAvailabilitySaving(true);
+    setAvailabilityError('');
+    setAvailabilityNotice('');
+    try {
+      const response = await fetch(`${API_BASE}/application-settings`, {
+        method: 'PUT',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isEnabled: availability.isEnabled,
+          opensAt: philippineDateTimeToIso(availability.opensAt),
+          closesAt: philippineDateTimeToIso(availability.closesAt),
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to update application availability.');
+      setAvailability({
+        ...body.availability,
+        opensAt: toPhilippineDateTimeInput(body.availability?.opensAt),
+        closesAt: toPhilippineDateTimeInput(body.availability?.closesAt),
+      });
+      setAvailabilityNotice(body.message || 'Application availability updated.');
+      window.dispatchEvent(new CustomEvent('application-availability-changed', { detail: body.availability }));
+    } catch (error) {
+      setAvailabilityError(error.message || 'Unable to update application availability.');
+    } finally {
+      setAvailabilitySaving(false);
+    }
+  };
+
+  const clearApplicationSchedule = () => {
+    setAvailability((current) => ({ ...current, opensAt: '', closesAt: '' }));
+    setAvailabilityError('');
+    setAvailabilityNotice('');
+  };
+
   return (
     <div className="settings-management">
       <div className="settings-heading">
         <div><span className="settings-page-eyebrow">SYSTEM CONFIGURATION</span><h2>Settings</h2><p>Configure academic periods, examinations, and scholarship portal preferences.</p></div>
         {saved && <span className="settings-saved"><Check size={14} /> Settings saved</span>}
       </div>
+
+      <section className="settings-card settings-application-card">
+        <div className="settings-card-heading">
+          <div><span className="settings-eyebrow">APPLICATION AVAILABILITY</span><h3>Application form access</h3><p>Open or close new submissions immediately, or limit them to a scheduled window.</p></div>
+          <Power size={24} />
+        </div>
+
+        {availabilityError && <div className="settings-period-message error" role="status"><TriangleAlert size={15} /><span>{availabilityError}</span><button type="button" onClick={loadAvailability}>Retry</button></div>}
+        {availabilityNotice && <div className="settings-period-message success" role="status"><Check size={15} /><span>{availabilityNotice}</span></div>}
+
+        <form className="settings-availability-form" onSubmit={saveAvailability}>
+          <div className={`settings-availability-status ${availability.isOpen ? 'open' : availability.state || 'disabled'}`}>
+            <span className="settings-availability-status-icon"><Power size={18} /></span>
+            <div>
+              <small>CURRENT APPLICATION STATUS</small>
+              <strong>{availabilityLoading ? 'Checking status…' : availability.isOpen ? 'Applications are open' : availability.state === 'scheduled' ? 'Opening is scheduled' : availability.state === 'ended' ? 'Application period ended' : 'Applications are closed'}</strong>
+              <span>{availabilityLoading ? 'Retrieving the live portal setting.' : availability.isOpen ? 'Applicants can complete and submit the form.' : 'New application submissions are blocked by the server.'}</span>
+            </div>
+            <label className="settings-availability-switch">
+              <input type="checkbox" checked={availability.isEnabled} disabled={!canManageApplications || availabilityLoading || availabilitySaving} onChange={(event) => setAvailability((current) => ({ ...current, isEnabled: event.target.checked }))} />
+              <span aria-hidden="true" />
+              <b>{availability.isEnabled ? 'Enabled' : 'Disabled'}</b>
+            </label>
+          </div>
+
+          <div className="settings-availability-window">
+            <div className="settings-availability-window-heading"><span><CalendarClock size={17} /></span><div><strong>Active date and time range</strong><small>Optional · Philippine Standard Time (UTC+8)</small></div></div>
+            <div className="settings-availability-fields">
+              <label><span>Opens on</span><input type="datetime-local" value={availability.opensAt} disabled={!canManageApplications || availabilityLoading || availabilitySaving} onChange={(event) => setAvailability((current) => ({ ...current, opensAt: event.target.value }))} /></label>
+              <label><span>Closes on</span><input type="datetime-local" value={availability.closesAt} min={availability.opensAt || undefined} disabled={!canManageApplications || availabilityLoading || availabilitySaving} onChange={(event) => setAvailability((current) => ({ ...current, closesAt: event.target.value }))} /></label>
+            </div>
+            {(availability.opensAt || availability.closesAt) && <p className="settings-availability-summary">Scheduled window: <strong>{availability.opensAt ? formatApplicationDateTime(philippineDateTimeToIso(availability.opensAt)) : 'Not set'}</strong> to <strong>{availability.closesAt ? formatApplicationDateTime(philippineDateTimeToIso(availability.closesAt)) : 'Not set'}</strong></p>}
+          </div>
+
+          {canManageApplications ? (
+            <div className="settings-availability-actions">
+              <button type="button" className="secondary" disabled={availabilitySaving || (!availability.opensAt && !availability.closesAt)} onClick={clearApplicationSchedule}><RotateCcw size={14} />Clear schedule</button>
+              <button type="submit" disabled={availabilityLoading || availabilitySaving}><Save size={14} />{availabilitySaving ? 'Saving…' : 'Save application setting'}</button>
+            </div>
+          ) : <p className="settings-availability-readonly">Only Super Administrators and Administrators can change application availability.</p>}
+        </form>
+      </section>
 
       <section className="settings-card settings-period-card">
         <div className="settings-card-heading">

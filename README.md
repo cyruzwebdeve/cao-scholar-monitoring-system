@@ -70,6 +70,15 @@ npm --prefix backend run schema:audit
 The current ERD and database cutover notes are available in the
 [docs](docs) directory.
 
+## Application availability
+
+Super Administrators and Administrators can control new scholarship
+submissions from **Admin Panel > Settings > Application form access**. The
+form can be opened or closed immediately and can optionally be limited to an
+opening and closing date/time. Schedule values are entered and displayed in
+Philippine Standard Time (UTC+8), while the API stores normalized timestamps
+and enforces the setting for every new submission.
+
 ## Production deployment
 
 The repository includes production configuration for a Vercel frontend,

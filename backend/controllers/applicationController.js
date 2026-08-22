@@ -26,6 +26,7 @@ const {
   normalizeMunicipality,
 } = require('../services/examAssignments');
 const { recordActivitySafely } = require('../services/activityLog');
+const { getApplicationAvailability } = require('../services/applicationAvailability');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -90,6 +91,15 @@ const hasMatchingParents = (candidateFamily, existingFamily) => {
 
 const createApplication = async (req, res) => {
   try {
+    const availability = await getApplicationAvailability(prisma);
+    if (!availability.isOpen) {
+      return res.status(403).json({
+        code: 'APPLICATIONS_CLOSED',
+        message: availability.message,
+        availability,
+      });
+    }
+
     const { email, password, personalInfo, initialDocs } = req.body;
 
     if (!personalInfo || typeof personalInfo !== 'object') {

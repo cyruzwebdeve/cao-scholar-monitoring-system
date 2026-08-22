@@ -3,6 +3,7 @@ const { authenticate, authenticateOptional } = require('../middleware/auth');
 const { auditSuccessfulMutation } = require('../middleware/activityAudit');
 const { checkRole } = require('../middleware/rbac');
 const { getActivityLogs } = require('../controllers/activityController');
+const { getApplicationSettings, updateApplicationSettings } = require('../controllers/applicationSettingsController');
 const { getLifecycleReport } = require('../controllers/lifecycleReportController');
 const { getMyNotifications, markMyNotificationRead } = require('../controllers/notificationController');
 const { approvePendingDocuments, getDocumentReviews, reviewDocument, streamDocument, updatePhysicalFolder } = require('../controllers/documentReviewController');
@@ -72,6 +73,8 @@ const router = express.Router();
 router.use(auditSuccessfulMutation);
 
 router.get('/academic-periods/active', getActiveAcademicPeriod);
+router.get('/application-settings', getApplicationSettings);
+router.put('/application-settings', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), updateApplicationSettings);
 router.get('/academic-periods', authenticate, checkRole(['Moderator', 'SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getAcademicPeriods);
 router.post('/academic-periods', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), createAcademicPeriod);
 router.put('/academic-periods/:id/activate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), activateAcademicPeriod);

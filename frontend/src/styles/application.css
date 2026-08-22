@@ -1491,6 +1491,127 @@ body {
   font-size: 0.76rem;
 }
 
+.application-page-pill-dot.closed {
+  background: #f59e0b;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.16);
+}
+
+.application-availability-panel {
+  width: min(100%, 680px);
+  margin: 36px auto 80px;
+  padding: 44px;
+  border: 1px solid #dfe8e2;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 22px 44px rgba(15, 37, 22, 0.08);
+  box-sizing: border-box;
+  color: #617168;
+  text-align: center;
+}
+.application-availability-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: #fff0ee;
+  color: #b94e45;
+}
+.application-availability-icon svg { width: 30px; height: 30px; }
+.application-availability-panel.scheduled .application-availability-icon {
+  background: #edf3fb;
+  color: #3d6fae;
+}
+.application-availability-eyebrow {
+  margin: 0 0 8px !important;
+  color: #16844c !important;
+  font-size: 0.72rem !important;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+.application-availability-panel h2 {
+  margin: 0;
+  color: #20372a;
+  font-size: 1.8rem;
+}
+.application-availability-panel > p:not(.application-availability-eyebrow) {
+  max-width: 520px;
+  margin: 12px auto 0;
+  font-size: 0.94rem;
+  line-height: 1.65;
+}
+.application-availability-schedule {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  width: min(100%, 500px);
+  margin: 24px auto 0;
+  padding: 16px;
+  border: 1px solid #dbe9df;
+  border-radius: 13px;
+  background: #f7fbf8;
+  box-sizing: border-box;
+  color: #17834c;
+  text-align: left;
+}
+.application-availability-schedule > svg { margin-top: 3px; }
+.application-availability-schedule > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.application-availability-schedule span,
+.application-availability-schedule small,
+.application-availability-schedule strong { display: block; }
+.application-availability-schedule small {
+  color: #6e8376;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.application-availability-schedule strong {
+  margin-top: 4px;
+  color: #294936;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.application-availability-timezone {
+  display: block;
+  margin-top: 12px;
+  color: #89958e;
+  font-size: 0.72rem;
+}
+.application-availability-panel button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 43px;
+  margin-top: 24px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 9px;
+  background: #16884d;
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.application-availability-panel.loading,
+.application-availability-panel.error { margin-top: 36px; }
+.application-availability-panel.loading > svg,
+.application-availability-panel.error > svg {
+  width: 34px;
+  height: 34px;
+  margin-bottom: 16px;
+  color: #278851;
+}
+.application-availability-panel.error > svg { color: #b94e45; }
+.application-availability-spinner { animation: application-availability-spin 1s linear infinite; }
+@keyframes application-availability-spin { to { transform: rotate(360deg); } }
+
 @media (max-width: 1080px) {
   .form-container {
     grid-template-columns: 1fr;
@@ -1556,4 +1677,12 @@ body {
   .form-group-narrow {
     max-width: none;
   }
+  .application-availability-panel {
+    margin: 10px auto 40px;
+    padding: 30px 18px;
+    border-radius: 18px;
+  }
+  .application-availability-panel h2 { font-size: 1.4rem; }
+  .application-availability-schedule > div { grid-template-columns: 1fr; }
+  .application-availability-panel button { width: 100%; }
 }

@@ -4,6 +4,7 @@ const { recordActivitySafely } = require('../services/activityLog');
 const ACTIONS = {
   'POST /academic-periods': ['ACADEMIC_PERIOD_CREATED', 'academic_periods', 'Created an academic period.'],
   'PUT /academic-periods/:id/activate': ['ACADEMIC_PERIOD_ACTIVATED', 'academic_periods', 'Activated an academic period.'],
+  'PUT /application-settings': ['APPLICATION_AVAILABILITY_UPDATED', 'application_settings', 'Updated application availability.'],
   'PUT /schools/classification': ['SCHOOL_CLASSIFICATION_UPDATED', 'schools', 'Updated a school classification.'],
   'PUT /examinations/management': ['EXAMINATION_SCHEDULES_UPDATED', 'exams', 'Saved examination schedules and assignments.'],
   'PUT /applications/me/requirements': ['SCHOLAR_REQUIREMENT_UPLOADED', 'scholar_requirements', 'Uploaded a scholar requirement.'],

@@ -126,6 +126,16 @@ model application_submissions {
   @@index([email])
 }
 
+model application_settings {
+  id         Int       @id @default(1)
+  is_enabled Boolean   @default(true)
+  opens_at   DateTime? @db.Timestamp(6)
+  closes_at  DateTime? @db.Timestamp(6)
+  updated_by Int?
+  created_at DateTime  @default(now()) @db.Timestamp(6)
+  updated_at DateTime  @updatedAt @db.Timestamp(6)
+}
+
 model control_accounts {
   id             Int       @id @default(autoincrement())
   applicant_id   Int       @unique
