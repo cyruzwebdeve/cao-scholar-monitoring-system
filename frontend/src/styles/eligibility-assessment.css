@@ -1,0 +1,85 @@
+.portal-eligibility-card {
+  padding: 20px;
+  border: 1px solid #dce9df;
+  border-radius: 14px;
+  background: #fff;
+  color: #263c2b;
+  box-shadow: 0 3px 14px rgba(23, 62, 38, 0.06);
+}
+
+.portal-eligibility-card header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 11px;
+  align-items: center;
+}
+
+.portal-eligibility-card header > span {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #e8f7ef;
+  color: #0b8f4f;
+}
+
+.portal-eligibility-card header small,
+.portal-eligibility-card header h2 {
+  display: block;
+  margin: 0;
+}
+
+.portal-eligibility-card header div > small {
+  color: #0b8f4f;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .1em;
+}
+
+.portal-eligibility-card header h2 {
+  margin-top: 3px;
+  font-size: 16px;
+}
+
+.portal-eligibility-card header > strong {
+  color: #0b8f4f;
+  font-size: 23px;
+}
+
+.portal-eligibility-card header > strong small {
+  display: inline;
+  color: #7b8980;
+  font-size: 11px;
+}
+
+.portal-eligibility-result {
+  display: flex;
+  gap: 9px;
+  margin-top: 17px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f1f8f3;
+  color: #176b3c;
+}
+
+.portal-eligibility-result svg { flex: 0 0 auto; margin-top: 2px; }
+.portal-eligibility-result strong { font-size: 12px; }
+.portal-eligibility-result p { margin: 3px 0 0; color: #607067; font-size: 10px; line-height: 1.5; }
+
+.portal-eligibility-factors { margin-top: 12px; border: 1px solid #e3ebe5; border-radius: 10px; overflow: hidden; }
+.portal-eligibility-factors > div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #edf2ee; }
+.portal-eligibility-factors > div:last-child { border-bottom: 0; }
+.portal-eligibility-factors span strong,
+.portal-eligibility-factors span small { display: block; }
+.portal-eligibility-factors span strong { font-size: 11px; }
+.portal-eligibility-factors span small { margin-top: 2px; color: #7b8980; font-size: 9px; line-height: 1.4; }
+.portal-eligibility-factors b { flex: 0 0 auto; color: #0b8f4f; font-size: 11px; }
+
+.portal-eligibility-card footer { display: grid; gap: 3px; margin-top: 11px; color: #7b8980; font-size: 9px; line-height: 1.45; }
+
+@media (max-width: 560px) {
+  .portal-eligibility-card header { grid-template-columns: auto 1fr; }
+  .portal-eligibility-card header > strong { grid-column: 2; }
+  .portal-eligibility-factors > div { align-items: flex-start; }
+}

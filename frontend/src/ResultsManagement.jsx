@@ -53,6 +53,12 @@ const resultExportColumns = [
   { key: 'notes', label: 'Remarks', group: 'Examination' },
 ];
 
+const recommendationLabels = {
+  MEETS_CONFIGURED_CRITERIA: 'Meets configured criteria',
+  DOES_NOT_MEET_CRITERIA: 'Does not meet configured criteria',
+  REVIEW_REQUIRED: 'Needs human review',
+};
+
 function StatusBadge({ status }) {
   return <span className={`rm-status ${status.toLowerCase().replace(/\s+/g, '-')}`}>{status}</span>;
 }
@@ -68,6 +74,7 @@ export default function ResultsManagement({ token }) {
   const [selected, setSelected] = useState(null);
   const [acceptingScholar, setAcceptingScholar] = useState(false);
   const [acceptError, setAcceptError] = useState('');
+  const [decisionReason, setDecisionReason] = useState('');
   const [reevaluationOpen, setReevaluationOpen] = useState(false);
   const [reevaluationScore, setReevaluationScore] = useState('');
   const [reevaluationRemarks, setReevaluationRemarks] = useState('');
@@ -185,6 +192,7 @@ export default function ResultsManagement({ token }) {
   const openResult = (applicant) => {
     setSelected(applicant);
     setAcceptError('');
+    setDecisionReason('');
     setReevaluationOpen(false);
     setReevaluationScore(String(applicant.score ?? ''));
     setReevaluationRemarks(applicant.notes || '');
@@ -237,10 +245,16 @@ export default function ResultsManagement({ token }) {
     try {
       const response = await fetch(`${API_BASE}/scholars/${selected.id}/accept`, {
         method: 'POST',
-        headers: authHeaders(token),
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewReason: decisionReason.trim() }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.message || 'Unable to accept applicant as a scholar.');
+      if (!response.ok) {
+        if (payload.eligibilityRecommendation) {
+          setSelected((current) => ({ ...current, eligibilityRecommendation: payload.eligibilityRecommendation }));
+        }
+        throw new Error(payload.message || 'Unable to accept applicant as a scholar.');
+      }
       const updated = { ...selected, isScholar: true, scholarId: payload.scholar?.scholar_id || selected.scholarId };
       setSelected(updated);
       setApplicants((current) => current.map((applicant) => applicant.id === updated.id ? { ...applicant, isScholar: true, scholarId: updated.scholarId } : applicant));
@@ -322,6 +336,29 @@ export default function ResultsManagement({ token }) {
           <section className="rm-detail-section"><h4>Applicant location</h4><dl><div><dt>Municipality</dt><dd>{selected.municipality || 'Not specified'}</dd></div><div><dt>Barangay</dt><dd>{selected.barangay || 'Not specified'}</dd></div></dl></section>
           <section className="rm-detail-section"><h4>Remarks</h4><p className="rm-remarks">{selected.notes || 'No remarks were recorded for this result.'}</p>{selected.notes && selected.reevaluatedAt && <span className="rm-remarks-timestamp"><Clock3 size={12} />Updated {formatResultTimestamp(selected.reevaluatedAt)}</span>}</section>
 
+          {selected.eligibilityRecommendation && (
+            <section className={`rm-eligibility-card ${selected.eligibilityRecommendation.recommendation.toLowerCase().replaceAll('_', '-')}`} aria-labelledby="rm-eligibility-title">
+              <div className="rm-eligibility-heading">
+                <div><span>DECISION SUPPORT</span><h4 id="rm-eligibility-title">Eligibility recommendation</h4></div>
+                <strong>{selected.eligibilityRecommendation.totalScore ?? '—'}<small> / {selected.eligibilityRecommendation.maxScore}</small></strong>
+              </div>
+              <div className="rm-eligibility-outcome">
+                <BadgeCheck size={16} />
+                <div><strong>{recommendationLabels[selected.eligibilityRecommendation.recommendation] || selected.eligibilityRecommendation.recommendation}</strong><span>{selected.eligibilityRecommendation.summary}</span></div>
+              </div>
+              <div className="rm-eligibility-factors">
+                {selected.eligibilityRecommendation.factors.map((factor) => (
+                  <div key={factor.id}>
+                    <span><b>{factor.label}</b><small>{factor.explanation}</small></span>
+                    <strong>{factor.score ?? '—'} / {factor.maxScore}</strong>
+                  </div>
+                ))}
+              </div>
+              <p>Policy {selected.eligibilityRecommendation.policyVersion} · Generated {formatResultTimestamp(selected.eligibilityRecommendation.generatedAt)}</p>
+              <em>This recommendation does not make the scholarship decision. Authorized staff remain responsible for the final outcome.</em>
+            </section>
+          )}
+
           {reevaluationOpen && (
             <section className="rm-reevaluation-panel">
               <div className="rm-reevaluation-heading"><div><span>RESULT REVIEW</span><h4>Re-evaluate examination</h4></div><button type="button" onClick={() => { setReevaluationOpen(false); setReevaluationError(''); }}>Cancel</button></div>
@@ -338,9 +375,15 @@ export default function ResultsManagement({ token }) {
 
           <footer className="rm-scholar-action">
             {!reevaluationOpen && <button type="button" className="rm-reevaluate-trigger" disabled={selected.isScholar || selected.score === null || selected.score === undefined} onClick={() => { setReevaluationOpen(true); setReevaluationScore(String(selected.score ?? '')); setReevaluationRemarks(selected.notes || ''); setReevaluationError(''); }}><RefreshCw size={16} />{selected.isScholar ? 'Result locked after acceptance' : selected.score === null || selected.score === undefined ? 'No recorded result to re-evaluate' : 'Re-evaluate result'}</button>}
+            {!selected.isScholar && selected.status === 'Passed' && (
+              <label className="rm-decision-reason">
+                <span>Decision reason {selected.eligibilityRecommendation?.requiresOverrideReason && <b>* required for override</b>}</span>
+                <textarea rows="3" maxLength="2000" value={decisionReason} onChange={(event) => { setDecisionReason(event.target.value); setAcceptError(''); }} placeholder="Record the human reviewer’s reason, especially when overriding the recommendation." />
+              </label>
+            )}
             {acceptError && <div className="rm-accept-error"><TriangleAlert size={14} />{acceptError}</div>}
-            <button type="button" className={selected.isScholar ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || acceptingScholar} onClick={acceptAsScholar}><UserCheck size={16} />{acceptingScholar ? 'Accepting applicant…' : selected.isScholar ? 'Accepted as Scholar' : selected.status !== 'Passed' ? 'Applicant is not eligible' : 'Accept as Scholar'}</button>
-            <small>{selected.isScholar ? `Scholar account active${selected.scholarId ? ` · ${selected.scholarId}` : ''}.` : selected.status === 'Passed' ? 'This creates and activates the applicant’s scholar account.' : 'Only applicants with a passing result can be accepted.'}</small>
+            <button type="button" className={selected.isScholar ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || acceptingScholar || (selected.eligibilityRecommendation?.requiresOverrideReason && !decisionReason.trim())} onClick={acceptAsScholar}><UserCheck size={16} />{acceptingScholar ? 'Recording decision…' : selected.isScholar ? 'Accepted as Scholar' : selected.status !== 'Passed' ? 'Latest exam result is not passing' : 'Accept as Scholar'}</button>
+            <small>{selected.isScholar ? `Scholar account active${selected.scholarId ? ` · ${selected.scholarId}` : ''}.` : selected.status === 'Passed' ? 'A versioned recommendation snapshot and the staff decision will be recorded.' : 'Only applicants whose latest examination result is passing can be accepted.'}</small>
           </footer>
         </aside>
       </div>

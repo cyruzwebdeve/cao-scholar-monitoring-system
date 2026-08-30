@@ -38,6 +38,12 @@ before(async () => {
   }, limiters.documentReviewRateLimiter, (req, res) => {
     res.json({ ok: true });
   });
+  app.post('/scholarship-decisions', (req, res, next) => {
+    req.user = { id: Number(req.headers['x-test-user']), role: 'SuperAdmin' };
+    next();
+  }, limiters.scholarshipDecisionRateLimiter, (req, res) => {
+    res.json({ ok: true });
+  });
   app.post('/billing', (req, res, next) => {
     req.user = { id: Number(req.headers['x-test-user']), role: 'BillingPayrollAdmin' };
     next();
@@ -131,6 +137,19 @@ test('document review decisions are rate limited per moderator account', async (
 
   const otherModerator = await request('/document-reviews', { method: 'PUT', headers: { 'X-Test-User': '402' } });
   assert.equal(otherModerator.status, 200);
+});
+
+test('scholarship decisions are rate limited per authorized staff account', async () => {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const response = await request('/scholarship-decisions', { method: 'POST', headers: { 'X-Test-User': '451' } });
+    assert.equal(response.status, 200);
+  }
+  const blocked = await request('/scholarship-decisions', { method: 'POST', headers: { 'X-Test-User': '451' } });
+  assert.equal(blocked.status, 429);
+  assert.match((await blocked.json()).message, /scholarship decision limit/i);
+
+  const otherAdministrator = await request('/scholarship-decisions', { method: 'POST', headers: { 'X-Test-User': '452' } });
+  assert.equal(otherAdministrator.status, 200);
 });
 
 test('billing operations are rate limited per administrator account', async () => {

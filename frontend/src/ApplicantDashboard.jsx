@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import PortalGuidance from './components/PortalGuidance';
+import EligibilityAssessmentCard from './components/EligibilityAssessmentCard';
 import { API_BASE, authHeaders } from "./services/api";
 import './styles/applicant-prelude.css';
 import './styles/scholar-portal.css';
@@ -83,6 +84,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   const [application, setApplication] = useState(null);
   const [examination, setExamination] = useState(null);
   const [guidance, setGuidance] = useState(null);
+  const [eligibilityAssessment, setEligibilityAssessment] = useState(null);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [examActivated, setExamActivated] = useState(false);
@@ -161,12 +163,14 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
         setApplication(body?.application || null);
         setExamination(body?.examination || null);
         setGuidance(body?.guidance || null);
+        setEligibilityAssessment(body?.eligibilityAssessment || null);
       })
       .catch((error) => {
         if (!active) return;
         setApplication(null);
         setExamination(null);
         setGuidance(null);
+        setEligibilityAssessment(null);
         setDashboardError(error.message || "Unable to load your dashboard.");
       })
       .finally(() => {
@@ -524,6 +528,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
               </div>
             )}
           </PortalGuidance>
+          <EligibilityAssessmentCard assessment={eligibilityAssessment} />
           <article className="applicant-panel applicant-notice-panel">
             <div className="applicant-panel-heading">
               <div>

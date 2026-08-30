@@ -28,6 +28,7 @@ const {
 const { recordActivitySafely } = require('../services/activityLog');
 const { getApplicationAvailability } = require('../services/applicationAvailability');
 const { buildApplicantGuidance } = require('../services/applicantGuidance');
+const { evaluateEligibility, serializeAssessment } = require('../services/eligibilityRecommendation');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -1251,7 +1252,7 @@ const getMyApplication = async (req, res) => {
       where: { billing_period_id: activePeriod.id },
       select: { id: true },
     });
-    const [result, scholar, scholarRequirement, payrollClaim, scheduledExam] = applicantId ? await Promise.all([
+    const [result, scholar, scholarRequirement, payrollClaim, scheduledExam, eligibilityAssessment] = applicantId ? await Promise.all([
       prisma.results.findFirst({ where: { applicant_id: applicantId }, orderBy: { created_at: 'desc' } }),
       prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }),
       prisma.scholar_requirements.findFirst({ where: { applicant_id: applicantId, billing_period_id: activePeriod.id } }),
@@ -1266,7 +1267,8 @@ const getMyApplication = async (req, res) => {
           select: { id: true, title: true, exam_date: true, exam_end_date: true, venue: true, municipality: true, academic_year: true, is_active: true },
         })
         : null,
-    ]) : [null, null, null, null];
+      prisma.eligibility_assessments.findFirst({ where: { applicant_id: applicantId }, orderBy: { generated_at: 'desc' } }),
+    ]) : [null, null, null, null, null, null];
     const exam = result
       ? await prisma.exams.findUnique({ where: { id: result.exam_id }, select: { title: true, exam_date: true, academic_year: true } })
       : null;
@@ -1286,6 +1288,7 @@ const getMyApplication = async (req, res) => {
       application,
       applicant,
       guidance,
+      eligibilityAssessment: scholar ? serializeAssessment(eligibilityAssessment) : null,
       scholar: scholar ? {
         id: scholar.id,
         scholarId: scholar.scholar_id,
@@ -1489,19 +1492,23 @@ const getApplicantManagement = async (req, res) => {
     const activePeriod = await getActiveAcademicPeriodRecord();
     const applicants = await prisma.applicants.findMany({ where: { deleted_at: null }, orderBy: { created_at: 'desc' }, select: { id: true, first_name: true, middle_name: true, last_name: true, email: true, municipality: true, barangay: true, school_year: true, status: true, created_at: true } });
     const applicantIds = applicants.map(({ id }) => id);
-    const [accounts, slots, results, exams, scholarAccounts] = await Promise.all([
+    const [accounts, slots, results, exams, scholarAccounts, applications] = await Promise.all([
       prisma.control_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, control_number: true, last_login_at: true } }),
       prisma.exam_slots.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, exam_id: true, appeared: true, appeared_at: true } }),
-      prisma.results.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, exam_id: true, score: true, passing_score: true, passed: true, remarks: true, created_at: true, updated_at: true } }),
+      prisma.results.findMany({ where: { applicant_id: { in: applicantIds } }, orderBy: { created_at: 'desc' }, select: { id: true, applicant_id: true, exam_id: true, score: true, passing_score: true, passed: true, remarks: true, created_at: true, updated_at: true } }),
       prisma.exams.findMany({
         orderBy: { updated_at: 'desc' },
         select: { id: true, title: true, exam_date: true, exam_end_date: true, venue: true, municipality: true, academic_year: true, is_active: true, updated_at: true },
       }),
       prisma.scholar_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, scholar_id: true, is_active: true } }),
+      prisma.application_submissions.findMany({ where: { applicant_id: { in: applicantIds }, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' }, select: { id: true, applicant_id: true, family: true, eligibility: true } }),
     ]);
     const accountByApplicant = new Map(accounts.map((account) => [account.applicant_id, account]));
     const slotByApplicant = new Map(slots.map((slot) => [slot.applicant_id, slot]));
-    const resultByApplicant = new Map(results.map((result) => [result.applicant_id, result]));
+    const resultByApplicant = new Map();
+    results.forEach((result) => { if (!resultByApplicant.has(result.applicant_id)) resultByApplicant.set(result.applicant_id, result); });
+    const applicationByApplicant = new Map();
+    applications.forEach((application) => { if (!applicationByApplicant.has(application.applicant_id)) applicationByApplicant.set(application.applicant_id, application); });
     const examById = new Map(exams.map((exam) => [exam.id, exam]));
     const scheduledExamByMunicipality = indexExamsByMunicipality(exams, activePeriod.school_year);
     const scheduledApplicantCount = countScheduledApplicants({
@@ -1522,6 +1529,10 @@ const getApplicantManagement = async (req, res) => {
         const scheduledExam = scheduledExamByMunicipality.get(normalizeMunicipality(applicant.municipality));
         const exam = linkedExam || scheduledExam;
         const scholar = scholarByApplicant.get(applicant.id);
+        const eligibilityRecommendation = evaluateEligibility({
+          application: applicationByApplicant.get(applicant.id),
+          result,
+        });
         return {
           id: applicant.id,
           name: [applicant.last_name, applicant.first_name, applicant.middle_name].filter(Boolean).join(', '),
@@ -1550,6 +1561,7 @@ const getApplicantManagement = async (req, res) => {
           academicYear: exam?.academic_year || activePeriod.school_year,
           isScholar: Boolean(scholar?.is_active),
           scholarId: scholar?.scholar_id || null,
+          eligibilityRecommendation,
         };
       }),
     });
@@ -1668,21 +1680,34 @@ const acceptApplicantAsScholar = async (req, res) => {
   try {
     const applicantId = Number(req.params.applicantId);
     const activePeriod = await getActiveAcademicPeriodRecord();
+    const reviewReason = String(req.body?.reviewReason || '').trim();
     if (!Number.isInteger(applicantId) || applicantId <= 0) return res.status(400).json({ message: 'A valid applicant is required.' });
+    if (reviewReason.length > 2000) return res.status(400).json({ message: 'The decision reason must not exceed 2,000 characters.' });
 
-    const [applicant, passedResult, existingScholar] = await Promise.all([
+    const [applicant, latestResult, application, existingScholar] = await Promise.all([
       prisma.applicants.findFirst({
         where: { id: applicantId, deleted_at: null },
         select: { id: true, email: true, first_name: true, school_year: true },
       }),
-      prisma.results.findFirst({ where: { applicant_id: applicantId, passed: true }, orderBy: { created_at: 'desc' }, select: { id: true } }),
+      prisma.results.findFirst({ where: { applicant_id: applicantId }, orderBy: { created_at: 'desc' } }),
+      prisma.application_submissions.findFirst({ where: { applicant_id: applicantId, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' } }),
       prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId } }),
     ]);
     if (!applicant) return res.status(404).json({ message: 'Applicant record not found.' });
-    if (!passedResult) return res.status(400).json({ message: 'Only applicants with a passing examination result can be accepted as scholars.' });
+    if (!application) return res.status(400).json({ message: 'A submitted application is required before a scholarship decision can be recorded.' });
+    if (!latestResult?.passed) return res.status(400).json({ message: 'Only applicants whose latest examination result is passing can be accepted as scholars.' });
 
     if (existingScholar?.is_active) {
       return res.status(200).json({ message: 'Applicant is already an active scholar.', scholar: existingScholar });
+    }
+
+    const assessment = evaluateEligibility({ application, result: latestResult });
+    if (assessment.requiresOverrideReason && !reviewReason) {
+      return res.status(400).json({
+        code: 'ELIGIBILITY_OVERRIDE_REASON_REQUIRED',
+        message: 'Add a decision reason before accepting an applicant whose recommendation requires review or does not meet the configured criteria.',
+        eligibilityRecommendation: assessment,
+      });
     }
 
     const schoolYear = applicant.school_year === STALE_DEFAULT_SCHOOL_YEAR || !applicant.school_year
@@ -1694,11 +1719,33 @@ const acceptApplicantAsScholar = async (req, res) => {
       const savedScholar = existingScholar
         ? await transaction.scholar_accounts.update({
           where: { id: existingScholar.id },
-          data: { result_id: passedResult.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id, issued_at: new Date(), updated_at: new Date() },
+          data: { result_id: latestResult.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id, issued_at: new Date(), updated_at: new Date() },
         })
         : await transaction.scholar_accounts.create({
-          data: { applicant_id: applicantId, result_id: passedResult.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id },
+          data: { applicant_id: applicantId, result_id: latestResult.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id },
         });
+      await transaction.eligibility_assessments.create({
+        data: {
+          applicant_id: applicantId,
+          application_id: application.id,
+          result_id: latestResult.id,
+          academic_period_id: activePeriod.id,
+          policy_version: assessment.policyVersion,
+          policy_name: assessment.policyName,
+          recommendation: assessment.recommendation,
+          total_score: assessment.totalScore,
+          max_score: assessment.maxScore,
+          threshold_score: assessment.threshold,
+          summary: assessment.summary,
+          scorecard: assessment.factors,
+          input_snapshot: assessment.inputSnapshot,
+          generated_at: new Date(assessment.generatedAt),
+          reviewed_by: req.user.id,
+          review_decision: 'accepted',
+          review_reason: reviewReason || null,
+          reviewed_at: new Date(),
+        },
+      });
       await transaction.scholar_requirements.upsert({
         where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: activePeriod.id } },
         create: { applicant_id: applicantId, billing_period_id: activePeriod.id, updated_by: req.user.id },
@@ -1712,9 +1759,16 @@ const acceptApplicantAsScholar = async (req, res) => {
       scholarId: scholar.scholar_id,
       schoolYear,
     });
+    res.locals.auditAction = assessment.requiresOverrideReason
+      ? 'ELIGIBILITY_RECOMMENDATION_OVERRIDDEN'
+      : 'APPLICANT_ACCEPTED_AS_SCHOLAR';
+    res.locals.auditDescription = assessment.requiresOverrideReason
+      ? `Accepted an applicant after a documented human override of eligibility policy ${assessment.policyVersion}.`
+      : `Accepted an applicant after reviewing eligibility policy ${assessment.policyVersion}.`;
     return res.status(201).json({
       message: 'Applicant accepted as a scholar.',
       scholar,
+      eligibilityAssessment: assessment,
       notification: { scholarApprovalEmailSent: emailDelivery.sent },
     });
   } catch (error) {

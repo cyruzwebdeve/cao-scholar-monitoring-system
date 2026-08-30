@@ -64,6 +64,7 @@ const {
   applicationSubmissionRateLimiter,
   documentUploadRateLimiter,
   staffWriteRateLimiter,
+  scholarshipDecisionRateLimiter,
   documentReviewRateLimiter,
   billingWriteRateLimiter,
 } = require('../middleware/rateLimits');
@@ -137,7 +138,7 @@ router.get('/scholars', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAd
 router.get('/scholars/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getScholarManagement);
 router.post('/billing/process', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), processBillingSelection);
 router.post('/payroll/process', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), processPayrollSelection);
-router.post('/scholars/:applicantId/accept', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), acceptApplicantAsScholar);
+router.post('/scholars/:applicantId/accept', authenticate, scholarshipDecisionRateLimiter, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), acceptApplicantAsScholar);
 router.put('/results/:applicantId/re-evaluate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), reevaluateExamResult);
 
 router.get('/announcements/latest', authenticate, checkRole(['Applicant', 'Scholar', 'Moderator', 'SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getLatestPublishedAnnouncement);

@@ -68,6 +68,13 @@ const createRateLimiters = ({ isProduction = process.env.NODE_ENV === 'productio
     keyGenerator: accountOrIpKey,
     message: rateLimitMessage('Staff account update limit reached. Please wait before trying again.'),
   }),
+  scholarshipDecisionRateLimiter: rateLimit({
+    ...commonOptions,
+    windowMs: HOUR,
+    limit: isProduction ? 60 : 500,
+    keyGenerator: accountOrIpKey,
+    message: rateLimitMessage('Scholarship decision limit reached. Please wait before trying again.'),
+  }),
   documentReviewRateLimiter: rateLimit({
     ...commonOptions,
     windowMs: HOUR,

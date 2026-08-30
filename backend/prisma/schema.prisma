@@ -204,6 +204,33 @@ model results {
   updated_at    DateTime @default(now()) @db.Timestamp(6)
 }
 
+model eligibility_assessments {
+  id                 Int       @id @default(autoincrement())
+  applicant_id       Int
+  application_id     Int
+  result_id          Int?
+  academic_period_id Int?
+  policy_version     String    @db.VarChar(40)
+  policy_name        String    @db.VarChar(150)
+  recommendation     String    @db.VarChar(40)
+  total_score        Decimal?  @db.Decimal(6, 2)
+  max_score          Int       @default(100)
+  threshold_score    Int
+  summary            String
+  scorecard          Json
+  input_snapshot     Json
+  generated_at       DateTime  @default(now()) @db.Timestamp(6)
+  reviewed_by        Int?
+  review_decision    String?   @db.VarChar(30)
+  review_reason      String?
+  reviewed_at        DateTime? @db.Timestamp(6)
+
+  @@index([applicant_id, generated_at])
+  @@index([application_id])
+  @@index([result_id])
+  @@index([policy_version])
+}
+
 model scholar_accounts {
   id           Int      @id
   applicant_id Int

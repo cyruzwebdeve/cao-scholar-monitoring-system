@@ -359,3 +359,315 @@ The next Phase 1 slice should implement offline application drafts and upload
 recovery. After that, accessibility verification and administrator MFA should
 be prioritized. Those foundations should precede predictive or AI-assisted
 decision features.
+
+---
+
+## 2026-08-30 — Versioned Explainable Eligibility Recommendation Engine
+
+### TL;DR
+
+- Authorized staff now receive a transparent, deterministic eligibility
+  recommendation with a four-factor 100-point scorecard and policy version.
+- The engine never accepts or rejects an applicant; staff retain the final
+  decision, and a written reason is required when overriding its advice.
+- Acceptance stores an immutable decision snapshot, minimized rule inputs,
+  reviewer identity, decision time, and operational Activity Log event.
+- Accepted applicants and scholars can see a plain-language explanation only
+  after the official decision is recorded.
+- Verification passed: 67 backend tests, Prisma client generation, backend
+  syntax checks, frontend lint, production build, and Git whitespace checks.
+
+### 1. Objective and reason
+
+The previous scholarship decision workflow treated a passing examination as
+the only automated acceptance prerequisite. Staff could view the score and
+manually accept an applicant, but the interface did not explain how other
+submitted information related to the decision, identify the rule version in
+use, or preserve the exact recommendation reviewed at decision time.
+
+This change introduces an explainable decision-support layer. Its purpose is
+to make staff review more consistent and transparent without transferring
+decision authority to software. It also gives an accepted applicant a concise
+explanation of the factors used after CAO records the official outcome.
+
+### 2. Previous and new behavior
+
+Previously:
+
+- Results Management showed the examination score, passing score, result,
+  remarks, schedule, and an Accept as Scholar action.
+- Acceptance required a passing result but stored no eligibility-policy
+  version, factor breakdown, input snapshot, or reviewer explanation.
+- Applicants were told to wait for an official result but never received an
+  assessment explanation from the system.
+- A historical passing result could satisfy acceptance even if a newer result
+  was not passing.
+
+Now:
+
+- Each result record receives a live recommendation calculated from the latest
+  submitted application and latest examination result.
+- Staff see the overall score, recommendation, summary, factor-by-factor
+  points and explanations, policy version, generation time, and an explicit
+  human-authority notice.
+- The final acceptance operation recalculates the recommendation server-side
+  and stores that exact version as an immutable assessment snapshot.
+- If the recommendation is `REVIEW_REQUIRED` or
+  `DOES_NOT_MEET_CRITERIA`, the staff interface and API require a written
+  decision reason before allowing acceptance.
+- Acceptance checks the latest examination result instead of any historical
+  passing result.
+- After acceptance, the Applicant or Scholar portal receives a safe version
+  of the stored assessment and explains that software supported, but did not
+  make, the decision.
+
+### 3. Initial policy version
+
+Policy `PGCEAP-2026.1` uses a deterministic 100-point model:
+
+| Factor | Maximum | Input | Explanation |
+|---|---:|---|---|
+| Financial need | 35 | Submitted annual family-income band | Lower configured income bands receive more need points |
+| Academic standing | 25 | Submitted GWA | Supports percentage and 1.00–5.00 college formats |
+| Qualifying examination | 30 | Latest verified score and pass value | Score is normalized against the current 20-point exam maximum; passing is required |
+| Priority qualifications | 10 | Declared configured qualifications | Two points per declared qualification, capped at ten |
+
+The recommendation threshold is 60 points. A complete record must reach the
+threshold and have a passing latest examination result to receive
+`MEETS_CONFIGURED_CRITERIA`. Missing or unrecognized required inputs produce
+`REVIEW_REQUIRED`. A failed examination or complete score below the threshold
+produces `DOES_NOT_MEET_CRITERIA`.
+
+These outputs remain advice. They do not update application status, create a
+scholar account, or bypass an authorized staff decision on their own.
+
+### 4. Affected roles and workflows
+
+| Role | Change |
+|---|---|
+| Super Administrator | Can review the scorecard and record the final acceptance decision |
+| Billing/Payroll Administrator | Retains existing acceptance access and receives the same decision safeguards |
+| Applicant | Does not see a provisional recommendation while the decision is pending; sees the explanation only after acceptance if still using the Applicant portal |
+| Scholar | Sees the stored official-decision explanation in the Scholar portal |
+| Moderator | No workflow change |
+
+The operational sequence is now:
+
+1. Applicant submits financial, academic, and priority information.
+2. The latest verified examination result becomes available.
+3. Results Management requests applicant records.
+4. The backend calculates a current advisory recommendation.
+5. Authorized staff review the factor explanations.
+6. Staff record acceptance; an override reason is mandatory when applicable.
+7. The backend recalculates and atomically stores the decision snapshot,
+   scholar account, and current-period scholar-requirement record.
+8. The accepted user can view the safe explanation in the portal.
+
+### 5. Implementation and data flow
+
+`evaluateEligibility` is a pure service with no database or external network
+dependency. It normalizes configured income and GWA values, calculates each
+factor, determines missing inputs, applies the examination hard condition and
+score threshold, and returns a structured recommendation.
+
+`GET /api/applicants/management` loads applications and examination results in
+bulk. The controller indexes the newest record per applicant and adds an
+`eligibilityRecommendation` object to each management row. No assessment is
+persisted merely because a staff member views the directory.
+
+`POST /api/scholars/:applicantId/accept` performs the authoritative
+server-side calculation again. Within the existing database transaction it:
+
+- creates or activates the scholar account;
+- creates an `eligibility_assessments` snapshot;
+- records the minimal rule inputs used by that policy version;
+- stores reviewer ID, decision, optional or required reason, and timestamp;
+- creates or refreshes the current academic-period scholar requirements.
+
+The successful mutation is also written to Activity Logs. A recommendation
+override receives the distinct
+`ELIGIBILITY_RECOMMENDATION_OVERRIDDEN` activity action. The detailed override
+reason remains in the assessment record rather than being copied into the
+general activity description.
+
+`GET /api/applications/me` returns `eligibilityAssessment` only when the
+requesting user already has an active scholar account. The portal contract
+does not expose provisional recommendations to applicants awaiting a final
+decision.
+
+### 6. Database impact
+
+Migration `20260830000000_add_explainable_eligibility` adds the
+`eligibility_assessments` table with:
+
+- applicant, application, result, and academic-period identifiers;
+- policy version and display name;
+- recommendation, total, maximum, threshold, and summary;
+- JSON scorecard and minimized JSON input snapshot;
+- generation timestamp;
+- reviewer, final decision, decision reason, and review timestamp;
+- lookup indexes and referential constraints.
+
+The migration is additive. It does not rewrite existing applications, results,
+scholar accounts, requirements, or payroll-list records. Existing scholars do
+not receive a fabricated historical assessment; their explanation remains
+absent unless a later authorized process records one.
+
+### 7. API and user-interface impact
+
+The management response adds:
+
+~~~json
+{
+  "eligibilityRecommendation": {
+    "policyVersion": "PGCEAP-2026.1",
+    "recommendation": "MEETS_CONFIGURED_CRITERIA",
+    "totalScore": 88,
+    "maxScore": 100,
+    "threshold": 60,
+    "requiresHumanDecision": true,
+    "requiresOverrideReason": false,
+    "factors": []
+  }
+}
+~~~
+
+The acceptance endpoint now accepts an optional `reviewReason`. It returns
+`ELIGIBILITY_OVERRIDE_REASON_REQUIRED` with the recalculated recommendation
+when a reason is required but missing. The staff drawer disables the final
+button in that condition and provides a bounded 2,000-character reason field.
+
+Results Management gained a responsive recommendation card and factor list.
+Applicant and Scholar portals share `EligibilityAssessmentCard`, ensuring the
+same safe explanation appears regardless of which authenticated portal is
+active after the role transition.
+
+### 8. Security and privacy impact
+
+- Existing authentication and role checks remain in force.
+- The acceptance mutation now uses a dedicated per-staff scholarship-decision
+  rate limiter.
+- The browser-provided scorecard is never trusted; acceptance recalculates the
+  recommendation from database records.
+- The persisted input snapshot contains only the fields used by the rules:
+  application/result IDs, income band, GWA, exam score/pass values, and the
+  keys of declared priority qualifications.
+- Names, email addresses, contact information, home addresses, guardian names,
+  documents, and credentials are excluded from the decision snapshot.
+- Provisional recommendations remain staff-only.
+- The applicant-facing response is released only after an active scholar
+  account establishes that the official acceptance was recorded.
+- Activity Logs describe the operation and policy version without duplicating
+  the potentially sensitive written decision reason.
+
+### 9. Accessibility impact
+
+Both recommendation cards use semantic headings, text labels, factor names,
+numeric values, and explanatory sentences. Status meaning does not depend on
+color alone. The applicant-facing card reflows its score and factors for small
+screens, and the staff decision reason has a visible label and native textarea
+semantics.
+
+### 10. Configuration and dependency impact
+
+- New environment variables: None
+- New npm dependencies: None
+- External AI or scoring service: None
+- Runtime network dependency: None
+- Policy storage: Versioned source configuration in
+  `backend/services/eligibilityRecommendation.js`
+
+The feature is intentionally deterministic and is not machine learning. A
+future policy change must use a new policy version so existing stored
+assessments keep their original meaning.
+
+### 11. Files and system areas changed
+
+| Area | Change |
+|---|---|
+| `backend/services/eligibilityRecommendation.js` | Added policy, scoring, recommendations, minimized snapshots, and assessment serialization |
+| `backend/controllers/applicationController.js` | Added bulk recommendation calculation, applicant-safe assessment response, latest-result acceptance validation, snapshot storage, and override audit metadata |
+| `backend/routes/applicationRoutes.js` | Applied dedicated decision rate limiting to acceptance |
+| `backend/middleware/rateLimits.js` | Added the per-staff scholarship-decision limiter |
+| `backend/scripts/audit-schema.js` | Added assessment relationship checks to the schema audit |
+| `backend/prisma/schema.application.prisma` | Added the runtime assessment model |
+| `backend/prisma/schema.prisma` | Mirrored the assessment model in the canonical schema |
+| `backend/prisma/migrations/20260830000000_add_explainable_eligibility/migration.sql` | Added the production database structure |
+| `backend/tests/eligibilityRecommendation.test.js` | Added five deterministic scoring, blocker, missing-input, and privacy tests |
+| `frontend/src/ResultsManagement.jsx` | Added staff recommendation display and human decision-reason workflow |
+| `frontend/src/components/EligibilityAssessmentCard.jsx` | Added shared official-decision explanation |
+| `frontend/src/ApplicantDashboard.jsx` | Loaded and displayed released assessment explanations |
+| `frontend/src/ScholarDashboard.jsx` | Displayed the stored assessment in the scholar workflow |
+| `frontend/src/styles/admin.css` | Styled staff scorecard and decision controls |
+| `frontend/src/styles/eligibility-assessment.css` | Styled the shared responsive portal explanation |
+
+### 12. Scope impact
+
+The feature operates only at the scholarship-decision stage. It does not
+release funds, mark money as paid or claimed, reconcile transactions, or audit
+money. Downstream workflow remains requirements completion followed by CAO
+payroll-list generation, which is the final system stage.
+
+The Activity Log entry is an operational record of system access and a staff
+decision. It is not a monetary audit.
+
+### 13. Validation performed
+
+| Check | Result |
+|---|---|
+| Eligibility recommendation tests | 5 passed |
+| Full backend automated suite | 67 passed, 0 failed |
+| Prisma client generation | Passed |
+| Backend controller and service syntax | Passed |
+| Frontend ESLint | Passed with no reported errors |
+| Vite production build | Passed; 490 modules transformed |
+| Git whitespace validation | Passed; line-ending notices only |
+
+The automated policy tests verify configured income bands, percentage and
+college GWA formats, a complete passing recommendation, a failed-exam blocker,
+missing-input review routing, deterministic generation time, human-decision
+flags, and exclusion of names and email addresses from the snapshot.
+The rate-limit suite also verifies that scholarship-decision limits are
+isolated per authenticated staff account.
+
+### 14. Known limitations and policy governance
+
+- Policy weights and the 60-point threshold are source-configured in this
+  first version; there is no administrator policy editor.
+- CAO should formally approve every policy version before it is used for real
+  scholarship decisions. Changing policy values requires a new version and a
+  normal backend release.
+- The form currently infers GWA format from its numeric range; an explicit
+  grading-scale field would remove ambiguity for values from 1.00 to 5.00.
+- Declared priority qualifications are not yet independently document-verified
+  by this feature. Staff must treat them as submitted information.
+- The system records acceptance but does not yet provide a dedicated rejection
+  or applicant appeal workflow.
+- Existing scholars are intentionally not backfilled with reconstructed
+  assessments because doing so would imply a historical review that did not
+  occur.
+
+### 15. Rollback considerations
+
+The frontend and controller integration can be reverted without altering
+existing application, result, scholar, requirement, or payroll-list records.
+Assessment rows created after deployment should normally be retained as
+operational decision records even if the feature is later disabled. Dropping
+the table would permanently remove those explanations and reviewer reasons
+and therefore requires a separate, explicitly approved data-retention action.
+
+For a rolling release, deploy the backend migration and API before the new
+frontend. Older frontends ignore the added response property. The new
+frontend also tolerates an absent applicant assessment card, but the staff
+management response must provide recommendations for the full review UI.
+
+### 16. Recommended next work
+
+1. Obtain formal CAO approval for policy `PGCEAP-2026.1`, including weights,
+   threshold, exam maximum, income bands, and priority treatment.
+2. Add an explicit grading-scale choice to application data and validation.
+3. Add a controlled, version-creating policy administration interface with
+   effective dates and dual authorization.
+4. Add a dedicated official rejection and applicant correction/appeal flow
+   without extending the system beyond payroll-list generation.
+5. Add end-to-end database tests for atomic assessment and scholar creation.
