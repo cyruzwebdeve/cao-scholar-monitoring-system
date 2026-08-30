@@ -6,13 +6,13 @@ import {
   FileText,
   LogOut,
   MapPin,
-  MessageCircleQuestion,
   RefreshCw,
   UserRound,
   WifiOff,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import PortalGuidance from './components/PortalGuidance';
 import { API_BASE, authHeaders } from "./services/api";
 import './styles/applicant-prelude.css';
 import './styles/scholar-portal.css';
@@ -82,6 +82,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   const [profile, setProfile] = useState(user);
   const [application, setApplication] = useState(null);
   const [examination, setExamination] = useState(null);
+  const [guidance, setGuidance] = useState(null);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [examActivated, setExamActivated] = useState(false);
@@ -159,11 +160,13 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
         if (!active) return;
         setApplication(body?.application || null);
         setExamination(body?.examination || null);
+        setGuidance(body?.guidance || null);
       })
       .catch((error) => {
         if (!active) return;
         setApplication(null);
         setExamination(null);
+        setGuidance(null);
         setDashboardError(error.message || "Unable to load your dashboard.");
       })
       .finally(() => {
@@ -496,22 +499,10 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
         </div>
 
         <section className="applicant-bottom-grid">
-          <article className="applicant-panel applicant-guidance-panel">
-            <div className="applicant-panel-heading">
-              <div>
-                <p className="applicant-eyebrow">APPLICATION GUIDANCE</p>
-                <h2>What happens next?</h2>
-              </div>
-              <MessageCircleQuestion
-                size={20}
-                className="applicant-heading-icon"
-              />
-            </div>
-            <p className="applicant-panel-copy">
-              {waitingForResults
-                ? "Your qualifying examination has been recorded. The Scholarship Office will review and release the official result before scholar acceptance."
-                : "After submitting your application, the admin will review your information and notify you about the qualifying examination schedule."}
-            </p>
+          <PortalGuidance
+            guidance={guidance}
+            resolveRoute={(route) => route === 'examination' && examMode === 'online' ? '/examination' : null}
+          >
             {!examCompleted && examActivated && examMode === 'face-to-face' && examDetails && (
               <div className="applicant-guidance-schedule">
                 <div className="applicant-guidance-schedule-main">
@@ -532,14 +523,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
                 </div>
               </div>
             )}
-            {waitingForResults
-              ? <span className="applicant-exam-pending waiting">Examination completed · Waiting for results</span>
-              : examActivated && examMode === 'online'
-                ? <a className="applicant-primary-button" href="/examination">Take examination <ChevronRight size={15} /></a>
-                : examActivated && examMode === 'face-to-face' && examDetails
-                  ? null
-                  : <span className="applicant-exam-pending">Waiting for examination schedule</span>}
-          </article>
+          </PortalGuidance>
           <article className="applicant-panel applicant-notice-panel">
             <div className="applicant-panel-heading">
               <div>

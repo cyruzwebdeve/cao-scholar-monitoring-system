@@ -1,0 +1,156 @@
+.portal-guidance {
+  padding: 23px;
+  border: 1px solid #dce8e1;
+  border-top: 3px solid #3a8fa2;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(25, 70, 38, 0.045);
+}
+.portal-guidance-action_required { border-top-color: #d58a2d; }
+.portal-guidance-complete { border-top-color: #3b9b5d; }
+.portal-guidance-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.portal-guidance-heading p {
+  margin: 0 0 8px;
+  color: #438a86;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+}
+.portal-guidance-action_required .portal-guidance-heading p { color: #a46719; }
+.portal-guidance-complete .portal-guidance-heading p { color: #348956; }
+.portal-guidance-heading h2 {
+  margin: 0;
+  color: #234a31;
+  font-size: 1.14rem;
+  line-height: 1.35;
+}
+.portal-guidance-state-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 11px;
+  background: #e6f2f2;
+  color: #39868e;
+}
+.portal-guidance-action_required .portal-guidance-state-icon { background: #fff3df; color: #b2701f; }
+.portal-guidance-complete .portal-guidance-state-icon { background: #e7f5eb; color: #2f8d51; }
+.portal-guidance-description {
+  margin: 16px 0;
+  color: #687a6e;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+.portal-guidance-actions {
+  display: grid;
+  gap: 9px;
+  margin-top: 17px;
+}
+.portal-guidance-action {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 12px;
+  border: 1px solid #e3ebe6;
+  border-radius: 11px;
+  background: #fafcfb;
+}
+.portal-guidance-action.priority-high { border-color: #efd7b5; background: #fffaf2; }
+.portal-guidance-action-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #e7f3ef;
+  color: #39876a;
+}
+.portal-guidance-action.priority-high .portal-guidance-action-icon { background: #ffedcf; color: #aa6715; }
+.portal-guidance-action strong,
+.portal-guidance-action span { display: block; }
+.portal-guidance-action strong { color: #31513d; font-size: 0.77rem; }
+.portal-guidance-action div > span {
+  margin-top: 3px;
+  color: #7a8b80;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+.portal-guidance-action a {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #327f87;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+.portal-guidance-timeline {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #e4ebe6;
+}
+.portal-guidance-timeline h3 { margin: 0 0 14px; color: #355541; font-size: 0.78rem; }
+.portal-guidance-timeline ol {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.portal-guidance-stage {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.portal-guidance-stage-marker {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #edf1ee;
+  color: #9aa79f;
+}
+.portal-guidance-stage.completed .portal-guidance-stage-marker { background: #e4f4e7; color: #349457; }
+.portal-guidance-stage.current .portal-guidance-stage-marker {
+  background: #3a8f92;
+  box-shadow: 0 0 0 4px #e5f2f1;
+}
+.portal-guidance-stage.current .portal-guidance-stage-marker > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fff;
+}
+.portal-guidance-stage strong,
+.portal-guidance-stage div > span { display: block; }
+.portal-guidance-stage strong { color: #3b5846; font-size: 0.73rem; }
+.portal-guidance-stage div > span {
+  margin-top: 2px;
+  color: #8a998f;
+  font-size: 0.65rem;
+  line-height: 1.35;
+}
+.portal-guidance-stage em {
+  color: #89978e;
+  font-size: 0.61rem;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.portal-guidance-stage.current em { color: #347f84; }
+@media (max-width: 520px) {
+  .portal-guidance-action,
+  .portal-guidance-stage { grid-template-columns: auto minmax(0, 1fr); }
+  .portal-guidance-action a,
+  .portal-guidance-stage em { grid-column: 2; justify-self: start; }
+}

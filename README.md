@@ -4,6 +4,18 @@ A full-stack scholarship management system for applicant processing,
 examinations, scholar records, billing, payroll, announcements, reports, and
 academic-period administration.
 
+## System scope boundary
+
+The managed scholarship process ends when CAO generates the official payroll
+list of scholars. The system may validate scholars, prepare billing records,
+and generate that list, but fund release, payment claiming, disbursement,
+financial reconciliation, and auditing of released money are outside scope.
+Operational Activity Logs cover system access and record changes only; they
+are not financial-disbursement audits.
+
+Older payment-oriented surfaces that require controlled removal are listed in
+the [scope boundary audit](docs/scope-boundary-audit.md).
+
 ## Technology
 
 - React and Vite frontend
@@ -69,6 +81,15 @@ npm --prefix backend run schema:audit
 
 The current ERD and database cutover notes are available in the
 [docs](docs) directory.
+
+## Development records
+
+Material system changes have a concise entry in `change_log.txt` and a full
+engineering record in
+[docs/development-change-log.md](docs/development-change-log.md). Detailed
+entries cover behavior, architecture, affected roles, data and API impact,
+security and accessibility considerations, validation, deployment, rollback,
+limitations, and recommended follow-up work.
 
 ## Application availability
 

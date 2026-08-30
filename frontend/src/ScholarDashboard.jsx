@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import PortalGuidance from './components/PortalGuidance';
 import { API_BASE, authHeaders } from './services/api';
 import './styles/scholar-portal.css';
 import './styles/portal-responsive.css';
@@ -200,14 +201,6 @@ function ScholarDashboard({ token, user, onLogout }) {
   const onlineRequirementsComplete = approvedCount === uploadableRequirements.length;
   const requirementsComplete = onlineRequirementsComplete && physicalFolderSubmitted;
   const allowance = portalData.allowance;
-  const allowanceComplete = Boolean(allowance?.claimedDate) || ['paid', 'claimed', 'released'].includes(String(allowance?.status || allowance?.batchStatus || '').toLowerCase());
-  const milestoneProgress =
-    (application ? 1 : 0) +
-    (portalData.examination?.completed ? 1 : 0) +
-    (portalData.scholar?.isActive ? 1 : 0) +
-    ((approvedCount + (physicalFolderSubmitted ? 1 : 0)) / requirementItems.length) +
-    (allowanceComplete ? 1 : 0);
-  const progressPercent = Math.min(100, Math.round((milestoneProgress / 5) * 100));
   const allowanceStatus = formatAllowanceStatus(allowance);
   const allowanceAmount = allowance
     ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(allowance.amount)
@@ -228,23 +221,6 @@ function ScholarDashboard({ token, user, onLogout }) {
   const unreadScholarNotifications = scholarNotifications.filter(({ isRead }) => !isRead);
   const latestScholarNotification = scholarNotifications[0] || null;
   const hasActionNotifications = unreadScholarNotifications.length > 0 || attentionCount > 0 || pendingReviewCount > 0 || !physicalFolderSubmitted || !allowance;
-  const timeline = [
-    { label: 'Application submitted', date: formatPortalDate(application?.submitted_at), complete: Boolean(application) },
-    { label: 'Qualifying examination', date: formatPortalDate(portalData.examination?.submittedAt), complete: Boolean(portalData.examination?.completed) },
-    { label: 'Scholarship approval', date: formatPortalDate(portalData.scholar?.issuedAt), complete: Boolean(portalData.scholar?.isActive) },
-    {
-      label: 'Submit current requirements',
-      date: requirementsComplete
-        ? 'All requirements received'
-        : pendingReviewCount > 0 && attentionCount === 0
-          ? `${pendingReviewCount} file${pendingReviewCount === 1 ? '' : 's'} awaiting review`
-          : `${attentionCount} online file${attentionCount === 1 ? '' : 's'} need attention`,
-      complete: requirementsComplete,
-      active: !requirementsComplete,
-    },
-    { label: 'Allowance release', date: allowanceStatus, complete: allowanceComplete, active: requirementsComplete && !allowanceComplete },
-  ];
-
   const uploadRequirement = (requirement, file) => {
     if (!file) return;
     if (file.size > 6 * 1024 * 1024) {
@@ -395,13 +371,10 @@ function ScholarDashboard({ token, user, onLogout }) {
 
         <div className="scholar-portal-columns">
           <div className="scholar-portal-column">
-            <section className="scholar-panel scholar-progress-panel">
-            <div className="scholar-panel-heading"><div><p className="scholar-eyebrow">YOUR JOURNEY</p><h2>Scholarship progress</h2></div><span className="scholar-progress-percent">{progressPercent}%</span></div>
-            <div className="scholar-progress-track"><span style={{ width: `${progressPercent}%` }} /></div>
-            <div className="scholar-timeline">
-              {timeline.map((item) => <div className={`scholar-timeline-item ${item.active ? 'active' : ''}`} key={item.label}><span className="scholar-timeline-dot">{item.complete ? <CheckCircle2 size={15} /> : item.active ? <span /> : null}</span><div><strong>{item.label}</strong><small>{item.date}</small></div></div>)}
-            </div>
-            </section>
+            <PortalGuidance
+              guidance={portalData.guidance}
+              resolveRoute={(route) => route === 'requirements' ? '#requirements' : null}
+            />
             <article className={`scholar-panel scholar-announcement-panel ${latestScholarNotification ? 'personal-notice' : ''}`}><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{latestScholarNotification ? 'PERSONAL PAYROLL UPDATE' : 'FROM CAO'}</p><h2>{latestScholarNotification ? 'Your latest update' : 'Latest announcement'}</h2></div><Bell size={20} className="scholar-heading-icon" /></div><h3>{latestScholarNotification?.title || latestAnnouncement?.title || (requirementsComplete ? 'Requirements submitted' : 'Complete your scholar requirements')}</h3><p>{latestScholarNotification?.message || latestAnnouncement?.content || (requirementsComplete ? 'Your required documents and physical folder are recorded. Watch this portal for allowance updates.' : 'Submit the remaining requirements so your scholar record can proceed to allowance processing.')}</p>{latestScholarNotification && <div className="scholar-payroll-notice-details"><span><small>Payment reference</small><strong>{latestScholarNotification.reference || 'Not assigned'}</strong></span><span><small>Amount</small><strong>{new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(latestScholarNotification.amount || 0)}</strong></span><span><small>Processed</small><strong>{formatPortalDate(latestScholarNotification.createdAt)}</strong></span></div>}{latestScholarNotification && !latestScholarNotification.isRead && <button type="button" className="scholar-text-button" onClick={() => markNotificationRead(latestScholarNotification.id)}>Mark as read <ChevronRight size={15} /></button>}{!latestScholarNotification && latestAnnouncement?.imageData && <img className="portal-announcement-image" src={latestAnnouncement.imageData} alt={latestAnnouncement.imageName || latestAnnouncement.title} />}{!latestScholarNotification && <a href="#requirements">View requirements <ChevronRight size={15} /></a>}</article>
           </div>
 

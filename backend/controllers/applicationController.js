@@ -27,6 +27,7 @@ const {
 } = require('../services/examAssignments');
 const { recordActivitySafely } = require('../services/activityLog');
 const { getApplicationAvailability } = require('../services/applicationAvailability');
+const { buildApplicantGuidance } = require('../services/applicantGuidance');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -1272,9 +1273,19 @@ const getMyApplication = async (req, res) => {
     const payrollBatch = payrollClaim
       ? await prisma.payroll_batches.findUnique({ where: { id: payrollClaim.payroll_batch_id } })
       : null;
+    const guidance = buildApplicantGuidance({
+      application,
+      result,
+      scholar,
+      scholarRequirement,
+      payrollClaim,
+      payrollBatch,
+      scheduledExam,
+    });
     return res.json({
       application,
       applicant,
+      guidance,
       scholar: scholar ? {
         id: scholar.id,
         scholarId: scholar.scholar_id,
