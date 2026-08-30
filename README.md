@@ -89,7 +89,8 @@ engineering record in
 [docs/development-change-log.md](docs/development-change-log.md). Detailed
 entries cover behavior, architecture, affected roles, data and API impact,
 security and accessibility considerations, validation, deployment, rollback,
-limitations, and recommended follow-up work.
+limitations, and recommended follow-up work. Every detailed entry begins with
+a short TL;DR for quick review.
 
 ## Application availability
 

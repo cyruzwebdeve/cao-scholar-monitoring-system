@@ -20,7 +20,10 @@ database structure, deployment, security controls, or user experience:
 1. Add a concise dated summary to `change_log.txt`.
 2. Add or update the matching dated entry in
    `docs/development-change-log.md`.
-3. The detailed entry must describe:
+3. Begin every detailed entry with a **TL;DR** of two to five concise bullets
+   covering the outcome, affected users, important scope or data impact, and
+   verification result.
+4. The detailed entry must then describe:
    - the objective and reason for the change;
    - previous and new behavior;
    - affected user roles and workflows;
@@ -30,7 +33,7 @@ database structure, deployment, security controls, or user experience:
      deployment impact, explicitly stating when there is no impact;
    - validation performed and its results;
    - known limitations, rollback considerations, and recommended next work.
-4. Never include passwords, tokens, private document locations, real personal
+5. Never include passwords, tokens, private document locations, real personal
    information, or other secrets in change documentation.
 
 Pure formatting, comment-only, or documentation-only corrections may update

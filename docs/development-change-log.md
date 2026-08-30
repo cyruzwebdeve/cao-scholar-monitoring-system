@@ -9,21 +9,33 @@ and how the result was verified.
 
 Every material change should record:
 
-1. Summary and objective
-2. Previous behavior
-3. New behavior
-4. Affected users and workflow
-5. Implementation and data flow
-6. Files and components changed
-7. API and database impact
-8. Security, privacy, and accessibility impact
-9. Validation results
-10. Deployment and rollback notes
-11. Known limitations and recommended next work
+1. TL;DR
+2. Summary and objective
+3. Previous behavior
+4. New behavior
+5. Affected users and workflow
+6. Implementation and data flow
+7. Files and components changed
+8. API and database impact
+9. Security, privacy, and accessibility impact
+10. Validation results
+11. Deployment and rollback notes
+12. Known limitations and recommended next work
 
 ---
 
 ## 2026-08-30 — Payroll-List Scope Boundary Clarification
+
+### TL;DR
+
+- The PGCEAP system officially ends when CAO generates the payroll list of
+  scholars.
+- Fund release, payment confirmation, financial reconciliation, and auditing
+  released money are outside scope.
+- The new guidance timeline now ends at payroll-list inclusion.
+- Older payment-oriented features remain temporarily and are inventoried for
+  controlled removal.
+- All 61 backend tests pass after the correction.
 
 ### 1. Clarified boundary
 
@@ -90,6 +102,17 @@ export only.
 ---
 
 ## 2026-08-30 — Personalized Next-Action Assistant and Transparent Timeline
+
+### TL;DR
+
+- Applicants and scholars now receive record-specific next actions instead of
+  generic workflow guidance.
+- Both portals display the same five-stage, API-driven lifecycle timeline.
+- Missing, rejected, pending, and physical requirements are clearly separated
+  and prioritized.
+- The feature does not make eligibility decisions or expose unreleased exam
+  results.
+- Verification passed: 61 backend tests, frontend lint, and production build.
 
 ### 1. Summary and objective
 
