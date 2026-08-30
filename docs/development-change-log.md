@@ -671,3 +671,25 @@ management response must provide recommendations for the full review UI.
 4. Add a dedicated official rejection and applicant correction/appeal flow
    without extending the system beyond payroll-list generation.
 5. Add end-to-end database tests for atomic assessment and scholar creation.
+
+### 17. Production deployment outcome
+
+The feature was deployed for real-time testing from Git commit `f579800` on
+2026-08-30.
+
+| Service | Outcome |
+|---|---|
+| Vercel frontend | Production deployment completed successfully at 15:22:59 UTC |
+| Render backend | Production deployment completed successfully at 15:23:42 UTC |
+| Database migration | Render's successful build completed the configured Prisma migration step for the additive assessment table |
+| Live API health | Healthy; database connection confirmed |
+| Deployed frontend inspection | Production administrator bundle contains the new Eligibility Recommendation interface |
+
+Production URLs:
+
+- Frontend: `https://cao-scholar-monitoring-system.vercel.app/`
+- API health: `https://cao-scholar-monitoring-api.onrender.com/api/health`
+
+This deployment makes the feature available for controlled real-time testing.
+Policy `PGCEAP-2026.1` remains advisory and must receive formal CAO approval
+before it is relied upon for actual scholarship decisions.
