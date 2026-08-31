@@ -912,3 +912,32 @@ The deployment exposes the proof upload, protected review queue, automatic
 acceptance, and examination-bypass workflow. Policy
 `PGCEAP-PRIORITY-2026.1` remains subject to formal CAO approval before it is
 used for actual scholarship decisions.
+
+## 2026-08-31 — Consolidated System Features and Improvements Reference
+
+### TL;DR
+
+- Added a standalone Markdown reference covering the system's core features, innovations, and improvements.
+- Documented role coverage, workflow boundaries, verification status, and known policy limitations.
+- No application behavior, database structure, configuration, or deployment behavior changed.
+
+### Objective and outcome
+
+The objective was to provide one concise but comprehensive reference for project
+stakeholders, developers, testers, and reviewers. The new
+`docs/system-features-innovations.md` consolidates capabilities previously
+described across feature and deployment entries.
+
+### Impact and validation
+
+This is a documentation-only change. There is no API, database, configuration,
+security, privacy, accessibility, or deployment impact. The document was checked
+for the approved payroll-list endpoint and explicitly excludes fund release,
+payment claiming, disbursement confirmation, reconciliation, and monetary
+auditing. Existing ERD files were not modified.
+
+### Files changed
+
+- `docs/system-features-innovations.md` — new consolidated feature reference.
+- `change_log.txt` — concise dated summary.
+- `docs/development-change-log.md` — this detailed entry.
