@@ -889,3 +889,26 @@ Recommended next work is a secure applicant replacement-upload path for
 rejected priority proofs, followed by configurable accepted-document examples
 for each criterion and formal CAO approval of policy
 `PGCEAP-PRIORITY-2026.1`.
+
+### Production deployment outcome
+
+The verified priority pathway was deployed for controlled real-time testing
+from commit `b1403ba` on 2026-08-31.
+
+| Service | Result |
+|---|---|
+| Vercel frontend | Production deployment completed successfully |
+| Render backend | Production deployment completed successfully |
+| Database | Render's Prisma deployment step completed the existing additive migration set |
+| Live API | `/api/health` returned `healthy` with `database: connected` |
+| Workspace hygiene | The user-provided untracked ERD files were not staged or changed |
+
+The live testing entry points remain:
+
+- Frontend: `https://cao-scholar-monitoring-system.vercel.app/`
+- API health: `https://cao-scholar-monitoring-api.onrender.com/api/health`
+
+The deployment exposes the proof upload, protected review queue, automatic
+acceptance, and examination-bypass workflow. Policy
+`PGCEAP-PRIORITY-2026.1` remains subject to formal CAO approval before it is
+used for actual scholarship decisions.
