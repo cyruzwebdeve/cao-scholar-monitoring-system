@@ -31,6 +31,15 @@ const incomeOptions = [
   '₱150,001 - ₱200,000', 'Above ₱200,000',
 ];
 const countOptions = ['0', '1', '2', '3', '4', '5+'];
+const priorityCriteria = [
+  { label: 'Graduated Valedictorian or with Highest Honors', key: 'graduatedHonors', proofKey: 'priority_graduated_honors' },
+  { label: 'Champion / 1st Placer in an Academic Contest', key: 'championContest', proofKey: 'priority_champion_contest' },
+  { label: 'ALS (Alternative Learning System) Passer', key: 'alsPasser', proofKey: 'priority_als_passer' },
+  { label: 'Person with Disability (PWD)', key: 'pwd', proofKey: 'priority_pwd' },
+  { label: 'Child of a Person with Disability', key: 'childOfPwd', proofKey: 'priority_child_of_pwd' },
+  { label: 'Solo Parent', key: 'soloParent', proofKey: 'priority_solo_parent' },
+  { label: 'Member of Indigenous Group', key: 'indigenousGroup', proofKey: 'priority_indigenous_group' },
+];
 
 const createEmptyFormState = () => ({
   firstName: '', middleName: '', familyName: '', nameExtension: '', email: '', mobile: '', birthday: '', birthplace: '', sex: '', civilStatus: '',
@@ -68,6 +77,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
   const [submitted, setSubmitted] = useState(false);
   const [accountCredentials, setAccountCredentials] = useState(null);
   const [redirectSeconds, setRedirectSeconds] = useState(30);
+  const [priorityProof, setPriorityProof] = useState({ proofKey: '', fileName: '', fileData: '' });
   const [draftHydrated, setDraftHydrated] = useState(false);
   const draftStorageKey = 'scholarship-application-draft';
 
@@ -157,6 +167,27 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
 
     setFormState((prev) => ({ ...prev, [key]: parsedValue }));
     setFieldErrors((prev) => ({ ...prev, [key]: '' }));
+    const criterion = priorityCriteria.find((item) => item.key === key);
+    if (criterion && parsedValue === 'Yes') setPriorityProof((current) => current.proofKey ? current : { ...current, proofKey: criterion.proofKey });
+    if (criterion && parsedValue === 'No') setPriorityProof((current) => current.proofKey === criterion.proofKey ? { proofKey: '', fileName: '', fileData: '' } : current);
+  };
+
+  const handlePriorityProof = (file) => {
+    if (!file) return;
+    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
+      setFieldErrors((current) => ({ ...current, priorityProof: 'Use a PDF, JPG, or PNG file.' }));
+      return;
+    }
+    if (file.size > 6 * 1024 * 1024) {
+      setFieldErrors((current) => ({ ...current, priorityProof: 'The proof must be smaller than 6 MB.' }));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPriorityProof((current) => ({ ...current, fileName: file.name, fileData: String(reader.result || '') }));
+      setFieldErrors((current) => ({ ...current, priorityProof: '' }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const validateCurrentStep = () => {
@@ -201,6 +232,10 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
     const isCollegeGwa = gwaValue >= 1 && gwaValue <= 5;
     if (formState.gwa && (!Number.isFinite(gwaValue) || (!isPercentageGwa && !isCollegeGwa))) {
       errors.gwa = 'Enter a percentage (0-100) or college grade (1.00-5.00).';
+    }
+    const selectedPriority = priorityCriteria.filter(({ key }) => formState[key] === 'Yes');
+    if (step === 2 && selectedPriority.length && (!priorityProof.proofKey || !priorityProof.fileData)) {
+      errors.priorityProof = 'Upload proof for one selected eligibility criterion.';
     }
 
     setFieldErrors(errors);
@@ -292,7 +327,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
       : null;
 
     try {
-      const bodyPayload = { personalInfo, initialDocs: {} };
+      const bodyPayload = { personalInfo, initialDocs: priorityProof.fileData ? { priorityProof } : {} };
       if (!user) {
         bodyPayload.email = formState.email;
         bodyPayload.password = generatedTemporaryPassword;
@@ -314,6 +349,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
         temporaryPassword: body.applicant.temporaryPassword || generatedTemporaryPassword,
       } : null);
       setFormState(createEmptyFormState());
+      setPriorityProof({ proofKey: '', fileName: '', fileData: '' });
       setCompleted(new Set());
       setStep(0);
       localStorage.removeItem(draftStorageKey);
@@ -550,15 +586,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
             </div>
 
             <div className="eligibility-grid">
-              {[
-                { label: 'Graduated Valedictorian or with Highest Honors', key: 'graduatedHonors' },
-                { label: 'Champion / 1st Placer in an Academic Contest', key: 'championContest' },
-                { label: 'ALS (Alternative Learning System) Passer', key: 'alsPasser' },
-                { label: 'Person with Disability (PWD)', key: 'pwd' },
-                { label: 'Child of a Person with Disability', key: 'childOfPwd' },
-                { label: 'Solo Parent', key: 'soloParent' },
-                { label: 'Member of Indigenous Group', key: 'indigenousGroup' },
-              ].map((item) => (
+              {priorityCriteria.map((item) => (
                 <label key={item.key} className="eligibility-item">
                   <input
                     type="checkbox"
@@ -569,6 +597,24 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
                 </label>
               ))}
             </div>
+
+            {priorityCriteria.some(({ key }) => formState[key] === 'Yes') && (
+              <section className="priority-proof-upload">
+                <div><strong>Supporting proof required</strong><span>An approved proof automatically qualifies the applicant as a scholar and bypasses the examination.</span></div>
+                <label>
+                  <span>Criterion shown by this proof</span>
+                  <select name="priorityProofCriterion" value={priorityProof.proofKey} onChange={(event) => setPriorityProof((current) => ({ ...current, proofKey: event.target.value }))}>
+                    {priorityCriteria.filter(({ key }) => formState[key] === 'Yes').map((item) => <option key={item.proofKey} value={item.proofKey}>{item.label}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Proof document or valid ID</span>
+                  <input name="priorityProof" type="file" accept="application/pdf,image/jpeg,image/png" onChange={(event) => handlePriorityProof(event.target.files?.[0])} />
+                  <small>{priorityProof.fileName || 'PDF, JPG, or PNG; maximum 6 MB.'}</small>
+                </label>
+                {fieldErrors.priorityProof && <span className="sibling-rule-error">{fieldErrors.priorityProof}</span>}
+              </section>
+            )}
 
             <label className={`sibling-rule-confirmation ${fieldErrors.siblingRuleAccepted ? 'has-error' : ''}`}>
               <input
@@ -586,7 +632,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
       default:
         return null;
     }
-  }, [step, formState, fieldErrors, user, barangayOptions]);
+  }, [step, formState, fieldErrors, user, barangayOptions, priorityProof.fileName, priorityProof.proofKey]);
 
   if (submitted) {
     return (

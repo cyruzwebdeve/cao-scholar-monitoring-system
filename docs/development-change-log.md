@@ -693,3 +693,199 @@ Production URLs:
 This deployment makes the feature available for controlled real-time testing.
 Policy `PGCEAP-2026.1` remains advisory and must receive formal CAO approval
 before it is relied upon for actual scholarship decisions.
+
+---
+
+## 2026-08-30 — Verified Priority Eligibility and Examination Bypass
+
+### TL;DR
+
+- Selecting a priority checkbox no longer acts only as a score input: the
+  applicant must upload proof for one selected criterion.
+- A Moderator or Super Administrator reviews the proof in the existing secure
+  Document Reviews workspace.
+- Individual approval automatically creates the scholar account and bypasses
+  the qualifying examination; self-declaration and bulk approval cannot do so.
+- The system rechecks the one-scholar-per-family rule and blocks inactive
+  scholar-record conflicts before automatic acceptance.
+- No payment, release, reconciliation, or monetary-audit behavior was added.
+
+### Objective and decision rule
+
+The requested policy is that an applicant who qualifies under at least one of
+the seven priority criteria may bypass the qualifying examination and become
+a scholar, but only after providing evidence. The implementation separates
+the applicant's claim from CAO's verification:
+
+~~~text
+One or more criteria selected
+  -> criterion-specific proof uploaded
+  -> authorized individual review
+  -> family and account conflict checks
+  -> proof approved
+  -> scholar automatically created; examination bypassed
+~~~
+
+The supported criteria are highest honors, academic-contest champion, ALS
+passer, PWD, child of a PWD, solo parent, and indigenous-group membership.
+
+### Previous and new behavior
+
+Previously, the seven checkboxes contributed up to ten points to policy
+`PGCEAP-2026.1`. They did not require evidence and could not independently
+create a scholar account. Every manual acceptance still required a passing
+latest examination result.
+
+Now, selecting any criterion makes a supporting upload mandatory before the
+application can be submitted. The applicant chooses which selected criterion
+the proof supports and uploads one PDF, JPG, or PNG file smaller than 6 MB.
+The backend independently verifies the declared criterion, file type, decoded
+size, and proof key before storing it.
+
+The pending proof appears in Document Reviews even though the person is not
+yet a scholar. The review interface explicitly warns that approval causes
+automatic acceptance and an examination bypass. Rejection records correction
+notes but does not create a scholar.
+
+### Roles and workflow impact
+
+| Role | Impact |
+|---|---|
+| Applicant | Selects a criterion and supplies criterion-specific evidence during application |
+| Moderator | Can securely preview and approve or reject the evidence; approval triggers the configured automatic outcome |
+| Super Administrator | Has the same review authority and can investigate blocked account conflicts |
+| Billing/Payroll Administrator | No new proof-review permission |
+| Scholar | Receives the existing approval email, scholar ID, requirements workflow, and a portal explanation of the verified bypass |
+
+### Automatic-acceptance safeguards
+
+- A checkbox without a proof is rejected at submission.
+- A proof key must correspond to a criterion declared `Yes`.
+- Only authenticated Moderator and Super Administrator review routes can open
+  or decide the private proof.
+- The normal review validator requires an explicit approved/rejected decision;
+  rejected files require a reason.
+- Priority proofs are excluded from Approve All Pending, ensuring the
+  acceptance consequence always uses an individual confirmation dialog.
+- The system rechecks active scholars' parent identities before approval and
+  blocks another scholar from the same family.
+- An existing inactive scholar record blocks automatic processing and requires
+  Super Administrator review instead of overwriting historical data.
+- Database uniqueness protects against duplicate scholar accounts.
+- Approval updates the proof, application status, scholar account, scholar
+  requirements, and eligibility assessment in one transaction.
+- A dedicated `PRIORITY_PROOF_APPROVED_AUTO_ACCEPTED` Activity Log event
+  records the operational action without exposing the proof itself.
+
+### Data flow and storage
+
+The browser sends the selected proof as a base64 data URL inside the existing
+bounded application request. The backend decodes and validates it. Production
+stores the file in the configured private Vercel Blob store under an
+eligibility-proof namespace; only metadata and a private reference are stored
+in `application_submissions.initial_docs`. Local development retains the
+existing database fallback.
+
+The proof uses a criterion-specific requirement key such as `priority_pwd`.
+Document review serialization exposes safe metadata but not private Blob URLs
+or encoded file content. The existing authenticated streaming endpoint reads
+the proof for authorized reviewers with private, no-store response headers.
+
+On approval, the existing `eligibility_assessments` table receives policy
+`PGCEAP-PRIORITY-2026.1`, recommendation
+`VERIFIED_PRIORITY_BYPASS`, the verified criterion, reviewer, review time,
+and a minimized input snapshot. No identity document content is copied into
+the assessment.
+
+### API and database impact
+
+- `POST /api/applications` now accepts
+  `initialDocs.priorityProof` when a priority criterion is selected and
+  requires it for those applications.
+- `GET /api/document-reviews` now includes pending priority proofs from
+  applicants as well as normal requirements from active scholars.
+- Existing file-stream and individual-decision endpoints support the new
+  criterion-specific proof definitions.
+- The approval response clearly reports automatic acceptance and examination
+  bypass.
+- No new database table or migration is required; the feature uses existing
+  JSON document metadata, scholar, requirement, assessment, and Activity Log
+  structures.
+- No new environment variables or npm dependencies were added.
+
+### User-interface and accessibility impact
+
+The application form reveals a Supporting Proof panel only when one or more
+criteria are selected. It contains a labelled criterion selector, native file
+input, format/size guidance, chosen filename, and inline validation. The panel
+stacks on small screens.
+
+Document Reviews now refers to applicants and scholars, identifies priority
+proofs in its filters, and changes the reviewer checklist and confirmation
+copy when approval will cause automatic acceptance. The warning is textual
+and does not depend on color.
+
+The scholar timeline marks the examination stage completed with a clear
+explanation that CAO verified a priority proof. The official-decision card
+labels the result as Verified priority eligibility.
+
+### Security, privacy, and scope impact
+
+Proof files use the existing private-document token and are never public.
+File format, decoded size, declared criterion, authenticated role, family
+conflicts, and account conflicts are checked server-side. Client claims do not
+control the outcome.
+
+The feature changes only eligibility verification, scholar creation, and the
+transition into requirements. The in-scope process still ends at generation
+of the official payroll list. No fund release, paid/claimed status,
+reconciliation, or monetary auditing was introduced.
+
+### Files and system areas changed
+
+| Area | Change |
+|---|---|
+| `backend/services/priorityEligibility.js` | Added canonical criterion/proof mappings and declaration checks |
+| `backend/services/documentReview.js` | Added priority proof definitions, safe queue metadata, and bulk-approval exclusion |
+| `backend/controllers/applicationController.js` | Validates and privately stores proof during application submission |
+| `backend/controllers/documentReviewController.js` | Loads applicant proofs, permits protected preview, rechecks conflicts, and performs transactional auto-acceptance |
+| `backend/services/applicantGuidance.js` | Explains a verified examination bypass in the portal timeline |
+| `backend/tests/priorityEligibility.test.js` | Covers mappings and declaration matching |
+| `backend/tests/documentReview.test.js` | Covers individual-only priority review metadata |
+| `backend/tests/applicantGuidance.test.js` | Covers the completed bypass timeline |
+| `frontend/src/components/ApplicationForm.jsx` | Added conditional proof selection, validation, and upload payload |
+| `frontend/src/DocumentReviewManagement.jsx` | Added applicant-proof review language and automatic-consequence warning |
+| `frontend/src/components/EligibilityAssessmentCard.jsx` | Added the verified-priority outcome label |
+| `frontend/src/styles/application.css` | Added responsive proof-upload presentation |
+
+### Validation and limitations
+
+Automated validation covers all seven mapping keys, declaration/proof
+matching, exclusion from bulk approval, safe review serialization, and the
+examination-bypass timeline. The full backend suite, frontend lint, frontend
+production build, backend syntax, and Git whitespace checks must pass before
+deployment.
+
+Known limitations:
+
+- The first release accepts one proof for one selected criterion. Additional
+  selected criteria do not require separate uploads because one verified
+  criterion is sufficient under the requested rule.
+- Rejected-proof replacement is not yet available as a self-service portal
+  upload; CAO must direct the applicant through its correction procedure.
+- Authenticity remains a human review responsibility; the system validates
+  file structure and workflow, not the issuing authority's registry.
+- The policy applies prospectively and does not automatically reprocess older
+  applications that have no stored priority proof.
+
+### Rollback and recommended next work
+
+Rollback can disable the priority proof definitions and automatic branch
+without a database rollback. Existing proof metadata and assessment records
+should be retained as operational history. Removing private proof files is a
+separate data-retention action and must not occur implicitly.
+
+Recommended next work is a secure applicant replacement-upload path for
+rejected priority proofs, followed by configurable accepted-document examples
+for each criterion and formal CAO approval of policy
+`PGCEAP-PRIORITY-2026.1`.

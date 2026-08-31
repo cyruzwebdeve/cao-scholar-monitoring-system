@@ -84,6 +84,20 @@ test('[FAILED] bulk approval refuses a scholar with no pending supported documen
   assert.equal(result, null);
 });
 
+test('priority proofs require an individual decision and are marked as auto-acceptance reviews', () => {
+  const initialDocs = { requirements: { priority_pwd: { fileName: 'pwd-id.pdf', status: 'Pending' } } };
+  assert.equal(applyPendingApprovals({ initialDocs, reviewerId: 9 }), null);
+
+  const [record] = buildReviewRecords({
+    applications: [{ id: 15, applicant_id: 8, email: 'applicant@example.com', initial_docs: initialDocs }],
+    applicantsById: new Map([[8, { first_name: 'Mia', last_name: 'Reyes' }]]),
+    accountsByApplicant: new Map(),
+  });
+  assert.equal(record.category, 'priority');
+  assert.equal(record.autoAcceptance, true);
+  assert.match(record.requirementLabel, /disability/i);
+});
+
 test('builds a review queue without exposing private URLs or encoded file data', () => {
   const records = buildReviewRecords({
     applications: [{

@@ -70,7 +70,7 @@ function ReviewModal({ review, preview, previewLoading, previewError, onClose, o
               {review.reviewedAt && <div><dt>Last reviewed</dt><dd>{formatDate(review.reviewedAt)}{review.reviewerName ? ` by ${review.reviewerName}` : ''}</dd></div>}
             </dl>
             {review.reviewNotes && <div className="review-existing-note"><span>Review notes</span><p>{review.reviewNotes}</p></div>}
-            <div className="review-guidance"><ShieldCheck size={18} /><div><strong>Reviewer checklist</strong><p>Confirm that the document is readable, current, and matches the scholar record before approval.</p></div></div>
+            <div className="review-guidance"><ShieldCheck size={18} /><div><strong>Reviewer checklist</strong><p>{review.autoAcceptance ? 'Confirm that the proof is authentic, readable, and matches the declared criterion. Approval automatically accepts the applicant and bypasses the examination.' : 'Confirm that the document is readable, current, and matches the scholar record before approval.'}</p></div></div>
           </aside>
         </div>
         <footer>
@@ -89,7 +89,7 @@ function DecisionModal({ review, decision, saving, error, onClose, onConfirm }) 
     <div className="review-decision-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !saving && onClose()}>
       <section className="review-decision" role="dialog" aria-modal="true" aria-label={`${titleCase(decision)} document`}>
         <header><i className={decision}>{rejected ? <XCircle size={22} /> : <CheckCircle2 size={22} />}</i><div><span>{rejected ? 'RETURN FOR CORRECTION' : 'CONFIRM APPROVAL'}</span><h3>{rejected ? 'Reject this document?' : 'Approve this document?'}</h3></div></header>
-        <p>{rejected ? 'The scholar will see your reason and can upload a corrected file.' : 'This file will count as an approved requirement across the scholar and administrative dashboards.'}</p>
+        <p>{rejected ? 'The applicant or scholar will see your reason for correction.' : review.autoAcceptance ? 'Approving this verified priority proof automatically accepts the applicant as a scholar and bypasses the qualifying examination.' : 'This file will count as an approved requirement across the scholar and administrative dashboards.'}</p>
         <label><span>{rejected ? 'Reason for rejection' : 'Review note (optional)'}</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} maxLength="500" placeholder={rejected ? 'Explain what needs to be corrected…' : 'Add an internal review note…'} /></label>
         {error && <div className="review-decision-error"><TriangleAlert size={16} />{error}</div>}
         <footer><button type="button" onClick={onClose} disabled={saving}>Cancel</button><button type="button" className={rejected ? 'danger' : 'success'} onClick={() => onConfirm(notes)} disabled={saving || (rejected && notes.trim().length < 3)}>{saving ? 'Saving…' : rejected ? 'Reject and return' : 'Confirm approval'}</button></footer>
@@ -173,7 +173,7 @@ function DocumentReviewManagement({ token }) {
   const groupedReviews = useMemo(() => {
     const pendingByGroup = new Map();
     data.reviews.forEach((item) => {
-      if (item.status !== 'pending') return;
+      if (item.status !== 'pending' || item.autoAcceptance) return;
       const key = String(item.applicationId || item.applicantId || `${item.controlNumber}-${item.email}`);
       pendingByGroup.set(key, (pendingByGroup.get(key) || 0) + 1);
     });
@@ -292,19 +292,19 @@ function DocumentReviewManagement({ token }) {
 
   const metrics = [
     ['Pending review', data.stats.pending, Clock3, 'amber', 'Files waiting for a decision'],
-    ['Approved', data.stats.approved, FileCheck2, 'green', 'Accepted scholar documents'],
+    ['Approved', data.stats.approved, FileCheck2, 'green', 'Verified proofs and scholar documents'],
     ['Rejected', data.stats.rejected, XCircle, 'red', 'Returned for correction'],
     ['Total uploads', data.stats.total, ClipboardCheck, 'blue', 'Documents in the review history'],
   ];
 
   return (
     <div className="document-reviews">
-      <header className="document-review-heading"><div><span>CONTENT MODERATION</span><h2>Document Reviews</h2><p>Verify scholar uploads before they count toward completed requirements.</p></div><button type="button" onClick={loadReviews} disabled={loading}><RefreshCw size={16} className={loading ? 'spinning' : ''} />Refresh queue</button></header>
+      <header className="document-review-heading"><div><span>CONTENT MODERATION</span><h2>Document Reviews</h2><p>Verify applicant eligibility proofs and scholar requirement uploads.</p></div><button type="button" onClick={loadReviews} disabled={loading}><RefreshCw size={16} className={loading ? 'spinning' : ''} />Refresh queue</button></header>
       <div className="document-review-metrics">{metrics.map(([label, value, Icon, tone, helper]) => <article className={tone} key={label}><div><span>{label}</span><strong>{value}</strong><small>{helper}</small></div><i><Icon size={21} /></i></article>)}</div>
       {notice && <div className={`document-review-notice ${notice.tone}`} role="status">{notice.tone === 'success' ? <CheckCircle2 size={18} /> : <TriangleAlert size={18} />}<span>{notice.message}</span><button type="button" onClick={() => setNotice(null)} aria-label="Dismiss"><X size={16} /></button></div>}
       {error && <div className="document-review-notice error" role="status"><TriangleAlert size={18} /><span>{error}</span><button type="button" onClick={loadReviews}>Retry</button></div>}
       <section className="document-review-directory">
-        <div className="document-review-toolbar"><div><i><ClipboardCheck size={19} /></i><section><h3>Review queue</h3><p>{groupedReviews.length} {groupedReviews.length === 1 ? 'scholar' : 'scholars'} · {visibleReviews.length} of {data.reviews.length} files shown</p></section></div><div className="document-review-filters"><label><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Scholar, control number, or file" /></label><select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Filter review status"><option value="pending">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="">All statuses</option></select><select value={requirement} onChange={(event) => setRequirement(event.target.value)} aria-label="Filter requirement"><option value="">All requirements</option>{requirementOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div></div>
+        <div className="document-review-toolbar"><div><i><ClipboardCheck size={19} /></i><section><h3>Review queue</h3><p>{groupedReviews.length} {groupedReviews.length === 1 ? 'person' : 'people'} · {visibleReviews.length} of {data.reviews.length} files shown</p></section></div><div className="document-review-filters"><label><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Applicant, control number, or file" /></label><select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Filter review status"><option value="pending">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="">All statuses</option></select><select value={requirement} onChange={(event) => setRequirement(event.target.value)} aria-label="Filter requirement"><option value="">All requirements</option>{requirementOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div></div>
         <div className="document-review-groups">
           {loading && !data.reviews.length && <div className="document-review-group-empty"><span className="review-loader" />Loading secure document queue…</div>}
           {!loading && !visibleReviews.length && <div className="document-review-group-empty"><ClipboardCheck size={27} /><strong>{status === 'pending' ? 'Review queue is clear' : 'No documents found'}</strong><span>{status === 'pending' ? 'New scholar uploads will appear here automatically.' : 'Try changing the current filters.'}</span></div>}

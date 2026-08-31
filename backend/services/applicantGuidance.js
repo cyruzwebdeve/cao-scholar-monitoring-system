@@ -51,6 +51,7 @@ const buildApplicantGuidance = ({
 
   const hasResult = Boolean(result);
   const isScholar = Boolean(scholar?.is_active);
+  const examBypassed = isScholar && !hasResult && String(scholar?.notes || '').includes('verified proof');
   const examScheduled = Boolean(scheduledExam?.is_active);
   const requirementSnapshot = getRequirementSnapshot({
     initialDocs: application.initial_docs,
@@ -76,13 +77,15 @@ const buildApplicantGuidance = ({
     makeTimelineItem({
       id: 'examination',
       label: 'Qualifying examination',
-      status: hasResult ? 'completed' : 'current',
-      detail: hasResult
-        ? 'Your examination submission has been recorded.'
+      status: hasResult || examBypassed ? 'completed' : 'current',
+      detail: examBypassed
+        ? 'The qualifying examination was bypassed after CAO verified a priority eligibility proof.'
+        : hasResult
+          ? 'Your examination submission has been recorded.'
         : examScheduled
           ? 'Your examination schedule is available.'
           : 'The Scholarship Office has not published your examination schedule yet.',
-      completedAt: result?.created_at || null,
+      completedAt: result?.created_at || (examBypassed ? scholar?.issued_at || null : null),
     }),
     makeTimelineItem({
       id: 'decision',

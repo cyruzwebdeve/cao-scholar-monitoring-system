@@ -5,6 +5,7 @@ const recommendationLabels = {
   MEETS_CONFIGURED_CRITERIA: 'Met configured criteria',
   DOES_NOT_MEET_CRITERIA: 'Did not meet configured criteria',
   REVIEW_REQUIRED: 'Required human review',
+  VERIFIED_PRIORITY_BYPASS: 'Verified priority eligibility',
 };
 
 export default function EligibilityAssessmentCard({ assessment }) {

@@ -1491,6 +1491,35 @@ body {
   font-size: 0.76rem;
 }
 
+.priority-proof-upload {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 15px;
+  border: 1px solid #b9dbc6;
+  border-radius: 12px;
+  background: #f3faf5;
+}
+.priority-proof-upload > div { grid-column: 1 / -1; }
+.priority-proof-upload > div strong,
+.priority-proof-upload > div span,
+.priority-proof-upload label > span,
+.priority-proof-upload label > small { display: block; }
+.priority-proof-upload > div strong { color: #125f36; font-size: 13px; }
+.priority-proof-upload > div span { margin-top: 3px; color: #557061; font-size: 11px; line-height: 1.45; }
+.priority-proof-upload label { display: grid; gap: 6px; color: #294a37; font-size: 11px; font-weight: 700; }
+.priority-proof-upload select,
+.priority-proof-upload input { width: 100%; min-height: 42px; box-sizing: border-box; padding: 8px 10px; border: 1px solid #bfd2c5; border-radius: 8px; background: #fff; color: #294a37; font: inherit; }
+.priority-proof-upload label > small { color: #718278; font-size: 9px; font-weight: 400; }
+.priority-proof-upload .sibling-rule-error { grid-column: 1 / -1; }
+
+@media (max-width: 680px) {
+  .priority-proof-upload { grid-template-columns: 1fr; }
+  .priority-proof-upload > div,
+  .priority-proof-upload .sibling-rule-error { grid-column: auto; }
+}
+
 .application-page-pill-dot.closed {
   background: #f59e0b;
   box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.16);

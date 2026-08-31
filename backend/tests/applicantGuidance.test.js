@@ -38,6 +38,18 @@ test('examined applicants are told to wait without exposing an unreleased result
   assert.doesNotMatch(JSON.stringify(guidance), /passed/i);
 });
 
+test('verified priority scholars show a completed examination-bypass stage', () => {
+  const guidance = buildApplicantGuidance({
+    application: application(),
+    scholar: { is_active: true, issued_at: new Date('2026-08-22T08:00:00Z'), notes: 'Automatically accepted after verified proof: Person with Disability (PWD).' },
+    scholarRequirement: {},
+  });
+
+  const examinationStage = guidance.timeline.find(({ id }) => id === 'examination');
+  assert.equal(examinationStage.status, 'completed');
+  assert.match(examinationStage.detail, /bypassed/i);
+});
+
 test('active scholars receive prioritized missing, rejected, and physical requirement actions', () => {
   const documents = approvedDocuments();
   documents.grades.status = 'Rejected';

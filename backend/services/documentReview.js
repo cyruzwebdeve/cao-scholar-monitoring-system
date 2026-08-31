@@ -1,3 +1,5 @@
+const { PRIORITY_PROOFS } = require('./priorityEligibility');
+
 const REQUIREMENT_DEFINITIONS = Object.freeze({
   tax_exemption: Object.freeze({ label: 'Certificate of Tax Exemption', statusField: 'cert_tax_exemption_review_status' }),
   indigency: Object.freeze({ label: 'Barangay Indigency', statusField: 'barangay_indigency_review_status' }),
@@ -5,6 +7,7 @@ const REQUIREMENT_DEFINITIONS = Object.freeze({
   grades: Object.freeze({ label: 'Certificate of Grades (previous semester attended)', statusField: 'grade_report_review_status' }),
   registration_form: Object.freeze({ label: 'Registration Form (current school year)', statusField: 'registration_form_review_status' }),
   tuition_receipt: Object.freeze({ label: 'Official Receipt of Tuition Fee', statusField: 'tuition_fee_receipt_review_status' }),
+  ...PRIORITY_PROOFS,
 });
 
 const normalizeReviewStatus = (value) => {
@@ -38,6 +41,8 @@ const serializeReviewRecord = ({ application, applicant, account, requirementKey
   reviewedBy: file.reviewedBy || null,
   reviewerName,
   reviewNotes: file.reviewNotes || '',
+  category: REQUIREMENT_DEFINITIONS[requirementKey].category || 'scholar_requirement',
+  autoAcceptance: REQUIREMENT_DEFINITIONS[requirementKey].category === 'priority',
 });
 
 const buildReviewRecords = ({ applications, applicantsById, accountsByApplicant, reviewersById = new Map() }) => {
@@ -80,6 +85,7 @@ const applyPendingApprovals = ({ initialDocs, reviewerId, notes = '', reviewedAt
   const pendingKeys = Object.keys(initialDocs?.requirements || {}).filter((requirementKey) => {
     const document = getRequirementDocument({ initial_docs: initialDocs }, requirementKey);
     return REQUIREMENT_DEFINITIONS[requirementKey]
+      && REQUIREMENT_DEFINITIONS[requirementKey].bulkApprovable !== false
       && document?.fileName
       && normalizeReviewStatus(document.status) === 'pending';
   });

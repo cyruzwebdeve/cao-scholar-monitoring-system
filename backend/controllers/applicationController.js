@@ -29,6 +29,7 @@ const { recordActivitySafely } = require('../services/activityLog');
 const { getApplicationAvailability } = require('../services/applicationAvailability');
 const { buildApplicantGuidance } = require('../services/applicantGuidance');
 const { evaluateEligibility, serializeAssessment } = require('../services/eligibilityRecommendation');
+const { PRIORITY_PROOFS, selectedPriorityCriteria } = require('../services/priorityEligibility');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -45,6 +46,32 @@ const PASSING_SCORE = 75;
 const CURRENT_SCHOOL_YEAR = '2026-2027';
 const STALE_DEFAULT_SCHOOL_YEAR = '2025-2026';
 const DEFAULT_SEMESTER = '1st Semester';
+const PRIORITY_PROOF_FILE_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
+
+const storePriorityProof = async ({ applicantPath, eligibility, priorityProof }) => {
+  const selected = selectedPriorityCriteria(eligibility);
+  if (!selected.length) return { initialDocs: {}, uploadedUrl: null };
+  const definition = PRIORITY_PROOFS[priorityProof?.proofKey];
+  if (!definition || !selected.some(({ proofKey }) => proofKey === priorityProof.proofKey)) {
+    throw Object.assign(new Error('Select a declared eligibility criterion for the supporting proof.'), { statusCode: 400 });
+  }
+  if (typeof priorityProof.fileName !== 'string' || typeof priorityProof.fileData !== 'string') {
+    throw Object.assign(new Error('Upload a PDF, JPG, or PNG proof for one selected eligibility criterion.'), { statusCode: 400 });
+  }
+  let parsed;
+  try { parsed = parseDataUrl(priorityProof.fileData); } catch (error) { throw Object.assign(error, { statusCode: 400 }); }
+  if (!PRIORITY_PROOF_FILE_TYPES.has(parsed.contentType)) throw Object.assign(new Error('Eligibility proof must be a PDF, JPG, or PNG file.'), { statusCode: 400 });
+  if (parsed.buffer.length > 6 * 1024 * 1024) throw Object.assign(new Error('Eligibility proof must be smaller than 6 MB.'), { statusCode: 413 });
+  const token = process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN;
+  let storedFile;
+  if (token || process.env.NODE_ENV === 'production') {
+    const blob = await uploadDataUrl({ dataUrl: priorityProof.fileData, fileName: priorityProof.fileName, contentType: parsed.contentType, pathSegments: ['eligibility-proofs', applicantPath, priorityProof.proofKey], token, access: 'private' });
+    storedFile = { fileName: priorityProof.fileName, fileType: blob.contentType, fileUrl: blob.url, pathname: blob.pathname, storage: 'vercel-blob-private', status: 'Pending', uploadedAt: new Date().toISOString() };
+  } else {
+    storedFile = { fileName: priorityProof.fileName, fileType: parsed.contentType, fileData: priorityProof.fileData, storage: 'database', status: 'Pending', uploadedAt: new Date().toISOString() };
+  }
+  return { initialDocs: { requirements: { [priorityProof.proofKey]: storedFile } }, uploadedUrl: storedFile.fileUrl || null };
+};
 
 const serializeAcademicPeriod = (period) => ({
   id: period.id,
@@ -92,6 +119,7 @@ const hasMatchingParents = (candidateFamily, existingFamily) => {
 };
 
 const createApplication = async (req, res) => {
+  let uploadedPriorityProofUrl = null;
   try {
     const availability = await getApplicationAvailability(prisma);
     if (!availability.isOpen) {
@@ -141,6 +169,8 @@ const createApplication = async (req, res) => {
 
     const activePeriod = await getActiveAcademicPeriodRecord();
 
+    const storedPriorityProof = await storePriorityProof({ applicantPath: normalizedEmail, eligibility: personalInfo.eligibility, priorityProof: initialDocs?.priorityProof });
+    uploadedPriorityProofUrl = storedPriorityProof.uploadedUrl;
     const generatedPassword = password || `Scholar@${Math.random().toString(36).slice(2, 10)}`;
     const passwordHash = await bcrypt.hash(generatedPassword, 12);
 
@@ -192,7 +222,7 @@ const createApplication = async (req, res) => {
           school_plan: personalInfo.schoolPlan,
           family,
           eligibility: personalInfo.eligibility,
-          initial_docs: initialDocs || {},
+          initial_docs: storedPriorityProof.initialDocs,
           status: APPLICATION_STATUSES.APPLIED,
         },
       });
@@ -203,6 +233,7 @@ const createApplication = async (req, res) => {
       });
       return { application, account };
     });
+    uploadedPriorityProofUrl = null;
 
     await recordActivitySafely(prisma, {
       user: { id: application.applicant_id, role: 'Applicant' },
@@ -230,6 +261,8 @@ const createApplication = async (req, res) => {
     return res.status(201).json(response);
   } catch (error) {
     console.error(error);
+    if (uploadedPriorityProofUrl) await deleteBlob(uploadedPriorityProofUrl, process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN);
+    if (error instanceof BlobStorageConfigurationError || error.statusCode) return res.status(error.statusCode || 500).json({ message: error.message });
     return res.status(500).json({ message: 'Server error submitting application.' });
   }
 };
