@@ -24,6 +24,13 @@ const formatScholarDate = (value) => {
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+const formatScholarAmount = (value) => {
+  if (value === null || value === undefined || value === '') return 'Not recorded';
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return String(value);
+  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
+};
+
 const scholarExportColumns = [
   { key: 'name', label: 'Scholar Name', group: 'Scholar' },
   { key: 'controlNumber', label: 'Control Number', group: 'Scholar', value: (record) => record.controlNumber || record.scholarId },
@@ -205,12 +212,12 @@ export default function ScholarsManagement({ token }) {
           ) : (
             <div className="scholars-drawer-tab-panel" role="tabpanel">
               <section className="scholars-finance-summary">
-                <article className={selected.processRoute !== 'billing' || selected.billed ? 'complete' : 'pending'}><i><ReceiptText size={19} /></i><div><span>Billing status</span><strong>{selected.billingStatus}</strong><small>{selected.processRoute === 'billing' ? (selected.billed ? 'Included in a billing record' : 'Waiting for billing processing') : 'Public-school scholars bypass Billing'}</small></div></article>
-                <article className={selected.processRoute !== 'payroll' || selected.inPayroll ? 'complete' : 'pending'}><i><CircleDollarSign size={19} /></i><div><span>Payroll-list status</span><strong>{selected.payrollStatus}</strong><small>{selected.processRoute === 'payroll' ? (selected.inPayroll ? 'Included in the generated payroll list' : 'Waiting for payroll-list generation') : 'Private-school scholars do not continue to Payroll'}</small></div></article>
+                <article className={selected.billed ? 'complete' : 'pending'}><i><ReceiptText size={19} /></i><div><span>Billing status</span><strong>{selected.billingStatus || (selected.billed ? 'Billed' : 'Not billed yet')}</strong><small>{selected.billed ? 'Included in a billing record' : 'Waiting for billing processing'}</small></div></article>
+                <article className={selected.paid ? 'complete' : 'pending'}><i><CircleDollarSign size={19} /></i><div><span>Payroll status</span><strong>{selected.payrollStatus || (selected.paid ? 'Paid' : 'Not paid yet')}</strong><small>{selected.paid ? 'Payroll has been completed' : selected.billed ? 'Ready for payroll processing' : 'Billing must be completed first'}</small></div></article>
               </section>
-              <section className="scholars-detail-section scholars-finance-details"><h4>Processing details</h4><dl><div><dt>School year / semester</dt><dd>{selected.schoolYearSemester || `${selected.schoolYear || '2026-2027'} · ${selected.semester || '1st Semester'}`}</dd></div><div><dt>School classification</dt><dd>{selected.schoolType}</dd></div><div><dt>Assigned route</dt><dd>{selected.processRoute === 'billing' ? 'Billing only' : 'Direct to Payroll'}</dd></div><div><dt>Date processed</dt><dd>{selected.dateProcessed ? formatScholarDate(selected.dateProcessed) : 'Not processed'}</dd></div><div><dt>Billing record</dt><dd>{selected.billingStatus}</dd></div><div><dt>Payroll list</dt><dd>{selected.payrollStatus}</dd></div><div><dt>Batch status</dt><dd>{selected.batchStatus || 'Not assigned'}</dd></div></dl></section>
-              {!!selected.financialHistory?.filter((record) => !record.isActivePeriod).length && <section className="scholars-detail-section"><h4>Previous period history</h4><div className="scholars-finance-history">{selected.financialHistory.filter((record) => !record.isActivePeriod).map((record) => <article key={`${record.academicPeriodId}-${record.dateProcessed}`}><div><strong>{record.schoolYear} · {record.semester}</strong><span>{record.billingStatus} · {record.payrollStatus}</span></div><div><strong>{record.processRoute === 'billing' ? 'Billing record' : 'Payroll-list record'}</strong><span>{record.dateProcessed ? formatScholarDate(record.dateProcessed) : 'Not processed'}</span></div></article>)}</div></section>}
-              <div className="scholars-finance-note"><CircleDollarSign size={17} /><div><strong>Live processing status</strong><span>This status follows the scholar’s school-classification route and refreshes automatically.</span></div></div>
+              <section className="scholars-detail-section scholars-finance-details"><h4>Processing details</h4><dl><div><dt>School year / semester</dt><dd>{selected.schoolYearSemester || `${selected.schoolYear || '2026-2027'} · ${selected.semester || '1st Semester'}`}</dd></div><div><dt>Pay reference</dt><dd>{selected.payReference || 'Not assigned'}</dd></div><div><dt>Claim amount</dt><dd>{formatScholarAmount(selected.claimAmount)}</dd></div><div><dt>Date processed</dt><dd>{selected.dateProcessed ? formatScholarDate(selected.dateProcessed) : 'Not processed'}</dd></div><div><dt>Billing record</dt><dd>{selected.billed ? 'Included' : 'Not created'}</dd></div><div><dt>Batch status</dt><dd>{selected.batchStatus || 'Not assigned'}</dd></div><div><dt>Claim status</dt><dd>{selected.claimStatus || 'Not processed'}</dd></div></dl></section>
+              {!!selected.financialHistory?.filter((record) => !record.isActivePeriod).length && <section className="scholars-detail-section"><h4>Previous period history</h4><div className="scholars-finance-history">{selected.financialHistory.filter((record) => !record.isActivePeriod).map((record) => <article key={`${record.academicPeriodId}-${record.dateProcessed}`}><div><strong>{record.schoolYear} · {record.semester}</strong><span>{record.billingStatus} · {record.payrollStatus}</span></div><div><strong>{record.payReference || 'No pay reference'}</strong><span>{record.dateProcessed ? formatScholarDate(record.dateProcessed) : 'Not processed'}</span></div></article>)}</div></section>}
+              <div className="scholars-finance-note"><CircleDollarSign size={17} /><div><strong>Live processing status</strong><span>This information follows the scholar’s current Billing and Payroll records and refreshes automatically.</span></div></div>
             </div>
           )}
         </aside>

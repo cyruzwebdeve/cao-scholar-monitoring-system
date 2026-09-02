@@ -24,6 +24,61 @@ Every material change should record:
 
 ---
 
+## 2026-09-02 — Minimal Classification-Only Routing Patch
+
+### TL;DR
+
+- Reverted the extra Billing/Payroll and Scholar-detail interface redesigns.
+- Restored the original Billing & Payroll filters and established screen layout.
+- Kept only the required branch: Private scholars in Billing, Public scholars in Payroll.
+- Frontend lint/build and all 74 backend tests passed; no migration was required.
+
+### Objective and behavior
+
+The prior iterations changed more presentation and workflow terminology than
+requested. This correction restores the pre-change administrative screens and
+applies school classification only where necessary to select and validate the
+processing destination. Private scholars are included in the Billing record
+set; Public scholars are included in the Payroll record set.
+
+The original filter group, exports, historical fields, metrics layout, queue
+board, and Scholar Management details are retained. Only route-dependent
+counts, readiness, queue membership, endpoint submission, and status wording
+needed for the new branch differ from the original Billing/Payroll component.
+
+### Users, implementation, and data flow
+
+Super Administrators, Regular Administrators, and Billing / Payroll
+Administrators use the familiar interface. The client filters the loaded
+scholar records by `schoolType` for the active section. The backend continues
+to resolve School Catalog classification independently, rejects Public records
+from Billing, rejects Private records from Payroll, and prevents a client from
+bypassing the route rule. Public Payroll processing ends at official list
+generation; Private Billing records do not continue to Payroll.
+
+### Files and impact
+
+`frontend/src/BillingPayrollManagement.jsx` was restored close to its
+pre-routing form with the minimum route predicates and compatible list state.
+`frontend/src/ScholarsManagement.jsx` was fully restored to its pre-routing
+version. Change documentation records that the broader UI revisions are
+superseded.
+
+There is no database, migration, configuration, dependency, security, privacy,
+or deployment-topology change. Existing role authorization remains in force.
+Native controls and the established keyboard interaction remain unchanged.
+Legacy payment-oriented filters and historical display are retained for
+compatibility, but the active Payroll mutation remains the in-scope official
+payroll-list generator and does not release or reconcile funds.
+
+### Validation, limitations, and rollback
+
+Frontend ESLint and the Vite production build passed. All 74 backend tests and
+backend syntax checks passed. Rollback requires reverting this client-side
+restoration only; there is no data rollback. Historical records remain
+untouched. Recommended follow-up is a production smoke test with one Private
+and one Public scholar to confirm exclusive section placement.
+
 ## 2026-09-02 — Cross-Section Billing and Payroll Visibility
 
 ### TL;DR
