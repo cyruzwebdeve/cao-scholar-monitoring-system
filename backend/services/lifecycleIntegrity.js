@@ -16,9 +16,16 @@ const OVERRIDABLE_BILLING_REASON_CODES = new Set([
 
 const normalizeStatus = (value) => String(value || '').trim().toLowerCase();
 
-const getRequirementSnapshot = ({ initialDocs, requirement } = {}) => {
+const getSchoolProcessRoute = (schoolType) => (
+  normalizeStatus(schoolType) === 'private' ? 'billing' : 'payroll'
+);
+
+const getRequirementSnapshot = ({ initialDocs, requirement, schoolType = 'private' } = {}) => {
   const uploadedRequirements = initialDocs?.requirements || {};
-  const online = ONLINE_REQUIREMENTS.map((definition) => {
+  const applicableRequirements = getSchoolProcessRoute(schoolType) === 'billing'
+    ? ONLINE_REQUIREMENTS
+    : ONLINE_REQUIREMENTS.filter(({ key }) => key !== 'tuition_receipt');
+  const online = applicableRequirements.map((definition) => {
     const uploaded = uploadedRequirements[definition.key];
     const submitted = Boolean(uploaded?.fileName || requirement?.[definition.fileField]);
     const status = normalizeStatus(uploaded?.status || requirement?.[definition.statusField] || 'pending');
@@ -39,8 +46,8 @@ const getRequirementSnapshot = ({ initialDocs, requirement } = {}) => {
   };
 };
 
-const evaluateBillingEligibility = ({ isActive, alreadyBilled, initialDocs, requirement } = {}) => {
-  const snapshot = getRequirementSnapshot({ initialDocs, requirement });
+const evaluateBillingEligibility = ({ isActive, alreadyBilled, initialDocs, requirement, schoolType } = {}) => {
+  const snapshot = getRequirementSnapshot({ initialDocs, requirement, schoolType });
   const reasons = [];
 
   if (!isActive) reasons.push({ code: 'SCHOLAR_INACTIVE', message: 'Scholar account is not active.' });
@@ -87,6 +94,7 @@ module.exports = {
   OVERRIDABLE_BILLING_REASON_CODES,
   evaluateBillingEligibility,
   evaluateBillingOverride,
+  getSchoolProcessRoute,
   getRequirementSnapshot,
   isPayableClaim,
 };

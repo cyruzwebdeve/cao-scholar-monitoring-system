@@ -5,9 +5,32 @@ const {
   ONLINE_REQUIREMENTS,
   evaluateBillingEligibility,
   evaluateBillingOverride,
+  getSchoolProcessRoute,
   getRequirementSnapshot,
   isPayableClaim,
 } = require('../services/lifecycleIntegrity');
+
+test('[SUCCESS] school classification selects the billing or payroll-list route', () => {
+  assert.equal(getSchoolProcessRoute('Private'), 'billing');
+  assert.equal(getSchoolProcessRoute(' private '), 'billing');
+  assert.equal(getSchoolProcessRoute('Public'), 'payroll');
+  assert.equal(getSchoolProcessRoute(undefined), 'payroll');
+});
+
+test('[SUCCESS] public-school payroll readiness does not require a private tuition receipt', () => {
+  const documents = approvedDocuments();
+  delete documents.requirements.tuition_receipt;
+  const result = evaluateBillingEligibility({
+    isActive: true,
+    alreadyBilled: false,
+    initialDocs: documents,
+    requirement: { folder_physical_submitted: true },
+    schoolType: 'Public',
+  });
+
+  assert.equal(result.eligible, true);
+  assert.equal(result.snapshot.onlineTotal, 5);
+});
 
 const approvedDocuments = () => ({
   requirements: Object.fromEntries(ONLINE_REQUIREMENTS.map(({ key }) => [key, { fileName: `${key}.pdf`, status: 'Approved' }])),

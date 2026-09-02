@@ -25,19 +25,13 @@ const formatDate = (value) => {
   return Number.isNaN(date.getTime()) ? 'Not processed' : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const formatAmount = (value) => value === null || value === undefined
-  ? 'Not assigned'
-  : new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value);
-
 const billingExportColumns = [
   { key: 'name', label: 'Scholar Name', group: 'Scholar' },
   { key: 'controlNumber', label: 'Control Number', group: 'Scholar' },
   { key: 'email', label: 'Email', group: 'Scholar' },
   { key: 'status', label: 'Scholar Status', group: 'Scholar' },
-  { key: 'billingStatus', label: 'Billed', group: 'Billing & payroll' },
-  { key: 'payReference', label: 'Pay Reference', group: 'Billing & payroll' },
-  { key: 'payrollStatus', label: 'Paid', group: 'Billing & payroll' },
-  { key: 'claimAmount', label: 'Amount', group: 'Billing & payroll', value: (record) => formatAmount(record.claimAmount) },
+  { key: 'billingStatus', label: 'Billing Status', group: 'Process' },
+  { key: 'payrollStatus', label: 'Payroll-list Status', group: 'Process' },
   { key: 'schoolYearSemester', label: 'School Year / Semester', group: 'Academic' },
   { key: 'school', label: 'School', group: 'Academic' },
   { key: 'schoolType', label: 'School Type', group: 'Academic', value: (record) => record.schoolType || 'Public' },
@@ -57,8 +51,6 @@ const matchesDateRange = (value, from, to) => {
 export default function BillingPayrollManagement({ token, mode = 'billing', userRole }) {
   const isPayroll = mode === 'payroll';
   const canUseBillingOverride = !isPayroll && ['SuperAdmin', 'BillingPayrollAdmin'].includes(userRole);
-  const defaultBilledFilter = isPayroll ? 'All Billing Statuses' : 'Not billed yet';
-  const defaultPaidFilter = isPayroll ? 'Not paid yet' : 'All Payroll Statuses';
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -66,7 +58,6 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const [queuedIds, setQueuedIds] = useState([]);
   const [sourceSelection, setSourceSelection] = useState([]);
   const [queueSelection, setQueueSelection] = useState([]);
-  const [paymentReference, setPaymentReference] = useState('');
   const [processing, setProcessing] = useState(false);
   const [operationNotice, setOperationNotice] = useState(null);
   const [billingOverrides, setBillingOverrides] = useState({});
@@ -76,9 +67,6 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const [exportOpen, setExportOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [scholarStatus, setScholarStatus] = useState('All Scholar Statuses');
-  const [billed, setBilled] = useState(defaultBilledFilter);
-  const [payReference, setPayReference] = useState('All Pay References');
-  const [paid, setPaid] = useState(defaultPaidFilter);
   const [schoolYearSem, setSchoolYearSem] = useState('All School Years / Semesters');
   const [school, setSchool] = useState('All Schools');
   const [schoolType, setSchoolType] = useState('All School Types');
@@ -98,8 +86,8 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
           ...record,
           ...history,
           id: `${record.id}-period-${history.academicPeriodId || history.dateProcessed || 'legacy'}`,
-          billed: true,
-          paid: history.payrollStatus === 'Paid',
+          billed: Boolean(history.billed),
+          inPayroll: Boolean(history.inPayroll),
           schoolYearSemester: `${history.schoolYear} · ${history.semester}`,
           isArchivedPeriod: true,
         })));
@@ -135,7 +123,6 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   }, [overrideCandidate]);
 
   const scholarStatuses = useMemo(() => [...new Set(records.map(({ status }) => status).filter(Boolean))].sort(), [records]);
-  const payReferences = useMemo(() => [...new Set(records.map((item) => item.payReference).filter(Boolean))].sort(), [records]);
   const schoolYearSemesters = useMemo(() => [...new Set(records.map((item) => item.schoolYearSemester).filter(Boolean))].sort(), [records]);
   const schools = useMemo(() => [...new Set(records.map((item) => item.school).filter(Boolean))].sort(), [records]);
   const schoolTypes = useMemo(() => [...new Set(records.map((item) => item.schoolType || 'Public'))].sort(), [records]);
@@ -143,60 +130,51 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const filtered = useMemo(() => records.filter((record) => {
     const search = `${record.name} ${record.email || ''}`.toLowerCase();
     const normalizedSchoolType = record.schoolType || 'Public';
-    const matchesReference = payReference === 'All Pay References'
-      || (payReference === 'No pay reference' ? !record.payReference : record.payReference === payReference);
     return search.includes(query.trim().toLowerCase())
       && (scholarStatus === 'All Scholar Statuses' || record.status === scholarStatus)
-      && (billed === 'All Billing Statuses' || (billed === 'Billed' ? record.billed : !record.billed))
-      && matchesReference
-      && (paid === 'All Payroll Statuses' || (paid === 'Paid' ? record.paid : !record.paid))
       && (schoolYearSem === 'All School Years / Semesters' || record.schoolYearSemester === schoolYearSem)
       && (school === 'All Schools' || record.school === school)
       && (schoolType === 'All School Types' || normalizedSchoolType === schoolType)
       && matchesDateRange(record.dateProcessed, dateFrom, dateTo);
-  }), [records, query, scholarStatus, billed, payReference, paid, schoolYearSem, school, schoolType, dateFrom, dateTo]);
+  }), [records, query, scholarStatus, schoolYearSem, school, schoolType, dateFrom, dateTo]);
 
   const hasFilters = Boolean(query || dateFrom || dateTo
     || scholarStatus !== 'All Scholar Statuses'
-    || billed !== defaultBilledFilter
-    || payReference !== 'All Pay References'
-    || paid !== defaultPaidFilter
     || schoolYearSem !== 'All School Years / Semesters'
     || school !== 'All Schools'
     || schoolType !== 'All School Types');
 
   const clearFilters = () => {
-    setQuery(''); setScholarStatus('All Scholar Statuses'); setBilled(defaultBilledFilter);
-    setPayReference('All Pay References'); setPaid(defaultPaidFilter);
+    setQuery(''); setScholarStatus('All Scholar Statuses');
     setSchoolYearSem('All School Years / Semesters'); setSchool('All Schools');
     setSchoolType('All School Types'); setDateFrom(''); setDateTo(''); setPage(1);
   };
 
   const currentRecords = useMemo(() => records.filter((record) => !record.isArchivedPeriod), [records]);
-  const visibleRecords = useMemo(() => filtered.filter((record) => !isPayroll || record.billed), [filtered, isPayroll]);
+  const visibleRecords = useMemo(() => filtered.filter((record) => record.processRoute === (isPayroll ? 'payroll' : 'billing')), [filtered, isPayroll]);
   const queuedRecords = useMemo(() => records.filter((record) => !record.isArchivedPeriod && queuedIds.includes(record.applicantId)
-    && (isPayroll ? record.billed && !record.paid : !record.billed)), [records, queuedIds, isPayroll]);
+    && record.processRoute === (isPayroll ? 'payroll' : 'billing')
+    && (isPayroll ? !record.inPayroll : !record.billed)), [records, queuedIds, isPayroll]);
   const sourceRecords = useMemo(() => visibleRecords.filter((record) => !queuedIds.includes(record.applicantId)), [visibleRecords, queuedIds]);
   const movableSourceRecords = useMemo(() => sourceRecords.filter((record) => (
-    !record.isArchivedPeriod && (isPayroll ? record.billed && !record.paid : !record.billed && record.billingEligible)
+    !record.isArchivedPeriod && record.processEligible && (isPayroll ? !record.inPayroll : !record.billed)
   )), [sourceRecords, isPayroll]);
   const selectedMovableIds = sourceSelection.filter((id) => movableSourceRecords.some((record) => record.applicantId === id));
-  const queuedTotalAmount = queuedRecords.reduce((sum, record) => sum + Number(record.claimAmount || 0), 0);
-  const billedCount = currentRecords.filter((item) => item.billed).length;
-  const paidCount = currentRecords.filter((item) => item.paid).length;
-  const referencedCount = records.filter((item) => item.payReference).length;
+  const routedRecords = currentRecords.filter((item) => item.processRoute === (isPayroll ? 'payroll' : 'billing'));
+  const completedCount = routedRecords.filter((item) => isPayroll ? item.inPayroll : item.billed).length;
+  const readyCount = routedRecords.filter((item) => item.processEligible && (isPayroll ? !item.inPayroll : !item.billed)).length;
   const metrics = isPayroll
     ? [
-        { label: 'Total Scholars', value: currentRecords.length, detail: 'Accepted scholar accounts', tone: 'green', Icon: UsersRound },
-        { label: 'For Payroll', value: billedCount - paidCount, detail: 'Billed and awaiting payment', tone: 'orange', Icon: Banknote },
-        { label: 'Paid', value: paidCount, detail: 'Completed payroll records', tone: 'blue', Icon: Banknote },
-        { label: 'Pay References', value: referencedCount, detail: 'Archived payment references', tone: 'violet', Icon: ReceiptText },
+        { label: 'Public Scholars', value: routedRecords.length, detail: 'Routed directly to Payroll', tone: 'green', Icon: UsersRound },
+        { label: 'Ready for List', value: readyCount, detail: 'Requirements cleared', tone: 'orange', Icon: Banknote },
+        { label: 'In Payroll List', value: completedCount, detail: 'Included in generated lists', tone: 'blue', Icon: Banknote },
+        { label: 'Remaining', value: routedRecords.length - completedCount, detail: 'Not included yet', tone: 'violet', Icon: ReceiptText },
       ]
     : [
-        { label: 'Total Scholars', value: currentRecords.length, detail: 'Accepted scholar accounts', tone: 'green', Icon: UsersRound },
-        { label: 'Not Billed Yet', value: currentRecords.length - billedCount, detail: 'Automatically awaiting billing', tone: 'orange', Icon: ReceiptText },
-        { label: 'Billed', value: billedCount, detail: 'Included in billing records', tone: 'blue', Icon: ReceiptText },
-        { label: 'Paid', value: paidCount, detail: 'Completed through payroll', tone: 'violet', Icon: Banknote },
+        { label: 'Private Scholars', value: routedRecords.length, detail: 'Routed to Billing only', tone: 'green', Icon: UsersRound },
+        { label: 'Ready to Bill', value: readyCount, detail: 'Requirements cleared', tone: 'orange', Icon: ReceiptText },
+        { label: 'Billed', value: completedCount, detail: 'Included in billing records', tone: 'blue', Icon: ReceiptText },
+        { label: 'Remaining', value: routedRecords.length - completedCount, detail: 'Not billed yet', tone: 'violet', Icon: Banknote },
       ];
 
   const toggleSelection = (setter, id) => setter((current) => current.includes(id)
@@ -271,7 +249,6 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
               .filter(({ applicantId }) => billingOverrides[applicantId])
               .map(({ applicantId }) => ({ applicantId, reason: billingOverrides[applicantId] })),
           } : {}),
-          ...(isPayroll ? { payReference: paymentReference } : {}),
         }),
       });
       const body = await response.json();
@@ -280,8 +257,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
       setBillingOverrides({});
       setSourceSelection([]);
       setQueueSelection([]);
-      if (isPayroll) setPaymentReference('');
-      setOperationNotice({ tone: 'success', text: isPayroll ? `${body.message} Reference: ${body.payReference}` : body.message });
+      setOperationNotice({ tone: 'success', text: body.message });
       await loadRecords();
     } catch (error) {
       setOperationNotice({ tone: 'error', text: error.message || `Unable to process ${mode} records.` });
@@ -293,7 +269,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   return <>
     <div className="billing-management">
       <header className="billing-heading">
-        <div><span>{isPayroll ? 'PAYROLL OPERATIONS' : 'BILLING OPERATIONS'}</span><h2>{isPayroll ? 'Payroll Management' : 'Billing Management'}</h2><p>{isPayroll ? 'Track billed scholars, payment completion, and archived pay references.' : 'Prepare scholar billing records and monitor readiness for payroll processing.'}</p></div>
+        <div><span>{isPayroll ? 'PAYROLL-LIST OPERATIONS' : 'BILLING OPERATIONS'}</span><h2>{isPayroll ? 'Payroll Management' : 'Billing Management'}</h2><p>{isPayroll ? 'Generate the official payroll list for eligible public-school scholars.' : 'Prepare billing records for eligible private-school scholars. Billed scholars do not continue to Payroll.'}</p></div>
       </header>
 
       <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></article>)}</section>
@@ -313,20 +289,8 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
           </section>
 
           <section className="billing-filter-group">
-            <header><strong>Billing & payroll</strong></header>
-            <div className="billing-filter-group-fields">
-              <label><span>Billed?</span><select value={billed} onChange={(event) => { setBilled(event.target.value); setPage(1); }}><option>All Billing Statuses</option><option>Billed</option><option>Not billed yet</option></select></label>
-              <label><span>Paid?</span><select value={paid} onChange={(event) => { setPaid(event.target.value); setPage(1); }}><option>All Payroll Statuses</option><option>Paid</option><option>Not paid yet</option></select></label>
-              <label><span>Pay reference</span><select value={payReference} onChange={(event) => {
-                const nextReference = event.target.value;
-                setPayReference(nextReference);
-                if (!['All Pay References', 'No pay reference'].includes(nextReference)) {
-                  setBilled('Billed');
-                  setPaid('Paid');
-                }
-                setPage(1);
-              }}><option>All Pay References</option><option>No pay reference</option>{payReferences.map((option) => <option key={option}>{option}</option>)}</select></label>
-            </div>
+            <header><strong>Classification route</strong></header>
+            <div className="billing-filter-group-fields"><p>{isPayroll ? 'Only Public scholars appear here; they bypass Billing.' : 'Only Private scholars appear here; Billing is their final system section.'}</p></div>
           </section>
 
           <section className="billing-filter-group">
@@ -355,15 +319,15 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
             <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>Status</span></div>
             <div className="billing-queue-table-body">
               {loading && !records.length && <div className="billing-queue-empty"><span className="scholars-spinner" />Loading scholars…</div>}
-              {!loading && !sourceRecords.length && <div className="billing-queue-empty"><Search size={20} /><strong>No scholar records</strong><span>{hasFilters ? 'No records match the selected filters.' : isPayroll ? 'Billed scholars awaiting payment will appear here.' : 'Newly accepted scholars will appear here automatically.'}</span></div>}
+              {!loading && !sourceRecords.length && <div className="billing-queue-empty"><Search size={20} /><strong>No scholar records</strong><span>{hasFilters ? 'No records match the selected filters.' : isPayroll ? 'Public-school scholars will appear here automatically.' : 'Private-school scholars will appear here automatically.'}</span></div>}
               {sourceRecords.map((record) => {
-                const canMove = !record.isArchivedPeriod && (isPayroll ? record.billed && !record.paid : !record.billed && record.billingEligible);
+                const canMove = !record.isArchivedPeriod && record.processEligible && (isPayroll ? !record.inPayroll : !record.billed);
                 const canOverride = canUseBillingOverride && !record.isArchivedPeriod && !record.billed
-                  && record.status === 'Active' && !record.billingEligible;
+                  && record.status === 'Active' && !record.processEligible;
                 const isSelected = canMove && sourceSelection.includes(record.applicantId);
                 const statusLabel = isPayroll
-                  ? record.paid ? 'Paid' : 'Not paid yet'
-                  : record.paid ? 'Paid' : record.billed ? 'Billed' : record.billingEligible ? 'Ready to bill' : canOverride ? 'Override available' : 'Requirements incomplete';
+                  ? record.inPayroll ? 'In payroll list' : record.processEligible ? 'Ready for list' : 'Requirements incomplete'
+                  : record.billed ? 'Billed' : record.processEligible ? 'Ready to bill' : canOverride ? 'Override available' : 'Requirements incomplete';
                 const unavailableReason = record.billingEligibilityReasons?.[0]?.message;
                 return <div className={`billing-queue-row ${isSelected ? 'selected' : ''} ${canMove || canOverride ? '' : 'archived'} ${canOverride ? 'override-available' : ''}`} key={record.id}>
                   <code>{record.controlNumber || '—'}</code>
@@ -388,7 +352,6 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
             <div><strong>For {isPayroll ? 'Payroll' : 'Billing'}</strong><small>Review the current processing queue.</small></div>
             <button type="button" className="billing-queue-export" onClick={() => setExportOpen(true)} disabled={!queuedRecords.length}><Download size={14} />Export CSV</button>
           </header>
-          {isPayroll && <div className="billing-payment-reference"><label><span>Payment reference <small>(optional)</small></span><input value={paymentReference} maxLength={50} onChange={(event) => setPaymentReference(event.target.value)} placeholder="Auto-generated when blank" /></label><p>Recent refs: {payReferences.length ? payReferences.slice(-3).join(', ') : 'None yet'}</p></div>}
           <div className="billing-queue-table billing-target-table">
             <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>School year</span><span>Sem</span></div>
             <div className="billing-queue-table-body">
@@ -401,7 +364,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
               </div>)}
             </div>
           </div>
-          <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Amount paid' : 'Billable amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing}>{processing ? 'Processing…' : isPayroll ? 'Complete payroll' : 'Process billing'}</button></footer>
+          <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>School classification: <strong>{isPayroll ? 'Public' : 'Private'}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing}>{processing ? 'Processing…' : isPayroll ? 'Generate payroll list' : 'Process billing'}</button></footer>
         </article>
       </section>
       {exportOpen && <CsvExportModal title={`Export ${isPayroll ? 'payroll' : 'billing'} queue`} description="Choose which scholar, academic, and processing fields to include in this CSV file." columns={billingExportColumns} rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `${mode}-records-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(queuedRecords, columns) })} />}

@@ -17,7 +17,7 @@ const ACTIONS = {
   'POST /payroll/billing-batch': ['PAYROLL_BATCH_CREATED', 'payroll_batches', 'Created a payroll batch.'],
   'PUT /payroll/billing-batch/:id/release': ['PAYROLL_BATCH_RELEASED', 'payroll_batches', 'Released a payroll batch.'],
   'POST /billing/process': ['BILLING_PROCESSED', 'payroll_batches', 'Processed scholars for billing.'],
-  'POST /payroll/process': ['PAYROLL_PROCESSED', 'payroll_claims', 'Completed payroll processing.'],
+  'POST /payroll/process': ['PAYROLL_LIST_GENERATED', 'payroll_batches', 'Generated the official payroll list for public-school scholars.'],
   'POST /scholars/:applicantId/accept': ['APPLICANT_ACCEPTED_AS_SCHOLAR', 'scholar_accounts', 'Accepted an applicant as a scholar.'],
   'PUT /results/:applicantId/re-evaluate': ['EXAMINATION_RESULT_REEVALUATED', 'results', 'Re-evaluated an examination result.'],
   'POST /announcements': ['ANNOUNCEMENT_CREATED', 'announcements', 'Created an announcement.'],

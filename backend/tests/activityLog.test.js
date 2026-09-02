@@ -7,7 +7,7 @@ const {
   normalizeActorType,
   recordSuccessfulLogin,
 } = require('../services/activityLog');
-const { createActivityAudit } = require('../middleware/activityAudit');
+const { ACTIONS, createActivityAudit } = require('../middleware/activityAudit');
 const { getStartOfPhilippineDay } = require('../controllers/activityController');
 
 test('maps portal roles to stable audit actor types', () => {
@@ -15,6 +15,14 @@ test('maps portal roles to stable audit actor types', () => {
   assert.equal(normalizeActorType({ role: 'BillingPayrollAdmin' }), 'admin');
   assert.equal(normalizeActorType({ role: 'Scholar' }), 'scholar');
   assert.equal(normalizeActorType({ role: 'Applicant' }), 'applicant');
+});
+
+test('payroll processing is logged as list generation rather than payment completion', () => {
+  assert.deepEqual(ACTIONS['POST /payroll/process'], [
+    'PAYROLL_LIST_GENERATED',
+    'payroll_batches',
+    'Generated the official payroll list for public-school scholars.',
+  ]);
 });
 
 test('creates bounded activity data without recording request bodies or credentials', () => {

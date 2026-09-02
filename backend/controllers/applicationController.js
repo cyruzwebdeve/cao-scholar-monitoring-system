@@ -10,13 +10,12 @@ const {
 const {
   sendApplicantAccountEmail,
   sendExamSubmittedEmail,
-  sendPayrollCompletedEmail,
   sendScholarApprovedEmail,
 } = require('../services/mailer');
 const {
   evaluateBillingEligibility,
   evaluateBillingOverride,
-  isPayableClaim,
+  getSchoolProcessRoute,
 } = require('../services/lifecycleIntegrity');
 const {
   assignApplicantToMunicipalityExam,
@@ -856,8 +855,14 @@ const getScholarManagement = async (req, res) => {
       const schoolType = String(school?.school_type || 'public').toLowerCase() === 'private'
         ? 'Private'
         : 'Public';
+      const processRoute = getSchoolProcessRoute(schoolType);
       const payrollClaim = payrollClaimByApplicant.get(applicant.id);
       const payrollBatch = payrollClaim ? payrollBatchById.get(payrollClaim.payroll_batch_id) : null;
+      const currentRecordRoute = payrollBatch
+        ? (String(payrollBatch.batch_number || '').startsWith('BILL-') || String(payrollBatch.status || '').toLowerCase() === 'billed' ? 'billing' : 'payroll')
+        : null;
+      const billed = Boolean(payrollClaim && currentRecordRoute === 'billing');
+      const inPayroll = Boolean(payrollClaim && currentRecordRoute === 'payroll');
       const normalizedClaimStatus = String(payrollClaim?.claim_status || '').toLowerCase();
       const normalizedBatchStatus = String(payrollBatch?.status || '').toLowerCase();
       const paid = Boolean(payrollClaim?.claimed_date)
@@ -867,6 +872,9 @@ const getScholarManagement = async (req, res) => {
       const semester = activePeriod.semester;
       const financialHistory = (payrollClaimsByApplicant.get(applicant.id) || []).map((claim) => {
         const batch = payrollBatchById.get(claim.payroll_batch_id);
+        const historyRoute = String(batch?.batch_number || '').startsWith('BILL-') || String(batch?.status || '').toLowerCase() === 'billed'
+          ? 'billing'
+          : 'payroll';
         const period = academicPeriodById.get(batch?.billing_period_id);
         const historyClaimStatus = String(claim.claim_status || '').toLowerCase();
         const historyBatchStatus = String(batch?.status || '').toLowerCase();
@@ -877,8 +885,11 @@ const getScholarManagement = async (req, res) => {
           academicPeriodId: batch?.billing_period_id || null,
           schoolYear: period?.school_year || (batch?.billing_period_id === activePeriod.id ? activePeriod.school_year : 'Legacy period'),
           semester: period?.semester || (batch?.billing_period_id === activePeriod.id ? activePeriod.semester : 'Not specified'),
-          billingStatus: 'Billed',
-          payrollStatus: historyPaid ? 'Paid' : 'Not paid yet',
+          processRoute: historyRoute,
+          billed: historyRoute === 'billing',
+          inPayroll: historyRoute === 'payroll',
+          billingStatus: historyRoute === 'billing' ? 'Billed' : 'Not applicable',
+          payrollStatus: historyRoute === 'payroll' ? 'Included in payroll list' : 'Not applicable',
           payReference: historyPaid ? claim.claimed_notes || batch?.batch_number || null : null,
           dateProcessed: claim.updated_at || null,
           claimAmount: Number(claim.claim_amount),
@@ -887,7 +898,10 @@ const getScholarManagement = async (req, res) => {
           isActivePeriod: batch?.billing_period_id === activePeriod.id,
         };
       });
-      const documents = requirementFields.map(([label, fileField, statusField, uploadKey]) => {
+      const applicableRequirementFields = schoolType === 'Private'
+        ? requirementFields
+        : requirementFields.filter(([, , , uploadKey]) => uploadKey !== 'tuition_receipt');
+      const documents = applicableRequirementFields.map(([label, fileField, statusField, uploadKey]) => {
         const uploadedDocument = uploadKey ? applicationRequirements[uploadKey] : null;
         const submitted = Boolean(requirement?.[fileField] || uploadedDocument?.fileName);
         return {
@@ -906,6 +920,7 @@ const getScholarManagement = async (req, res) => {
         alreadyBilled: Boolean(payrollClaim),
         initialDocs: application?.initial_docs,
         requirement,
+        schoolType,
       });
       return {
         id: scholar.id,
@@ -919,6 +934,7 @@ const getScholarManagement = async (req, res) => {
         barangay: applicant.barangay || 'Not specified',
         school: school?.name || applicationPlan.school || 'Not specified',
         schoolType,
+        processRoute,
         schoolYear,
         semester,
         schoolYearSemester: `${schoolYear} · ${semester}`,
@@ -934,10 +950,12 @@ const getScholarManagement = async (req, res) => {
         billingEligibilityReasons: billingEligibility.reasons,
         issuedAt: scholar.issued_at,
         notes: scholar.notes || '',
-        billed: Boolean(payrollClaim),
-        billingStatus: payrollClaim ? 'Billed' : 'Not billed yet',
+        processEligible: billingEligibility.eligible,
+        billed,
+        billingStatus: processRoute === 'billing' ? (billed ? 'Billed' : 'Not billed yet') : 'Not applicable',
+        inPayroll,
         paid,
-        payrollStatus: paid ? 'Paid' : 'Not paid yet',
+        payrollStatus: processRoute === 'payroll' ? (inPayroll ? 'Included in payroll list' : 'Not included yet') : 'Not applicable',
         payReference: paid ? payrollClaim?.claimed_notes || payrollBatch?.batch_number || null : null,
         dateProcessed: payrollClaim?.updated_at || null,
         claimAmount: payrollClaim ? Number(payrollClaim.claim_amount) : null,
@@ -956,6 +974,12 @@ const getScholarManagement = async (req, res) => {
 const normalizeApplicantIds = (value) => Array.isArray(value)
   ? [...new Set(value.map(Number).filter((id) => Number.isInteger(id) && id > 0))]
   : [];
+
+const resolveScholarSchool = ({ applicant, requirement, application, schoolById, schoolByName }) => (
+  schoolById.get(requirement?.school_id || applicant?.school_id)
+  || schoolByName.get(String(application?.school_plan?.school || '').trim().toLowerCase())
+  || null
+);
 
 const processBillingSelection = async (req, res) => {
   try {
@@ -982,20 +1006,25 @@ const processBillingSelection = async (req, res) => {
       overrideByApplicant.set(applicantId, reason);
     }
 
-    const [scholarAccounts, applications, requirements, periodBatches] = await Promise.all([
+    const [scholarAccounts, applicants, applications, requirements, schools, periodBatches] = await Promise.all([
       prisma.scholar_accounts.findMany({
         where: { applicant_id: { in: applicantIds } },
         select: { applicant_id: true, is_active: true },
       }),
+      prisma.applicants.findMany({
+        where: { id: { in: applicantIds }, deleted_at: null },
+        select: { id: true, school_id: true },
+      }),
       prisma.application_submissions.findMany({
         where: { applicant_id: { in: applicantIds } },
         orderBy: { submitted_at: 'desc' },
-        select: { applicant_id: true, initial_docs: true },
+        select: { applicant_id: true, initial_docs: true, school_plan: true },
       }),
       prisma.scholar_requirements.findMany({
         where: { applicant_id: { in: applicantIds }, billing_period_id: activePeriod.id },
         select: {
           applicant_id: true,
+          school_id: true,
           cert_tax_exemption_file: true,
           cert_tax_exemption_review_status: true,
           barangay_indigency_file: true,
@@ -1011,6 +1040,7 @@ const processBillingSelection = async (req, res) => {
           folder_physical_submitted: true,
         },
       }),
+      prisma.schools.findMany({ select: { id: true, name: true, school_type: true } }),
       prisma.payroll_batches.findMany({
         where: { billing_period_id: activePeriod.id },
         select: { id: true },
@@ -1025,18 +1055,41 @@ const processBillingSelection = async (req, res) => {
       : [];
     const billedIds = new Set(existingClaims.map(({ applicant_id }) => applicant_id));
     const scholarByApplicant = new Map(scholarAccounts.map((scholar) => [scholar.applicant_id, scholar]));
+    const applicantById = new Map(applicants.map((applicant) => [applicant.id, applicant]));
+    const schoolById = new Map(schools.map((school) => [school.id, school]));
+    const schoolByName = new Map(schools.map((school) => [String(school.name).trim().toLowerCase(), school]));
     const applicationByApplicant = new Map();
     applications.forEach((application) => {
       if (!applicationByApplicant.has(application.applicant_id)) applicationByApplicant.set(application.applicant_id, application);
     });
     const requirementByApplicant = new Map(requirements.map((requirement) => [requirement.applicant_id, requirement]));
     const eligibility = applicantIds.map((applicantId) => {
-      const result = evaluateBillingEligibility({
+      const application = applicationByApplicant.get(applicantId);
+      const requirement = requirementByApplicant.get(applicantId);
+      const school = resolveScholarSchool({
+        applicant: applicantById.get(applicantId),
+        requirement,
+        application,
+        schoolById,
+        schoolByName,
+      });
+      let result = evaluateBillingEligibility({
         isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
         alreadyBilled: billedIds.has(applicantId),
-        initialDocs: applicationByApplicant.get(applicantId)?.initial_docs,
-        requirement: requirementByApplicant.get(applicantId),
+        initialDocs: application?.initial_docs,
+        requirement,
+        schoolType: school?.school_type,
       });
+      if (getSchoolProcessRoute(school?.school_type) !== 'billing') {
+        result = {
+          ...result,
+          eligible: false,
+          reasons: [...result.reasons, {
+            code: 'PUBLIC_SCHOOL_PAYROLL_ROUTE',
+            message: 'Public-school scholars go directly to the Payroll section and cannot be billed.',
+          }],
+        };
+      }
       const suppliedReason = overrideByApplicant.get(applicantId);
       const override = suppliedReason ? evaluateBillingOverride({ eligibility: result, reason: suppliedReason }) : null;
       return { applicantId, ...result, override };
@@ -1044,7 +1097,7 @@ const processBillingSelection = async (req, res) => {
     const ineligible = eligibility.filter(({ eligible, override }) => !eligible && !override?.allowed);
     if (ineligible.length) {
       return res.status(409).json({
-        message: 'Some selected scholars are not ready for billing. Use an authorized override for incomplete requirements; inactive or already-billed scholars cannot be overridden.',
+        message: 'Some selected scholars are not ready for billing. Only private-school scholars may be billed; public-school scholars go directly to Payroll.',
         ineligible: ineligible.map(({ applicantId, reasons, override }) => ({
           applicantId,
           reasons,
@@ -1096,7 +1149,7 @@ const processBillingSelection = async (req, res) => {
     }
 
     return res.status(201).json({
-      message: `${eligibleIds.length} scholar${eligibleIds.length === 1 ? '' : 's'} processed for billing and moved to For Payroll.`,
+      message: `${eligibleIds.length} private-school scholar${eligibleIds.length === 1 ? '' : 's'} processed for billing. They will not be sent to Payroll.`,
       batch: { id: result.id, batchNumber: result.batch_number, totalScholars: result.total_scholars },
       overrideCount: appliedOverrides.size,
       activePeriod: serializeAcademicPeriod(activePeriod),
@@ -1114,98 +1167,107 @@ const processPayrollSelection = async (req, res) => {
   try {
     const activePeriod = await getActiveAcademicPeriodRecord();
     const applicantIds = normalizeApplicantIds(req.body.applicantIds);
-    const suppliedReference = String(req.body.payReference || '').trim();
-    if (!applicantIds.length) return res.status(400).json({ message: 'Select at least one billed scholar for payroll.' });
-    if (applicantIds.length > 500) return res.status(400).json({ message: 'A payroll batch cannot exceed 500 scholars.' });
-    if (suppliedReference.length > 50) return res.status(400).json({ message: 'The payment reference must not exceed 50 characters.' });
+    if (!applicantIds.length) return res.status(400).json({ message: 'Select at least one public-school scholar for the payroll list.' });
+    if (applicantIds.length > 500) return res.status(400).json({ message: 'A payroll list cannot exceed 500 scholars.' });
 
-    const periodBatches = await prisma.payroll_batches.findMany({
-      where: { billing_period_id: activePeriod.id },
-      select: { id: true },
+    const [scholarAccounts, applicants, applications, requirements, schools, periodBatches] = await Promise.all([
+      prisma.scholar_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, is_active: true } }),
+      prisma.applicants.findMany({ where: { id: { in: applicantIds }, deleted_at: null }, select: { id: true, school_id: true } }),
+      prisma.application_submissions.findMany({
+        where: { applicant_id: { in: applicantIds } },
+        orderBy: { submitted_at: 'desc' },
+        select: { applicant_id: true, initial_docs: true, school_plan: true },
+      }),
+      prisma.scholar_requirements.findMany({ where: { applicant_id: { in: applicantIds }, billing_period_id: activePeriod.id } }),
+      prisma.schools.findMany({ select: { id: true, name: true, school_type: true } }),
+      prisma.payroll_batches.findMany({ where: { billing_period_id: activePeriod.id }, select: { id: true } }),
+    ]);
+    const existingClaims = periodBatches.length
+      ? await prisma.payroll_claims.findMany({
+        where: { applicant_id: { in: applicantIds }, payroll_batch_id: { in: periodBatches.map(({ id }) => id) } },
+        select: { applicant_id: true },
+      })
+      : [];
+    const processedIds = new Set(existingClaims.map(({ applicant_id }) => applicant_id));
+    const scholarByApplicant = new Map(scholarAccounts.map((scholar) => [scholar.applicant_id, scholar]));
+    const applicantById = new Map(applicants.map((applicant) => [applicant.id, applicant]));
+    const applicationByApplicant = new Map();
+    applications.forEach((application) => {
+      if (!applicationByApplicant.has(application.applicant_id)) applicationByApplicant.set(application.applicant_id, application);
     });
-    const claims = await prisma.payroll_claims.findMany({
-      where: { applicant_id: { in: applicantIds }, payroll_batch_id: { in: periodBatches.map(({ id }) => id) } },
-      orderBy: { updated_at: 'desc' },
+    const requirementByApplicant = new Map(requirements.map((requirement) => [requirement.applicant_id, requirement]));
+    const schoolById = new Map(schools.map((school) => [school.id, school]));
+    const schoolByName = new Map(schools.map((school) => [String(school.name).trim().toLowerCase(), school]));
+    const eligibility = applicantIds.map((applicantId) => {
+      const application = applicationByApplicant.get(applicantId);
+      const requirement = requirementByApplicant.get(applicantId);
+      const school = resolveScholarSchool({ applicant: applicantById.get(applicantId), requirement, application, schoolById, schoolByName });
+      const readiness = evaluateBillingEligibility({
+        isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
+        alreadyBilled: false,
+        initialDocs: application?.initial_docs,
+        requirement,
+        schoolType: school?.school_type,
+      });
+      const reasons = [...readiness.reasons];
+      if (processedIds.has(applicantId)) {
+        reasons.push({ code: 'ALREADY_PROCESSED_FOR_PERIOD', message: 'Scholar already has a Billing or Payroll record for this academic period.' });
+      }
+      if (getSchoolProcessRoute(school?.school_type) !== 'payroll') {
+        reasons.push({ code: 'PRIVATE_SCHOOL_BILLING_ROUTE', message: 'Private-school scholars must stay in Billing and cannot be added to Payroll.' });
+      }
+      return { applicantId, eligible: reasons.length === 0, reasons };
     });
-    const claimByApplicant = new Map();
-    claims.forEach((claim) => {
-      if (!claimByApplicant.has(claim.applicant_id)) claimByApplicant.set(claim.applicant_id, claim);
-    });
-    const payableClaims = applicantIds.map((id) => claimByApplicant.get(id)).filter(isPayableClaim);
-    if (!payableClaims.length) return res.status(409).json({ message: 'The selected scholars have already been paid or are not yet billed.' });
-    if (payableClaims.length !== applicantIds.length) {
-      return res.status(409).json({ message: 'Some selected scholars are no longer ready for payroll. Refresh the list and try again.' });
+    const ineligible = eligibility.filter(({ eligible }) => !eligible);
+    if (ineligible.length) {
+      return res.status(409).json({
+        message: 'Some selected scholars are not ready for the payroll list. Only eligible public-school scholars may be included.',
+        ineligible: ineligible.map(({ applicantId, reasons }) => ({ applicantId, reasons })),
+      });
     }
 
     const timestamp = new Date();
-    const payReference = suppliedReference || `PAY-${timestamp.toISOString().replace(/\D/g, '').slice(0, 14)}`;
-    const applicantRecords = await prisma.applicants.findMany({
-      where: { id: { in: applicantIds }, deleted_at: null },
-      select: { id: true, first_name: true, email: true },
-    });
-    const applicantById = new Map(applicantRecords.map((applicant) => [applicant.id, applicant]));
-    await prisma.$transaction(async (transaction) => {
-      const updated = await transaction.payroll_claims.updateMany({
-        where: {
-          id: { in: payableClaims.map(({ id }) => id) },
-          claimed_date: null,
-          claim_status: { notIn: ['paid', 'claimed', 'released'] },
-        },
+    const batchNumber = `PAYROLL-${timestamp.toISOString().replace(/\D/g, '').slice(0, 17)}`;
+    const batch = await prisma.$transaction(async (transaction) => {
+      const createdBatch = await transaction.payroll_batches.create({
         data: {
-          claim_status: 'paid',
-          claimed_date: timestamp,
-          claimed_notes: payReference,
+          batch_number: batchNumber,
+          billing_period_id: activePeriod.id,
+          total_scholars: applicantIds.length,
+          total_amount: 0,
+          status: 'generated',
+          prepared_by: req.user.id,
+          prepared_at: timestamp,
+          remarks: `${activePeriod.school_year} · ${activePeriod.semester} official payroll list for public-school scholars`,
           updated_at: timestamp,
         },
       });
-      if (updated.count !== payableClaims.length) {
-        const conflict = new Error('Payroll selection changed while it was being processed.');
-        conflict.code = 'PAYROLL_CONFLICT';
-        throw conflict;
-      }
-      await transaction.scholar_notifications.createMany({
-        data: payableClaims.map((claim) => ({
-          applicant_id: claim.applicant_id,
+      await transaction.payroll_claims.createMany({
+        data: applicantIds.map((applicantId) => ({
+          payroll_batch_id: createdBatch.id,
           academic_period_id: activePeriod.id,
-          payroll_claim_id: claim.id,
-          notification_type: 'payroll_processed',
-          title: 'Your allowance has been processed',
-          message: `Payroll for ${activePeriod.school_year} - ${activePeriod.semester} was completed.`,
-          reference: payReference,
-          amount: claim.claim_amount,
-          created_at: timestamp,
+          applicant_id: applicantId,
+          claim_amount: 0,
+          claim_status: 'listed',
+          notes: 'Included in the official payroll list',
+          updated_at: timestamp,
         })),
-        skipDuplicates: true,
       });
+      return createdBatch;
     });
 
-    const emailResults = await Promise.all(payableClaims.map((claim) => {
-      const applicant = applicantById.get(claim.applicant_id);
-      return sendPayrollCompletedEmail({
-        to: applicant?.email,
-        firstName: applicant?.first_name,
-        payReference,
-        amount: claim.claim_amount,
-        processedAt: timestamp,
-        schoolYear: activePeriod.school_year,
-        semester: activePeriod.semester,
-      });
-    }));
-
-    return res.json({
-      message: `${payableClaims.length} scholar${payableClaims.length === 1 ? '' : 's'} marked as paid.`,
-      payReference,
-      totalScholars: payableClaims.length,
-      notificationsCreated: payableClaims.length,
-      emailsSent: emailResults.filter(({ sent }) => sent).length,
+    res.locals.auditTargetId = batch.id;
+    return res.status(201).json({
+      message: `Official payroll list generated for ${applicantIds.length} public-school scholar${applicantIds.length === 1 ? '' : 's'}.`,
+      batch: { id: batch.id, batchNumber: batch.batch_number, totalScholars: batch.total_scholars },
       activePeriod: serializeAcademicPeriod(activePeriod),
     });
   } catch (error) {
     console.error(error);
-    if (error?.code === 'PAYROLL_CONFLICT' || error?.code === 'P2002') {
-      return res.status(409).json({ message: 'The payroll selection was already processed or changed. Refresh the list and try again.' });
+    if (error?.code === 'P2002') {
+      return res.status(409).json({ message: 'The payroll selection was already included or changed. Refresh the list and try again.' });
     }
-    return res.status(500).json({ message: 'Server error processing the payroll selection.' });
+    return res.status(500).json({ message: 'Server error generating the payroll list.' });
   }
 };
 
@@ -1282,7 +1344,13 @@ const getMyApplication = async (req, res) => {
       : await prisma.applicants.findFirst({ where: { email: application.email } });
     const applicantId = applicant?.id || application.applicant_id;
     const activePayrollBatches = await prisma.payroll_batches.findMany({
-      where: { billing_period_id: activePeriod.id },
+      where: {
+        billing_period_id: activePeriod.id,
+        NOT: [
+          { status: 'billed' },
+          { batch_number: { startsWith: 'BILL-' } },
+        ],
+      },
       select: { id: true },
     });
     const [result, scholar, scholarRequirement, payrollClaim, scheduledExam, eligibilityAssessment] = applicantId ? await Promise.all([

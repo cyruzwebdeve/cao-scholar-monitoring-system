@@ -1,6 +1,8 @@
 # Payroll-List Scope Boundary Audit
 
-Date: 2026-08-30
+Created: 2026-08-30
+
+Last updated: 2026-09-02
 
 ## Approved boundary
 
@@ -11,13 +13,14 @@ generated list, and export it for authorized administrative use.
 The system must not release funds, mark scholars as paid, record receipt or
 claiming of money, reconcile disbursements, or audit released money.
 
-## Current in-scope endpoint
+## Current in-scope endpoints
 
-`POST /api/billing/process` currently validates selected scholars and creates
-the payroll batch and scholar list records. This is the closest existing
-implementation of the approved terminal event. Its user-facing naming should
-ultimately be simplified to payroll-list generation rather than a handoff to
-a later payment-processing stage.
+- `POST /api/billing/process` validates and records eligible Private-school
+  scholars in Billing. That route is terminal for those scholars and does not
+  hand them to Payroll.
+- `POST /api/payroll/process` validates eligible Public-school scholars and
+  generates their official payroll list. It no longer marks claims paid,
+  creates payment references, or sends payment-completion notices.
 
 ## Legacy out-of-scope surfaces found
 
@@ -25,8 +28,8 @@ a later payment-processing stage.
 |---|---|---|---|
 | `PUT /api/applications/:id/paid` | Marks an individual record paid | Records post-list payment | Remove route and controller export after confirming no client dependency |
 | `PUT /api/payroll/billing-batch/:id/release` | Releases a payroll batch and finalizes payouts | Represents fund release | Remove route and controller path |
-| `POST /api/payroll/process` | Marks claims paid, creates payment references, notifications, and emails | Performs post-list payment processing | Disable and replace Payroll UI action with list review/export |
-| `BillingPayrollManagement.jsx` | Filters Paid/Not paid, accepts payment references, and processes payment completion | Manages payment state after list generation | Convert Payroll mode to generated-list review and CSV export |
+| `POST /api/payroll/process` | Previously marked claims paid, created payment references, notifications, and emails | Performed post-list payment processing | Replaced on 2026-09-02 with in-scope payroll-list generation |
+| `BillingPayrollManagement.jsx` | Previously filtered Paid/Not paid, accepted payment references, and processed payment completion | Managed payment state after list generation | Converted on 2026-09-02 to classification routing and payroll-list generation/export |
 | Scholar portal allowance card | Displays amount, claimed date, release status, and payment reference | Exposes post-list payment tracking | Replace with payroll-list inclusion status without payment details |
 | Payroll-completed email and notification | Announces processed allowance and payment reference | Communicates post-list disbursement state | Remove or replace with a payroll-list-inclusion notice if CAO requires one |
 | Lifecycle reports | Counts paid claims and exposes financial lifecycle summaries | Audits post-list monetary state | Stop the funnel at payroll-list inclusion; retain non-financial operational metrics |
@@ -58,7 +61,12 @@ audit the movement of funds.
 8. Consider a later data-retention migration only after backups and stakeholder
    approval.
 
-## Not changed during this clarification
+Progress as of 2026-09-02: steps 1 and 3 are complete for the Billing/Payroll
+workspace, and step 2 is implemented as payroll-list generation, review, and
+export. The remaining legacy routes and surfaces listed above still require
+controlled cleanup.
+
+## Historical clarification note
 
 This clarification did not delete legacy routes, database columns, historical
 records, or payment-oriented screens. Only the newly added guidance lifecycle

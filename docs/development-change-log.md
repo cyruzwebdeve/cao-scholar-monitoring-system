@@ -24,6 +24,94 @@ Every material change should record:
 
 ---
 
+## 2026-09-02 — School-Classification Billing and Payroll Routing
+
+### TL;DR
+
+- Private-school scholars now route to Billing only and cannot enter Payroll.
+- Public-school scholars bypass Billing and route directly to official payroll-list preparation.
+- Payroll now generates the in-scope list instead of recording payment completion, references, amounts, or payment notifications.
+- No migration was required; historical records remain intact. All 74 backend tests, frontend lint/build, and backend syntax checks passed.
+
+### Objective, previous behavior, and outcome
+
+The objective was to make the scholar process depend on the authoritative
+School Catalog classification. Previously, every eligible scholar entered
+Billing, a pending payroll claim was created, and a later Payroll action marked
+that claim paid. That sequence did not match the required classification rule
+and its final action exceeded the approved payroll-list scope boundary.
+
+Private scholars now appear only in Billing. Their completed billing record is
+terminal and they cannot enter Payroll. Public scholars bypass Billing, appear
+directly in Payroll, and can be included in the generated official payroll
+list. Public readiness retains the common document-review and physical-folder
+checks but omits the tuition-fee receipt that applies only to Private scholars.
+
+### Affected users and workflow
+
+Billing / Payroll Administrators, Regular Administrators, and Super
+Administrators see classification-specific queues and explanatory text.
+Billing eligibility overrides remain available only for Private scholars and
+cannot override classification. Scholar Management shows each scholar's
+classification route, Billing applicability, and payroll-list inclusion.
+
+### Implementation and data flow
+
+The lifecycle service normalizes School Catalog classification into a Billing
+or Payroll route. Scholar Management resolves the current school from the
+current-period requirement, applicant school, or submitted school name and
+returns route, readiness, billing, and payroll-list state to the client.
+
+Both mutation endpoints independently re-resolve and validate classification
+and readiness on the server. Billing rejects Public scholars even if an
+override is supplied. Payroll rejects Private scholars and creates a
+`PAYROLL-*` batch with `generated` status and `listed` scholar records. Billing
+continues to create `BILL-*` batches for Private scholars.
+
+### Files and system areas changed
+
+- `backend/services/lifecycleIntegrity.js`: canonical routing and classification-aware requirements.
+- `backend/controllers/applicationController.js`: branch enforcement, Public payroll-list generation, and route serialization.
+- `backend/middleware/activityAudit.js`: operational logging now describes payroll-list generation.
+- `backend/tests/lifecycleIntegrity.test.js` and `backend/tests/activityLog.test.js`: routing, requirements, and log assertions.
+- `frontend/src/BillingPayrollManagement.jsx`: classification queues and in-scope list-generation action.
+- `frontend/src/ScholarsManagement.jsx`: route and processing status presentation.
+- `docs/scope-boundary-audit.md`: affected legacy payment path marked as replaced.
+
+### API, data, configuration, and deployment impact
+
+`POST /api/billing/process` now accepts only Private scholars.
+`POST /api/payroll/process` accepts only eligible Public scholars and generates
+payroll-list records instead of changing payment state. No database schema,
+migration, dependency, environment variable, or deployment topology changed.
+Existing string status fields store `billed`, `generated`, and `listed`.
+
+### Security, privacy, accessibility, and scope impact
+
+Existing role checks remain in force, classification is server-validated, and
+no new personal data is collected or exposed. Headings, action labels, status
+text, and native controls remain keyboard-readable, and route meaning is not
+communicated by color alone. The new Payroll action ends at official list
+generation and performs no fund release, claiming, disbursement confirmation,
+reconciliation, or monetary audit.
+
+### Validation
+
+All 74 backend tests passed. `applicationController.js` and
+`lifecycleIntegrity.js` passed `node --check`. Frontend ESLint and the Vite
+production build also passed.
+
+### Limitations, rollback, and recommended next work
+
+Historical records and legacy paid, claimed, released, reference, and amount
+columns remain for compatibility. Other legacy payment routes, portal/report
+copy, and unused mailer code remain documented in the scope-boundary audit;
+they were not silently deleted. Rollback requires restoring controller and
+client routing only because no schema changed, while records generated under
+this rule should remain as operational history. Recommended next work is the
+controlled cleanup of those remaining legacy surfaces and database-backed
+integration tests using both Public and Private scholar fixtures.
+
 ## 2026-08-30 — Payroll-List Scope Boundary Clarification
 
 ### TL;DR
