@@ -112,6 +112,15 @@ this rule should remain as operational history. Recommended next work is the
 controlled cleanup of those remaining legacy surfaces and database-backed
 integration tests using both Public and Private scholar fixtures.
 
+### Production deployment outcome
+
+The classification-routing change was pushed to `main` in commit `688c809` on
+2026-09-02. Vercel reported that the production deployment completed
+successfully. Render is configured with `autoDeployTrigger: commit`, and the
+live `/api/health` endpoint returned `healthy` with `database: connected` after
+the push. No migration was required. The user-provided untracked ERD files
+were not staged, committed, or modified.
+
 ## 2026-08-30 — Payroll-List Scope Boundary Clarification
 
 ### TL;DR
