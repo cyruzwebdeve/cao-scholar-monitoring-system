@@ -24,6 +24,45 @@ Every material change should record:
 
 ---
 
+## 2026-09-02 — Billing and Payroll Filter Panel Restoration
+
+### TL;DR
+
+- Restored the filter controls mistakenly removed from the Billing/Payroll workspace.
+- Added status and readiness filters tailored to the active Billing or Payroll route.
+- Preserved the Private-to-Billing and Public-to-Payroll process rule without changing data or APIs.
+- Frontend lint and the production build passed.
+
+### Objective and behavior change
+
+The classification-routing implementation incorrectly replaced the existing
+Billing & Payroll filter group with a static explanation. This correction
+restores the three-field panel. Administrators can filter by Billing or
+payroll-list status and by processing readiness, while a read-only field makes
+the active classification route explicit. The surrounding heading continues
+to explain why only Private or Public scholars appear in the section.
+
+### Users, implementation, and affected areas
+
+Super Administrators, Regular Administrators, and Billing / Payroll
+Administrators regain the operational filtering workflow. The change is
+limited to `frontend/src/BillingPayrollManagement.jsx`: it adds two local
+filter states, applies them to the existing client-side record set, resets
+them with Clear filters, and restores the three-control visual group.
+
+### Impact and validation
+
+There is no API, database, configuration, security, privacy, or deployment
+topology impact. Accessibility remains based on labelled native select
+controls, including a disabled assigned-route field. School classification is
+still enforced by the backend and no payment, release, reconciliation, or
+monetary-audit behavior was restored. Frontend ESLint and the Vite production
+build completed successfully.
+
+Rollback is a single-component UI reversal and requires no data action. No
+known functional limitation was introduced; recommended follow-up is a visual
+smoke test of both modes after deployment.
+
 ## 2026-09-02 — School-Classification Billing and Payroll Routing
 
 ### TL;DR

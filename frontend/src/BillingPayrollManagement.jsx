@@ -67,6 +67,8 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const [exportOpen, setExportOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [scholarStatus, setScholarStatus] = useState('All Scholar Statuses');
+  const [processStatus, setProcessStatus] = useState('All Process Statuses');
+  const [readinessStatus, setReadinessStatus] = useState('All Readiness Statuses');
   const [schoolYearSem, setSchoolYearSem] = useState('All School Years / Semesters');
   const [school, setSchool] = useState('All Schools');
   const [schoolType, setSchoolType] = useState('All School Types');
@@ -130,22 +132,30 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const filtered = useMemo(() => records.filter((record) => {
     const search = `${record.name} ${record.email || ''}`.toLowerCase();
     const normalizedSchoolType = record.schoolType || 'Public';
+    const processed = record.processRoute === 'payroll' ? record.inPayroll : record.billed;
+    const ready = record.processEligible && !processed;
     return search.includes(query.trim().toLowerCase())
       && (scholarStatus === 'All Scholar Statuses' || record.status === scholarStatus)
+      && (processStatus === 'All Process Statuses' || (processStatus === 'Processed' ? processed : !processed))
+      && (readinessStatus === 'All Readiness Statuses'
+        || (readinessStatus === 'Ready' ? ready : !ready && !processed))
       && (schoolYearSem === 'All School Years / Semesters' || record.schoolYearSemester === schoolYearSem)
       && (school === 'All Schools' || record.school === school)
       && (schoolType === 'All School Types' || normalizedSchoolType === schoolType)
       && matchesDateRange(record.dateProcessed, dateFrom, dateTo);
-  }), [records, query, scholarStatus, schoolYearSem, school, schoolType, dateFrom, dateTo]);
+  }), [records, query, scholarStatus, processStatus, readinessStatus, schoolYearSem, school, schoolType, dateFrom, dateTo]);
 
   const hasFilters = Boolean(query || dateFrom || dateTo
     || scholarStatus !== 'All Scholar Statuses'
+    || processStatus !== 'All Process Statuses'
+    || readinessStatus !== 'All Readiness Statuses'
     || schoolYearSem !== 'All School Years / Semesters'
     || school !== 'All Schools'
     || schoolType !== 'All School Types');
 
   const clearFilters = () => {
     setQuery(''); setScholarStatus('All Scholar Statuses');
+    setProcessStatus('All Process Statuses'); setReadinessStatus('All Readiness Statuses');
     setSchoolYearSem('All School Years / Semesters'); setSchool('All Schools');
     setSchoolType('All School Types'); setDateFrom(''); setDateTo(''); setPage(1);
   };
@@ -289,8 +299,12 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
           </section>
 
           <section className="billing-filter-group">
-            <header><strong>Classification route</strong></header>
-            <div className="billing-filter-group-fields"><p>{isPayroll ? 'Only Public scholars appear here; they bypass Billing.' : 'Only Private scholars appear here; Billing is their final system section.'}</p></div>
+            <header><strong>Billing &amp; payroll</strong></header>
+            <div className="billing-filter-group-fields">
+              <label><span>{isPayroll ? 'Payroll-list status' : 'Billing status'}</span><select value={processStatus} onChange={(event) => { setProcessStatus(event.target.value); setPage(1); }}><option value="All Process Statuses">All {isPayroll ? 'Payroll-list' : 'Billing'} Statuses</option><option value="Not processed">{isPayroll ? 'Not included yet' : 'Not billed yet'}</option><option value="Processed">{isPayroll ? 'Included in payroll list' : 'Billed'}</option></select></label>
+              <label><span>Processing readiness</span><select value={readinessStatus} onChange={(event) => { setReadinessStatus(event.target.value); setPage(1); }}><option value="All Readiness Statuses">All Readiness Statuses</option><option value="Ready">{isPayroll ? 'Ready for payroll list' : 'Ready to bill'}</option><option value="Not ready">Requirements incomplete</option></select></label>
+              <label><span>Assigned route</span><select value={isPayroll ? 'Public — Direct to Payroll' : 'Private — Billing only'} disabled aria-label="Assigned classification route"><option>{isPayroll ? 'Public — Direct to Payroll' : 'Private — Billing only'}</option></select></label>
+            </div>
           </section>
 
           <section className="billing-filter-group">
