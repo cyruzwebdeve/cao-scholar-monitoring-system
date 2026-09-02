@@ -24,6 +24,51 @@ Every material change should record:
 
 ---
 
+## 2026-09-02 — Cross-Section Billing and Payroll Visibility
+
+### TL;DR
+
+- All scholars now remain visible in both Billing and Payroll workspaces.
+- Private scholars are actionable in Billing; Public scholars are actionable in Payroll.
+- Scholars shown outside their assigned route are clearly labelled and view-only.
+- No API or data behavior changed; frontend lint and production build passed.
+
+### Objective and behavior
+
+The earlier classification change incorrectly used the assigned process route
+as a visibility filter. The corrected behavior separates visibility from
+processing authority. Both workspaces show the complete scholar list, while
+classification continues to determine which records can enter the active
+processing queue. The previous exclusive lists are replaced by cross-section
+visibility with explicit route statuses.
+
+### Users, implementation, and data flow
+
+Super Administrators, Regular Administrators, and Billing / Payroll
+Administrators can find any scholar from either section. Private scholars can
+be selected only from Billing and display “Private — Billing route” in
+Payroll. Public scholars can be selected only from Payroll and display
+“Public — Payroll route” in Billing. Select movable and Select all continue to
+include only records assigned to the active section.
+
+`frontend/src/BillingPayrollManagement.jsx` now keeps all filtered records in
+the source list, adds classification to the actionability checks, adapts
+status text and tooltips for view-only rows, makes Assigned route an actual
+filter, and reports total plus route-specific metrics.
+
+### Impact, validation, and rollback
+
+There is no API, database, configuration, security, privacy, or deployment
+topology impact. Backend classification enforcement remains unchanged, so a
+client cannot submit a scholar through the wrong route. Disabled rows and
+textual route labels preserve keyboard and non-color accessibility. No fund
+release, payment claiming, reconciliation, or monetary auditing behavior was
+introduced. Frontend ESLint and the Vite production build passed.
+
+Rollback affects only the Billing/Payroll component and requires no data
+change. Recommended follow-up is a production visual check of both sections
+using one Private and one Public scholar.
+
 ## 2026-09-02 — Billing and Payroll Filter Panel Restoration
 
 ### TL;DR

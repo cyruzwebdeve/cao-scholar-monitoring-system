@@ -69,6 +69,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const [scholarStatus, setScholarStatus] = useState('All Scholar Statuses');
   const [processStatus, setProcessStatus] = useState('All Process Statuses');
   const [readinessStatus, setReadinessStatus] = useState('All Readiness Statuses');
+  const [routeFilter, setRouteFilter] = useState('All Routes');
   const [schoolYearSem, setSchoolYearSem] = useState('All School Years / Semesters');
   const [school, setSchool] = useState('All Schools');
   const [schoolType, setSchoolType] = useState('All School Types');
@@ -132,23 +133,27 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const filtered = useMemo(() => records.filter((record) => {
     const search = `${record.name} ${record.email || ''}`.toLowerCase();
     const normalizedSchoolType = record.schoolType || 'Public';
-    const processed = record.processRoute === 'payroll' ? record.inPayroll : record.billed;
-    const ready = record.processEligible && !processed;
+    const activeRoute = isPayroll ? 'payroll' : 'billing';
+    const assignedHere = record.processRoute === activeRoute;
+    const processed = isPayroll ? record.inPayroll : record.billed;
+    const ready = assignedHere && record.processEligible && !processed;
     return search.includes(query.trim().toLowerCase())
       && (scholarStatus === 'All Scholar Statuses' || record.status === scholarStatus)
       && (processStatus === 'All Process Statuses' || (processStatus === 'Processed' ? processed : !processed))
       && (readinessStatus === 'All Readiness Statuses'
         || (readinessStatus === 'Ready' ? ready : !ready && !processed))
+      && (routeFilter === 'All Routes' || record.processRoute === routeFilter)
       && (schoolYearSem === 'All School Years / Semesters' || record.schoolYearSemester === schoolYearSem)
       && (school === 'All Schools' || record.school === school)
       && (schoolType === 'All School Types' || normalizedSchoolType === schoolType)
       && matchesDateRange(record.dateProcessed, dateFrom, dateTo);
-  }), [records, query, scholarStatus, processStatus, readinessStatus, schoolYearSem, school, schoolType, dateFrom, dateTo]);
+  }), [records, query, scholarStatus, processStatus, readinessStatus, routeFilter, schoolYearSem, school, schoolType, dateFrom, dateTo, isPayroll]);
 
   const hasFilters = Boolean(query || dateFrom || dateTo
     || scholarStatus !== 'All Scholar Statuses'
     || processStatus !== 'All Process Statuses'
     || readinessStatus !== 'All Readiness Statuses'
+    || routeFilter !== 'All Routes'
     || schoolYearSem !== 'All School Years / Semesters'
     || school !== 'All Schools'
     || schoolType !== 'All School Types');
@@ -156,18 +161,22 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const clearFilters = () => {
     setQuery(''); setScholarStatus('All Scholar Statuses');
     setProcessStatus('All Process Statuses'); setReadinessStatus('All Readiness Statuses');
+    setRouteFilter('All Routes');
     setSchoolYearSem('All School Years / Semesters'); setSchool('All Schools');
     setSchoolType('All School Types'); setDateFrom(''); setDateTo(''); setPage(1);
   };
 
   const currentRecords = useMemo(() => records.filter((record) => !record.isArchivedPeriod), [records]);
-  const visibleRecords = useMemo(() => filtered.filter((record) => record.processRoute === (isPayroll ? 'payroll' : 'billing')), [filtered, isPayroll]);
+  const visibleRecords = filtered;
   const queuedRecords = useMemo(() => records.filter((record) => !record.isArchivedPeriod && queuedIds.includes(record.applicantId)
     && record.processRoute === (isPayroll ? 'payroll' : 'billing')
     && (isPayroll ? !record.inPayroll : !record.billed)), [records, queuedIds, isPayroll]);
   const sourceRecords = useMemo(() => visibleRecords.filter((record) => !queuedIds.includes(record.applicantId)), [visibleRecords, queuedIds]);
   const movableSourceRecords = useMemo(() => sourceRecords.filter((record) => (
-    !record.isArchivedPeriod && record.processEligible && (isPayroll ? !record.inPayroll : !record.billed)
+    !record.isArchivedPeriod
+    && record.processRoute === (isPayroll ? 'payroll' : 'billing')
+    && record.processEligible
+    && (isPayroll ? !record.inPayroll : !record.billed)
   )), [sourceRecords, isPayroll]);
   const selectedMovableIds = sourceSelection.filter((id) => movableSourceRecords.some((record) => record.applicantId === id));
   const routedRecords = currentRecords.filter((item) => item.processRoute === (isPayroll ? 'payroll' : 'billing'));
@@ -175,16 +184,16 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const readyCount = routedRecords.filter((item) => item.processEligible && (isPayroll ? !item.inPayroll : !item.billed)).length;
   const metrics = isPayroll
     ? [
-        { label: 'Public Scholars', value: routedRecords.length, detail: 'Routed directly to Payroll', tone: 'green', Icon: UsersRound },
+        { label: 'Total Scholars', value: currentRecords.length, detail: 'Visible in this workspace', tone: 'green', Icon: UsersRound },
+        { label: 'Public Route', value: routedRecords.length, detail: 'Automatically assigned to Payroll', tone: 'orange', Icon: UsersRound },
         { label: 'Ready for List', value: readyCount, detail: 'Requirements cleared', tone: 'orange', Icon: Banknote },
         { label: 'In Payroll List', value: completedCount, detail: 'Included in generated lists', tone: 'blue', Icon: Banknote },
-        { label: 'Remaining', value: routedRecords.length - completedCount, detail: 'Not included yet', tone: 'violet', Icon: ReceiptText },
       ]
     : [
-        { label: 'Private Scholars', value: routedRecords.length, detail: 'Routed to Billing only', tone: 'green', Icon: UsersRound },
+        { label: 'Total Scholars', value: currentRecords.length, detail: 'Visible in this workspace', tone: 'green', Icon: UsersRound },
+        { label: 'Private Route', value: routedRecords.length, detail: 'Automatically assigned to Billing', tone: 'orange', Icon: UsersRound },
         { label: 'Ready to Bill', value: readyCount, detail: 'Requirements cleared', tone: 'orange', Icon: ReceiptText },
         { label: 'Billed', value: completedCount, detail: 'Included in billing records', tone: 'blue', Icon: ReceiptText },
-        { label: 'Remaining', value: routedRecords.length - completedCount, detail: 'Not billed yet', tone: 'violet', Icon: Banknote },
       ];
 
   const toggleSelection = (setter, id) => setter((current) => current.includes(id)
@@ -279,7 +288,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   return <>
     <div className="billing-management">
       <header className="billing-heading">
-        <div><span>{isPayroll ? 'PAYROLL-LIST OPERATIONS' : 'BILLING OPERATIONS'}</span><h2>{isPayroll ? 'Payroll Management' : 'Billing Management'}</h2><p>{isPayroll ? 'Generate the official payroll list for eligible public-school scholars.' : 'Prepare billing records for eligible private-school scholars. Billed scholars do not continue to Payroll.'}</p></div>
+        <div><span>{isPayroll ? 'PAYROLL-LIST OPERATIONS' : 'BILLING OPERATIONS'}</span><h2>{isPayroll ? 'Payroll Management' : 'Billing Management'}</h2><p>All scholars remain visible here. {isPayroll ? 'Public-school scholars are automatically assigned to Payroll processing.' : 'Private-school scholars are automatically assigned to Billing processing.'}</p></div>
       </header>
 
       <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></article>)}</section>
@@ -303,7 +312,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
             <div className="billing-filter-group-fields">
               <label><span>{isPayroll ? 'Payroll-list status' : 'Billing status'}</span><select value={processStatus} onChange={(event) => { setProcessStatus(event.target.value); setPage(1); }}><option value="All Process Statuses">All {isPayroll ? 'Payroll-list' : 'Billing'} Statuses</option><option value="Not processed">{isPayroll ? 'Not included yet' : 'Not billed yet'}</option><option value="Processed">{isPayroll ? 'Included in payroll list' : 'Billed'}</option></select></label>
               <label><span>Processing readiness</span><select value={readinessStatus} onChange={(event) => { setReadinessStatus(event.target.value); setPage(1); }}><option value="All Readiness Statuses">All Readiness Statuses</option><option value="Ready">{isPayroll ? 'Ready for payroll list' : 'Ready to bill'}</option><option value="Not ready">Requirements incomplete</option></select></label>
-              <label><span>Assigned route</span><select value={isPayroll ? 'Public — Direct to Payroll' : 'Private — Billing only'} disabled aria-label="Assigned classification route"><option>{isPayroll ? 'Public — Direct to Payroll' : 'Private — Billing only'}</option></select></label>
+              <label><span>Assigned route</span><select value={routeFilter} onChange={(event) => { setRouteFilter(event.target.value); setPage(1); }}><option value="All Routes">All Routes</option><option value="billing">Private — Billing</option><option value="payroll">Public — Payroll</option></select></label>
             </div>
           </section>
 
@@ -333,19 +342,22 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
             <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>Status</span></div>
             <div className="billing-queue-table-body">
               {loading && !records.length && <div className="billing-queue-empty"><span className="scholars-spinner" />Loading scholars…</div>}
-              {!loading && !sourceRecords.length && <div className="billing-queue-empty"><Search size={20} /><strong>No scholar records</strong><span>{hasFilters ? 'No records match the selected filters.' : isPayroll ? 'Public-school scholars will appear here automatically.' : 'Private-school scholars will appear here automatically.'}</span></div>}
+              {!loading && !sourceRecords.length && <div className="billing-queue-empty"><Search size={20} /><strong>No scholar records</strong><span>{hasFilters ? 'No records match the selected filters.' : 'Scholar records will appear here automatically.'}</span></div>}
               {sourceRecords.map((record) => {
-                const canMove = !record.isArchivedPeriod && record.processEligible && (isPayroll ? !record.inPayroll : !record.billed);
-                const canOverride = canUseBillingOverride && !record.isArchivedPeriod && !record.billed
+                const assignedHere = record.processRoute === (isPayroll ? 'payroll' : 'billing');
+                const canMove = assignedHere && !record.isArchivedPeriod && record.processEligible && (isPayroll ? !record.inPayroll : !record.billed);
+                const canOverride = assignedHere && canUseBillingOverride && !record.isArchivedPeriod && !record.billed
                   && record.status === 'Active' && !record.processEligible;
                 const isSelected = canMove && sourceSelection.includes(record.applicantId);
-                const statusLabel = isPayroll
-                  ? record.inPayroll ? 'In payroll list' : record.processEligible ? 'Ready for list' : 'Requirements incomplete'
-                  : record.billed ? 'Billed' : record.processEligible ? 'Ready to bill' : canOverride ? 'Override available' : 'Requirements incomplete';
+                const statusLabel = !assignedHere
+                  ? (record.processRoute === 'billing' ? 'Private — Billing route' : 'Public — Payroll route')
+                  : isPayroll
+                    ? record.inPayroll ? 'In payroll list' : record.processEligible ? 'Ready for list' : 'Requirements incomplete'
+                    : record.billed ? 'Billed' : record.processEligible ? 'Ready to bill' : canOverride ? 'Override available' : 'Requirements incomplete';
                 const unavailableReason = record.billingEligibilityReasons?.[0]?.message;
                 return <div className={`billing-queue-row ${isSelected ? 'selected' : ''} ${canMove || canOverride ? '' : 'archived'} ${canOverride ? 'override-available' : ''}`} key={record.id}>
                   <code>{record.controlNumber || '—'}</code>
-                  <button type="button" className="billing-queue-name" aria-pressed={isSelected} disabled={!canMove && !canOverride} title={canMove ? `Select ${record.name}` : canOverride ? `Override billing eligibility for ${record.name}` : unavailableReason || `${record.name} cannot be moved again.`} onClick={() => canMove ? toggleSelection(setSourceSelection, record.applicantId) : openBillingOverride(record)}><strong>{record.name}</strong><small>{isSelected ? 'Selected' : canOverride ? 'Click to authorize override' : record.email}</small></button>
+                  <button type="button" className="billing-queue-name" aria-pressed={isSelected} disabled={!canMove && !canOverride} title={canMove ? `Select ${record.name}` : canOverride ? `Override billing eligibility for ${record.name}` : !assignedHere ? `${record.name} is visible here but is processed in ${record.processRoute === 'billing' ? 'Billing' : 'Payroll'}.` : unavailableReason || `${record.name} cannot be moved again.`} onClick={() => canMove ? toggleSelection(setSourceSelection, record.applicantId) : openBillingOverride(record)}><strong>{record.name}</strong><small>{isSelected ? 'Selected' : canOverride ? 'Click to authorize override' : record.email}</small></button>
                   <span className={`billing-queue-ready ${canOverride ? 'override' : canMove ? '' : 'archived'}`}>{statusLabel}</span>
                 </div>;
               })}
