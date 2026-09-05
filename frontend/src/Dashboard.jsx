@@ -53,7 +53,6 @@ import ActivityLogsManagement from './ActivityLogsManagement';
 import StaffManagement from './StaffManagement';
 import DocumentReviewManagement from './DocumentReviewManagement';
 import SchoolCatalogManagement from './SchoolCatalogManagement';
-import SystemHealthPanel from './components/SystemHealthPanel';
 import municipalitiesData from '../../municipality.json';
 import barangaysData from '../../brgy.json';
 import './styles/admin-prelude.css';
@@ -609,7 +608,7 @@ const formatDashboardTime = (value) => {
   return parsed.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
-function DashboardOverview({ token, user, onSectionChange }) {
+function DashboardOverview({ token, onSectionChange }) {
   const [overview, setOverview] = useState({
     stats: { activeScholars: 0, forfeitedAccounts: 0 },
     recentApplications: [],
@@ -668,8 +667,6 @@ function DashboardOverview({ token, user, onSectionChange }) {
           return <article key={stat.label} className={`dashboard-stat-card dashboard-stat-card-${stat.tone}`}><div><p className="dashboard-stat-label">{stat.label}</p><h3>{loading ? '—' : stat.value}</h3><small>{stat.detail}</small></div><div className={`dashboard-stat-icon dashboard-stat-icon-${stat.accent}`}><Icon size={22} strokeWidth={2.1} /></div></article>;
         })}
       </div>
-
-      {user?.role === 'SuperAdmin' && <SystemHealthPanel />}
 
       <div className="dashboard-overview-grid">
         <section className="dashboard-surface dashboard-recent-applications">
@@ -1200,13 +1197,25 @@ function ExaminationManagement({ token }) {
   );
 }
 
+function ExaminationWorkspace({ token, initialView = 'schedules' }) {
+  const [view, setView] = useState(initialView);
+  return (
+    <div className="examination-workspace">
+      <nav className="examination-workspace-tabs" aria-label="Examination management views">
+        <button type="button" className={view === 'schedules' ? 'active' : ''} onClick={() => setView('schedules')}>Schedules & assignments</button>
+        <button type="button" className={view === 'results' ? 'active' : ''} onClick={() => setView('results')}>Results</button>
+      </nav>
+      {view === 'schedules' ? <ExaminationManagement token={token} /> : <ResultsManagement token={token} />}
+    </div>
+  );
+}
+
 function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange, onLogout }) {
   if (activeSection === 'Dashboard' && ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role)) {
-    return <DashboardOverview token={token} user={user} onSectionChange={onSectionChange} />;
+    return <DashboardOverview token={token} onSectionChange={onSectionChange} />;
   }
   if (activeSection === 'Applicants' && ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role)) return <ApplicantsManagement token={token} />;
-  if (activeSection === 'Examination Management') return <ExaminationManagement token={token} />;
-  if (activeSection === 'Results Management') return <ResultsManagement token={token} />;
+  if (activeSection === 'Examination Management' || activeSection === 'Results Management') return <ExaminationWorkspace token={token} initialView={activeSection === 'Results Management' ? 'results' : 'schedules'} />;
   if (activeSection === 'Scholars') return <ScholarsManagement token={token} />;
   if (activeSection === 'Billing') return <BillingPayrollManagement key="billing" token={token} mode="billing" userRole={user?.role} />;
   if (activeSection === 'Payroll') return <BillingPayrollManagement key="payroll" token={token} mode="payroll" userRole={user?.role} />;

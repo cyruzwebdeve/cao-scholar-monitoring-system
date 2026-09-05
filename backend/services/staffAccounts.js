@@ -1,3 +1,5 @@
+const { getAllowedSectionsForRole, normalizeSectionAccess } = require('./sectionAccess');
+
 const STAFF_ROLE_CONFIG = Object.freeze({
   SuperAdmin: Object.freeze({ databaseRole: 'superadmin', isSuperAdmin: true, label: 'Super Administrator' }),
   RegularAdmin: Object.freeze({ databaseRole: 'admin', isSuperAdmin: false, label: 'Administrator' }),
@@ -25,6 +27,8 @@ const serializeStaff = (admin, currentUserId = null) => {
     role,
     roleLabel: STAFF_ROLE_CONFIG[role].label,
     isActive: admin.is_active,
+    sectionAccess: normalizeSectionAccess(admin.section_access, role),
+    availableSections: getAllowedSectionsForRole(role),
     lastLoginAt: admin.last_login_at,
     createdAt: admin.created_at,
     updatedAt: admin.updated_at,

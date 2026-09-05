@@ -5,6 +5,93 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-05 — Examination, Billing, Health, and Staff Section Access
+
+### TL;DR
+
+- Results now live inside Examination Management, and Super Admin System Health moved from Dashboard to Settings.
+- Billing users can edit a scholar's active-period school, year level, course, major, billable amount, and notes before processing.
+- Super Administrators can assign staff section access, enforced in both navigation and protected APIs.
+- Existing staff keep role-default access until customized; access changes invalidate current sessions.
+- Verification passed: 75 backend tests, frontend lint/build, Prisma generation, backend syntax, and whitespace checks.
+
+### Objective, behavior, and affected users
+
+The objective was to simplify navigation, place diagnostics with configuration,
+allow pre-processing billing corrections, and give Super Administrators finer
+staff-access control. Previously, examination schedules and results were
+separate sidebar sections, System Health occupied Dashboard, billing details
+were read-only, and access was controlled only by role and active status.
+
+Schedules and results now share a tabbed Examination Management workspace.
+System Health is in Settings and remains Super Administrator-only. Authorized
+Billing users can correct active-period details until a Billing or Payroll
+record exists. Super Administrators can choose the available sections for each
+non-super staff account. Administrators and Billing / Payroll Administrators
+can be limited to their normal role sections; Moderators can be limited to
+Document Reviews, Announcements, and Settings. Applicant and Scholar workflows
+are unchanged.
+
+### Implementation and data flow
+
+An additive `admins.section_access` JSON field stores section keys. Null
+permissions resolve to prior role defaults for backward compatibility.
+Authentication returns normalized permissions. The sidebar filters entries,
+and route middleware independently rejects requests for unassigned sections.
+Role checks remain authoritative, so section selection narrows rather than
+elevates a role. Role, status, or permission changes increment
+`auth_version`, signing out existing sessions. Super Administrator access
+cannot be reduced, and existing self-demotion/final-admin safeguards remain.
+
+The Billing editor writes school, year level, course, major, amount, and notes
+to the active-period `scholar_requirements` record. New nullable
+`billing_amount` and `billing_notes` columns preserve the values before
+processing. Billing processing copies configured amounts to claims and totals
+the billing batch atomically. Processed active-period records are locked.
+Edits receive a dedicated operational Activity Log event.
+
+### Files and system areas changed
+
+- Backend authentication/RBAC, staff and application controllers, validators,
+  routes, activity mapping, section-access service, Prisma schema/migration,
+  and staff tests.
+- Frontend app defaults, permission-aware sidebar, Staff permission editor,
+  Examination tabs, Settings health placement, Billing editor, and styles.
+- `change_log.txt` and this detailed engineering record.
+
+### API, data, security, and deployment impact
+
+- API: added `PUT /api/scholars/:applicantId/billing-details`; management
+  endpoints now enforce assigned sections.
+- Database: added nullable JSONB `admins.section_access`, decimal
+  `scholar_requirements.billing_amount`, and text
+  `scholar_requirements.billing_notes`; no destructive backfill.
+- Configuration/dependencies: no new variables, packages, or services.
+- Security/privacy: server enforcement prevents bypassing hidden navigation;
+  permissions cannot exceed role capability; notes remain staff-only; no new
+  public personal-data exposure.
+- Accessibility: native buttons, labels, checkboxes, dialog semantics, and
+  textual states are used, with responsive layouts.
+- Deployment: the additive migration must run before the new backend. The
+  standard Render migration flow covers it; no deployment was performed.
+
+### Validation, limitations, rollback, and next work
+
+Prisma client generation passed. All 75 backend tests, frontend ESLint, Vite
+production build, backend syntax checks, and Git whitespace checks passed.
+
+Permissions apply to whole sections rather than individual controls or records,
+and changed staff must sign in again. Rollback should remove UI and enforcement
+first; additive columns can remain safely, while dropping them would discard
+configured data. Recommended next work is browser testing with representative
+staff accounts after migration, then a separately controlled cleanup of legacy
+payment-oriented code.
+
+The approved workflow still ends when CAO generates the official payroll list.
+No fund release, claiming, disbursement confirmation, reconciliation, or
+monetary auditing was added. Legacy payment-oriented routes and display fields
+remain unchanged for compatibility and outside the approved workflow.
+
 ## Entry format for future changes
 
 Every material change should record:

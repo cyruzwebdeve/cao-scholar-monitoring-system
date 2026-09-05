@@ -16,8 +16,16 @@ const Sidebar = lazy(() => import('./components/Sidebar'));
 const isAdminRole = (role) =>
   role === 'BillingPayrollAdmin' || role === 'RegularAdmin' || role === 'SuperAdmin' || role === 'Moderator';
 
-const getDefaultSectionForRole = (role) =>
-  role === 'Moderator' ? 'Document Reviews' : 'Dashboard';
+const sectionLabels = {
+  dashboard: 'Dashboard', applicants: 'Applicants', examination: 'Examination Management',
+  scholars: 'Scholars', billing: 'Billing', payroll: 'Payroll',
+  announcements: 'Announcements', reports: 'Reports', settings: 'Settings', documentReviews: 'Document Reviews',
+};
+const getDefaultSectionForRole = (role, sectionAccess) => {
+  if (role === 'SuperAdmin') return 'Dashboard';
+  if (Array.isArray(sectionAccess)) return sectionLabels[sectionAccess[0]] || 'Settings';
+  return role === 'Moderator' ? 'Document Reviews' : 'Dashboard';
+};
 
 const getRoleLabel = (role) => {
   if (role === 'SuperAdmin') return 'Super Administrator';
@@ -57,7 +65,7 @@ function App() {
   const [authToken, setAuthToken] = useState(initialAuthState.token);
   const [user, setUser] = useState(initialAuthState.user);
   const [activeSection, setActiveSection] = useState(
-    getDefaultSectionForRole(initialAuthState.user?.role),
+    getDefaultSectionForRole(initialAuthState.user?.role, initialAuthState.user?.sectionAccess),
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -89,7 +97,7 @@ function App() {
   const handleLogin = (token, loggedUser) => {
     setAuthToken(token);
     setUser(loggedUser);
-    setActiveSection(getDefaultSectionForRole(loggedUser?.role));
+    setActiveSection(getDefaultSectionForRole(loggedUser?.role, loggedUser?.sectionAccess));
     persistAuthState(token, loggedUser);
   };
 
@@ -184,6 +192,7 @@ function App() {
                       activeSection={activeSection}
                       onSectionChange={handleSectionChange}
                       role={user.role}
+                      sectionAccess={user.sectionAccess}
                       isOpen={sidebarOpen}
                       onClose={() => setSidebarOpen(false)}
                     />

@@ -1,7 +1,6 @@
 import './Sidebar.css';
 import caologo from '../assets/caologo-96.webp';
 import {
-  BadgeCheck,
   Boxes,
   ChartColumn,
   ClipboardList,
@@ -16,46 +15,47 @@ import {
 
 const navItemsByRole = {
   SuperAdmin: [
-    { label: 'Dashboard', icon: LayoutDashboard },
-    { label: 'Applicants', icon: UsersRound },
+    { label: 'Dashboard', icon: LayoutDashboard, section: 'dashboard' },
+    { label: 'Applicants', icon: UsersRound, section: 'applicants' },
     { label: 'Staff', icon: UsersRound },
-    { label: 'Examination Management', icon: ClipboardList },
-    { label: 'Results Management', icon: BadgeCheck },
-    { label: 'Scholars', icon: GraduationCap },
-    { label: 'Billing', icon: FileText },
-    { label: 'Payroll', icon: Boxes },
-    { label: 'Announcements', icon: Megaphone },
+    { label: 'Examination Management', icon: ClipboardList, section: 'examination' },
+    { label: 'Scholars', icon: GraduationCap, section: 'scholars' },
+    { label: 'Billing', icon: FileText, section: 'billing' },
+    { label: 'Payroll', icon: Boxes, section: 'payroll' },
+    { label: 'Announcements', icon: Megaphone, section: 'announcements' },
     { label: 'School Catalog', icon: FileText },
     { label: 'Activity Logs', icon: ClipboardList },
-    { label: 'Reports', icon: ChartColumn },
-    { label: 'Settings', icon: Settings2 },
+    { label: 'Reports', icon: ChartColumn, section: 'reports' },
+    { label: 'Settings', icon: Settings2, section: 'settings' },
   ],
   BillingPayrollAdmin: [
-    { label: 'Dashboard', icon: LayoutDashboard },
-    { label: 'Applicants', icon: UsersRound },
-    { label: 'Examination Management', icon: ClipboardList },
-    { label: 'Results Management', icon: BadgeCheck },
-    { label: 'Scholars', icon: GraduationCap },
-    { label: 'Billing', icon: FileText },
-    { label: 'Payroll', icon: Boxes },
-    { label: 'Announcements', icon: Megaphone },
-    { label: 'Reports', icon: ChartColumn },
-    { label: 'Settings', icon: Settings2 },
+    { label: 'Dashboard', icon: LayoutDashboard, section: 'dashboard' },
+    { label: 'Applicants', icon: UsersRound, section: 'applicants' },
+    { label: 'Examination Management', icon: ClipboardList, section: 'examination' },
+    { label: 'Scholars', icon: GraduationCap, section: 'scholars' },
+    { label: 'Billing', icon: FileText, section: 'billing' },
+    { label: 'Payroll', icon: Boxes, section: 'payroll' },
+    { label: 'Announcements', icon: Megaphone, section: 'announcements' },
+    { label: 'Reports', icon: ChartColumn, section: 'reports' },
+    { label: 'Settings', icon: Settings2, section: 'settings' },
   ],
   Moderator: [
-    { label: 'Document Reviews', icon: ClipboardList },
-    { label: 'Announcements', icon: Megaphone },
-    { label: 'Settings', icon: Settings2 },
+    { label: 'Document Reviews', icon: ClipboardList, section: 'documentReviews' },
+    { label: 'Announcements', icon: Megaphone, section: 'announcements' },
+    { label: 'Settings', icon: Settings2, section: 'settings' },
   ],
 };
 
 navItemsByRole.RegularAdmin = navItemsByRole.SuperAdmin.filter(({ label }) => [
-  'Dashboard', 'Applicants', 'Examination Management', 'Results Management',
+  'Dashboard', 'Applicants', 'Examination Management',
   'Scholars', 'Billing', 'Payroll', 'Announcements', 'Reports', 'Settings',
 ].includes(label));
 
-function Sidebar({ onLogout, activeSection, onSectionChange, role, isOpen = false, onClose }) {
-  const navItems = navItemsByRole[role] || navItemsByRole.Moderator;
+function Sidebar({ onLogout, activeSection, onSectionChange, role, sectionAccess, isOpen = false, onClose }) {
+  const roleItems = navItemsByRole[role] || navItemsByRole.Moderator;
+  const navItems = role === 'SuperAdmin' || !Array.isArray(sectionAccess)
+    ? roleItems
+    : roleItems.filter((item) => !item.section || sectionAccess.includes(item.section));
 
   return (
     <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`} aria-label="Dashboard navigation">

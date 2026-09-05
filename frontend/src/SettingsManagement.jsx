@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
+import SystemHealthPanel from './components/SystemHealthPanel';
 
 const emptyPeriodForm = { schoolYear: '', semester: '1st Semester', startDate: '', endDate: '' };
 const emptyAvailability = { isEnabled: true, opensAt: '', closesAt: '', state: 'open', isOpen: true };
@@ -332,6 +333,8 @@ export default function SettingsManagement({ token, user }) {
         <div className="settings-mode-grid"><button className={mode === 'online' ? 'selected' : ''} onClick={() => setMode('online')}><Monitor size={25} /><span><b>Online Examination</b><small>Applicants answer remotely through the Applicant Dashboard.</small></span>{mode === 'online' && <Check className="settings-check" size={18} />}</button><button className={mode === 'face-to-face' ? 'selected' : ''} onClick={() => setMode('face-to-face')}><UsersRound size={25} /><span><b>Face-to-Face Examination</b><small>Applicants attend the assigned examination venue.</small></span>{mode === 'face-to-face' && <Check className="settings-check" size={18} />}</button></div>
         <button className="settings-save" onClick={saveExamMode}><Save size={15} /> Save examination setting</button>
       </section>
+
+      {user?.role === 'SuperAdmin' && <SystemHealthPanel />}
 
       {pendingActivation && (
         <div className="admin-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !activatingPeriod) setPendingActivation(null); }}>

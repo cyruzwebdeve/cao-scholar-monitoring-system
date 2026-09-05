@@ -326,9 +326,10 @@ const validateAnnouncement = (req, res, next) => {
 };
 
 const staffRoles = ['RegularAdmin', 'BillingPayrollAdmin', 'Moderator', 'SuperAdmin'];
+const { getAllowedSectionsForRole } = require('../services/sectionAccess');
 
 const validateStaffFields = (req, res, next) => {
-  const { fullName, email, role } = req.body;
+  const { fullName, email, role, sectionAccess } = req.body;
   if (!isNonEmptyString(fullName) || fullName.trim().length < 2 || fullName.trim().length > 150) {
     return res.status(400).json({ message: 'Full name must contain between 2 and 150 characters.' });
   }
@@ -337,6 +338,10 @@ const validateStaffFields = (req, res, next) => {
   }
   if (!staffRoles.includes(role)) {
     return res.status(400).json({ message: `Role must be one of: ${staffRoles.join(', ')}.` });
+  }
+  const allowedSections = getAllowedSectionsForRole(role);
+  if (!Array.isArray(sectionAccess) || (role !== 'SuperAdmin' && sectionAccess.length === 0) || sectionAccess.some((section) => !allowedSections.includes(section))) {
+    return res.status(400).json({ message: 'Section access must contain only sections available to the selected staff role.' });
   }
   return next();
 };
@@ -361,6 +366,23 @@ const validateStaffPassword = (req, res, next) => {
   }
   if (!isStrongPassword(req.body.newPassword)) {
     return res.status(400).json({ message: 'New password must be 12-128 characters and include uppercase, lowercase, and a number.' });
+  }
+  return next();
+};
+
+const validateScholarBillingDetails = (req, res, next) => {
+  const { schoolId, yearLevel = '', course = '', major = '', billingAmount, billingNotes = '' } = req.body;
+  if (!Number.isInteger(Number(schoolId)) || Number(schoolId) <= 0) {
+    return res.status(400).json({ message: 'Select a valid school.' });
+  }
+  if (!isNonNegativeNumber(billingAmount) || Number(billingAmount) > 99999999.99) {
+    return res.status(400).json({ message: 'Billing amount must be between 0 and 99,999,999.99.' });
+  }
+  if ([yearLevel, course, major, billingNotes].some((value) => typeof value !== 'string')) {
+    return res.status(400).json({ message: 'Billing detail text fields are invalid.' });
+  }
+  if (yearLevel.trim().length > 20 || course.trim().length > 150 || major.trim().length > 150 || billingNotes.trim().length > 1000) {
+    return res.status(400).json({ message: 'One or more billing details exceed the allowed length.' });
   }
   return next();
 };
@@ -392,5 +414,6 @@ module.exports = {
   validateStaffCreate,
   validateStaffPassword,
   validateStaffUpdate,
+  validateScholarBillingDetails,
   validateDocumentReview,
 };

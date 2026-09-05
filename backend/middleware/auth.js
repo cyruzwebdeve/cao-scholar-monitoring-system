@@ -1,12 +1,14 @@
 const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma');
+const { normalizeSectionAccess } = require('../services/sectionAccess');
 
 const resolveUser = async (payload) => {
   if (payload.accountType === 'admin') {
     const admin = await prisma.admins.findUnique({ where: { id: payload.userId } });
     if (!admin || !admin.is_active) return null;
     if ((payload.authVersion ?? 0) !== admin.auth_version) return null;
-    return { id: admin.id, email: admin.email, role: admin.is_super_admin ? 'SuperAdmin' : admin.role === 'moderator' ? 'Moderator' : admin.role === 'admin' ? 'RegularAdmin' : 'BillingPayrollAdmin' };
+    const role = admin.is_super_admin ? 'SuperAdmin' : admin.role === 'moderator' ? 'Moderator' : admin.role === 'admin' ? 'RegularAdmin' : 'BillingPayrollAdmin';
+    return { id: admin.id, email: admin.email, role, sectionAccess: normalizeSectionAccess(admin.section_access, role) };
   }
 
   const account = await prisma.control_accounts.findFirst({ where: { applicant_id: payload.userId } });

@@ -298,6 +298,15 @@
 .staff-password-field input { padding-right: 42px; }
 .staff-password-field button { position: absolute; top: 50%; right: 6px; display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 7px; background: transparent; color: #75857b; cursor: pointer; transform: translateY(-50%); }
 .staff-password-hint { display: block; margin-top: 8px; color: #7c8d83; font-size: 9px; }
+.staff-permission-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.staff-permission { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 11px; border: 1px solid #dbe5de; border-radius: 9px; background: #fbfcfb; cursor: pointer; }
+.staff-permission:has(input:checked) { border-color: #9fd0b2; background: #eff9f3; }
+.staff-permission input { width: 16px; height: 16px; flex: 0 0 auto; accent-color: #078843; }
+.staff-permission span,
+.staff-permission b,
+.staff-permission small { display: block; min-width: 0; }
+.staff-permission b { color: #354e3e; font-size: 10px; }
+.staff-permission small { margin-top: 2px; color: #7f8d84; font-size: 8px; }
 .staff-form-error { display: flex; align-items: center; gap: 8px; margin-top: 2px; padding: 10px 11px; border: 1px solid #efb5b5; border-radius: 8px; background: #fff3f3; color: #b12828; font-size: 11px; }
 .staff-modal form > footer { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; padding-top: 17px; border-top: 1px solid #e2eae4; }
 .staff-modal form > footer button,
@@ -354,6 +363,7 @@
   .staff-empty td { display: table-cell; height: 210px; text-align: center; }
   .staff-empty td::before { display: none; }
   .staff-form-grid { grid-template-columns: 1fr; }
+  .staff-permission-grid { grid-template-columns: 1fr; }
   .staff-modal-backdrop { padding: 10px; }
   .staff-modal { max-height: calc(100vh - 20px); }
 }

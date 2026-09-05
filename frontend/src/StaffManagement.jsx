@@ -30,6 +30,26 @@ const roleOptions = [
   ['SuperAdmin', 'Super Administrator'],
 ];
 
+const sectionOptions = [
+  ['dashboard', 'Dashboard'],
+  ['applicants', 'Applicants'],
+  ['examination', 'Examination & Results'],
+  ['scholars', 'Scholars'],
+  ['billing', 'Billing'],
+  ['payroll', 'Payroll'],
+  ['announcements', 'Announcements'],
+  ['reports', 'Reports'],
+  ['settings', 'Settings'],
+  ['documentReviews', 'Document Reviews'],
+];
+
+const roleSectionDefaults = {
+  SuperAdmin: sectionOptions.map(([key]) => key),
+  RegularAdmin: ['dashboard', 'applicants', 'examination', 'scholars', 'billing', 'payroll', 'announcements', 'reports', 'settings'],
+  BillingPayrollAdmin: ['dashboard', 'applicants', 'examination', 'scholars', 'billing', 'payroll', 'announcements', 'reports', 'settings'],
+  Moderator: ['documentReviews', 'announcements', 'settings'],
+};
+
 const emptyForm = {
   fullName: '',
   email: '',
@@ -37,6 +57,7 @@ const emptyForm = {
   isActive: true,
   password: '',
   confirmPassword: '',
+  sectionAccess: roleSectionDefaults.RegularAdmin,
 };
 
 const formatDate = (value, fallback = 'Never') => {
@@ -190,12 +211,20 @@ function StaffManagement({ token, onLogout }) {
       isActive: member.isActive,
       password: '',
       confirmPassword: '',
+      sectionAccess: member.sectionAccess || roleSectionDefaults[member.role],
     });
     setFormError('');
     setEditor({ mode: 'edit', member });
   };
 
   const updateForm = (field, value) => setForm((current) => ({ ...current, [field]: value }));
+  const updateRole = (role) => setForm((current) => ({ ...current, role, sectionAccess: [...roleSectionDefaults[role]] }));
+  const toggleSection = (section) => setForm((current) => ({
+    ...current,
+    sectionAccess: current.sectionAccess.includes(section)
+      ? current.sectionAccess.filter((item) => item !== section)
+      : [...current.sectionAccess, section],
+  }));
 
   const saveStaff = async (payload = form) => {
     setSaving(true);
@@ -204,8 +233,8 @@ function StaffManagement({ token, onLogout }) {
       const isCreate = editor.mode === 'create';
       const endpoint = isCreate ? `${API_BASE}/staff` : `${API_BASE}/staff/${editor.member.id}`;
       const body = isCreate
-        ? { fullName: payload.fullName, email: payload.email, role: payload.role, password: payload.password }
-        : { fullName: payload.fullName, email: payload.email, role: payload.role, isActive: payload.isActive };
+        ? { fullName: payload.fullName, email: payload.email, role: payload.role, password: payload.password, sectionAccess: payload.sectionAccess }
+        : { fullName: payload.fullName, email: payload.email, role: payload.role, isActive: payload.isActive, sectionAccess: payload.sectionAccess };
       const response = await fetch(endpoint, {
         method: isCreate ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
@@ -235,7 +264,9 @@ function StaffManagement({ token, onLogout }) {
       saveStaff(normalized);
       return undefined;
     }
-    const accessChanged = normalized.role !== editor.member.role || normalized.isActive !== editor.member.isActive;
+    const accessChanged = normalized.role !== editor.member.role
+      || normalized.isActive !== editor.member.isActive
+      || JSON.stringify([...normalized.sectionAccess].sort()) !== JSON.stringify([...(editor.member.sectionAccess || [])].sort());
     if (accessChanged) {
       setPendingUpdate(normalized);
       return undefined;
@@ -341,8 +372,9 @@ function StaffManagement({ token, onLogout }) {
         <ModalShell eyebrow={editor.mode === 'create' ? 'NEW STAFF ACCOUNT' : 'ACCOUNT SETTINGS'} title={editor.mode === 'create' ? 'Add staff member' : `Edit ${editor.member.fullName}`} onClose={closeEditor} size="wide">
           <form className="staff-modal-form" onSubmit={submitEditor}>
             <div className="staff-form-section"><div><span>01</span><section><h4>Account information</h4><p>The staff member will use this email address to sign in.</p></section></div><div className="staff-form-grid"><label className="staff-field"><span>Full name</span><input value={form.fullName} onChange={(event) => updateForm('fullName', event.target.value)} maxLength="150" required /></label><label className="staff-field"><span>Email address</span><input type="email" value={form.email} onChange={(event) => updateForm('email', event.target.value)} maxLength="150" required /></label></div></div>
-            <div className="staff-form-section"><div><span>02</span><section><h4>Access and role</h4><p>Assign only the access needed for this member&apos;s responsibilities.</p></section></div><div className="staff-form-grid"><label className="staff-field"><span>Staff role</span><select value={form.role} onChange={(event) => updateForm('role', event.target.value)} disabled={editor.mode === 'edit' && editor.member.isCurrentUser}>{roleOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{editor.mode === 'edit' && <label className="staff-field"><span>Account status</span><select value={form.isActive ? 'active' : 'inactive'} onChange={(event) => updateForm('isActive', event.target.value === 'active')} disabled={editor.member.isCurrentUser}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>}</div></div>
-            {editor.mode === 'create' && <div className="staff-form-section"><div><span>03</span><section><h4>Temporary password</h4><p>Share it privately. The password can be replaced later but never viewed.</p></section></div><div className="staff-form-grid"><PasswordField label="Temporary password" value={form.password} onChange={(value) => updateForm('password', value)} autoComplete="new-password" /><PasswordField label="Confirm password" value={form.confirmPassword} onChange={(value) => updateForm('confirmPassword', value)} autoComplete="new-password" /></div><small className="staff-password-hint">Use at least 12 characters with uppercase, lowercase, and a number.</small></div>}
+            <div className="staff-form-section"><div><span>02</span><section><h4>Access and role</h4><p>Assign only the access needed for this member&apos;s responsibilities.</p></section></div><div className="staff-form-grid"><label className="staff-field"><span>Staff role</span><select value={form.role} onChange={(event) => updateRole(event.target.value)} disabled={editor.mode === 'edit' && editor.member.isCurrentUser}>{roleOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{editor.mode === 'edit' && <label className="staff-field"><span>Account status</span><select value={form.isActive ? 'active' : 'inactive'} onChange={(event) => updateForm('isActive', event.target.value === 'active')} disabled={editor.member.isCurrentUser}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>}</div></div>
+            <div className="staff-form-section"><div><span>03</span><section><h4>Section access</h4><p>Choose the sidebar sections this account can open. Role security rules still apply.</p></section></div><div className="staff-permission-grid">{sectionOptions.filter(([key]) => roleSectionDefaults[form.role].includes(key)).map(([key, label]) => <label key={key} className="staff-permission"><input type="checkbox" checked={form.sectionAccess.includes(key)} disabled={form.role === 'SuperAdmin' || (editor.mode === 'edit' && editor.member.isCurrentUser)} onChange={() => toggleSection(key)} /><span><b>{label}</b><small>{form.sectionAccess.includes(key) ? 'Access allowed' : 'Access blocked'}</small></span></label>)}</div></div>
+            {editor.mode === 'create' && <div className="staff-form-section"><div><span>04</span><section><h4>Temporary password</h4><p>Share it privately. The password can be replaced later but never viewed.</p></section></div><div className="staff-form-grid"><PasswordField label="Temporary password" value={form.password} onChange={(value) => updateForm('password', value)} autoComplete="new-password" /><PasswordField label="Confirm password" value={form.confirmPassword} onChange={(value) => updateForm('confirmPassword', value)} autoComplete="new-password" /></div><small className="staff-password-hint">Use at least 12 characters with uppercase, lowercase, and a number.</small></div>}
             {formError && <div className="staff-form-error"><TriangleAlert size={16} />{formError}</div>}
             <footer><button type="button" className="staff-secondary" onClick={closeEditor} disabled={saving}>Cancel</button><button type="submit" className="staff-primary" disabled={saving}>{saving ? 'Saving...' : editor.mode === 'create' ? 'Create account' : 'Save changes'}</button></footer>
           </form>
@@ -351,7 +383,7 @@ function StaffManagement({ token, onLogout }) {
 
       {pendingUpdate && (
         <ModalShell eyebrow="CONFIRM ACCESS CHANGE" title="Update staff access?" onClose={() => !saving && setPendingUpdate(null)}>
-          <div className="staff-confirm"><i><TriangleAlert size={22} /></i><p>Changing <strong>{editor.member.fullName}</strong>&apos;s role or account status will sign out their existing sessions immediately.</p><div><button type="button" className="staff-secondary" onClick={() => setPendingUpdate(null)} disabled={saving}>Go back</button><button type="button" className="staff-danger" onClick={() => saveStaff(pendingUpdate)} disabled={saving}>{saving ? 'Updating...' : 'Confirm change'}</button></div></div>
+          <div className="staff-confirm"><i><TriangleAlert size={22} /></i><p>Changing <strong>{editor.member.fullName}</strong>&apos;s role, status, or section access will sign out their existing sessions immediately.</p><div><button type="button" className="staff-secondary" onClick={() => setPendingUpdate(null)} disabled={saving}>Go back</button><button type="button" className="staff-danger" onClick={() => saveStaff(pendingUpdate)} disabled={saving}>{saving ? 'Updating...' : 'Confirm change'}</button></div></div>
         </ModalShell>
       )}
 

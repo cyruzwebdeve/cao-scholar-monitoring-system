@@ -8,7 +8,9 @@ import {
   ChevronsRight,
   Download,
   Filter,
+  Pencil,
   ReceiptText,
+  Save,
   Search,
   ShieldAlert,
   TriangleAlert,
@@ -60,6 +62,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const defaultBilledFilter = isPayroll ? 'All Billing Statuses' : 'Not billed yet';
   const defaultPaidFilter = isPayroll ? 'Not paid yet' : 'All Payroll Statuses';
   const [records, setRecords] = useState([]);
+  const [availableSchools, setAvailableSchools] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [, setPage] = useState(1);
@@ -73,6 +76,10 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const [overrideReason, setOverrideReason] = useState('');
   const [overrideError, setOverrideError] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
+  const [billingEditor, setBillingEditor] = useState(null);
+  const [billingForm, setBillingForm] = useState({ schoolId: '', yearLevel: '', course: '', major: '', billingAmount: '0', billingNotes: '' });
+  const [billingEditError, setBillingEditError] = useState('');
+  const [billingSaving, setBillingSaving] = useState(false);
   const [query, setQuery] = useState('');
   const [scholarStatus, setScholarStatus] = useState('All Scholar Statuses');
   const [billed, setBilled] = useState(defaultBilledFilter);
@@ -103,6 +110,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
           isArchivedPeriod: true,
         })));
       setRecords([...currentRecords, ...archivedRecords]);
+      setAvailableSchools(body.schools || []);
       setLoadError('');
     } catch (error) {
       setLoadError(error instanceof TypeError ? 'Unable to reach the server. Retrying automatically…' : error.message || 'Unable to load records.');
@@ -230,6 +238,42 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
     setOverrideCandidate(null);
     setOverrideReason('');
     setOverrideError('');
+  };
+
+  const openBillingEditor = (record) => {
+    setBillingEditor(record);
+    setBillingForm({
+      schoolId: String(record.schoolId || ''),
+      yearLevel: record.yearLevel || '',
+      course: record.course || '',
+      major: record.major || '',
+      billingAmount: String(record.billingAmount ?? record.claimAmount ?? 0),
+      billingNotes: record.billingNotes || '',
+    });
+    setBillingEditError('');
+  };
+
+  const saveBillingDetails = async (event) => {
+    event.preventDefault();
+    if (!billingEditor || billingSaving) return;
+    setBillingSaving(true);
+    setBillingEditError('');
+    try {
+      const response = await fetch(`${API_BASE}/scholars/${billingEditor.applicantId}/billing-details`, {
+        method: 'PUT',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...billingForm, schoolId: Number(billingForm.schoolId), billingAmount: Number(billingForm.billingAmount) }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || 'Unable to update billing details.');
+      setBillingEditor(null);
+      setOperationNotice({ tone: 'success', text: body.message });
+      await loadRecords();
+    } catch (error) {
+      setBillingEditError(error.message || 'Unable to update billing details.');
+    } finally {
+      setBillingSaving(false);
+    }
   };
 
   const confirmBillingOverride = () => {
@@ -371,7 +415,10 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
                 return <div className={`billing-queue-row ${isSelected ? 'selected' : ''} ${canMove || canOverride ? '' : 'archived'} ${canOverride ? 'override-available' : ''}`} key={record.id}>
                   <code>{record.controlNumber || '—'}</code>
                   <button type="button" className="billing-queue-name" aria-pressed={isSelected} disabled={!canMove && !canOverride} title={canMove ? `Select ${record.name}` : canOverride ? `Override billing eligibility for ${record.name}` : unavailableReason || `${record.name} cannot be moved again.`} onClick={() => canMove ? toggleSelection(setSourceSelection, record.applicantId) : openBillingOverride(record)}><strong>{record.name}</strong><small>{isSelected ? 'Selected' : canOverride ? 'Click to authorize override' : record.email}</small></button>
-                  <span className={`billing-queue-ready ${canOverride ? 'override' : canMove ? '' : 'archived'}`}>{statusLabel}</span>
+                  <div className="billing-source-status">
+                    <span className={`billing-queue-ready ${canOverride ? 'override' : canMove ? '' : 'archived'}`}>{statusLabel}</span>
+                    {!isPayroll && !record.isArchivedPeriod && !record.billed && <button type="button" onClick={() => openBillingEditor(record)} aria-label={`Edit billing details for ${record.name}`}><Pencil size={12} />Edit</button>}
+                  </div>
                 </div>;
               })}
             </div>
@@ -425,6 +472,27 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
             <p className="billing-override-audit"><ShieldAlert size={15} />When billing is processed, this reason will be stored with the claim and the action will appear in Activity Logs.</p>
           </div>
           <footer><button type="button" className="secondary" onClick={closeBillingOverride}>Cancel</button><button type="button" className="primary" onClick={confirmBillingOverride} disabled={overrideReason.trim().length < 10}>Authorize override</button></footer>
+        </section>
+      </div>}
+      {billingEditor && <div className="billing-override-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !billingSaving && setBillingEditor(null)}>
+        <section className="billing-override-modal billing-details-modal" role="dialog" aria-modal="true" aria-labelledby="billing-details-title">
+          <header>
+            <i><Pencil size={20} /></i>
+            <div><span>BILLING DETAILS</span><h2 id="billing-details-title">Edit {billingEditor.name}</h2><p>Update the active-period academic and billing information before processing.</p></div>
+            <button type="button" disabled={billingSaving} onClick={() => setBillingEditor(null)} aria-label="Close billing details"><X size={18} /></button>
+          </header>
+          <form className="billing-details-form" onSubmit={saveBillingDetails}>
+            <div className="billing-details-grid">
+              <label><span>School</span><select required value={billingForm.schoolId} onChange={(event) => setBillingForm((current) => ({ ...current, schoolId: event.target.value }))}><option value="">Select school</option>{availableSchools.map((school) => <option key={school.id} value={school.id}>{school.name} ({school.schoolType})</option>)}</select></label>
+              <label><span>Year level</span><input maxLength={20} value={billingForm.yearLevel} onChange={(event) => setBillingForm((current) => ({ ...current, yearLevel: event.target.value }))} /></label>
+              <label><span>Course</span><input maxLength={150} value={billingForm.course} onChange={(event) => setBillingForm((current) => ({ ...current, course: event.target.value }))} /></label>
+              <label><span>Major</span><input maxLength={150} value={billingForm.major} onChange={(event) => setBillingForm((current) => ({ ...current, major: event.target.value }))} /></label>
+              <label><span>Billable amount (PHP)</span><input required type="number" min="0" max="99999999.99" step="0.01" value={billingForm.billingAmount} onChange={(event) => setBillingForm((current) => ({ ...current, billingAmount: event.target.value }))} /></label>
+              <label className="wide"><span>Billing notes</span><textarea maxLength={1000} rows={4} value={billingForm.billingNotes} onChange={(event) => setBillingForm((current) => ({ ...current, billingNotes: event.target.value }))} /></label>
+            </div>
+            {billingEditError && <p className="billing-override-error" role="alert">{billingEditError}</p>}
+            <footer><button type="button" className="secondary" disabled={billingSaving} onClick={() => setBillingEditor(null)}>Cancel</button><button type="submit" className="primary" disabled={billingSaving}><Save size={14} />{billingSaving ? 'Saving…' : 'Save billing details'}</button></footer>
+          </form>
         </section>
       </div>}
     </div>

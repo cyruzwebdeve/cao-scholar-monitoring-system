@@ -3,8 +3,10 @@ const prisma = require('../config/prisma');
 const {
   assertAccessChangeAllowed,
   getRoleConfig,
+  resolvePortalRole,
   serializeStaff,
 } = require('../services/staffAccounts');
+const { normalizeSectionAccess } = require('../services/sectionAccess');
 
 const parseStaffId = (value) => {
   const id = Number(value);
@@ -34,7 +36,7 @@ const getStaffManagement = async (req, res) => {
 
 const createStaffAccount = async (req, res) => {
   try {
-    const { fullName, email, password, role } = req.body;
+    const { fullName, email, password, role, sectionAccess } = req.body;
     const roleConfig = getRoleConfig(role);
     const passwordHash = await bcrypt.hash(password, 12);
     const admin = await prisma.admins.create({
@@ -45,6 +47,7 @@ const createStaffAccount = async (req, res) => {
         role: roleConfig.databaseRole,
         is_super_admin: roleConfig.isSuperAdmin,
         is_active: true,
+        section_access: normalizeSectionAccess(sectionAccess, role),
       },
     });
     res.locals.auditTargetId = admin.id;
@@ -67,11 +70,14 @@ const updateStaffAccount = async (req, res) => {
     const target = await prisma.admins.findUnique({ where: { id } });
     if (!target) return res.status(404).json({ message: 'Staff account not found.' });
 
-    const { fullName, email, role, isActive } = req.body;
+    const { fullName, email, role, isActive, sectionAccess } = req.body;
     const roleConfig = getRoleConfig(role);
+    const normalizedSections = normalizeSectionAccess(sectionAccess, role);
+    const previousSections = normalizeSectionAccess(target.section_access, resolvePortalRole(target));
     const accessChanged = target.is_active !== isActive
       || target.role !== roleConfig.databaseRole
-      || target.is_super_admin !== roleConfig.isSuperAdmin;
+      || target.is_super_admin !== roleConfig.isSuperAdmin
+      || JSON.stringify(previousSections.sort()) !== JSON.stringify([...normalizedSections].sort());
 
     if (accessChanged) {
       const otherActiveSuperAdmins = await prisma.admins.count({
@@ -94,6 +100,7 @@ const updateStaffAccount = async (req, res) => {
         role: roleConfig.databaseRole,
         is_super_admin: roleConfig.isSuperAdmin,
         is_active: isActive,
+        section_access: normalizedSections,
         ...(accessChanged ? { auth_version: { increment: 1 } } : {}),
       },
     });

@@ -7,6 +7,7 @@ const {
   resolvePortalRole,
   serializeStaff,
 } = require('../services/staffAccounts');
+const { hasSectionAccess, normalizeSectionAccess } = require('../services/sectionAccess');
 
 test('maps every supported staff role to its database representation', () => {
   assert.deepEqual(getRoleConfig('SuperAdmin'), {
@@ -40,10 +41,12 @@ test('serializes staff without exposing password hashes or authentication versio
     updated_at: new Date('2026-08-20T01:00:00Z'),
     password_hash: 'must-not-leak',
     auth_version: 8,
+    section_access: ['dashboard', 'applicants'],
   }, 3);
 
   assert.equal(staff.role, 'BillingPayrollAdmin');
   assert.equal(staff.isCurrentUser, true);
+  assert.deepEqual(staff.sectionAccess, ['dashboard', 'applicants']);
   assert.equal(Object.hasOwn(staff, 'password_hash'), false);
   assert.equal(Object.hasOwn(staff, 'auth_version'), false);
 });
@@ -74,4 +77,12 @@ test('protects the final active Super Administrator while allowing safe access c
     nextIsActive: true,
     otherActiveSuperAdmins: 1,
   }));
+});
+
+test('section permissions narrow role access while preserving legacy role defaults', () => {
+  assert.deepEqual(normalizeSectionAccess(['dashboard', 'billing', 'staff'], 'RegularAdmin'), ['dashboard', 'billing']);
+  assert.equal(hasSectionAccess({ role: 'RegularAdmin', sectionAccess: ['billing'] }, 'billing'), true);
+  assert.equal(hasSectionAccess({ role: 'RegularAdmin', sectionAccess: ['billing'] }, 'applicants'), false);
+  assert.equal(hasSectionAccess({ role: 'SuperAdmin', sectionAccess: [] }, 'settings'), true);
+  assert.ok(normalizeSectionAccess(null, 'Moderator').includes('documentReviews'));
 });

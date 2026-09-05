@@ -8,6 +8,7 @@ const {
   hashResetToken,
 } = require('../services/passwordReset');
 const { recordSuccessfulLogin } = require('../services/activityLog');
+const { normalizeSectionAccess } = require('../services/sectionAccess');
 
 const createToken = (id, accountType, role, authVersion = 0) => jwt.sign(
   { userId: id, accountType, role, authVersion },
@@ -41,7 +42,7 @@ const getAdminAccount = async (email) => {
   const admin = await prisma.admins.findFirst({ where: { email } });
   if (!admin || !admin.is_active) return null;
   const role = admin.is_super_admin ? 'SuperAdmin' : admin.role === 'moderator' ? 'Moderator' : admin.role === 'admin' ? 'RegularAdmin' : 'BillingPayrollAdmin';
-  return { id: admin.id, email: admin.email, role, accountType: 'admin', account: admin };
+  return { id: admin.id, email: admin.email, role, sectionAccess: normalizeSectionAccess(admin.section_access, role), accountType: 'admin', account: admin };
 };
 
 const register = async (req, res) => {
@@ -94,7 +95,7 @@ const login = async (req, res) => {
       accountUser.role,
       accountUser.account.auth_version,
     );
-    return res.status(200).json({ token, user: { id: accountUser.id, email: accountUser.email, firstName: accountUser.firstName, middleName: accountUser.middleName, lastName: accountUser.lastName, role: accountUser.role, controlNumber: accountUser.account.control_number } });
+    return res.status(200).json({ token, user: { id: accountUser.id, email: accountUser.email, firstName: accountUser.firstName, middleName: accountUser.middleName, lastName: accountUser.lastName, role: accountUser.role, sectionAccess: accountUser.sectionAccess, controlNumber: accountUser.account.control_number } });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error during login.' });
