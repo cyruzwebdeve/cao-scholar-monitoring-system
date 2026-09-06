@@ -18,7 +18,9 @@ import {
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
 import CsvExportModal from './components/CsvExportModal';
+import { DecisionModal, ReviewModal } from './DocumentReviewManagement';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
+import './styles/document-reviews.css';
 
 const formatScholarDate = (value) => {
   if (!value) return 'Not available';
@@ -60,10 +62,20 @@ export default function ScholarsManagement({ token, user }) {
   const [billingForm, setBillingForm] = useState({ academicPeriodId: '', billingStatus: 'Pending' });
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingEditError, setBillingEditError] = useState('');
+  const [documentReview, setDocumentReview] = useState(null);
+  const [documentPreview, setDocumentPreview] = useState('');
+  const [documentPreviewLoading, setDocumentPreviewLoading] = useState(false);
+  const [documentPreviewError, setDocumentPreviewError] = useState('');
+  const [documentDecision, setDocumentDecision] = useState('');
+  const [documentDecisionError, setDocumentDecisionError] = useState('');
+  const [documentSaving, setDocumentSaving] = useState(false);
+  const [documentNotice, setDocumentNotice] = useState('');
   const pageSize = 10;
   const canEditBilling = user?.role === 'SuperAdmin'
     || !Array.isArray(user?.sectionAccess)
     || user.sectionAccess.includes('billing');
+  const canReviewDocuments = ['SuperAdmin', 'BillingPayrollAdmin'].includes(user?.role)
+    && (user?.role === 'SuperAdmin' || !Array.isArray(user?.sectionAccess) || user.sectionAccess.includes('documentReviews'));
 
   const loadScholars = useCallback(async ({ showLoader = false } = {}) => {
     if (showLoader) setLoading(true);
@@ -93,10 +105,75 @@ export default function ScholarsManagement({ token, user }) {
 
   useEffect(() => {
     if (!selected) return undefined;
-    const closeOnEscape = (event) => { if (event.key === 'Escape') setSelected(null); };
+    const closeOnEscape = (event) => { if (event.key === 'Escape' && !documentReview) setSelected(null); };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [selected]);
+  }, [documentReview, selected]);
+
+  useEffect(() => () => { if (documentPreview) URL.revokeObjectURL(documentPreview); }, [documentPreview]);
+
+  const closeDocumentReview = useCallback(() => {
+    if (documentPreview) URL.revokeObjectURL(documentPreview);
+    setDocumentPreview('');
+    setDocumentPreviewError('');
+    setDocumentDecision('');
+    setDocumentDecisionError('');
+    setDocumentReview(null);
+  }, [documentPreview]);
+
+  const openDocumentReview = async (document) => {
+    if (!canReviewDocuments || !document.submitted || !document.applicationId || !document.requirementKey) return;
+    if (documentPreview) URL.revokeObjectURL(documentPreview);
+    const review = {
+      ...document,
+      applicantId: selected.applicantId,
+      scholarName: selected.name,
+      email: selected.email,
+      controlNumber: selected.controlNumber,
+      municipality: selected.municipality,
+      requirementLabel: document.label,
+      status: String(document.status || 'pending').toLowerCase(),
+      autoAcceptance: false,
+    };
+    setDocumentReview(review);
+    setDocumentPreview('');
+    setDocumentPreviewError('');
+    setDocumentPreviewLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/document-reviews/${document.applicationId}/${document.requirementKey}/file`, { headers: authHeaders(token) });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.message || 'Unable to open the document.');
+      }
+      setDocumentPreview(URL.createObjectURL(await response.blob()));
+    } catch (error) {
+      setDocumentPreviewError(error.message || 'Unable to open the document.');
+    } finally {
+      setDocumentPreviewLoading(false);
+    }
+  };
+
+  const saveDocumentDecision = async (notes) => {
+    if (!documentReview || !documentDecision) return;
+    setDocumentSaving(true);
+    setDocumentDecisionError('');
+    try {
+      const response = await fetch(`${API_BASE}/document-reviews/${documentReview.applicationId}/${documentReview.requirementKey}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+        body: JSON.stringify({ decision: documentDecision, notes }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || 'Unable to save the review decision.');
+      setDocumentNotice(body.message || 'Document review saved.');
+      closeDocumentReview();
+      await loadScholars();
+    } catch (error) {
+      setDocumentDecisionError(error.message || 'Unable to save the review decision.');
+    } finally {
+      setDocumentSaving(false);
+    }
+  };
 
   const municipalities = useMemo(() => [...new Set(scholars.map((item) => item.municipality).filter(Boolean))].sort(), [scholars]);
   const schools = useMemo(() => [...new Set(scholars
@@ -217,7 +294,7 @@ export default function ScholarsManagement({ token, user }) {
             <div data-label="Barangay"><span>{scholar.barangay}</span></div>
             <div data-label="Status"><ScholarBadge value={scholar.status} type="status" /></div>
             <div data-label="Documents"><ScholarBadge value={scholar.documentStatus} type="documents" /></div>
-            <div data-label="Action"><button type="button" className="scholars-view" aria-label={`View details for ${scholar.name}`} onClick={() => { setSelected(scholar); setDrawerTab('overview'); setEditingBilling(false); }}><Eye size={13} />View details</button></div>
+            <div data-label="Action"><button type="button" className="scholars-view" aria-label={`View details for ${scholar.name}`} onClick={() => { setSelected(scholar); setDrawerTab('overview'); setEditingBilling(false); setDocumentNotice(''); }}><Eye size={13} />View details</button></div>
           </article>)}
         </div>
         {!!filtered.length && <footer className="scholars-table-footer"><span>Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}</span><nav className="scholars-pagination" aria-label="Scholar pages"><button type="button" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" key={item} aria-label={`Page ${item}`} className={item === currentPage ? 'active' : ''} aria-current={item === currentPage ? 'page' : undefined} onClick={() => setPage(item)}>{item}</button> : <span key={item}>…</span>)}<button type="button" aria-label="Next page" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>›</button></nav></footer>}
@@ -241,7 +318,13 @@ export default function ScholarsManagement({ token, user }) {
             <div className="scholars-drawer-tab-panel" role="tabpanel">
               <section className="scholars-detail-section"><h4>Scholar information</h4><dl><div><dt>Email address</dt><dd>{selected.email || 'Not provided'}</dd></div><div><dt>School year</dt><dd>{selected.schoolYear || '2026-2027'}</dd></div><div><dt>Issued</dt><dd>{formatScholarDate(selected.issuedAt)}</dd></div></dl></section>
               <section className="scholars-detail-section"><h4>Education and location</h4><dl><div><dt>School</dt><dd>{selected.school}</dd></div><div><dt>Course</dt><dd>{selected.course || 'Not specified'}</dd></div><div><dt>Year level</dt><dd>{selected.yearLevel || 'Not specified'}</dd></div><div><dt>Municipality</dt><dd>{selected.municipality}</dd></div><div><dt>Barangay</dt><dd>{selected.barangay}</dd></div></dl></section>
-              <section className="scholars-detail-section"><h4>Document checklist</h4><div className="scholars-document-list">{selected.documents.map((document) => <div key={document.label}><span>{document.label}</span><strong className={document.submitted ? document.status.toLowerCase() : 'not-submitted'}>{document.submitted ? document.status : 'Not submitted'}</strong></div>)}</div></section>
+              <section className="scholars-detail-section"><h4>Document checklist</h4>{documentNotice && <p className="scholars-document-notice" role="status">{documentNotice}</p>}<div className="scholars-document-list">{selected.documents.map((document) => {
+                const isReviewable = canReviewDocuments && document.submitted && document.fileName && document.applicationId && document.requirementKey;
+                const content = <><span>{document.label}{isReviewable && <small><Eye size={12} />View and review</small>}</span><strong className={document.submitted ? document.status.toLowerCase() : 'not-submitted'}>{document.submitted ? document.status : 'Not submitted'}</strong></>;
+                return isReviewable
+                  ? <button type="button" key={document.label} className="scholars-document-row" onClick={() => openDocumentReview(document)} aria-label={`View and review ${document.label}`}>{content}</button>
+                  : <div key={document.label}>{content}</div>;
+              })}</div></section>
               {selected.notes && <section className="scholars-detail-section"><h4>Account notes</h4><p className="scholars-notes">{selected.notes}</p></section>}
             </div>
           ) : (
@@ -271,5 +354,7 @@ export default function ScholarsManagement({ token, user }) {
         </aside>
       </div>
     )}
+    {documentReview && <ReviewModal review={documentReview} preview={documentPreview} previewLoading={documentPreviewLoading} previewError={documentPreviewError} onClose={closeDocumentReview} onDecision={setDocumentDecision} />}
+    {documentReview && documentDecision && <DecisionModal review={documentReview} decision={documentDecision} saving={documentSaving} error={documentDecisionError} onClose={() => { if (!documentSaving) { setDocumentDecision(''); setDocumentDecisionError(''); } }} onConfirm={saveDocumentDecision} />}
   </>;
 }

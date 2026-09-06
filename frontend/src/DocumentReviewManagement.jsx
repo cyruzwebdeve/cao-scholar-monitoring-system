@@ -29,7 +29,7 @@ const formatDate = (value, fallback = 'Not available') => {
 
 const titleCase = (value) => `${String(value || '').charAt(0).toUpperCase()}${String(value || '').slice(1)}`;
 
-function ReviewModal({ review, preview, previewLoading, previewError, onClose, onDecision }) {
+export function ReviewModal({ review, preview, previewLoading, previewError, onClose, onDecision }) {
   useEffect(() => {
     const close = (event) => { if (event.key === 'Escape') onClose(); };
     window.addEventListener('keydown', close);
@@ -82,7 +82,7 @@ function ReviewModal({ review, preview, previewLoading, previewError, onClose, o
   );
 }
 
-function DecisionModal({ review, decision, saving, error, onClose, onConfirm }) {
+export function DecisionModal({ review, decision, saving, error, onClose, onConfirm }) {
   const [notes, setNotes] = useState(decision === 'rejected' ? '' : review.reviewNotes || '');
   const rejected = decision === 'rejected';
   return (

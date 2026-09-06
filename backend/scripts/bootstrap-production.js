@@ -82,20 +82,10 @@ const ensureBillingAdmin = () => ensureAdminAccount({
   role: 'billing',
 });
 
-const ensureModerator = () => ensureAdminAccount({
-  label: 'Content moderator',
-  nameVariable: 'BOOTSTRAP_MODERATOR_NAME',
-  emailVariable: 'BOOTSTRAP_MODERATOR_EMAIL',
-  passwordVariable: 'BOOTSTRAP_MODERATOR_PASSWORD',
-  defaultName: 'Content Moderator',
-  role: 'moderator',
-});
-
 const main = async () => {
   await ensureAcademicPeriod();
   await ensureSuperAdmin();
   await ensureBillingAdmin();
-  await ensureModerator();
 };
 
 main()

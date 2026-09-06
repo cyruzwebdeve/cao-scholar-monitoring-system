@@ -14,7 +14,7 @@ const ScholarDashboard = lazy(() => import('./ScholarDashboard'));
 const Sidebar = lazy(() => import('./components/Sidebar'));
 
 const isAdminRole = (role) =>
-  role === 'BillingPayrollAdmin' || role === 'RegularAdmin' || role === 'SuperAdmin' || role === 'Moderator';
+  role === 'BillingPayrollAdmin' || role === 'RegularAdmin' || role === 'SuperAdmin';
 
 const sectionLabels = {
   dashboard: 'Dashboard', applicants: 'Applicants', examination: 'Examination Management',
@@ -24,12 +24,11 @@ const sectionLabels = {
 const getDefaultSectionForRole = (role, sectionAccess) => {
   if (role === 'SuperAdmin') return 'Dashboard';
   if (Array.isArray(sectionAccess)) return sectionLabels[sectionAccess[0]] || 'Settings';
-  return role === 'Moderator' ? 'Document Reviews' : 'Dashboard';
+  return 'Dashboard';
 };
 
 const getRoleLabel = (role) => {
   if (role === 'SuperAdmin') return 'Super Administrator';
-  if (role === 'Moderator') return 'Content Moderator';
   if (role === 'BillingPayrollAdmin') return 'Billing / Payroll Admin';
   if (role === 'RegularAdmin') return 'Administrator';
   return 'Administrator';
@@ -37,7 +36,6 @@ const getRoleLabel = (role) => {
 
 const getRoleSubtitle = (role) => {
   if (role === 'SuperAdmin') return 'Administrator';
-  if (role === 'Moderator') return 'Moderator';
   if (role === 'BillingPayrollAdmin') return 'Billing and Payroll';
   if (role === 'RegularAdmin') return 'Admin Workspace';
   return 'Admin';
@@ -170,11 +168,7 @@ function App() {
                           <span>{getRoleSubtitle(user?.role)}</span>
                         </div>
                         <div className="dashboard-page-user-avatar" aria-hidden="true">
-                          {user?.role === 'SuperAdmin'
-                            ? 'S'
-                            : user?.role === 'Moderator'
-                              ? 'M'
-                              : 'B'}
+                          {user?.role === 'SuperAdmin' ? 'S' : user?.role === 'RegularAdmin' ? 'A' : 'B'}
                         </div>
                       </div>
                     </div>

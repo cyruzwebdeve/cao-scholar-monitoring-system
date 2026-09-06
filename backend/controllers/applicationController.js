@@ -798,7 +798,7 @@ const getScholarManagement = async (req, res) => {
       prisma.application_submissions.findMany({
         where: { applicant_id: { in: applicantIds } },
         orderBy: { submitted_at: 'desc' },
-        select: { applicant_id: true, school_plan: true, initial_docs: true },
+        select: { id: true, applicant_id: true, school_plan: true, initial_docs: true },
       }),
       prisma.payroll_claims.findMany({ where: { applicant_id: { in: applicantIds } }, orderBy: { updated_at: 'desc' } }),
       prisma.academic_periods.findMany(),
@@ -912,6 +912,13 @@ const getScholarManagement = async (req, res) => {
         return {
           label,
           submitted,
+          applicationId: application?.id || null,
+          requirementKey: uploadKey,
+          fileName: uploadedDocument?.fileName || null,
+          fileType: uploadedDocument?.fileType || 'application/octet-stream',
+          uploadedAt: uploadedDocument?.uploadedAt || null,
+          reviewedAt: uploadedDocument?.reviewedAt || null,
+          reviewNotes: uploadedDocument?.reviewNotes || '',
           status: statusField
             ? uploadedDocument?.status || requirement?.[statusField] || 'pending'
             : submitted ? 'approved' : 'pending',
@@ -1636,7 +1643,7 @@ const uploadMyRequirement = async (req, res) => {
     if (existingRequirement?.fileUrl && existingRequirement.fileUrl !== storedFile.fileUrl) {
       await deleteBlob(existingRequirement.fileUrl, token);
     }
-    return res.json({ message: 'Requirement uploaded and submitted for moderator review.', application: updated });
+    return res.json({ message: 'Requirement uploaded and submitted for Billing staff review.', application: updated });
   } catch (error) {
     console.error(error);
     if (error instanceof BlobStorageConfigurationError) return res.status(error.statusCode).json({ message: error.message });

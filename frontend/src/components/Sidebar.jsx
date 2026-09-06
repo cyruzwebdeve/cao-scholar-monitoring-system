@@ -19,6 +19,7 @@ const navItemsByRole = {
     { label: 'Applicants', icon: UsersRound, accessSections: ['applicants', 'examination'] },
     { label: 'Staff', icon: UsersRound },
     { label: 'Scholars', icon: GraduationCap, section: 'scholars' },
+    { label: 'Document Reviews', icon: ClipboardList, section: 'documentReviews' },
     { label: 'Billing', icon: FileText, section: 'billing' },
     { label: 'Payroll', icon: Boxes, section: 'payroll' },
     { label: 'Announcements', icon: Megaphone, section: 'announcements' },
@@ -31,15 +32,11 @@ const navItemsByRole = {
     { label: 'Dashboard', icon: LayoutDashboard, section: 'dashboard' },
     { label: 'Applicants', icon: UsersRound, accessSections: ['applicants', 'examination'] },
     { label: 'Scholars', icon: GraduationCap, section: 'scholars' },
+    { label: 'Document Reviews', icon: ClipboardList, section: 'documentReviews' },
     { label: 'Billing', icon: FileText, section: 'billing' },
     { label: 'Payroll', icon: Boxes, section: 'payroll' },
     { label: 'Announcements', icon: Megaphone, section: 'announcements' },
     { label: 'Reports', icon: ChartColumn, section: 'reports' },
-    { label: 'Settings', icon: Settings2, section: 'settings' },
-  ],
-  Moderator: [
-    { label: 'Document Reviews', icon: ClipboardList, section: 'documentReviews' },
-    { label: 'Announcements', icon: Megaphone, section: 'announcements' },
     { label: 'Settings', icon: Settings2, section: 'settings' },
   ],
 };
@@ -50,7 +47,7 @@ navItemsByRole.RegularAdmin = navItemsByRole.SuperAdmin.filter(({ label }) => [
 ].includes(label));
 
 function Sidebar({ onLogout, activeSection, onSectionChange, role, sectionAccess, isOpen = false, onClose }) {
-  const roleItems = navItemsByRole[role] || navItemsByRole.Moderator;
+  const roleItems = navItemsByRole[role] || [];
   const navItems = role === 'SuperAdmin' || !Array.isArray(sectionAccess)
     ? roleItems
     : roleItems.filter((item) => (
@@ -81,9 +78,7 @@ function Sidebar({ onLogout, activeSection, onSectionChange, role, sectionAccess
               ? 'Super Admin Workspace'
               : role === 'BillingPayrollAdmin'
                 ? 'Billing Admin Workspace'
-                : role === 'Moderator'
-                  ? 'Content Moderator Workspace'
-                  : 'Administrator Workspace'}
+                : 'Administrator Workspace'}
           </p>
         </div>
       </div>

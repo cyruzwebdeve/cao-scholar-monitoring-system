@@ -216,12 +216,12 @@ const buildApplicantGuidance = ({
     return {
       state: 'waiting',
       headline: 'Your documents are being reviewed',
-      description: `${formatCount(pendingRequirements.length, 'uploaded document')} awaiting moderator review.`,
+      description: `${formatCount(pendingRequirements.length, 'uploaded document')} awaiting Billing staff review.`,
       actions: [makeAction({
         id: 'wait-document-review',
         type: 'waiting',
         title: 'No upload is required right now',
-        description: 'If a moderator returns a file, its reason and replacement option will appear in your requirements list.',
+        description: 'If Billing staff returns a file, its reason and replacement option will appear in your requirements list.',
       })],
       timeline,
     };

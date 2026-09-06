@@ -1,6 +1,6 @@
 const normalizeActorType = (user) => {
   if (!user) return null;
-  if (['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin', 'Moderator'].includes(user.role)) return 'admin';
+  if (['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user.role)) return 'admin';
   return user.role === 'Scholar' ? 'scholar' : 'applicant';
 };
 

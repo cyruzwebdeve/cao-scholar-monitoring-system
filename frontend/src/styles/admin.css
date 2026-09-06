@@ -5619,7 +5619,7 @@
   border: 1px solid #e3ebe5;
   border-radius: 10px;
 }
-.scholars-document-list > div {
+.scholars-document-list > :is(div, button) {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -5627,8 +5627,42 @@
   padding: 10px 12px;
   border-bottom: 1px solid #edf2ee;
 }
-.scholars-document-list > div:last-child {
+.scholars-document-list > :is(div, button):last-child {
   border-bottom: 0;
+}
+.scholars-document-row {
+  width: 100%;
+  border: 0;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+.scholars-document-row:hover,
+.scholars-document-row:focus-visible {
+  background: #f3faf5;
+  box-shadow: inset 3px 0 #159447;
+  outline: none;
+}
+.scholars-document-list span small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  color: #168a42;
+  font-size: 8px;
+  font-weight: 700;
+}
+.scholars-document-notice {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border: 1px solid #cce8d4;
+  border-radius: 8px;
+  background: #f0faf3;
+  color: #147a38;
+  font-size: 10px;
 }
 .scholars-document-list span {
   color: #536159;

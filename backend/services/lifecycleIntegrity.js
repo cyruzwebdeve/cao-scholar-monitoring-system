@@ -53,7 +53,7 @@ const evaluateBillingEligibility = ({ isActive, alreadyBilled, initialDocs, requ
   if (!isActive) reasons.push({ code: 'SCHOLAR_INACTIVE', message: 'Scholar account is not active.' });
   snapshot.online.forEach((item) => {
     if (!item.submitted) reasons.push({ code: 'REQUIREMENT_MISSING', requirement: item.key, message: `${item.label} has not been uploaded.` });
-    else if (!item.approved) reasons.push({ code: 'REQUIREMENT_NOT_APPROVED', requirement: item.key, message: `${item.label} has not been approved by a Moderator.` });
+    else if (!item.approved) reasons.push({ code: 'REQUIREMENT_NOT_APPROVED', requirement: item.key, message: `${item.label} has not been approved by Billing staff.` });
   });
   if (!snapshot.physicalFolderSubmitted) {
     reasons.push({ code: 'PHYSICAL_FOLDER_MISSING', message: 'The white long folder has not been received by CAO.' });

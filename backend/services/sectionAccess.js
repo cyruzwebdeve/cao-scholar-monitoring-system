@@ -14,8 +14,7 @@ const SECTION_KEYS = Object.freeze([
 const ROLE_SECTION_DEFAULTS = Object.freeze({
   SuperAdmin: SECTION_KEYS,
   RegularAdmin: Object.freeze(['dashboard', 'applicants', 'examination', 'scholars', 'billing', 'payroll', 'announcements', 'reports', 'settings']),
-  BillingPayrollAdmin: Object.freeze(['dashboard', 'applicants', 'examination', 'scholars', 'billing', 'payroll', 'announcements', 'reports', 'settings']),
-  Moderator: Object.freeze(['documentReviews', 'announcements', 'settings']),
+  BillingPayrollAdmin: Object.freeze(['dashboard', 'applicants', 'examination', 'scholars', 'billing', 'payroll', 'announcements', 'reports', 'settings', 'documentReviews']),
 });
 
 const getAllowedSectionsForRole = (role) => [...(ROLE_SECTION_DEFAULTS[role] || [])];

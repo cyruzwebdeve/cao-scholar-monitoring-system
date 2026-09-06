@@ -7,7 +7,8 @@ const resolveUser = async (payload) => {
     const admin = await prisma.admins.findUnique({ where: { id: payload.userId } });
     if (!admin || !admin.is_active) return null;
     if ((payload.authVersion ?? 0) !== admin.auth_version) return null;
-    const role = admin.is_super_admin ? 'SuperAdmin' : admin.role === 'moderator' ? 'Moderator' : admin.role === 'admin' ? 'RegularAdmin' : 'BillingPayrollAdmin';
+    const role = admin.is_super_admin ? 'SuperAdmin' : admin.role === 'admin' ? 'RegularAdmin' : admin.role === 'billing' ? 'BillingPayrollAdmin' : null;
+    if (!role) return null;
     return { id: admin.id, email: admin.email, role, sectionAccess: normalizeSectionAccess(admin.section_access, role) };
   }
 

@@ -212,7 +212,7 @@ function ScholarDashboard({ token, user, onLogout }) {
       : attentionCount > 0
         ? `${attentionCount} online requirement${attentionCount === 1 ? '' : 's'} still need your attention.`
         : pendingReviewCount > 0
-          ? `${pendingReviewCount} uploaded document${pendingReviewCount === 1 ? ' is' : 's are'} awaiting moderator review.`
+          ? `${pendingReviewCount} uploaded document${pendingReviewCount === 1 ? ' is' : 's are'} awaiting Billing staff review.`
           : 'All online requirements are approved.',
     physicalFolderSubmitted
       ? 'Your physical folder has been received by CAO.'
@@ -250,7 +250,7 @@ function ScholarDashboard({ token, user, onLogout }) {
         if (!response.ok) throw new Error(body.message || 'Upload failed.');
         setApplication(body.application);
         setRequirementsError('');
-        setNotice({ tone: 'success', message: `${file.name} was submitted for moderator review.` });
+        setNotice({ tone: 'success', message: `${file.name} was submitted for Billing staff review.` });
       } catch (error) {
         setNotice({ tone: 'error', message: error.message || 'Unable to upload this requirement.' });
       } finally {
@@ -365,7 +365,7 @@ function ScholarDashboard({ token, user, onLogout }) {
             <div>
               <span>Requirements</span>
               <strong>{approvedCount} of {uploadableRequirements.length} files approved</strong>
-              <small>{requirementsComplete ? 'All requirements cleared' : onlineRequirementsComplete ? 'Submit the physical folder to CAO' : rejectedCount > 0 ? `${rejectedCount} returned for correction` : pendingReviewCount > 0 ? `${pendingReviewCount} awaiting moderator review` : `${missingCount} still need to be uploaded`}</small>
+              <small>{requirementsComplete ? 'All requirements cleared' : onlineRequirementsComplete ? 'Submit the physical folder to CAO' : rejectedCount > 0 ? `${rejectedCount} returned for correction` : pendingReviewCount > 0 ? `${pendingReviewCount} awaiting Billing staff review` : `${missingCount} still need to be uploaded`}</small>
             </div>
           </article>
         </section>
@@ -383,7 +383,7 @@ function ScholarDashboard({ token, user, onLogout }) {
           <div className="scholar-portal-column">
             <section className="scholar-panel scholar-action-panel" id="requirements">
             <div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{requirementsComplete ? 'REQUIREMENTS COMPLETE' : rejectedCount > 0 ? 'CORRECTION REQUIRED' : 'ACTION NEEDED'}</p><h2>{requirementsComplete ? 'Requirements approved' : rejectedCount > 0 ? 'Review returned documents' : 'Complete your requirements'}</h2></div><FileCheck2 size={21} className="scholar-heading-icon" /></div>
-            <p className="scholar-panel-copy">{requirementsComplete ? 'All online files and the physical folder have been approved and recorded.' : 'Uploaded files are checked by a Moderator before they count as completed requirements.'}</p>
+            <p className="scholar-panel-copy">{requirementsComplete ? 'All online files and the physical folder have been approved and recorded.' : 'Uploaded files are checked by Billing staff before they count as completed requirements.'}</p>
             {requirementsError && <div className="scholar-requirements-error"><span>{requirementsError}</span><button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry now</button></div>}
             <div className="scholar-requirements-list" aria-busy={loadingRequirements}>
               {requirementItems.map(({ key, label, note, physical }) => {
@@ -406,7 +406,7 @@ function ScholarDashboard({ token, user, onLogout }) {
                               : reviewStatus === 'rejected'
                                 ? `Returned: ${item.reviewNotes || 'Please upload a clearer or corrected document.'}`
                                 : reviewStatus === 'pending'
-                                  ? `${item.fileName} · Pending moderator review`
+                                  ? `${item.fileName} · Pending Billing staff review`
                                   : note || 'No file uploaded'}
                       </small>
                     </span>

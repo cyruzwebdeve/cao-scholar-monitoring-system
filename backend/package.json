@@ -21,7 +21,6 @@
     "schema:migrate-application": "node ./scripts/migrate-to-application-database.js",
     "seed:superadmin": "node ./scripts/create-superadmin.js",
     "seed:billingadmin": "node ./scripts/create-billingadmin.js",
-    "seed:moderator": "node ./scripts/create-moderator.js",
     "seed:demo": "node ./scripts/seed-demo-applicants-scholars.js",
     "seed:complete-applicants": "node ./scripts/seed-complete-applicants.js",
     "seed:production": "node ./scripts/bootstrap-production.js",

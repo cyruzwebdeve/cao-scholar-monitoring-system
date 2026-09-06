@@ -148,7 +148,7 @@ const sectionViews = {
     eyebrow: 'Content moderation',
     title: 'Content management workspace',
     description: 'Manage announcements, publishing flow, and content review tasks from one place.',
-    heroBadge: 'Moderator ready',
+    heroBadge: 'Publishing ready',
     metrics: [
       { label: 'Published', value: '18', icon: '📣', tone: 'emerald' },
       { label: 'Scheduled', value: '3', icon: '🗓️', tone: 'sky' },
@@ -1233,7 +1233,7 @@ function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange, 
   if (activeSection === 'Announcements') return <AnnouncementsManagement token={token} />;
   if (activeSection === 'Activity Logs' && user?.role === 'SuperAdmin') return <ActivityLogsManagement token={token} />;
   if (activeSection === 'Staff' && user?.role === 'SuperAdmin') return <StaffManagement token={token} onLogout={onLogout} />;
-  if (activeSection === 'Document Reviews' && ['Moderator', 'SuperAdmin'].includes(user?.role)) return <DocumentReviewManagement token={token} />;
+  if (activeSection === 'Document Reviews' && ['BillingPayrollAdmin', 'SuperAdmin'].includes(user?.role)) return <DocumentReviewManagement token={token} />;
   if (activeSection === 'School Catalog' && user?.role === 'SuperAdmin') return <SchoolCatalogManagement token={token} />;
   if (activeSection === 'Reports') return <ReportsManagement token={token} />;
   if (activeSection === 'Settings') return <SettingsManagement token={token} user={user} />;

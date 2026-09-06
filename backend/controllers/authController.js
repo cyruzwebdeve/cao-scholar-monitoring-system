@@ -41,7 +41,8 @@ const getApplicantAccount = async (identifier) => {
 const getAdminAccount = async (email) => {
   const admin = await prisma.admins.findFirst({ where: { email } });
   if (!admin || !admin.is_active) return null;
-  const role = admin.is_super_admin ? 'SuperAdmin' : admin.role === 'moderator' ? 'Moderator' : admin.role === 'admin' ? 'RegularAdmin' : 'BillingPayrollAdmin';
+  const role = admin.is_super_admin ? 'SuperAdmin' : admin.role === 'admin' ? 'RegularAdmin' : admin.role === 'billing' ? 'BillingPayrollAdmin' : null;
+  if (!role) return null;
   return { id: admin.id, email: admin.email, role, sectionAccess: normalizeSectionAccess(admin.section_access, role), accountType: 'admin', account: admin };
 };
 

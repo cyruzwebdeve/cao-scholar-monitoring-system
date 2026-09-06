@@ -26,7 +26,6 @@ const emptyData = {
 const roleOptions = [
   ['RegularAdmin', 'Administrator'],
   ['BillingPayrollAdmin', 'Billing / Payroll Admin'],
-  ['Moderator', 'Content Moderator'],
   ['SuperAdmin', 'Super Administrator'],
 ];
 
@@ -46,8 +45,7 @@ const sectionOptions = [
 const roleSectionDefaults = {
   SuperAdmin: sectionOptions.map(([key]) => key),
   RegularAdmin: ['dashboard', 'applicants', 'examination', 'scholars', 'billing', 'payroll', 'announcements', 'reports', 'settings'],
-  BillingPayrollAdmin: ['dashboard', 'applicants', 'examination', 'scholars', 'billing', 'payroll', 'announcements', 'reports', 'settings'],
-  Moderator: ['documentReviews', 'announcements', 'settings'],
+  BillingPayrollAdmin: ['dashboard', 'applicants', 'examination', 'scholars', 'billing', 'payroll', 'announcements', 'reports', 'settings', 'documentReviews'],
 };
 
 const emptyForm = {
@@ -207,11 +205,13 @@ function StaffManagement({ token, onLogout }) {
     setForm({
       fullName: member.fullName,
       email: member.email,
-      role: member.role,
+      role: roleSectionDefaults[member.role] ? member.role : 'BillingPayrollAdmin',
       isActive: member.isActive,
       password: '',
       confirmPassword: '',
-      sectionAccess: member.sectionAccess || roleSectionDefaults[member.role],
+      sectionAccess: roleSectionDefaults[member.role]
+        ? member.sectionAccess || roleSectionDefaults[member.role]
+        : [...roleSectionDefaults.BillingPayrollAdmin],
     });
     setFormError('');
     setEditor({ mode: 'edit', member });

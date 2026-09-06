@@ -47,7 +47,7 @@ test('[SUCCESS] an active scholar with six approved files and a physical folder 
   assert.equal(result.snapshot.onlineApproved, 6);
 });
 
-test('[FAILED] pending or missing Moderator decisions block billing', () => {
+test('[FAILED] pending or missing Billing staff decisions block billing', () => {
   const documents = approvedDocuments();
   documents.requirements.grades.status = 'Pending';
   delete documents.requirements.valid_id;

@@ -5,6 +5,125 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-07 - Billing Staff Document Review Ownership
+
+### TL;DR
+
+- Retired the standalone Content Moderator role and moved document-review authority to Billing / Payroll staff; Super Administrators retain oversight.
+- Made submitted online documents in a Scholar's Document checklist clickable for secure preview and approve/reject decisions in place.
+- Preserved the full Document Reviews queue and existing review, correction, Activity Log, and billing-readiness behavior.
+- Added a migration that disables legacy moderator accounts and invalidates their sessions without deleting historical review records.
+- Verification passed: 80 backend tests, Prisma schema validation, frontend lint, and production build.
+
+### Objective and reason
+
+The change removes a narrowly scoped staff role and reduces handoffs before
+billing preparation. Billing staff already depend on approved requirements to
+determine whether a scholar can enter the appropriate Billing or Payroll-list
+route, so giving that team the existing review tools lets them resolve a
+document blocker while inspecting the scholar record instead of waiting for a
+separate moderator. This does not add a new process step or alter the approved
+scholar lifecycle.
+
+### Previous and new behavior
+
+Previously, Content Moderators and Super Administrators could use the Document
+Reviews queue, while Billing / Payroll staff could see checklist statuses but
+could not open or decide the files. The Staff editor could also create or assign
+the Content Moderator role.
+
+Now, Content Moderator is no longer assignable or accepted for login. Billing /
+Payroll staff and Super Administrators can use the existing protected Document
+Reviews queue. Within Scholars > View details > Overview, each submitted online
+document is a keyboard-accessible button labelled "View and review." It opens
+the established secure preview and confirmation dialogs, supports approval or
+rejection with the same note rules, refreshes the scholar record after saving,
+and shows the resulting status. Missing uploads and the physical-folder row are
+not presented as digital previews; physical-folder receipt remains handled by
+the existing queue control.
+
+### Affected roles and workflows
+
+- **Billing / Payroll Admin:** gains Document Reviews by role default and can
+  review a specific file directly from the Scholar drawer or use the full queue.
+- **Super Administrator:** retains document-review access and can oversee the
+  same direct and queue-based workflow.
+- **Administrator:** does not gain document-review authority; scholar checklist
+  rows remain read-only.
+- **Content Moderator:** the role is retired. Existing accounts are disabled and
+  sessions invalidated; their historical names and decisions remain available.
+- **Scholars/applicants:** upload, pending, rejected-correction, approved, and
+  eligibility behavior is unchanged; portal wording now identifies Billing
+  staff as the reviewer.
+
+### Implementation and data flow
+
+The role configuration, validators, login resolution, navigation, and route
+authorization no longer accept Moderator. `documentReviews` was added to the
+Billing / Payroll role defaults and to explicitly configured Billing accounts
+by migration. All document-review endpoints now require either
+`BillingPayrollAdmin` or `SuperAdmin` plus section access.
+
+The scholar-management response now provides safe review metadata--application
+ID, requirement key, filename, media type, timestamps, notes, and status--for
+each checklist item. It does not expose encoded contents, blob URLs, or storage
+tokens. Clicking a submitted online item requests the existing authenticated
+stream endpoint, creates a browser-only object URL for preview, and uses the
+existing review endpoint to save the decision and Activity Log metadata. The
+object URL is revoked when the preview closes or changes.
+
+### Files and system areas changed
+
+- Administrator authentication, RBAC, section-access defaults, staff role
+  configuration/validation, and production bootstrap.
+- Document-review routes and Billing navigation.
+- Scholar-management response serialization and Scholar drawer review controls.
+- Applicant/Scholar guidance wording and review-related lifecycle messages.
+- Staff management role options and retired-account presentation.
+- Prisma migration `20260907000000_retire_content_moderator`.
+- Automated staff, lifecycle, and rate-limit tests; this change documentation.
+
+### API, database, configuration, security, privacy, accessibility, and deployment impact
+
+- **API:** existing document-review endpoint shapes and decisions are preserved;
+  authorized roles change to Billing / Payroll Admin and Super Administrator.
+  Scholar-management items gain non-secret review metadata.
+- **Database:** the migration disables rows whose legacy role is `moderator`,
+  increments `auth_version`, and adds `documentReviews` to non-null explicit
+  section lists for Billing accounts. No review record or staff row is deleted.
+- **Configuration:** moderator bootstrap variables and the moderator seed command
+  are removed; the normal Billing bootstrap remains.
+- **Security:** server-side role and section checks remain mandatory for listing,
+  streaming, and deciding documents. Legacy moderator sessions are invalidated;
+  private file URLs and content remain hidden behind authenticated streaming.
+- **Privacy:** no new document content is persisted or exposed in list responses.
+  Existing reviewer identity, notes, and Activity Logs remain operational records.
+- **Accessibility:** clickable checklist rows are native buttons with descriptive
+  labels, keyboard focus styling, textual status, and the existing modal keyboard
+  behavior; review meaning does not rely on color alone.
+- **Deployment:** both frontend and backend must deploy, and Render must apply the
+  migration before the retired-role policy is fully effective. No new secret or
+  external service is required.
+- **Scope:** no fund release, payment claiming, disbursement confirmation,
+  reconciliation, or monetary-audit functionality was introduced. Payroll still
+  ends at generation of the official scholar list.
+
+### Validation, limitations, rollback, and recommended next work
+
+All 80 backend tests passed. Prisma schema validation passed. Frontend ESLint and
+the Vite production build passed. The build completed without the earlier
+500-kB chunk warning. The secure preview still depends on supported browser
+rendering and configured private blob storage; unsupported formats open through
+the protected original-file link. The physical folder is not a digital file and
+therefore remains a received/not-received control in the full queue.
+
+Rollback requires restoring Moderator role authorization and navigation before
+reactivating any legacy account. The disabling migration should not be reversed
+blindly because doing so would restore credentials; account reactivation must be
+an explicit Super Administrator action with a password reset. The next useful
+staff-efficiency improvement should be measured against this shortened review
+handoff rather than adding another workflow stage.
+
 ## 2026-09-07 — Applicant Data Quality Trial Rollback
 
 ### TL;DR

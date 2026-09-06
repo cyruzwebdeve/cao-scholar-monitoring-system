@@ -17,14 +17,14 @@ test('maps every supported staff role to its database representation', () => {
   });
   assert.equal(getRoleConfig('RegularAdmin').databaseRole, 'admin');
   assert.equal(getRoleConfig('BillingPayrollAdmin').databaseRole, 'billing');
-  assert.equal(getRoleConfig('Moderator').databaseRole, 'moderator');
+  assert.equal(getRoleConfig('Moderator'), null);
   assert.equal(getRoleConfig('Applicant'), null);
 });
 
-test('resolves legacy administrator records to portal roles', () => {
+test('resolves supported administrator records and retires moderator records', () => {
   assert.equal(resolvePortalRole({ is_super_admin: true, role: 'superadmin' }), 'SuperAdmin');
   assert.equal(resolvePortalRole({ is_super_admin: false, role: 'admin' }), 'RegularAdmin');
-  assert.equal(resolvePortalRole({ is_super_admin: false, role: 'moderator' }), 'Moderator');
+  assert.equal(resolvePortalRole({ is_super_admin: false, role: 'moderator' }), null);
   assert.equal(resolvePortalRole({ is_super_admin: false, role: 'billing' }), 'BillingPayrollAdmin');
 });
 
@@ -73,16 +73,31 @@ test('protects the final active Super Administrator while allowing safe access c
   assert.doesNotThrow(() => assertAccessChangeAllowed({
     actorId: 9,
     target: { id: 1, is_super_admin: true },
-    nextRole: 'Moderator',
+    nextRole: 'BillingPayrollAdmin',
     nextIsActive: true,
     otherActiveSuperAdmins: 1,
   }));
 });
 
-test('section permissions narrow role access while preserving legacy role defaults', () => {
+test('section permissions narrow role access and grant Billing staff document review access', () => {
   assert.deepEqual(normalizeSectionAccess(['dashboard', 'billing', 'staff'], 'RegularAdmin'), ['dashboard', 'billing']);
   assert.equal(hasSectionAccess({ role: 'RegularAdmin', sectionAccess: ['billing'] }, 'billing'), true);
   assert.equal(hasSectionAccess({ role: 'RegularAdmin', sectionAccess: ['billing'] }, 'applicants'), false);
   assert.equal(hasSectionAccess({ role: 'SuperAdmin', sectionAccess: [] }, 'settings'), true);
-  assert.ok(normalizeSectionAccess(null, 'Moderator').includes('documentReviews'));
+  assert.ok(normalizeSectionAccess(null, 'BillingPayrollAdmin').includes('documentReviews'));
+});
+
+test('serializes a retired moderator as inactive legacy staff without section access', () => {
+  const staff = serializeStaff({
+    id: 8,
+    full_name: 'Retired Reviewer',
+    email: 'retired@example.com',
+    role: 'moderator',
+    is_super_admin: false,
+    is_active: false,
+    section_access: ['documentReviews'],
+  });
+  assert.equal(staff.role, 'RetiredModerator');
+  assert.equal(staff.roleLabel, 'Content Moderator (retired)');
+  assert.deepEqual(staff.sectionAccess, []);
 });

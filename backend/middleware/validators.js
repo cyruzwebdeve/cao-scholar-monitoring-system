@@ -325,7 +325,7 @@ const validateAnnouncement = (req, res, next) => {
   next();
 };
 
-const staffRoles = ['RegularAdmin', 'BillingPayrollAdmin', 'Moderator', 'SuperAdmin'];
+const staffRoles = ['RegularAdmin', 'BillingPayrollAdmin', 'SuperAdmin'];
 const { getAllowedSectionsForRole } = require('../services/sectionAccess');
 
 const validateStaffFields = (req, res, next) => {

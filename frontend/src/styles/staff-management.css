@@ -237,7 +237,7 @@
 }
 .staff-role.SuperAdmin { background: #eee9fb; color: #6c45bc; }
 .staff-role.BillingPayrollAdmin { background: #e9f1ff; color: #2864be; }
-.staff-role.Moderator { background: #fff1df; color: #ad651d; }
+.staff-role.RetiredModerator { background: #f2f3f2; color: #68716c; }
 .staff-status { gap: 6px; }
 .staff-status i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .staff-status.active { background: #e7f7ed; color: #078643; }
