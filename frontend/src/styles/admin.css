@@ -5520,6 +5520,71 @@
 .scholars-finance-details {
   margin-top: 20px;
 }
+.scholars-finance-details-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.scholars-finance-details-heading h4 { margin: 0; }
+.scholars-finance-details-heading button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  border: 1px solid #cfe0d4;
+  border-radius: 7px;
+  background: #fff;
+  color: #197b48;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.scholars-billing-edit-form {
+  display: grid;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid #dfe9e2;
+  border-radius: 10px;
+  background: #fbfdfb;
+}
+.scholars-billing-edit-form label { display: grid; gap: 5px; }
+.scholars-billing-edit-form label > span { color: #66786c; font-size: 9px; font-weight: 800; }
+.scholars-billing-edit-form input,
+.scholars-billing-edit-form select {
+  width: 100%;
+  min-height: 36px;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: 1px solid #cedbd2;
+  border-radius: 7px;
+  background: #fff;
+  color: #34483a;
+  font: inherit;
+  font-size: 10px;
+}
+.scholars-billing-edit-form input[readonly] { background: #f0f4f1; color: #718078; }
+.scholars-billing-edit-form > p { margin: 0; color: #b42318; font-size: 9px; }
+.scholars-billing-edit-form footer { display: flex; justify-content: flex-end; gap: 7px; }
+.scholars-billing-edit-form footer button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 11px;
+  border: 1px solid #cedbd2;
+  border-radius: 7px;
+  background: #fff;
+  color: #53675a;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.scholars-billing-edit-form footer button[type='submit'] { border-color: #18814a; background: #188c50; color: #fff; }
+.scholars-billing-edit-form button:disabled { cursor: not-allowed; opacity: .6; }
 .scholars-finance-details dl > div {
   grid-template-columns: 145px minmax(0, 1fr);
 }

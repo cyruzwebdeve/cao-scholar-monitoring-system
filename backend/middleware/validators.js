@@ -387,6 +387,18 @@ const validateScholarBillingDetails = (req, res, next) => {
   return next();
 };
 
+const validateScholarBillingMetadata = (req, res, next) => {
+  const { academicPeriodId, billingStatus } = req.body;
+  const allowedStatuses = ['Pending', 'Ready for billing', 'On hold', 'Not applicable'];
+  if (!Number.isInteger(Number(academicPeriodId)) || Number(academicPeriodId) <= 0) {
+    return res.status(400).json({ message: 'Select a valid school year and semester.' });
+  }
+  if (typeof billingStatus !== 'string' || !allowedStatuses.includes(billingStatus)) {
+    return res.status(400).json({ message: 'Select a valid billing status.' });
+  }
+  return next();
+};
+
 const validateDocumentReview = (req, res, next) => {
   const { decision, notes = '' } = req.body;
   if (!['approved', 'rejected'].includes(decision)) {
@@ -415,5 +427,6 @@ module.exports = {
   validateStaffPassword,
   validateStaffUpdate,
   validateScholarBillingDetails,
+  validateScholarBillingMetadata,
   validateDocumentReview,
 };

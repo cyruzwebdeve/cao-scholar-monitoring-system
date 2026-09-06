@@ -31,6 +31,7 @@ const {
   getScholarsByStatus,
   getScholarManagement,
   updateScholarBillingDetails,
+  updateScholarBillingMetadata,
   processBillingSelection,
   processPayrollSelection,
   getApplicationById,
@@ -59,6 +60,7 @@ const {
   validateStaffPassword,
   validateStaffUpdate,
   validateScholarBillingDetails,
+  validateScholarBillingMetadata,
   validateDocumentReview,
 } = require('../middleware/validators');
 const {
@@ -139,6 +141,7 @@ router.get('/scholars/eligible', authenticate, checkRole(['SuperAdmin', 'Billing
 router.get('/scholars', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin', 'Moderator']), checkSectionAccess('scholars'), getScholarsByStatus);
 router.get('/scholars/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars', 'billing', 'payroll'), getScholarManagement);
 router.put('/scholars/:applicantId/billing-details', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing'), validateScholarBillingDetails, updateScholarBillingDetails);
+router.put('/scholars/:applicantId/billing-metadata', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing'), validateScholarBillingMetadata, updateScholarBillingMetadata);
 router.post('/billing/process', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing'), processBillingSelection);
 router.post('/payroll/process', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('payroll'), processPayrollSelection);
 router.post('/scholars/:applicantId/accept', authenticate, scholarshipDecisionRateLimiter, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), acceptApplicantAsScholar);

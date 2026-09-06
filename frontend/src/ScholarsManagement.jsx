@@ -8,7 +8,9 @@ import {
   FileCheck2,
   Filter,
   GraduationCap,
+  Pencil,
   ReceiptText,
+  Save,
   Search,
   TriangleAlert,
   UsersRound,
@@ -22,13 +24,6 @@ const formatScholarDate = (value) => {
   if (!value) return 'Not available';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-};
-
-const formatScholarAmount = (value) => {
-  if (value === null || value === undefined || value === '') return 'Not recorded';
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return String(value);
-  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 };
 
 const scholarExportColumns = [
@@ -47,7 +42,7 @@ function ScholarBadge({ value, type }) {
   return <span className={`scholar-admin-badge ${type} ${value.toLowerCase().replace(/\s+/g, '-')}`}>{type === 'status' ? <BadgeCheck size={13} /> : <FileCheck2 size={13} />}{value}</span>;
 }
 
-export default function ScholarsManagement({ token }) {
+export default function ScholarsManagement({ token, user }) {
   const [scholars, setScholars] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -60,7 +55,15 @@ export default function ScholarsManagement({ token }) {
   const [drawerTab, setDrawerTab] = useState('overview');
   const [page, setPage] = useState(1);
   const [exportOpen, setExportOpen] = useState(false);
+  const [academicPeriods, setAcademicPeriods] = useState([]);
+  const [editingBilling, setEditingBilling] = useState(false);
+  const [billingForm, setBillingForm] = useState({ academicPeriodId: '', billingStatus: 'Pending' });
+  const [billingSaving, setBillingSaving] = useState(false);
+  const [billingEditError, setBillingEditError] = useState('');
   const pageSize = 10;
+  const canEditBilling = user?.role === 'SuperAdmin'
+    || !Array.isArray(user?.sectionAccess)
+    || user.sectionAccess.includes('billing');
 
   const loadScholars = useCallback(async ({ showLoader = false } = {}) => {
     if (showLoader) setLoading(true);
@@ -69,6 +72,7 @@ export default function ScholarsManagement({ token }) {
       if (!response.ok) throw new Error('Unable to load scholar records.');
       const payload = await response.json();
       const nextScholars = payload.scholars || [];
+      setAcademicPeriods(payload.academicPeriods || []);
       setScholars(nextScholars);
       setSelected((current) => current
         ? nextScholars.find((scholar) => scholar.id === current.id) || current
@@ -131,6 +135,37 @@ export default function ScholarsManagement({ token }) {
     setPage(1);
   };
 
+  const beginBillingEdit = () => {
+    setBillingForm({
+      academicPeriodId: String(selected.billingAcademicPeriodId || ''),
+      billingStatus: selected.billingStatus || 'Pending',
+    });
+    setBillingEditError('');
+    setEditingBilling(true);
+  };
+
+  const saveBillingMetadata = async (event) => {
+    event.preventDefault();
+    if (!selected || billingSaving) return;
+    setBillingSaving(true);
+    setBillingEditError('');
+    try {
+      const response = await fetch(`${API_BASE}/scholars/${selected.applicantId}/billing-metadata`, {
+        method: 'PUT',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...billingForm, academicPeriodId: Number(billingForm.academicPeriodId) }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || 'Unable to update billing and payroll details.');
+      setEditingBilling(false);
+      await loadScholars();
+    } catch (error) {
+      setBillingEditError(error.message || 'Unable to update billing and payroll details.');
+    } finally {
+      setBillingSaving(false);
+    }
+  };
+
   const paginationItems = [];
   let previousVisiblePage = 0;
   for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
@@ -182,7 +217,7 @@ export default function ScholarsManagement({ token }) {
             <div data-label="Barangay"><span>{scholar.barangay}</span></div>
             <div data-label="Status"><ScholarBadge value={scholar.status} type="status" /></div>
             <div data-label="Documents"><ScholarBadge value={scholar.documentStatus} type="documents" /></div>
-            <div data-label="Action"><button type="button" className="scholars-view" aria-label={`View details for ${scholar.name}`} onClick={() => { setSelected(scholar); setDrawerTab('overview'); }}><Eye size={13} />View details</button></div>
+            <div data-label="Action"><button type="button" className="scholars-view" aria-label={`View details for ${scholar.name}`} onClick={() => { setSelected(scholar); setDrawerTab('overview'); setEditingBilling(false); }}><Eye size={13} />View details</button></div>
           </article>)}
         </div>
         {!!filtered.length && <footer className="scholars-table-footer"><span>Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}</span><nav className="scholars-pagination" aria-label="Scholar pages"><button type="button" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" key={item} aria-label={`Page ${item}`} className={item === currentPage ? 'active' : ''} aria-current={item === currentPage ? 'page' : undefined} onClick={() => setPage(item)}>{item}</button> : <span key={item}>…</span>)}<button type="button" aria-label="Next page" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>›</button></nav></footer>}
@@ -215,7 +250,20 @@ export default function ScholarsManagement({ token }) {
                 <article className={selected.billed ? 'complete' : 'pending'}><i><ReceiptText size={19} /></i><div><span>Billing status</span><strong>{selected.billingStatus || (selected.billed ? 'Billed' : 'Not billed yet')}</strong><small>{selected.billed ? 'Included in a billing record' : 'Waiting for billing processing'}</small></div></article>
                 <article className={selected.paid ? 'complete' : 'pending'}><i><CircleDollarSign size={19} /></i><div><span>Payroll status</span><strong>{selected.payrollStatus || (selected.paid ? 'Paid' : 'Not paid yet')}</strong><small>{selected.paid ? 'Payroll has been completed' : selected.billed ? 'Ready for payroll processing' : 'Billing must be completed first'}</small></div></article>
               </section>
-              <section className="scholars-detail-section scholars-finance-details"><h4>Processing details</h4><dl><div><dt>School year / semester</dt><dd>{selected.schoolYearSemester || `${selected.schoolYear || '2026-2027'} · ${selected.semester || '1st Semester'}`}</dd></div><div><dt>Pay reference</dt><dd>{selected.payReference || 'Not assigned'}</dd></div><div><dt>Claim amount</dt><dd>{formatScholarAmount(selected.claimAmount)}</dd></div><div><dt>Date processed</dt><dd>{selected.dateProcessed ? formatScholarDate(selected.dateProcessed) : 'Not processed'}</dd></div><div><dt>Billing record</dt><dd>{selected.billed ? 'Included' : 'Not created'}</dd></div><div><dt>Batch status</dt><dd>{selected.batchStatus || 'Not assigned'}</dd></div><div><dt>Claim status</dt><dd>{selected.claimStatus || 'Not processed'}</dd></div></dl></section>
+              <section className="scholars-detail-section scholars-finance-details">
+                <div className="scholars-finance-details-heading"><h4>Processing details</h4>{canEditBilling && !selected.billed && !selected.inPayroll && !editingBilling && <button type="button" onClick={beginBillingEdit}><Pencil size={12} />Edit</button>}</div>
+                {editingBilling ? (
+                  <form className="scholars-billing-edit-form" onSubmit={saveBillingMetadata}>
+                    <label><span>Billing reference</span><input value={selected.billingReference || 'Generated when saved'} readOnly aria-readonly="true" /></label>
+                    <label><span>School year and semester</span><select required value={billingForm.academicPeriodId} onChange={(event) => setBillingForm((current) => ({ ...current, academicPeriodId: event.target.value }))}><option value="">Select period</option>{academicPeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}</option>)}</select></label>
+                    <label><span>Billing status</span><select disabled={selected.processRoute !== 'billing'} value={billingForm.billingStatus} onChange={(event) => setBillingForm((current) => ({ ...current, billingStatus: event.target.value }))}>{selected.processRoute === 'billing' ? <><option>Pending</option><option>Ready for billing</option><option>On hold</option></> : <option>Not applicable</option>}</select></label>
+                    {billingEditError && <p role="alert">{billingEditError}</p>}
+                    <footer><button type="button" disabled={billingSaving} onClick={() => setEditingBilling(false)}>Cancel</button><button type="submit" disabled={billingSaving}><Save size={12} />{billingSaving ? 'Saving…' : 'Save'}</button></footer>
+                  </form>
+                ) : (
+                  <dl><div><dt>Billing reference</dt><dd>{selected.billingReference || 'Not generated'}</dd></div><div><dt>School year / semester</dt><dd>{selected.billingSchoolYearSemester || selected.schoolYearSemester}</dd></div><div><dt>Billing status</dt><dd>{selected.billingStatus}</dd></div></dl>
+                )}
+              </section>
               {!!selected.financialHistory?.filter((record) => !record.isActivePeriod).length && <section className="scholars-detail-section"><h4>Previous period history</h4><div className="scholars-finance-history">{selected.financialHistory.filter((record) => !record.isActivePeriod).map((record) => <article key={`${record.academicPeriodId}-${record.dateProcessed}`}><div><strong>{record.schoolYear} · {record.semester}</strong><span>{record.billingStatus} · {record.payrollStatus}</span></div><div><strong>{record.payReference || 'No pay reference'}</strong><span>{record.dateProcessed ? formatScholarDate(record.dateProcessed) : 'Not processed'}</span></div></article>)}</div></section>}
               <div className="scholars-finance-note"><CircleDollarSign size={17} /><div><strong>Live processing status</strong><span>This information follows the scholar’s current Billing and Payroll records and refreshes automatically.</span></div></div>
             </div>

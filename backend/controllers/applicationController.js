@@ -870,6 +870,11 @@ const getScholarManagement = async (req, res) => {
         || normalizedBatchStatus === 'released';
       const schoolYear = activePeriod.school_year;
       const semester = activePeriod.semester;
+      const billingSchoolYear = requirement?.billing_school_year || schoolYear;
+      const billingSemester = requirement?.billing_semester || semester;
+      const billingAcademicPeriod = academicPeriods.find((period) => (
+        period.school_year === billingSchoolYear && period.semester === billingSemester
+      )) || activePeriod;
       const financialHistory = (payrollClaimsByApplicant.get(applicant.id) || []).map((claim) => {
         const batch = payrollBatchById.get(claim.payroll_batch_id);
         const historyRoute = String(batch?.batch_number || '').startsWith('BILL-') || String(batch?.status || '').toLowerCase() === 'billed'
@@ -944,6 +949,11 @@ const getScholarManagement = async (req, res) => {
         major: requirement?.major || null,
         billingAmount: requirement?.billing_amount === null || requirement?.billing_amount === undefined ? 0 : Number(requirement.billing_amount),
         billingNotes: requirement?.billing_notes || '',
+        billingReference: requirement?.billing_reference || null,
+        billingAcademicPeriodId: billingAcademicPeriod.id,
+        billingSchoolYear,
+        billingSemester,
+        billingSchoolYearSemester: `${billingSchoolYear} · ${billingSemester}`,
         status: scholar.is_active ? 'Active' : 'Inactive',
         documentStatus: documentsComplete ? 'Complete' : 'Review',
         documentsSubmitted: submittedDocuments.length,
@@ -955,7 +965,7 @@ const getScholarManagement = async (req, res) => {
         notes: scholar.notes || '',
         processEligible: billingEligibility.eligible,
         billed,
-        billingStatus: processRoute === 'billing' ? (billed ? 'Billed' : 'Not billed yet') : 'Not applicable',
+        billingStatus: processRoute === 'billing' ? (billed ? 'Billed' : requirement?.billing_status || 'Pending') : 'Not applicable',
         inPayroll,
         paid,
         payrollStatus: processRoute === 'payroll' ? (inPayroll ? 'Included in payroll list' : 'Not included yet') : 'Not applicable',
@@ -975,6 +985,9 @@ const getScholarManagement = async (req, res) => {
         schoolType: String(school.school_type || 'public').toLowerCase() === 'private' ? 'Private' : 'Public',
       })),
       activePeriod: serializeAcademicPeriod(activePeriod),
+      academicPeriods: academicPeriods
+        .sort((left, right) => right.school_year.localeCompare(left.school_year) || left.semester.localeCompare(right.semester))
+        .map(serializeAcademicPeriod),
     });
   } catch (error) {
     console.error(error);
@@ -1040,6 +1053,54 @@ const updateScholarBillingDetails = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error updating scholar billing details.' });
+  }
+};
+
+const updateScholarBillingMetadata = async (req, res) => {
+  try {
+    const applicantId = Number(req.params.applicantId);
+    if (!Number.isInteger(applicantId) || applicantId <= 0) return res.status(400).json({ message: 'A valid scholar is required.' });
+    const activePeriod = await getActiveAcademicPeriodRecord();
+    const [scholar, selectedPeriod, processedClaim] = await Promise.all([
+      prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true }, select: { id: true } }),
+      prisma.academic_periods.findUnique({ where: { id: Number(req.body.academicPeriodId) } }),
+      prisma.payroll_claims.findFirst({ where: { applicant_id: applicantId, academic_period_id: activePeriod.id }, select: { id: true } }),
+    ]);
+    if (!scholar) return res.status(404).json({ message: 'Active scholar account not found.' });
+    if (!selectedPeriod) return res.status(400).json({ message: 'Select an available school year and semester.' });
+    if (processedClaim) return res.status(409).json({ message: 'Billing metadata is locked after processing for the active period.' });
+
+    const metadata = await prisma.scholar_requirements.upsert({
+      where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: activePeriod.id } },
+      create: {
+        applicant_id: applicantId,
+        billing_period_id: activePeriod.id,
+        billing_school_year: selectedPeriod.school_year,
+        billing_semester: selectedPeriod.semester,
+        billing_status: req.body.billingStatus,
+        updated_by: req.user.id,
+      },
+      update: {
+        billing_school_year: selectedPeriod.school_year,
+        billing_semester: selectedPeriod.semester,
+        billing_status: req.body.billingStatus,
+        updated_by: req.user.id,
+      },
+    });
+    res.locals.auditTargetId = applicantId;
+    return res.json({
+      message: 'Billing and payroll details updated.',
+      billingMetadata: {
+        billingReference: metadata.billing_reference,
+        academicPeriodId: selectedPeriod.id,
+        schoolYear: selectedPeriod.school_year,
+        semester: selectedPeriod.semester,
+        billingStatus: metadata.billing_status,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error updating billing and payroll details.' });
   }
 };
 
@@ -2022,6 +2083,7 @@ module.exports = {
   getScholarsByStatus,
   getScholarManagement,
   updateScholarBillingDetails,
+  updateScholarBillingMetadata,
   processBillingSelection,
   processPayrollSelection,
   getApplicationById,
