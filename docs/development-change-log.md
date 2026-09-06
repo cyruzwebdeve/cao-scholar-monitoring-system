@@ -5,13 +5,13 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
-## 2026-09-06 — Applicants Sidebar Group
+## 2026-09-06 — Applicants Tabbed Workspace
 
 ### TL;DR
 
-- Applicant Records and Examination Management now share one collapsible Applicants navigation group.
+- Applicant Records and Examination Management now share one tabbed Applicants workspace.
 - Super Administrators, Administrators, and Billing / Payroll Administrators retain their existing section-level visibility and access.
-- The active child page remains highlighted, with keyboard-accessible expand/collapse behavior and reduced-motion support.
+- The sidebar has one Applicants entry; examination schedules and results retain their existing nested tabs.
 - Frontend lint and the production build passed.
 
 ### Objective, behavior, and affected users
@@ -19,38 +19,36 @@ and how the result was verified.
 The objective was to reduce crowding in the administrator sidebar without
 removing either workflow. Previously, Applicants and Examination Management
 were separate top-level entries. They now appear as Applicant Records and
-Examination Management inside a collapsible Applicants group. The group opens
-automatically when one of its children is active and may also be expanded or
-collapsed directly. This affects Super Administrators, Administrators, and
+Examination Management tabs inside a shared Applicants workspace, matching the
+established Examination tab control rather than introducing a sidebar dropdown.
+This affects Super Administrators, Administrators, and
 Billing / Payroll Administrators; Moderator, Applicant, and Scholar navigation
 is unchanged.
 
 ### Implementation and data flow
 
-The sidebar navigation model now supports child items. Permission filtering is
-applied to each child before its parent group is displayed, so a staff member
-only sees the Applicant or Examination child granted by the existing
-`sectionAccess` value. Selecting a child continues to send the same section
-label to the existing dashboard renderer; no application or examination data
-flow changed. The expandable control exposes its state with `aria-expanded`
-and identifies the controlled submenu with `aria-controls`.
+The sidebar now exposes one Applicants item when the staff member has either
+the `applicants` or `examination` section permission. Inside the workspace, each
+tab is independently filtered by that existing permission value. Staff with
+only Examination access open directly on Examination Management. Selecting the
+Examination tab renders the existing schedules-and-assignments / results
+workspace, so no application or examination data flow changed.
 
 ### Files and system areas changed
 
-- `frontend/src/components/Sidebar.jsx` — nested navigation structure,
-  permission-aware child filtering, and expandable group behavior.
-- `frontend/src/components/Sidebar.css` — compact nested-item styling, active
-  group treatment, chevron state, and reduced-motion handling.
+- `frontend/src/components/Sidebar.jsx` — single Applicants entry with combined
+  permission visibility and active-state handling.
+- `frontend/src/Dashboard.jsx` — permission-aware Applicant Records and
+  Examination Management tabs.
 - `change_log.txt` and this detailed engineering record.
 
 ### API, data, security, privacy, accessibility, and deployment impact
 
 - API/database/configuration/dependencies: no impact.
 - Security/privacy: no authorization rules changed; existing backend section
-  enforcement remains authoritative, while the sidebar continues to hide
-  unassigned child sections.
-- Accessibility: the group is a native button with programmatic expanded state,
-  keyboard operation, visible focus behavior, and reduced-motion support.
+  enforcement remains authoritative, while unavailable tabs remain hidden.
+- Accessibility: the workspace uses native buttons within a labelled navigation
+  region and preserves the existing visible focus behavior.
 - Deployment: frontend-only deployment required; no migration or environment
   variable change is needed.
 
@@ -58,10 +56,9 @@ and identifies the controlled submenu with `aria-controls`.
 
 `npm.cmd run lint` and `npm.cmd run build` both passed. Validation covered the
 compiled role-aware navigation and production asset generation. No automated
-component test suite currently covers sidebar interactions; a future test could
-exercise expand/collapse behavior and permission combinations. Rollback is
-limited to restoring the flat sidebar item definitions and removing the nested
-styles; no stored data requires reversal.
+component test suite currently covers tab interactions; a future test could
+exercise tab selection and permission combinations. Rollback is limited to
+restoring the separate flat sidebar items; no stored data requires reversal.
 
 ## 2026-09-05 — Examination, Billing, Health, and Staff Section Access
 

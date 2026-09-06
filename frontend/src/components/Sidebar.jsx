@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import './Sidebar.css';
 import caologo from '../assets/caologo-96.webp';
 import {
   Boxes,
   ChartColumn,
-  ChevronDown,
   ClipboardList,
   FileText,
   GraduationCap,
@@ -18,14 +16,7 @@ import {
 const navItemsByRole = {
   SuperAdmin: [
     { label: 'Dashboard', icon: LayoutDashboard, section: 'dashboard' },
-    {
-      label: 'Applicants',
-      icon: UsersRound,
-      children: [
-        { label: 'Applicants', navLabel: 'Applicant Records', icon: UsersRound, section: 'applicants' },
-        { label: 'Examination Management', icon: ClipboardList, section: 'examination' },
-      ],
-    },
+    { label: 'Applicants', icon: UsersRound, accessSections: ['applicants', 'examination'] },
     { label: 'Staff', icon: UsersRound },
     { label: 'Scholars', icon: GraduationCap, section: 'scholars' },
     { label: 'Billing', icon: FileText, section: 'billing' },
@@ -38,14 +29,7 @@ const navItemsByRole = {
   ],
   BillingPayrollAdmin: [
     { label: 'Dashboard', icon: LayoutDashboard, section: 'dashboard' },
-    {
-      label: 'Applicants',
-      icon: UsersRound,
-      children: [
-        { label: 'Applicants', navLabel: 'Applicant Records', icon: UsersRound, section: 'applicants' },
-        { label: 'Examination Management', icon: ClipboardList, section: 'examination' },
-      ],
-    },
+    { label: 'Applicants', icon: UsersRound, accessSections: ['applicants', 'examination'] },
     { label: 'Scholars', icon: GraduationCap, section: 'scholars' },
     { label: 'Billing', icon: FileText, section: 'billing' },
     { label: 'Payroll', icon: Boxes, section: 'payroll' },
@@ -67,22 +51,13 @@ navItemsByRole.RegularAdmin = navItemsByRole.SuperAdmin.filter(({ label }) => [
 
 function Sidebar({ onLogout, activeSection, onSectionChange, role, sectionAccess, isOpen = false, onClose }) {
   const roleItems = navItemsByRole[role] || navItemsByRole.Moderator;
-  const navItems = (role === 'SuperAdmin' || !Array.isArray(sectionAccess)
+  const navItems = role === 'SuperAdmin' || !Array.isArray(sectionAccess)
     ? roleItems
-    : roleItems.reduce((items, item) => {
-      if (item.children) {
-        const children = item.children.filter((child) => !child.section || sectionAccess.includes(child.section));
-        if (children.length) items.push({ ...item, children });
-      } else if (!item.section || sectionAccess.includes(item.section)) {
-        items.push(item);
-      }
-      return items;
-    }, []));
-  const [groupExpandedOverrides, setGroupExpandedOverrides] = useState({});
-
-  const toggleGroup = (label, isExpanded) => {
-    setGroupExpandedOverrides((groups) => ({ ...groups, [label]: !isExpanded }));
-  };
+    : roleItems.filter((item) => (
+      item.accessSections
+        ? item.accessSections.some((section) => sectionAccess.includes(section))
+        : !item.section || sectionAccess.includes(item.section)
+    ));
 
   return (
     <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`} aria-label="Dashboard navigation">
@@ -118,54 +93,13 @@ function Sidebar({ onLogout, activeSection, onSectionChange, role, sectionAccess
       <nav className="sidebar-nav">
         {navItems.map((item) => {
           const Icon = item.icon;
-
-          if (item.children) {
-            const isGroupActive = item.children.some((child) => child.label === activeSection);
-            const isExpanded = groupExpandedOverrides[item.label] ?? isGroupActive;
-
-            return (
-              <div className="sidebar-nav-group" key={item.label}>
-                <button
-                  className={`sidebar-nav-item sidebar-nav-group-toggle ${isGroupActive ? 'sidebar-nav-group-active' : ''}`}
-                  type="button"
-                  onClick={() => toggleGroup(item.label, isExpanded)}
-                  aria-expanded={isExpanded}
-                  aria-controls={`sidebar-group-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                >
-                  <span className="sidebar-nav-icon" aria-hidden="true">
-                    <Icon size={16} strokeWidth={2.2} />
-                  </span>
-                  <span>{item.label}</span>
-                  <ChevronDown className="sidebar-nav-chevron" size={15} aria-hidden="true" />
-                </button>
-                {isExpanded && (
-                  <div className="sidebar-nav-children" id={`sidebar-group-${item.label.toLowerCase().replace(/\s+/g, '-')}`}>
-                    {item.children.map((child) => {
-                      const ChildIcon = child.icon;
-                      return (
-                        <button
-                          key={child.label}
-                          className={`sidebar-nav-item sidebar-nav-child ${activeSection === child.label ? 'sidebar-nav-item-active' : ''}`}
-                          type="button"
-                          onClick={() => onSectionChange(child.label)}
-                        >
-                          <span className="sidebar-nav-icon" aria-hidden="true">
-                            <ChildIcon size={15} strokeWidth={2.2} />
-                          </span>
-                          <span>{child.navLabel || child.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          }
+          const isActive = activeSection === item.label
+            || (item.label === 'Applicants' && ['Examination Management', 'Results Management'].includes(activeSection));
 
           return (
             <button
               key={item.label}
-              className={`sidebar-nav-item ${activeSection === item.label ? 'sidebar-nav-item-active' : ''}`}
+              className={`sidebar-nav-item ${isActive ? 'sidebar-nav-item-active' : ''}`}
               type="button"
               onClick={() => onSectionChange(item.label)}
             >
