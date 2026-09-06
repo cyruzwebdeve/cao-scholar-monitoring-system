@@ -5,6 +5,64 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-06 — Applicants Sidebar Group
+
+### TL;DR
+
+- Applicant Records and Examination Management now share one collapsible Applicants navigation group.
+- Super Administrators, Administrators, and Billing / Payroll Administrators retain their existing section-level visibility and access.
+- The active child page remains highlighted, with keyboard-accessible expand/collapse behavior and reduced-motion support.
+- Frontend lint and the production build passed.
+
+### Objective, behavior, and affected users
+
+The objective was to reduce crowding in the administrator sidebar without
+removing either workflow. Previously, Applicants and Examination Management
+were separate top-level entries. They now appear as Applicant Records and
+Examination Management inside a collapsible Applicants group. The group opens
+automatically when one of its children is active and may also be expanded or
+collapsed directly. This affects Super Administrators, Administrators, and
+Billing / Payroll Administrators; Moderator, Applicant, and Scholar navigation
+is unchanged.
+
+### Implementation and data flow
+
+The sidebar navigation model now supports child items. Permission filtering is
+applied to each child before its parent group is displayed, so a staff member
+only sees the Applicant or Examination child granted by the existing
+`sectionAccess` value. Selecting a child continues to send the same section
+label to the existing dashboard renderer; no application or examination data
+flow changed. The expandable control exposes its state with `aria-expanded`
+and identifies the controlled submenu with `aria-controls`.
+
+### Files and system areas changed
+
+- `frontend/src/components/Sidebar.jsx` — nested navigation structure,
+  permission-aware child filtering, and expandable group behavior.
+- `frontend/src/components/Sidebar.css` — compact nested-item styling, active
+  group treatment, chevron state, and reduced-motion handling.
+- `change_log.txt` and this detailed engineering record.
+
+### API, data, security, privacy, accessibility, and deployment impact
+
+- API/database/configuration/dependencies: no impact.
+- Security/privacy: no authorization rules changed; existing backend section
+  enforcement remains authoritative, while the sidebar continues to hide
+  unassigned child sections.
+- Accessibility: the group is a native button with programmatic expanded state,
+  keyboard operation, visible focus behavior, and reduced-motion support.
+- Deployment: frontend-only deployment required; no migration or environment
+  variable change is needed.
+
+### Validation, limitations, rollback, and next work
+
+`npm.cmd run lint` and `npm.cmd run build` both passed. Validation covered the
+compiled role-aware navigation and production asset generation. No automated
+component test suite currently covers sidebar interactions; a future test could
+exercise expand/collapse behavior and permission combinations. Rollback is
+limited to restoring the flat sidebar item definitions and removing the nested
+styles; no stored data requires reversal.
+
 ## 2026-09-05 — Examination, Billing, Health, and Staff Section Access
 
 ### TL;DR
