@@ -5,6 +5,58 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-06 — Results Decision Support Panel Removal
+
+### TL;DR
+
+- Removed the visible Decision Support recommendation card from Examination Results details.
+- Result review, re-evaluation, and scholar-acceptance controls remain available.
+- Stored recommendation snapshots and server-side decision safeguards were retained; no data was deleted.
+- Frontend lint and the production build passed.
+
+### Objective, behavior, and affected users
+
+The objective was to simplify the Examination Results drawer before introducing
+further workflow improvements. Previously, authorized staff saw an eligibility
+recommendation card containing a total score, factor breakdown, policy version,
+and generated timestamp beneath each result. The drawer now proceeds directly
+from Remarks to result-review and acceptance actions. This visual change affects
+Super Administrators, Administrators, and Billing / Payroll Administrators who
+can access Results. Applicant, Scholar, and Moderator interfaces are unchanged.
+
+### Implementation and data flow
+
+The recommendation card markup, its presentation-label mapping, and its dedicated
+CSS rules were removed. Examination result loading and the backend eligibility
+assessment engine were not changed. Existing immutable assessment records remain
+in the database, and current acceptance safeguards—including any required human
+decision reason—continue to be enforced. No workflow was extended beyond official
+payroll-list generation.
+
+### Files and system areas changed
+
+- `frontend/src/ResultsManagement.jsx` — removed the Decision Support card.
+- `frontend/src/styles/admin.css` — removed now-unused recommendation-card styles.
+- `change_log.txt` and this detailed engineering record.
+
+### API, database, configuration, security, privacy, accessibility, and deployment impact
+
+- API/database/configuration/dependencies: no impact; no records or schema were removed.
+- Security/privacy: server authorization and decision safeguards remain unchanged.
+- Accessibility: removing the panel reduces drawer length and focus-independent
+  reading content; remaining controls retain their existing labels and keyboard behavior.
+- Deployment: frontend-only deployment; no migration or environment change required.
+
+### Validation, limitations, rollback, and next work
+
+Frontend lint and the production build passed. The underlying recommendation
+payload is still returned by the current API for compatibility and continues to
+support server-side decision rules; this change removes only its visible detail
+card. Rollback requires restoring the removed JSX and CSS, with no data recovery.
+Recommended next work is to assess whether the retained decision-support engine
+should remain internal, be redesigned, or be retired through a separate reviewed
+data and policy change.
+
 ## 2026-09-06 — Editable Scholar Billing Metadata
 
 ### TL;DR

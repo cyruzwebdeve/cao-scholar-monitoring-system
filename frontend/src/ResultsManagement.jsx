@@ -53,12 +53,6 @@ const resultExportColumns = [
   { key: 'notes', label: 'Remarks', group: 'Examination' },
 ];
 
-const recommendationLabels = {
-  MEETS_CONFIGURED_CRITERIA: 'Meets configured criteria',
-  DOES_NOT_MEET_CRITERIA: 'Does not meet configured criteria',
-  REVIEW_REQUIRED: 'Needs human review',
-};
-
 function StatusBadge({ status }) {
   return <span className={`rm-status ${status.toLowerCase().replace(/\s+/g, '-')}`}>{status}</span>;
 }
@@ -335,29 +329,6 @@ export default function ResultsManagement({ token }) {
           <section className="rm-detail-section"><h4>Examination details</h4><dl><div><dt>Examination</dt><dd>{selected.examTitle || 'PGCEAP Qualifying Examination'}</dd></div><div><dt>Date</dt><dd>{formatResultDate(selected.date)}</dd></div><div><dt>Academic year</dt><dd>{selected.academicYear || '2026-2027'}</dd></div><div><dt>Venue</dt><dd>{selected.examVenue || selected.municipality || 'Not specified'}</dd></div></dl></section>
           <section className="rm-detail-section"><h4>Applicant location</h4><dl><div><dt>Municipality</dt><dd>{selected.municipality || 'Not specified'}</dd></div><div><dt>Barangay</dt><dd>{selected.barangay || 'Not specified'}</dd></div></dl></section>
           <section className="rm-detail-section"><h4>Remarks</h4><p className="rm-remarks">{selected.notes || 'No remarks were recorded for this result.'}</p>{selected.notes && selected.reevaluatedAt && <span className="rm-remarks-timestamp"><Clock3 size={12} />Updated {formatResultTimestamp(selected.reevaluatedAt)}</span>}</section>
-
-          {selected.eligibilityRecommendation && (
-            <section className={`rm-eligibility-card ${selected.eligibilityRecommendation.recommendation.toLowerCase().replaceAll('_', '-')}`} aria-labelledby="rm-eligibility-title">
-              <div className="rm-eligibility-heading">
-                <div><span>DECISION SUPPORT</span><h4 id="rm-eligibility-title">Eligibility recommendation</h4></div>
-                <strong>{selected.eligibilityRecommendation.totalScore ?? '—'}<small> / {selected.eligibilityRecommendation.maxScore}</small></strong>
-              </div>
-              <div className="rm-eligibility-outcome">
-                <BadgeCheck size={16} />
-                <div><strong>{recommendationLabels[selected.eligibilityRecommendation.recommendation] || selected.eligibilityRecommendation.recommendation}</strong><span>{selected.eligibilityRecommendation.summary}</span></div>
-              </div>
-              <div className="rm-eligibility-factors">
-                {selected.eligibilityRecommendation.factors.map((factor) => (
-                  <div key={factor.id}>
-                    <span><b>{factor.label}</b><small>{factor.explanation}</small></span>
-                    <strong>{factor.score ?? '—'} / {factor.maxScore}</strong>
-                  </div>
-                ))}
-              </div>
-              <p>Policy {selected.eligibilityRecommendation.policyVersion} · Generated {formatResultTimestamp(selected.eligibilityRecommendation.generatedAt)}</p>
-              <em>This recommendation does not make the scholarship decision. Authorized staff remain responsible for the final outcome.</em>
-            </section>
-          )}
 
           {reevaluationOpen && (
             <section className="rm-reevaluation-panel">
