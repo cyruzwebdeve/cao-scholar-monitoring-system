@@ -5464,6 +5464,49 @@
 .scholars-finance-details {
   margin-top: 20px;
 }
+.dashboard-data-quality { margin-bottom: 16px; }
+.dashboard-quality-layout {
+  display: grid;
+  grid-template-columns: minmax(210px, .55fr) minmax(0, 1.45fr);
+  gap: 20px;
+  align-items: center;
+}
+.dashboard-quality-score {
+  padding: 15px;
+  border: 1px solid #dce9df;
+  border-radius: 11px;
+  background: #f7fbf8;
+}
+.dashboard-quality-score > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.dashboard-quality-score strong { color: #147a45; font-size: 27px; line-height: 1; }
+.dashboard-quality-score span { color: #65746b; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.dashboard-quality-progress { height: 7px; margin-top: 13px; overflow: hidden; border-radius: 999px; background: #dfe9e2; }
+.dashboard-quality-progress i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #e2a532, #168c51); transition: width .3s ease; }
+.dashboard-quality-score p { margin: 11px 0 0; color: #7d8981; font-size: 9px; line-height: 1.5; }
+.dashboard-quality-score p b { color: #405047; }
+.dashboard-quality-issues { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.dashboard-quality-issue {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid #e5ebe7;
+  border-radius: 9px;
+  background: #fff;
+}
+.dashboard-quality-issue > span { width: 7px; height: 7px; border-radius: 50%; background: #d69a36; }
+.dashboard-quality-issue.high > span { background: #d75252; }
+.dashboard-quality-issue strong { display: block; color: #34463a; font-size: 10px; }
+.dashboard-quality-issue p { margin: 3px 0 0; overflow: hidden; color: #87938b; font-size: 8px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-quality-issue > b { min-width: 25px; padding: 5px; border-radius: 7px; background: #fff2df; color: #9a620d; font-size: 10px; text-align: center; }
+.dashboard-quality-issue.high > b { background: #fdecec; color: #b43a3a; }
+.dashboard-quality-clear { grid-column: 1 / -1; display: flex; align-items: center; gap: 9px; padding: 14px; border: 1px solid #d5eadb; border-radius: 9px; background: #f1faf4; color: #16814a; }
+.dashboard-quality-clear strong,
+.dashboard-quality-clear span { display: block; }
+.dashboard-quality-clear strong { font-size: 10px; }
+.dashboard-quality-clear span { margin-top: 3px; color: #748278; font-size: 8px; }
 .scholars-finance-details-heading {
   display: flex;
   align-items: center;
@@ -6123,6 +6166,12 @@
   .audit-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .audit-directory-heading { align-items: stretch; flex-direction: column; }
   .audit-filters { grid-template-columns: minmax(0, 1fr) minmax(145px, 190px) auto; }
+}
+@media (max-width: 760px) {
+  .dashboard-quality-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .dashboard-quality-issues { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {

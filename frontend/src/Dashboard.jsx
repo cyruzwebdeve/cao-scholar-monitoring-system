@@ -611,6 +611,7 @@ const formatDashboardTime = (value) => {
 function DashboardOverview({ token, onSectionChange }) {
   const [overview, setOverview] = useState({
     stats: { activeScholars: 0, forfeitedAccounts: 0 },
+    dataQuality: { totalRecords: 0, cleanRecords: 0, affectedRecords: 0, qualityScore: 100, issues: [] },
     recentApplications: [],
     recentActivity: [],
   });
@@ -629,6 +630,7 @@ function DashboardOverview({ token, onSectionChange }) {
         if (active) {
           setOverview({
             stats: { activeScholars: 0, forfeitedAccounts: 0, ...(data.stats || {}) },
+            dataQuality: { totalRecords: 0, cleanRecords: 0, affectedRecords: 0, qualityScore: 100, issues: [], ...(data.dataQuality || {}) },
             recentApplications: data.recentApplications || [],
             recentActivity: data.recentActivity || [],
           });
@@ -667,6 +669,22 @@ function DashboardOverview({ token, onSectionChange }) {
           return <article key={stat.label} className={`dashboard-stat-card dashboard-stat-card-${stat.tone}`}><div><p className="dashboard-stat-label">{stat.label}</p><h3>{loading ? '—' : stat.value}</h3><small>{stat.detail}</small></div><div className={`dashboard-stat-icon dashboard-stat-icon-${stat.accent}`}><Icon size={22} strokeWidth={2.1} /></div></article>;
         })}
       </div>
+
+      <section className="dashboard-surface dashboard-data-quality">
+        <div className="dashboard-surface-header"><div><span className="dashboard-panel-icon"><ShieldCheck size={16} /></span><div><h3>Applicant Data Quality</h3><p>Rule-based completeness and consistency checks across active applicant records.</p></div></div><button className="dashboard-link-button" type="button" onClick={() => onSectionChange?.('Applicants')}>Review applicants</button></div>
+        <div className="dashboard-quality-layout">
+          <div className="dashboard-quality-score">
+            <div><strong>{loading ? '—' : `${overview.dataQuality.qualityScore}%`}</strong><span>Quality score</span></div>
+            <div className="dashboard-quality-progress" role="progressbar" aria-label="Applicant data quality score" aria-valuemin="0" aria-valuemax="100" aria-valuenow={overview.dataQuality.qualityScore}><i style={{ width: `${overview.dataQuality.qualityScore}%` }} /></div>
+            <p><b>{overview.dataQuality.cleanRecords}</b> clean · <b>{overview.dataQuality.affectedRecords}</b> requiring review · {overview.dataQuality.totalRecords} total</p>
+          </div>
+          <div className="dashboard-quality-issues">
+            {overview.dataQuality.issues.map((issue) => <article key={issue.code} className={`dashboard-quality-issue ${issue.severity}`}><span aria-hidden="true" /><div><strong>{issue.label}</strong><p>{issue.description}</p></div><b>{issue.count}</b></article>)}
+            {!loading && !overview.dataQuality.issues.length && <div className="dashboard-quality-clear"><BadgeCheck size={18} /><div><strong>No data-quality issues detected</strong><span>All evaluated applicant records passed the current checks.</span></div></div>}
+            {loading && !overview.dataQuality.issues.length && <div className="dashboard-panel-loading compact"><span />Evaluating applicant records…</div>}
+          </div>
+        </div>
+      </section>
 
       <div className="dashboard-overview-grid">
         <section className="dashboard-surface dashboard-recent-applications">
