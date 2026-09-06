@@ -9,18 +9,18 @@ and how the result was verified.
 
 ### TL;DR
 
-- Applicant Records and Examination Management now share one tabbed Applicants workspace.
+- Applicants, Schedules & Assignments, and Results now share one flat tab row.
 - Super Administrators, Administrators, and Billing / Payroll Administrators retain their existing section-level visibility and access.
-- The sidebar has one Applicants entry; examination schedules and results retain their existing nested tabs.
+- The sidebar has one Applicants entry, with no dropdown or nested tab level.
 - Frontend lint and the production build passed.
 
 ### Objective, behavior, and affected users
 
 The objective was to reduce crowding in the administrator sidebar without
 removing either workflow. Previously, Applicants and Examination Management
-were separate top-level entries. They now appear as Applicant Records and
-Examination Management tabs inside a shared Applicants workspace, matching the
-established Examination tab control rather than introducing a sidebar dropdown.
+were separate top-level entries. They now appear as Applicants, Schedules &
+Assignments, and Results in one tab row inside a shared Applicants workspace,
+matching the requested flat control without a sidebar dropdown or sub-tabs.
 This affects Super Administrators, Administrators, and
 Billing / Payroll Administrators; Moderator, Applicant, and Scholar navigation
 is unchanged.
@@ -30,16 +30,16 @@ is unchanged.
 The sidebar now exposes one Applicants item when the staff member has either
 the `applicants` or `examination` section permission. Inside the workspace, each
 tab is independently filtered by that existing permission value. Staff with
-only Examination access open directly on Examination Management. Selecting the
-Examination tab renders the existing schedules-and-assignments / results
-workspace, so no application or examination data flow changed.
+only Examination access open directly on Schedules & Assignments. The schedules
+and results components render directly beneath the same top-level tab row, so
+no application or examination data flow changed.
 
 ### Files and system areas changed
 
 - `frontend/src/components/Sidebar.jsx` — single Applicants entry with combined
   permission visibility and active-state handling.
-- `frontend/src/Dashboard.jsx` — permission-aware Applicant Records and
-  Examination Management tabs.
+- `frontend/src/Dashboard.jsx` — permission-aware Applicants, Schedules &
+  Assignments, and Results tabs with no nested workspace tabs.
 - `change_log.txt` and this detailed engineering record.
 
 ### API, data, security, privacy, accessibility, and deployment impact

@@ -1197,19 +1197,6 @@ function ExaminationManagement({ token }) {
   );
 }
 
-function ExaminationWorkspace({ token, initialView = 'schedules' }) {
-  const [view, setView] = useState(initialView);
-  return (
-    <div className="examination-workspace">
-      <nav className="examination-workspace-tabs" aria-label="Examination management views">
-        <button type="button" className={view === 'schedules' ? 'active' : ''} onClick={() => setView('schedules')}>Schedules & assignments</button>
-        <button type="button" className={view === 'results' ? 'active' : ''} onClick={() => setView('results')}>Results</button>
-      </nav>
-      {view === 'schedules' ? <ExaminationManagement token={token} /> : <ResultsManagement token={token} />}
-    </div>
-  );
-}
-
 function ApplicantWorkspace({ token, user, initialView }) {
   const canViewApplicants = user?.role === 'SuperAdmin'
     || !Array.isArray(user?.sectionAccess)
@@ -1217,18 +1204,19 @@ function ApplicantWorkspace({ token, user, initialView }) {
   const canViewExaminations = user?.role === 'SuperAdmin'
     || !Array.isArray(user?.sectionAccess)
     || user.sectionAccess.includes('examination');
-  const defaultView = initialView || (canViewApplicants ? 'applicants' : 'examinations');
+  const defaultView = initialView || (canViewApplicants ? 'applicants' : 'schedules');
   const [view, setView] = useState(defaultView);
 
   return (
     <div className="examination-workspace">
       <nav className="examination-workspace-tabs" aria-label="Applicant management views">
-        {canViewApplicants && <button type="button" className={view === 'applicants' ? 'active' : ''} onClick={() => setView('applicants')}>Applicant Records</button>}
-        {canViewExaminations && <button type="button" className={view === 'examinations' ? 'active' : ''} onClick={() => setView('examinations')}>Examination Management</button>}
+        {canViewApplicants && <button type="button" className={view === 'applicants' ? 'active' : ''} onClick={() => setView('applicants')}>Applicants</button>}
+        {canViewExaminations && <button type="button" className={view === 'schedules' ? 'active' : ''} onClick={() => setView('schedules')}>Schedules &amp; Assignments</button>}
+        {canViewExaminations && <button type="button" className={view === 'results' ? 'active' : ''} onClick={() => setView('results')}>Results</button>}
       </nav>
-      {view === 'applicants' && canViewApplicants
-        ? <ApplicantsManagement token={token} />
-        : <ExaminationWorkspace token={token} />}
+      {view === 'applicants' && canViewApplicants && <ApplicantsManagement token={token} />}
+      {view === 'schedules' && canViewExaminations && <ExaminationManagement token={token} />}
+      {view === 'results' && canViewExaminations && <ResultsManagement token={token} />}
     </div>
   );
 }
@@ -1238,7 +1226,7 @@ function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange, 
     return <DashboardOverview token={token} onSectionChange={onSectionChange} />;
   }
   if (activeSection === 'Applicants' && ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role)) return <ApplicantWorkspace token={token} user={user} />;
-  if (activeSection === 'Examination Management' || activeSection === 'Results Management') return <ApplicantWorkspace token={token} user={user} initialView="examinations" />;
+  if (activeSection === 'Examination Management' || activeSection === 'Results Management') return <ApplicantWorkspace token={token} user={user} initialView={activeSection === 'Results Management' ? 'results' : 'schedules'} />;
   if (activeSection === 'Scholars') return <ScholarsManagement token={token} />;
   if (activeSection === 'Billing') return <BillingPayrollManagement key="billing" token={token} mode="billing" userRole={user?.role} />;
   if (activeSection === 'Payroll') return <BillingPayrollManagement key="payroll" token={token} mode="payroll" userRole={user?.role} />;
