@@ -27,7 +27,6 @@ const {
 const { recordActivitySafely } = require('../services/activityLog');
 const { getApplicationAvailability } = require('../services/applicationAvailability');
 const { buildApplicantGuidance } = require('../services/applicantGuidance');
-const { assessApplicantDataQuality } = require('../services/dataQuality');
 const { evaluateEligibility, serializeAssessment } = require('../services/eligibilityRecommendation');
 const { PRIORITY_PROOFS, selectedPriorityCriteria } = require('../services/priorityEligibility');
 
@@ -1648,19 +1647,17 @@ const uploadMyRequirement = async (req, res) => {
 const getDashboardSummary = async (req, res) => {
   try {
     const [applicants, activeScholars, forfeitedAccounts, activity] = await Promise.all([
-      prisma.applicants.findMany({ where: { deleted_at: null }, orderBy: { created_at: 'desc' }, select: { id: true, first_name: true, middle_name: true, last_name: true, name_ext: true, phone: true, street: true, barangay: true, municipality: true, school_id: true, gender: true, date_of_birth: true, birthplace: true, status: true } }),
+      prisma.applicants.findMany({ where: { deleted_at: null }, orderBy: { created_at: 'desc' }, take: 7, select: { id: true, first_name: true, middle_name: true, last_name: true, status: true } }),
       prisma.scholar_accounts.count({ where: { is_active: true } }),
       prisma.exam_slots.count({ where: { forfeited_at: { not: null } } }),
       prisma.activity_logs.findMany({ orderBy: { created_at: 'desc' }, take: 4, select: { id: true, action: true, description: true, created_at: true } }),
     ]);
-    const recentApplicants = applicants.slice(0, 7);
     const applicantIds = applicants.map(({ id }) => id);
     const accounts = applicantIds.length ? await prisma.control_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, control_number: true } }) : [];
     const controlNumbers = new Map(accounts.map((account) => [account.applicant_id, account.control_number]));
     return res.json({
       stats: { activeScholars, forfeitedAccounts },
-      dataQuality: assessApplicantDataQuality({ applicants, controlAccounts: accounts }),
-      recentApplications: recentApplicants.map((applicant) => ({ name: [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' ').toUpperCase(), controlNo: controlNumbers.get(applicant.id) || `Applicant #${applicant.id}`, status: applicant.status })),
+      recentApplications: applicants.map((applicant) => ({ name: [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' ').toUpperCase(), controlNo: controlNumbers.get(applicant.id) || `Applicant #${applicant.id}`, status: applicant.status })),
       recentActivity: activity.map((entry) => ({ title: entry.action, detail: entry.description || 'System activity recorded', status: 'INFO', time: entry.created_at })),
     });
   } catch (error) {

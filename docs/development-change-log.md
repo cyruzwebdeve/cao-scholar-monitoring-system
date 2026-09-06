@@ -5,74 +5,57 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
-## 2026-09-07 — Phase 1 Applicant Data Quality Dashboard
+## 2026-09-07 — Applicant Data Quality Trial Rollback
 
 ### TL;DR
 
-- Added an explainable Applicant Data Quality panel to the administrator Dashboard.
-- Checks cover possible duplicates, missing control accounts, incomplete identity/address details, unlinked schools, and malformed mobile numbers.
-- Only aggregate issue counts leave the server; individual applicant details remain in the protected Applicants workspace.
-- Verification passed: 83 backend tests, backend syntax, frontend lint/build, and Git whitespace checks. The change remains local for evaluation.
+- Removed the trial Applicant Data Quality Dashboard following user evaluation.
+- Restored the Dashboard summary API and interface to their pre-trial behavior.
+- No applicant records, database structures, or earlier approved features were changed.
+- Verification passed: 79 backend tests, backend syntax, frontend lint/build, and Git whitespace checks.
 
 ### Objective, behavior, and affected users
 
-The objective was to implement the first independently testable phase of the
-recommended improvement roadmap. Previously, staff could inspect individual
-Applicant records but had no consolidated indication of legacy, incomplete, or
-internally inconsistent data. Super Administrators, Administrators, and Billing /
-Payroll Administrators with Dashboard access now receive a quality score, clean
-and affected record totals, categorized issue counts, plain-language rule
-descriptions, and a shortcut to the Applicants workspace. Applicant, Scholar,
-and Moderator experiences are unchanged.
+The objective was to cleanly reverse the first experimental roadmap phase after
+it did not provide sufficient innovative value for the user. Administrators no
+longer see the Applicant Data Quality score, aggregate issue cards, or review
+shortcut on Dashboard. Recent Applications, Recent Activity, account metrics,
+and all other administrator workflows retain their previous behavior. Applicant,
+Scholar, and Moderator experiences remain unchanged.
 
 ### Implementation and data flow
 
-The Dashboard summary retrieves minimized applicant fields and linked control
-account identifiers, then sends them to a pure server-side assessment service.
-Each undeleted applicant is evaluated against six deterministic checks: valid
-Philippine mobile format, complete street/barangay/municipality, complete birth
-date/birthplace/gender, School Catalog linkage, control-account linkage, and
-possible duplication by normalized name plus birth date or shared valid mobile
-number. The quality score represents passed checks divided by all evaluated
-checks. The response contains only aggregate totals and rule descriptions—not
-the IDs or personal data of affected applicants. Staff use the existing protected
-Applicants view for record-level investigation and correction.
+The rollback removed the server-side data-quality assessment service and its
+tests, returned `GET /api/dashboard/summary` to its previous minimized recent-
+applicant query and response, and removed the corresponding Dashboard state,
+panel, progress indicator, and styles. No data-quality results had been persisted,
+so no data cleanup or migration was required.
 
 ### Files and system areas changed
 
-- `backend/services/dataQuality.js` — deterministic assessment and aggregation.
-- `backend/tests/dataQuality.test.js` — complete, incomplete, duplicate, and empty-state coverage.
-- `backend/controllers/applicationController.js` — Dashboard summary integration.
-- `frontend/src/Dashboard.jsx` — quality score, progress indicator, issue cards, and review shortcut.
-- `frontend/src/styles/admin.css` — responsive data-quality panel styling.
+- Dashboard summary controller.
+- Administrator Dashboard component and styles.
+- Removed data-quality assessment service and tests.
 - `change_log.txt` and this detailed engineering record.
 
 ### API, database, configuration, security, privacy, accessibility, and deployment impact
 
-- API: `GET /api/dashboard/summary` now adds a `dataQuality` aggregate object;
-  existing response fields remain compatible.
-- Database/configuration/dependencies: no schema, migration, variable, package,
-  or external-service changes.
-- Security/privacy: existing Dashboard authentication, role, and section-access
-  checks remain authoritative. The new payload deliberately excludes affected
-  applicant IDs, names, contact data, addresses, and birth dates.
-- Accessibility: the score uses a labelled progressbar with numeric ARIA values;
-  issue meaning is available in text rather than conveyed only by color.
-- Deployment: none performed for this evaluation; a normal frontend/backend
-  deployment would be required only if the phase is approved.
+- API: removed the experimental `dataQuality` object from the Dashboard summary;
+  all earlier response fields remain unchanged.
+- Database/configuration/dependencies: no impact and no migration required.
+- Security/privacy: no authorization changes; the removed feature had exposed
+  only aggregates and persisted no applicant information.
+- Accessibility: the experimental progress indicator and issue cards were
+  removed; existing Dashboard controls remain unchanged.
+- Deployment: normal frontend/backend deployment required to publish the rollback.
 
 ### Validation, limitations, rollback, and next work
 
-All 83 backend tests passed, including four new data-quality rule tests. Backend
-syntax, frontend lint, frontend production build, and Git whitespace checks
-passed. Duplicate detection is intentionally a review signal rather than an
-automatic merge or rejection. The current score evaluates structural completeness
-and consistency, not document authenticity or applicant eligibility. The summary
-currently evaluates all undeleted applicants on each 30-second Dashboard refresh;
-if record volume becomes substantial, aggregation caching or scheduled snapshots
-should be considered. Rollback requires removing the panel, summary property,
-service, and tests; no stored data needs reversal. The next roadmap phase should
-begin only after local user evaluation.
+All remaining 79 backend tests passed. Backend syntax, frontend lint, frontend
+production build, and Git whitespace checks passed. Reintroducing this exact
+trial would require reverting the rollback commit, but future innovation work
+should instead start from a separately approved concept. No known data recovery
+or operational limitation remains from the trial.
 
 ## 2026-09-06 — Results Decision Support Panel Removal
 
