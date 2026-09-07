@@ -5,6 +5,86 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-07 - New Academic-Period Billing Cycle Guidance
+
+### TL;DR
+
+- Preserved completed Billing and Payroll records as immutable history instead of reopening them for editing.
+- Added an in-context action that takes authorized staff from a processed Scholar record to academic-period setup in Settings.
+- Activating the next academic period uses the existing period-based data model to present a fresh cycle with no reference; duplicate processing in the same period remains blocked.
+- Corrected Public-school helper text so a legacy billing record does not obscure the current Payroll-only route.
+- Verification passed: frontend lint and production build.
+
+### Objective, reason, and behavior
+
+The objective was to answer the operational need for another billing cycle
+without overwriting a completed record. A processed scholar previously showed
+read-only details with no explanation of the next step. Staff could already
+create and activate academic periods in Settings, and the database already
+stores requirements and claims per scholar and academic period, but that path
+was not visible from the locked record.
+
+Processed Scholar drawers now show **Need another billing cycle?** for the
+Private-school Billing route or **Need another payroll cycle?** for the
+Public-school Payroll route. The message explains that the completed period
+remains locked and that the next academic period starts a fresh record with no
+reference. Staff with Settings access can use **Set up the next academic
+period** to navigate there directly; staff without access receive a clear
+instruction to contact an authorized administrator.
+
+After a new period is created and activated, the existing active-period lookup
+loads a new scholar-period state: no processed claim, no Billing Reference, and
+editable pre-processing metadata. Process Billing generates the reference only
+for Private-school scholars when that new cycle is processed. Public-school
+scholars continue to bypass Billing and enter Payroll-list generation. A second
+record in the same academic period remains prohibited by the existing unique
+database constraint and server-side duplicate check.
+
+### Roles, implementation, and files
+
+Billing / Payroll Admins, Administrators, and Super Administrators with Settings
+access can follow the shortcut. Other staff can see the required next step but
+cannot bypass their assigned sections. `Dashboard.jsx` passes its existing
+section-navigation callback to `ScholarsManagement.jsx`; the Scholar drawer
+renders route-aware guidance only for a processed cycle. `admin.css` provides
+responsive, keyboard-visible presentation. The Public-school Billing summary
+now explicitly says that the scholar follows the Payroll route, and the Payroll
+summary describes payroll-list preparation without requiring a nonexistent
+Billing step.
+
+Changed areas:
+
+- `frontend/src/Dashboard.jsx`
+- `frontend/src/ScholarsManagement.jsx`
+- `frontend/src/styles/admin.css`
+- `change_log.txt` and this detailed record
+
+### API, database, configuration, security, privacy, accessibility, deployment, and scope impact
+
+- **API/database:** no new endpoint, schema, or migration. The existing
+  academic-period, scholar-requirement, claim, and duplicate-protection behavior
+  is reused.
+- **Configuration/dependencies:** no impact.
+- **Security/privacy:** the shortcut does not grant access. Existing section
+  permissions and backend role checks still govern period creation/activation;
+  no additional personal information is exposed.
+- **Accessibility:** the shortcut is a native button with visible keyboard focus,
+  and the complete instruction is available as text rather than color alone.
+- **Deployment:** frontend deployment only.
+- **Scope:** no payment release, claim confirmation, disbursement,
+  reconciliation, or monetary-audit capability was added. Public/Private school
+  routing and the official payroll-list endpoint remain unchanged.
+
+### Validation, limitations, rollback, and next work
+
+Frontend ESLint and the Vite production build passed. This change intentionally
+does not allow multiple billing batches for one scholar in the same academic
+period. Starting the next cycle changes the system-wide active academic period,
+so staff should activate it only during the actual rollover. Rollback can remove
+the guidance and navigation callback without affecting any record. The next
+planned task—separating School Year and Semester in the Scholar Billing tab—can
+build on this period-safe workflow without changing completed history.
+
 ## 2026-09-07 - Billing Reference Generation at Processing
 
 ### TL;DR

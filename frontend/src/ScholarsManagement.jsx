@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BadgeCheck,
   BookOpenCheck,
+  CalendarRange,
   CircleDollarSign,
   Download,
   Eye,
@@ -44,7 +45,7 @@ function ScholarBadge({ value, type }) {
   return <span className={`scholar-admin-badge ${type} ${value.toLowerCase().replace(/\s+/g, '-')}`}>{type === 'status' ? <BadgeCheck size={13} /> : <FileCheck2 size={13} />}{value}</span>;
 }
 
-export default function ScholarsManagement({ token, user }) {
+export default function ScholarsManagement({ token, user, onSectionChange }) {
   const [scholars, setScholars] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -76,6 +77,14 @@ export default function ScholarsManagement({ token, user }) {
     || user.sectionAccess.includes('billing');
   const canReviewDocuments = ['SuperAdmin', 'BillingPayrollAdmin'].includes(user?.role)
     && (user?.role === 'SuperAdmin' || !Array.isArray(user?.sectionAccess) || user.sectionAccess.includes('documentReviews'));
+  const canOpenSettings = user?.role === 'SuperAdmin'
+    || !Array.isArray(user?.sectionAccess)
+    || user.sectionAccess.includes('settings');
+
+  const openNewCycleSetup = () => {
+    setSelected(null);
+    onSectionChange?.('Settings');
+  };
 
   const loadScholars = useCallback(async ({ showLoader = false } = {}) => {
     if (showLoader) setLoading(true);
@@ -330,8 +339,8 @@ export default function ScholarsManagement({ token, user }) {
           ) : (
             <div className="scholars-drawer-tab-panel" role="tabpanel">
               <section className="scholars-finance-summary">
-                <article className={selected.billed ? 'complete' : 'pending'}><i><ReceiptText size={19} /></i><div><span>Billing status</span><strong>{selected.billingStatus || (selected.billed ? 'Billed' : 'Not billed yet')}</strong><small>{selected.billed ? 'Included in a billing record' : 'Waiting for billing processing'}</small></div></article>
-                <article className={selected.paid ? 'complete' : 'pending'}><i><CircleDollarSign size={19} /></i><div><span>Payroll status</span><strong>{selected.payrollStatus || (selected.paid ? 'Paid' : 'Not paid yet')}</strong><small>{selected.paid ? 'Payroll has been completed' : selected.billed ? 'Ready for payroll processing' : 'Billing must be completed first'}</small></div></article>
+                <article className={selected.processRoute === 'billing' && selected.billed ? 'complete' : 'pending'}><i><ReceiptText size={19} /></i><div><span>Billing status</span><strong>{selected.billingStatus || (selected.billed ? 'Billed' : 'Not billed yet')}</strong><small>{selected.processRoute === 'billing' ? selected.billed ? 'Included in a billing record' : 'Waiting for billing processing' : 'Public scholar follows the Payroll route'}</small></div></article>
+                <article className={selected.inPayroll ? 'complete' : 'pending'}><i><CircleDollarSign size={19} /></i><div><span>Payroll status</span><strong>{selected.payrollStatus || (selected.inPayroll ? 'Included in payroll list' : 'Not included yet')}</strong><small>{selected.processRoute === 'payroll' ? selected.inPayroll ? 'Included in the official payroll list' : 'Ready for payroll-list preparation' : 'Private scholar follows the Billing route'}</small></div></article>
               </section>
               <section className="scholars-detail-section scholars-finance-details">
                 <div className="scholars-finance-details-heading"><h4>Processing details</h4>{canEditBilling && !selected.billed && !selected.inPayroll && !editingBilling && <button type="button" onClick={beginBillingEdit}><Pencil size={12} />Edit</button>}</div>
@@ -347,6 +356,7 @@ export default function ScholarsManagement({ token, user }) {
                   <dl><div><dt>Billing reference</dt><dd>{selected.billingReference || 'Not generated'}</dd></div><div><dt>School year / semester</dt><dd>{selected.billingSchoolYearSemester || selected.schoolYearSemester}</dd></div><div><dt>Billing status</dt><dd>{selected.billingStatus}</dd></div></dl>
                 )}
               </section>
+              {(selected.billed || selected.inPayroll) && <section className="scholars-new-cycle-guidance"><CalendarRange size={18} /><div><strong>{selected.processRoute === 'billing' ? 'Need another billing cycle?' : 'Need another payroll cycle?'}</strong><span>The completed {selected.billingSchoolYearSemester || selected.schoolYearSemester} record remains locked. Create and activate the next academic period to start a fresh record with no reference.</span>{canOpenSettings ? <button type="button" onClick={openNewCycleSetup}>Set up the next academic period</button> : <small>Ask an administrator with Settings access to activate the next academic period.</small>}</div></section>}
               {!!selected.financialHistory?.filter((record) => !record.isActivePeriod).length && <section className="scholars-detail-section"><h4>Previous period history</h4><div className="scholars-finance-history">{selected.financialHistory.filter((record) => !record.isActivePeriod).map((record) => <article key={`${record.academicPeriodId}-${record.dateProcessed}`}><div><strong>{record.schoolYear} · {record.semester}</strong><span>{record.billingStatus} · {record.payrollStatus}</span></div><div><strong>{record.payReference || 'No pay reference'}</strong><span>{record.dateProcessed ? formatScholarDate(record.dateProcessed) : 'Not processed'}</span></div></article>)}</div></section>}
               <div className="scholars-finance-note"><CircleDollarSign size={17} /><div><strong>Live processing status</strong><span>This information follows the scholar’s current Billing and Payroll records and refreshes automatically.</span></div></div>
             </div>
