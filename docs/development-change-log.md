@@ -5,6 +5,94 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-07 - Scholar-to-Billing/Payroll Session Handoff
+
+### TL;DR
+
+- Preparing a scholar session now opens the correct operational workspace automatically: Private scholars go to Billing and Public scholars go to Payroll.
+- The destination opens the exact active School Year/Semester selected in the Scholar drawer and focuses the prepared scholar.
+- The handoff is short-lived, browser-session-only, contains only internal numeric identifiers, and is cleared after loading.
+- Existing requirements, routing rules, duplicate checks, and the official-payroll-list scope boundary remain unchanged.
+
+### Objective and reason
+
+The session-preparation form correctly created a scholar-period record, but the
+staff member still had to leave Scholars, open Billing or Payroll, reselect the
+same processing period, and search for the scholar again. The objective was to
+remove those repeated navigation steps without bypassing either workspace's
+normal readiness checks.
+
+### Previous and new behavior
+
+Previously, Prepare session saved the selected period and remained in the
+Scholar drawer. Billing and Payroll independently defaulted to the Primary
+System Period, so a session prepared for another active period could appear
+missing until staff manually changed the Processing period selector.
+
+Now the action is labelled Prepare & open Billing or Prepare & open Payroll,
+according to the scholar's server-derived school route. After the metadata save
+succeeds, the dashboard opens that section. Its Processing period is initialized
+to the prepared period, the record list is loaded from the period-scoped API,
+and the prepared scholar is focused using the existing search filter. A success
+notice confirms the scholar and period that were loaded.
+
+### Roles, workflow, and implementation
+
+Authorized staff select an active period in the Scholar Billing & Payroll tab
+and use the single preparation action. Private-school scholars hand off to
+Billing; Public-school scholars hand off to Payroll. Staff then complete the
+existing requirement/detail review and queue process. Preparation does not
+automatically mark a scholar eligible or add the scholar to a processing queue.
+
+`frontend/src/utils/processingHandoff.js` writes a ten-minute session-scoped
+context containing only `periodId`, `applicantId`, route mode, and creation time.
+`BillingPayrollManagement` reads a context only when its mode matches, requests
+the exact period, locates the applicant in the returned current records, focuses
+the row through the search field, then removes the context. Invalid, mismatched,
+expired, or unavailable browser storage safely falls back to the existing UI.
+
+### Files and system areas changed
+
+- `frontend/src/ScholarsManagement.jsx`: saves the handoff and routes staff to
+  Billing or Payroll after successful preparation.
+- `frontend/src/BillingPayrollManagement.jsx`: initializes the processing
+  period, focuses the prepared scholar, and reports handoff success/failure.
+- `frontend/src/utils/processingHandoff.js`: validates, expires, and clears the
+  temporary session handoff.
+- `change_log.txt` and `docs/development-change-log.md`: document the integrated
+  staff workflow.
+
+### Impact assessment
+
+- **API/database:** no new endpoint, request field, table, migration, or data
+  duplication. Both workspaces continue reading the period-scoped scholar API.
+- **Security/privacy:** the backend remains authoritative for active-period,
+  role, section, school-route, eligibility, and duplicate enforcement. The
+  browser handoff contains no name, email, control number, document, or token;
+  it expires after ten minutes and is cleared on consumption.
+- **Accessibility:** the destination's existing period selector, search input,
+  and textual status notice expose the resulting context; no color-only state
+  was introduced.
+- **Configuration/dependencies/deployment:** no configuration or dependency
+  changes; frontend deployment only.
+- **Scope:** the handoff ends in Billing preparation or official payroll-list
+  preparation. It does not add fund release, payment claiming, disbursement,
+  reconciliation, or monetary auditing.
+
+### Validation, limitations, rollback, and next work
+
+Frontend ESLint and the production build passed, as did Git whitespace checks.
+The existing 82-test backend suite and syntax checks had already passed for the
+period-scoped metadata behavior and were not invalidated by this browser-only
+handoff.
+
+The handoff focuses one scholar at a time and intentionally does not preselect
+or enqueue the scholar, because readiness must remain visible and staff-driven.
+If session storage is disabled, preparation still saves safely but remains in
+the Scholar drawer. Rollback can remove the temporary utility and navigation
+calls without changing stored scholar-period records. Recommended next work is
+period-specific requirement assistance in the destination workspace.
+
 ## 2026-09-07 - Scholar New-Session Preparation Workflow
 
 ### TL;DR

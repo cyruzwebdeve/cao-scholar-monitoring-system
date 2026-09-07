@@ -20,6 +20,7 @@ import {
 import { API_BASE, authHeaders } from './services/api';
 import CsvExportModal from './components/CsvExportModal';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
+import { clearProcessingHandoff, readProcessingHandoff } from './utils/processingHandoff';
 
 const formatDate = (value) => {
   if (!value) return 'Not processed';
@@ -58,13 +59,15 @@ const matchesDateRange = (value, from, to) => {
 
 export default function BillingPayrollManagement({ token, mode = 'billing', userRole }) {
   const isPayroll = mode === 'payroll';
+  const [initialHandoff] = useState(() => readProcessingHandoff(mode));
   const canUseBillingOverride = !isPayroll && ['SuperAdmin', 'BillingPayrollAdmin'].includes(userRole);
   const defaultBilledFilter = isPayroll ? 'All Billing Statuses' : 'Not billed yet';
   const defaultPaidFilter = isPayroll ? 'Not paid yet' : 'All Payroll Statuses';
   const [records, setRecords] = useState([]);
   const [availableSchools, setAvailableSchools] = useState([]);
   const [activePeriods, setActivePeriods] = useState([]);
-  const [selectedPeriodId, setSelectedPeriodId] = useState('');
+  const [selectedPeriodId, setSelectedPeriodId] = useState(() => initialHandoff ? String(initialHandoff.periodId) : '');
+  const [handoffApplicantId, setHandoffApplicantId] = useState(() => initialHandoff?.applicantId || null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [, setPage] = useState(1);
@@ -116,13 +119,24 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
       setAvailableSchools(body.schools || []);
       setActivePeriods(body.activePeriods || (body.activePeriod ? [body.activePeriod] : []));
       setSelectedPeriodId((current) => current || String(body.activePeriod?.id || ''));
+      if (handoffApplicantId) {
+        const preparedScholar = currentRecords.find((record) => record.applicantId === handoffApplicantId);
+        if (preparedScholar) {
+          setQuery((current) => current || preparedScholar.controlNumber || preparedScholar.email || preparedScholar.name);
+          setOperationNotice({ tone: 'success', text: `${preparedScholar.name} is loaded in the prepared ${body.activePeriod?.schoolYear || ''} ${body.activePeriod?.semester || ''} session.`.replace(/\s+/g, ' ').trim() });
+        } else {
+          setOperationNotice({ tone: 'error', text: 'The prepared scholar could not be found in this processing period.' });
+        }
+        clearProcessingHandoff();
+        setHandoffApplicantId(null);
+      }
       setLoadError('');
     } catch (error) {
       setLoadError(error instanceof TypeError ? 'Unable to reach the server. Retrying automatically…' : error.message || 'Unable to load records.');
     } finally {
       setLoading(false);
     }
-  }, [selectedPeriodId, token]);
+  }, [handoffApplicantId, selectedPeriodId, token]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => loadRecords({ showLoader: true }), 0);
@@ -153,7 +167,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const schoolTypes = useMemo(() => [...new Set(records.map((item) => item.schoolType || 'Public'))].sort(), [records]);
 
   const filtered = useMemo(() => records.filter((record) => {
-    const search = `${record.name} ${record.email || ''}`.toLowerCase();
+    const search = `${record.name} ${record.controlNumber || ''} ${record.email || ''}`.toLowerCase();
     const normalizedSchoolType = record.schoolType || 'Public';
     const matchesReference = payReference === 'All Pay References'
       || (payReference === 'No pay reference' ? !record.payReference : record.payReference === payReference);

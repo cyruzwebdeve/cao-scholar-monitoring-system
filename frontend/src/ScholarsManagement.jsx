@@ -20,6 +20,7 @@ import { API_BASE, authHeaders } from './services/api';
 import CsvExportModal from './components/CsvExportModal';
 import { DecisionModal, ReviewModal } from './DocumentReviewManagement';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
+import { saveProcessingHandoff } from './utils/processingHandoff';
 import './styles/document-reviews.css';
 
 const formatScholarDate = (value) => {
@@ -288,7 +289,14 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.message || 'Unable to update billing and payroll details.');
-      await selectBillingPeriod(selectedPeriod);
+      const destinationMode = selected.processRoute === 'billing' ? 'billing' : 'payroll';
+      const handoffSaved = saveProcessingHandoff({ periodId: selectedPeriod.id, applicantId: selected.applicantId, mode: destinationMode });
+      if (onSectionChange && handoffSaved) {
+        setSelected(null);
+        onSectionChange(destinationMode === 'billing' ? 'Billing' : 'Payroll');
+      } else {
+        await selectBillingPeriod(selectedPeriod);
+      }
     } catch (error) {
       setBillingEditError(error.message || 'Unable to update billing and payroll details.');
     } finally {
@@ -391,7 +399,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
                     <label><span>Billing status</span><select aria-label="Billing status" disabled={!canEditBilling || selected.billed || selected.inPayroll || selected.processRoute !== 'billing'} value={billingForm.billingStatus} onChange={(event) => setBillingForm((current) => ({ ...current, billingStatus: event.target.value }))}>{selected.processRoute === 'billing' ? <>{selected.billed && <option>Billed</option>}<option>Not billed yet</option><option>Ready for billing</option><option>On hold</option></> : <option>Not applicable</option>}</select></label>
                   </div>
                   {billingEditError && <p role="alert">{billingEditError}</p>}
-                  {canEditBilling && !selected.billed && !selected.inPayroll && <footer><button type="submit" disabled={billingSaving || billingPeriodLoading || !billingForm.schoolYear || !billingForm.semester}><Save size={12} />{billingSaving ? 'Saving…' : 'Prepare session'}</button></footer>}
+                  {canEditBilling && !selected.billed && !selected.inPayroll && <footer><button type="submit" disabled={billingSaving || billingPeriodLoading || !billingForm.schoolYear || !billingForm.semester}><Save size={12} />{billingSaving ? 'Preparing…' : `Prepare & open ${selected.processRoute === 'billing' ? 'Billing' : 'Payroll'}`}</button></footer>}
                 </form>
               </section>
               <section className="scholars-finance-summary">
