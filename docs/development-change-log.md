@@ -92,6 +92,15 @@ previous drawer/controller behavior without deleting any newly created
 scholar-period row. Recommended next work is requirement carry-forward guidance
 for staff, not automatic copying of approvals without policy confirmation.
 
+### Production deployment outcome
+
+Commit `06a15c0` was pushed to `main` on 2026-09-07. The live Vercel dashboard
+bundle contained both `Prepare session` and the selected-period loading/error
+flow, confirming the corrected controls are available in production. Render's
+health endpoint returned HTTP 200 with a healthy connected database. The
+authenticated period-switch and preparation action is ready for staff testing;
+the untracked ERD files were not staged or modified.
+
 ## 2026-09-07 - Compact Scholar Billing Period Form
 
 ### TL;DR
