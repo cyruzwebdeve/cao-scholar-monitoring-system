@@ -5,6 +5,79 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-07 - Multiple Active Period Activation Hotfix
+
+### TL;DR
+
+- Removed the legacy database index that unintentionally blocked activation of a second academic period.
+- Preserved the separate rule requiring exactly one Primary System Period for single-default workflows.
+- Improved the activation API response if a deployment is briefly serving code before the corrective migration is available.
+- No period, billing, payroll-list, requirement, or applicant records are deleted or rewritten.
+
+### Objective and reason
+
+Production correctly exposed the new multi-period interface and primary-period
+field, but activating a second period returned a generic server error. Schema
+inspection found that the original baseline migration had created the partial
+unique index `academic_periods_single_active_idx`, which permits only one row
+whose `is_active` value is true. The initial multi-period migration added the
+new primary constraint but omitted removal of this obsolete index.
+
+### Previous and new behavior
+
+Previously, PostgreSQL rejected the second active row before the controller
+could complete activation. After this hotfix, any number of periods may be
+active, while `academic_periods_one_primary_idx` still permits only one primary
+row and `academic_periods_primary_requires_active` ensures that primary row is
+active.
+
+### Roles, workflow, and implementation
+
+Super Administrators, Administrators, and authorized Billing / Payroll staff
+continue using the existing Activate action in Settings. A new additive
+migration performs only `DROP INDEX IF EXISTS` for the obsolete single-active
+index. The activation controller also maps a Prisma uniqueness conflict to a
+clear HTTP 409 retry message rather than presenting a generic HTTP 500 banner.
+All selected-period Billing and payroll-list behavior is otherwise unchanged.
+
+### Files and system areas changed
+
+- `backend/prisma/migrations/20260907030000_remove_single_active_period_index/migration.sql`
+  removes only the obsolete partial unique index.
+- `backend/controllers/applicationController.js` improves activation conflict
+  handling during a rolling deployment.
+- `change_log.txt` and `docs/development-change-log.md` record the correction.
+
+### Impact assessment
+
+- **API:** successful activation behavior is restored; a remaining uniqueness
+  conflict returns HTTP 409 with safe retry guidance.
+- **Database:** one obsolete index is removed. Tables and stored rows are not
+  changed, and the primary-period unique index/check constraint remain intact.
+- **Configuration/dependencies:** no changes.
+- **Security/privacy:** authentication, role authorization, section access,
+  and Activity Log behavior remain unchanged; no private data is exposed.
+- **Accessibility:** the existing inline textual error region receives the
+  clearer message; no interaction or keyboard behavior changes.
+- **Deployment:** Render must run the new migration before starting the updated
+  service. The existing build pipeline already uses this order.
+- **Product scope:** unchanged; Payroll still ends at official payroll-list
+  generation with no fund release, claiming, disbursement, reconciliation, or
+  monetary audit functionality.
+
+### Validation, limitations, rollback, and next work
+
+The Prisma application schema, backend automated suite, backend syntax,
+frontend lint/build, and Git whitespace checks are rerun before deployment.
+Production verification will confirm database health, primary-period output,
+and successful persistence of more than one active period through the
+authenticated Settings workflow.
+
+Rollback should not recreate the obsolete index while multiple active rows
+exist because doing so would fail or require archiving staff-selected periods.
+If strict single-active behavior is intentionally restored later, staff must
+first choose and preserve one active period through a controlled migration.
+
 ## 2026-09-07 - Multiple Active Academic Periods with a Primary System Period
 
 ### TL;DR

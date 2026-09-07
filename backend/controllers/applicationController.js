@@ -607,6 +607,9 @@ const activateAcademicPeriod = async (req, res) => {
       period: serializeAcademicPeriod(period),
     });
   } catch (error) {
+    if (error?.code === 'P2002') {
+      return res.status(409).json({ message: 'The database is still completing the multiple-period update. Please retry shortly.' });
+    }
     console.error(error);
     return res.status(500).json({ message: 'Server error activating the academic period.' });
   }
