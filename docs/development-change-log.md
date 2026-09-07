@@ -78,6 +78,16 @@ exist because doing so would fail or require archiving staff-selected periods.
 If strict single-active behavior is intentionally restored later, staff must
 first choose and preserve one active period through a controlled migration.
 
+### Production deployment outcome
+
+The hotfix was pushed to `main` as commit `d2068d6`. Render's deployment path
+includes Prisma migration deployment before service startup. After rollout,
+`/api/health` returned HTTP 200 with a healthy connected database and
+`/api/academic-periods/active` returned HTTP 200 with `isPrimary: true`.
+Because activation is an authenticated mutation, the final end-to-end action
+is intentionally left to an authorized staff tester in Settings. The untracked
+ERD files were not staged or modified.
+
 ## 2026-09-07 - Multiple Active Academic Periods with a Primary System Period
 
 ### TL;DR
