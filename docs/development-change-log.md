@@ -102,6 +102,15 @@ the new textual default in place safely; reverting the database default should
 not rewrite already stored statuses. Recommended next work is the planned
 requirements-side assistance for starting a new active billing period.
 
+### Production deployment outcome
+
+Commit `a048fdf` was pushed to `main` on 2026-09-07. Vercel returned HTTP 200,
+and inspection of its production dashboard bundle confirmed the new `BILL REF
+NO.`, `Not billed yet`, and `Save changes` interface text. Render's live health
+endpoint returned HTTP 200 with a healthy connected database after the push;
+its build pipeline applies the additive billing-status migration before API
+startup. The untracked ERD files were not staged or modified.
+
 ## 2026-09-07 - Multiple Active Period Activation Hotfix
 
 ### TL;DR
