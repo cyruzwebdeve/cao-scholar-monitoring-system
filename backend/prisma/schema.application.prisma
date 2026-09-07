@@ -267,7 +267,7 @@ model scholar_requirements {
   major                             String?   @db.VarChar(150)
   billing_amount                    Decimal?  @db.Decimal(10, 2)
   billing_notes                     String?
-  billing_reference                 String    @unique @default(cuid()) @db.VarChar(40)
+  billing_reference                 String?   @db.VarChar(40)
   billing_school_year               String?   @db.VarChar(9)
   billing_semester                  String?   @db.VarChar(30)
   billing_status                    String    @default("Pending") @db.VarChar(30)

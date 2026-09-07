@@ -337,7 +337,7 @@ export default function ScholarsManagement({ token, user }) {
                 <div className="scholars-finance-details-heading"><h4>Processing details</h4>{canEditBilling && !selected.billed && !selected.inPayroll && !editingBilling && <button type="button" onClick={beginBillingEdit}><Pencil size={12} />Edit</button>}</div>
                 {editingBilling ? (
                   <form className="scholars-billing-edit-form" onSubmit={saveBillingMetadata}>
-                    <label><span>Billing reference</span><input value={selected.billingReference || 'Generated when saved'} readOnly aria-readonly="true" /></label>
+                    <label><span>Billing reference</span><input value={selected.billingReference || 'Generated when billing is processed'} readOnly aria-readonly="true" /></label>
                     <label><span>School year and semester</span><select required value={billingForm.academicPeriodId} onChange={(event) => setBillingForm((current) => ({ ...current, academicPeriodId: event.target.value }))}><option value="">Select period</option>{academicPeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}</option>)}</select></label>
                     <label><span>Billing status</span><select disabled={selected.processRoute !== 'billing'} value={billingForm.billingStatus} onChange={(event) => setBillingForm((current) => ({ ...current, billingStatus: event.target.value }))}>{selected.processRoute === 'billing' ? <><option>Pending</option><option>Ready for billing</option><option>On hold</option></> : <option>Not applicable</option>}</select></label>
                     {billingEditError && <p role="alert">{billingEditError}</p>}

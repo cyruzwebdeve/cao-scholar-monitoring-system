@@ -5,6 +5,122 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-07 - Billing Reference Generation at Processing
+
+### TL;DR
+
+- Billing references are now absent before processing and generated only by the existing **Process Billing** action.
+- One billing batch number becomes the shared Billing Reference for every scholar included in that processed batch.
+- Existing processed records are mapped to their real batch reference; premature references on unprocessed records are cleared.
+- The change is transactional and does not add a new staff step or extend the workflow into payment activity.
+- Verification passed: 82 backend tests, application Prisma schema validation, frontend lint/build, backend syntax, and Git whitespace checks.
+
+### Objective and reason
+
+The objective was to make the Billing Reference accurately represent an actual
+billing operation. Previously, the database schema generated a reference as soon
+as a scholar-requirement row was created, which could make an unprocessed scholar
+appear to have an official billing record. The new behavior aligns the reference
+with the staff action that creates that record and avoids misleading identifiers.
+
+### Previous and new behavior
+
+Previously, `billing_reference` was required and unique, and Prisma generated a
+CUID before billing processing. The earlier migration also backfilled `BILL-...`
+values for every requirement row. Consequently, saving other scholar information
+could create a reference even though staff had not clicked Process Billing.
+
+Now, the field is nullable and has no automatic default. Before processing, the
+Scholar Billing & Payroll panel shows **Generated when billing is processed**.
+When staff confirm Process Billing, the backend creates the billing batch,
+creates its scholar claim rows, and assigns the new batch number to every
+selected scholar's active-period requirement row in the same transaction. The
+response also identifies that batch number explicitly as `billingReference`.
+
+### Affected users and workflow
+
+- **Billing / Payroll Admin, Administrator, and Super Administrator:** the
+  existing queue and Process Billing interaction are unchanged; the reference
+  becomes available only after that action succeeds.
+- **Scholars/applicants:** no portal interaction or decision behavior changes.
+- **Payroll staff:** public-school Payroll-list generation is unchanged and does
+  not create a Billing Reference.
+
+No extra confirmation, form field, or handoff was added. Failed or rolled-back
+billing transactions leave no new reference behind.
+
+### Implementation and data flow
+
+`createBillingReference` produces the existing timestamp-based `BILL-` batch
+identifier from the server processing time. `processBillingSelection` uses it as
+the billing batch number. Within the existing database transaction, the selected
+private-school scholars receive that same value in `billing_reference`; an
+override edge case with no prior requirement row creates the necessary period
+row inside the transaction. The reference is returned only after the transaction
+succeeds.
+
+The migration removes the old unique/default/not-null behavior because a batch
+reference is intentionally shared by all scholars in that batch. It replaces the
+unique index with a normal lookup index. Previously processed requirements are
+set to their associated billing batch number. Requirements with no corresponding
+billing batch are reset to `NULL`, correcting premature identifiers without
+removing scholar, claim, batch, or document data.
+
+### Files and system areas changed
+
+- `backend/controllers/applicationController.js` - generates and assigns the
+  reference during Process Billing.
+- `backend/services/billingReference.js` - deterministic reference generator.
+- `backend/tests/billingReference.test.js` - valid and invalid timestamp tests.
+- `backend/prisma/schema.application.prisma` - nullable reference model.
+- `backend/prisma/migrations/20260907010000_generate_reference_on_billing_process/migration.sql`
+  - data correction and constraint/index update.
+- `frontend/src/ScholarsManagement.jsx` - accurate pre-processing placeholder.
+- `change_log.txt` and this detailed engineering record.
+
+### API, database, configuration, security, privacy, accessibility, and deployment impact
+
+- **API:** `POST /api/billing/process` keeps its request contract and adds
+  `batch.billingReference`, equal to `batch.batchNumber`. Scholar-management
+  responses return `null` until billing succeeds.
+- **Database:** `billing_reference` becomes nullable and non-unique; a standard
+  index remains. Existing processed data is reconciled to its batch number and
+  unprocessed placeholder references are cleared. No record is deleted.
+- **Configuration/dependencies:** no environment variable, dependency, or
+  external service changes.
+- **Security/privacy:** existing authentication, role checks, section access,
+  rate limiting, eligibility enforcement, and Activity Logging remain in place.
+  The reference contains only a processing timestamp and no personal data.
+- **Accessibility:** only read-only helper text changed; existing labelled form
+  controls and Process Billing button behavior remain intact.
+- **Deployment:** the backend migration and regenerated application Prisma client
+  must deploy with the frontend wording. No manual production data edit is needed.
+- **Scope:** the reference identifies billing-list processing only. It does not
+  represent fund release, claiming, payment, reconciliation, or monetary audit;
+  the system boundary still ends at official payroll-list generation.
+
+### Validation, limitations, rollback, and recommended next work
+
+All 82 backend tests passed, including deterministic format and invalid-date
+coverage for the generator. The application Prisma schema validated successfully.
+Frontend ESLint and the production build passed, backend syntax checks passed,
+and `git diff --check` reported no whitespace errors. Local Prisma client
+regeneration was attempted but the Windows query-engine DLL was locked by an
+already-running local Node process; stale temporary files were removed. A clean
+deployment environment will regenerate the client through the existing Render
+build command.
+
+The reference is batch-level by design, so every scholar processed together has
+the same reference. A later per-scholar invoice identifier would be a separate
+business requirement and should not overload this field. Rollback would require
+restoring the old constraint/default and deciding how to populate every null
+reference; automatically recreating references for unprocessed scholars is not
+recommended because it would restore the original misleading behavior.
+
+The next queued task is to separate School Year and Semester in the Scholar
+Billing tab, but it is intentionally excluded from this change so this behavior
+can be reviewed independently.
+
 ## 2026-09-07 - Billing Staff Document Review Ownership
 
 ### TL;DR

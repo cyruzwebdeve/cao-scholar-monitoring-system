@@ -29,6 +29,7 @@ const { getApplicationAvailability } = require('../services/applicationAvailabil
 const { buildApplicantGuidance } = require('../services/applicantGuidance');
 const { evaluateEligibility, serializeAssessment } = require('../services/eligibilityRecommendation');
 const { PRIORITY_PROOFS, selectedPriorityCriteria } = require('../services/priorityEligibility');
+const { createBillingReference } = require('../services/billingReference');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -1253,7 +1254,7 @@ const processBillingSelection = async (req, res) => {
     const batchTotal = eligibleIds.reduce((total, applicantId) => total + (billingAmountByApplicant.get(applicantId) || 0), 0);
 
     const timestamp = new Date();
-    const batchNumber = `BILL-${timestamp.toISOString().replace(/\D/g, '').slice(0, 17)}`;
+    const batchNumber = createBillingReference(timestamp);
     const result = await prisma.$transaction(async (transaction) => {
       const batch = await transaction.payroll_batches.create({
         data: {
@@ -1281,6 +1282,21 @@ const processBillingSelection = async (req, res) => {
           updated_at: timestamp,
         })),
       });
+      await transaction.scholar_requirements.updateMany({
+        where: { applicant_id: { in: eligibleIds }, billing_period_id: activePeriod.id },
+        data: { billing_reference: batchNumber, updated_by: req.user.id },
+      });
+      const scholarsWithoutRequirementRows = eligibleIds.filter((applicantId) => !requirementByApplicant.has(applicantId));
+      if (scholarsWithoutRequirementRows.length) {
+        await transaction.scholar_requirements.createMany({
+          data: scholarsWithoutRequirementRows.map((applicantId) => ({
+            applicant_id: applicantId,
+            billing_period_id: activePeriod.id,
+            billing_reference: batchNumber,
+            updated_by: req.user.id,
+          })),
+        });
+      }
       return batch;
     });
 
@@ -1292,7 +1308,7 @@ const processBillingSelection = async (req, res) => {
 
     return res.status(201).json({
       message: `${eligibleIds.length} private-school scholar${eligibleIds.length === 1 ? '' : 's'} processed for billing. They will not be sent to Payroll.`,
-      batch: { id: result.id, batchNumber: result.batch_number, totalScholars: result.total_scholars },
+      batch: { id: result.id, batchNumber: result.batch_number, billingReference: result.batch_number, totalScholars: result.total_scholars },
       overrideCount: appliedOverrides.size,
       activePeriod: serializeAcademicPeriod(activePeriod),
     });
