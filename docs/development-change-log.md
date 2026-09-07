@@ -127,8 +127,20 @@ reconciliation, or monetary auditing.
 Local Prisma client regeneration reached the Windows replacement step but the
 existing query-engine DLL was locked by a running local Node process. No process
 was terminated because it may have been the user's server. Schema validation
-passed, and the clean Render build is expected to regenerate the client without
-that workstation-only file lock.
+passed. Render's clean build subsequently regenerated the client, applied the
+additive migration, and started the updated API without that workstation-only
+file lock.
+
+### Production deployment outcome
+
+Commit `2e904b3` was pushed to `main` and deployed on 2026-09-07.
+
+| Service | Verification result |
+|---|---|
+| Vercel frontend | Returned HTTP 200 and its deployed dashboard bundle contained both the Processing period selector and Primary System Period controls |
+| Render backend | `/api/health` returned HTTP 200 with `healthy` and `database: connected` |
+| Database migration/API | `/api/academic-periods/active` returned HTTP 200 with `isPrimary: true`, confirming the new field and primary-period resolution are live |
+| Workspace hygiene | The untracked ERD Markdown, Mermaid, PNG, and SVG files were not staged or changed |
 
 ### Known limitations, rollback, and next work
 
