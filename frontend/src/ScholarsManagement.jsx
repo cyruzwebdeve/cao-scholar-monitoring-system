@@ -60,6 +60,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const [academicPeriods, setAcademicPeriods] = useState([]);
   const [billingForm, setBillingForm] = useState({ schoolYear: '', semester: '', billingStatus: 'Not billed yet' });
   const [billingSaving, setBillingSaving] = useState(false);
+  const [billingPeriodLoading, setBillingPeriodLoading] = useState(false);
   const [billingEditError, setBillingEditError] = useState('');
   const [documentReview, setDocumentReview] = useState(null);
   const [documentPreview, setDocumentPreview] = useState('');
@@ -94,7 +95,9 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
       setAcademicPeriods(payload.academicPeriods || []);
       setScholars(nextScholars);
       setSelected((current) => current
-        ? nextScholars.find((scholar) => scholar.id === current.id) || current
+        ? current.academicPeriodId && current.academicPeriodId !== payload.activePeriod?.id
+          ? current
+          : nextScholars.find((scholar) => scholar.id === current.id) || current
         : null);
       setLoadError('');
     } catch (error) {
@@ -219,27 +222,54 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     setPage(1);
   };
 
+  const formFromScholarPeriod = (record, period) => ({
+    schoolYear: period?.schoolYear || record.billingSchoolYear || record.schoolYear || '',
+    semester: period?.semester || record.billingSemester || record.semester || '',
+    billingStatus: record.processRoute === 'billing'
+      ? (record.billingStatus === 'Pending' ? 'Not billed yet' : record.billingStatus || 'Not billed yet')
+      : 'Not applicable',
+  });
+
   const openBillingTab = () => {
-    const defaultPeriod = academicPeriods.find((period) => period.id === selected.billingAcademicPeriodId)
+    const defaultPeriod = academicPeriods.find((period) => period.id === selected.academicPeriodId)
+      || academicPeriods.find((period) => period.id === selected.billingAcademicPeriodId)
       || academicPeriods.find((period) => period.schoolYear === selected.billingSchoolYear && period.semester === selected.billingSemester)
       || academicPeriods.find((period) => period.isPrimary)
       || academicPeriods.find((period) => period.isActive)
       || academicPeriods[0];
-    setBillingForm({
-      schoolYear: selected.billingSchoolYear || defaultPeriod?.schoolYear || selected.schoolYear || '',
-      semester: selected.billingSemester || defaultPeriod?.semester || selected.semester || '',
-      billingStatus: selected.processRoute === 'billing'
-        ? (selected.billingStatus === 'Pending' ? 'Not billed yet' : selected.billingStatus || 'Not billed yet')
-        : 'Not applicable',
-    });
+    setBillingForm(formFromScholarPeriod(selected, defaultPeriod));
     setBillingEditError('');
     setDrawerTab('finance');
   };
 
-  const billingSchoolYears = [...new Set(academicPeriods.map((period) => period.schoolYear))];
-  const billingSemesters = academicPeriods
+  const activeBillingPeriods = academicPeriods.filter((period) => period.isActive);
+  const billingSchoolYears = [...new Set(activeBillingPeriods.map((period) => period.schoolYear))];
+  const billingSemesters = activeBillingPeriods
     .filter((period) => period.schoolYear === billingForm.schoolYear)
     .map((period) => period.semester);
+
+  const selectBillingPeriod = async (period) => {
+    if (!period || billingPeriodLoading) return;
+    setBillingForm((current) => ({ ...current, schoolYear: period.schoolYear, semester: period.semester }));
+    setBillingPeriodLoading(true);
+    setBillingEditError('');
+    try {
+      const response = await fetch(`${API_BASE}/scholars/management?academicPeriodId=${encodeURIComponent(period.id)}`, { headers: authHeaders(token), cache: 'no-store' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || 'Unable to prepare the selected scholar session.');
+      const periodScholar = (body.scholars || []).find((scholar) => scholar.id === selected.id);
+      if (!periodScholar) throw new Error('The scholar is unavailable for the selected period.');
+      setAcademicPeriods(body.academicPeriods || academicPeriods);
+      setSelected(periodScholar);
+      setBillingForm(formFromScholarPeriod(periodScholar, body.activePeriod || period));
+    } catch (error) {
+      setBillingEditError(error.message || 'Unable to prepare the selected scholar session.');
+      const currentPeriod = academicPeriods.find((item) => item.id === selected.academicPeriodId);
+      setBillingForm(formFromScholarPeriod(selected, currentPeriod));
+    } finally {
+      setBillingPeriodLoading(false);
+    }
+  };
 
   const saveBillingMetadata = async (event) => {
     event.preventDefault();
@@ -258,7 +288,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.message || 'Unable to update billing and payroll details.');
-      await loadScholars();
+      await selectBillingPeriod(selectedPeriod);
     } catch (error) {
       setBillingEditError(error.message || 'Unable to update billing and payroll details.');
     } finally {
@@ -355,20 +385,20 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
               <section className="scholars-detail-section scholars-finance-details">
                 <form className="scholars-billing-edit-form" onSubmit={saveBillingMetadata}>
                   <div className="scholars-billing-fields">
-                    <label><span>School year</span><select aria-label="School year" value={billingForm.schoolYear} disabled={!canEditBilling || selected.billed || selected.inPayroll} onChange={(event) => { const schoolYear = event.target.value; const availableSemesters = academicPeriods.filter((period) => period.schoolYear === schoolYear).map((period) => period.semester); setBillingForm((current) => ({ ...current, schoolYear, semester: availableSemesters.includes(current.semester) ? current.semester : availableSemesters[0] || '' })); }}><option value="">School Year</option>{billingSchoolYears.map((schoolYear) => <option key={schoolYear}>{schoolYear}</option>)}</select></label>
-                    <label><span>Semester</span><select aria-label="Semester" value={billingForm.semester} disabled={!canEditBilling || selected.billed || selected.inPayroll || !billingForm.schoolYear} onChange={(event) => setBillingForm((current) => ({ ...current, semester: event.target.value }))}><option value="">Semester</option>{billingSemesters.map((semester) => <option key={semester}>{semester}</option>)}</select></label>
+                    <label><span>School year</span><select aria-label="School year" value={billingForm.schoolYear} disabled={!canEditBilling || billingPeriodLoading} onChange={(event) => { const schoolYear = event.target.value; const matchingPeriods = activeBillingPeriods.filter((period) => period.schoolYear === schoolYear); const nextPeriod = matchingPeriods.find((period) => period.semester === billingForm.semester) || matchingPeriods[0]; selectBillingPeriod(nextPeriod); }}><option value="">School Year</option>{billingSchoolYears.map((schoolYear) => <option key={schoolYear}>{schoolYear}</option>)}</select></label>
+                    <label><span>Semester</span><select aria-label="Semester" value={billingForm.semester} disabled={!canEditBilling || billingPeriodLoading || !billingForm.schoolYear} onChange={(event) => selectBillingPeriod(activeBillingPeriods.find((period) => period.schoolYear === billingForm.schoolYear && period.semester === event.target.value))}><option value="">Semester</option>{billingSemesters.map((semester) => <option key={semester}>{semester}</option>)}</select></label>
                     <label><span>Billing reference</span><input aria-label="Billing reference" value={selected.billingReference || ''} placeholder="BILL REF NO." readOnly aria-readonly="true" /></label>
                     <label><span>Billing status</span><select aria-label="Billing status" disabled={!canEditBilling || selected.billed || selected.inPayroll || selected.processRoute !== 'billing'} value={billingForm.billingStatus} onChange={(event) => setBillingForm((current) => ({ ...current, billingStatus: event.target.value }))}>{selected.processRoute === 'billing' ? <>{selected.billed && <option>Billed</option>}<option>Not billed yet</option><option>Ready for billing</option><option>On hold</option></> : <option>Not applicable</option>}</select></label>
                   </div>
                   {billingEditError && <p role="alert">{billingEditError}</p>}
-                  {canEditBilling && !selected.billed && !selected.inPayroll && <footer><button type="submit" disabled={billingSaving || !billingForm.schoolYear || !billingForm.semester}><Save size={12} />{billingSaving ? 'Saving…' : 'Save changes'}</button></footer>}
+                  {canEditBilling && !selected.billed && !selected.inPayroll && <footer><button type="submit" disabled={billingSaving || billingPeriodLoading || !billingForm.schoolYear || !billingForm.semester}><Save size={12} />{billingSaving ? 'Saving…' : 'Prepare session'}</button></footer>}
                 </form>
               </section>
               <section className="scholars-finance-summary">
                 <article className={selected.processRoute === 'billing' && selected.billed ? 'complete' : 'pending'}><i><ReceiptText size={19} /></i><div><span>Billing status</span><strong>{selected.billingStatus || (selected.billed ? 'Billed' : 'Not billed yet')}</strong><small>{selected.processRoute === 'billing' ? selected.billed ? 'Included in a billing record' : 'Waiting for billing processing' : 'Public scholar follows the Payroll route'}</small></div></article>
                 <article className={selected.inPayroll ? 'complete' : 'pending'}><i><CircleDollarSign size={19} /></i><div><span>Payroll status</span><strong>{selected.payrollStatus || (selected.inPayroll ? 'Included in payroll list' : 'Not included yet')}</strong><small>{selected.processRoute === 'payroll' ? selected.inPayroll ? 'Included in the official payroll list' : 'Ready for payroll-list preparation' : 'Private scholar follows the Billing route'}</small></div></article>
               </section>
-              {(selected.billed || selected.inPayroll) && <section className="scholars-new-cycle-guidance"><CalendarRange size={18} /><div><strong>{selected.processRoute === 'billing' ? 'Need another billing cycle?' : 'Need another payroll cycle?'}</strong><span>The completed {selected.billingSchoolYearSemester || selected.schoolYearSemester} record remains locked. Create and activate the next academic period to start a fresh record with no reference.</span>{canOpenSettings ? <button type="button" onClick={openNewCycleSetup}>Set up the next academic period</button> : <small>Ask an administrator with Settings access to activate the next academic period.</small>}</div></section>}
+              {(selected.billed || selected.inPayroll) && <section className="scholars-new-cycle-guidance"><CalendarRange size={18} /><div><strong>{selected.processRoute === 'billing' ? 'Need another billing cycle?' : 'Need another payroll cycle?'}</strong><span>The completed {selected.billingSchoolYearSemester || selected.schoolYearSemester} session remains locked. Select another active School Year and Semester above to prepare a fresh session with no reference.</span>{activeBillingPeriods.length <= 1 && (canOpenSettings ? <button type="button" onClick={openNewCycleSetup}>Set up the next academic period</button> : <small>Ask an administrator with Settings access to activate the next academic period.</small>)}</div></section>}
               {!!selected.financialHistory?.filter((record) => !record.isActivePeriod).length && <section className="scholars-detail-section"><h4>Previous period history</h4><div className="scholars-finance-history">{selected.financialHistory.filter((record) => !record.isActivePeriod).map((record) => <article key={`${record.academicPeriodId}-${record.dateProcessed}`}><div><strong>{record.schoolYear} · {record.semester}</strong><span>{record.billingStatus} · {record.payrollStatus}</span></div><div><strong>{record.payReference || 'No pay reference'}</strong><span>{record.dateProcessed ? formatScholarDate(record.dateProcessed) : 'Not processed'}</span></div></article>)}</div></section>}
               <div className="scholars-finance-note"><CircleDollarSign size={17} /><div><strong>Live processing status</strong><span>This information follows the scholar’s current Billing and Payroll records and refreshes automatically.</span></div></div>
             </div>

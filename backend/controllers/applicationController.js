@@ -994,6 +994,7 @@ const getScholarManagement = async (req, res) => {
         schoolId: school?.id || null,
         schoolType,
         processRoute,
+        academicPeriodId: activePeriod.id,
         schoolYear,
         semester,
         schoolYearSemester: `${schoolYear} · ${semester}`,
@@ -1113,21 +1114,20 @@ const updateScholarBillingMetadata = async (req, res) => {
   try {
     const applicantId = Number(req.params.applicantId);
     if (!Number.isInteger(applicantId) || applicantId <= 0) return res.status(400).json({ message: 'A valid scholar is required.' });
-    const activePeriod = await getActiveAcademicPeriodRecord();
-    const [scholar, selectedPeriod, processedClaim] = await Promise.all([
+    const selectedPeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
+    if (!selectedPeriod) return res.status(400).json({ message: 'Select an active school year and semester.' });
+    const [scholar, processedClaim] = await Promise.all([
       prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true }, select: { id: true } }),
-      prisma.academic_periods.findUnique({ where: { id: Number(req.body.academicPeriodId) } }),
-      prisma.payroll_claims.findFirst({ where: { applicant_id: applicantId, academic_period_id: activePeriod.id }, select: { id: true } }),
+      prisma.payroll_claims.findFirst({ where: { applicant_id: applicantId, academic_period_id: selectedPeriod.id }, select: { id: true } }),
     ]);
     if (!scholar) return res.status(404).json({ message: 'Active scholar account not found.' });
-    if (!selectedPeriod) return res.status(400).json({ message: 'Select an available school year and semester.' });
-    if (processedClaim) return res.status(409).json({ message: 'Billing metadata is locked after processing for the active period.' });
+    if (processedClaim) return res.status(409).json({ message: 'This scholar session is locked because the selected period was already processed.' });
 
     const metadata = await prisma.scholar_requirements.upsert({
-      where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: activePeriod.id } },
+      where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: selectedPeriod.id } },
       create: {
         applicant_id: applicantId,
-        billing_period_id: activePeriod.id,
+        billing_period_id: selectedPeriod.id,
         billing_school_year: selectedPeriod.school_year,
         billing_semester: selectedPeriod.semester,
         billing_status: req.body.billingStatus,

@@ -5,6 +5,93 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-07 - Scholar New-Session Preparation Workflow
+
+### TL;DR
+
+- School Year and Semester now select the scholar's active processing session instead of editing labels on the completed session.
+- Staff can move from a locked processed period to another active period, where the reference is empty and the new session is editable.
+- Saving writes metadata to the exact selected period; same-period processed sessions remain immutable.
+- Historical billing and payroll-list records are preserved, and the workflow remains within official payroll-list generation.
+
+### Objective and reason
+
+The four compact fields are intended to prepare a scholar for a new Billing or
+Payroll session. The first implementation correctly displayed them but disabled
+the School Year and Semester controls whenever the currently displayed period
+had already been processed. That prevented the controls from performing their
+actual rollover function.
+
+### Previous and new behavior
+
+Previously, a processed Billing or payroll-list record disabled all fields. The
+metadata endpoint also saved the selected labels into the Primary System
+Period's requirement row, so choosing another period did not truly change the
+scholar's processing context.
+
+Now, School Year and Semester remain available for authorized staff even when
+the displayed session is locked. Only active configured period combinations
+are offered. Selecting a pair reloads that scholar from the server for the
+chosen period. If it has no processed claim, the prior Billing Reference is not
+carried forward, its status begins as Not billed yet or Not applicable according
+to school route, and the Prepare session action becomes available. If that pair
+was already processed, it remains locked and is shown as historical state.
+
+### Roles, workflow, and data flow
+
+Authorized Billing users and Super Administrators select an active School Year
+and Semester in the Scholar drawer. The frontend requests
+`GET /api/scholars/management?academicPeriodId=<id>`, replaces only the open
+scholar detail with the selected-period representation, and retains the other
+processed sessions in history. Background refreshes do not overwrite a drawer
+that is intentionally viewing a non-primary period.
+
+On Prepare session, the existing protected metadata endpoint verifies that the
+period is still active, checks duplicate processing against that period, and
+upserts `scholar_requirements` using the selected period as
+`billing_period_id`. It no longer writes another period's labels into the
+Primary System Period row.
+
+### Files and system areas changed
+
+- `frontend/src/ScholarsManagement.jsx`: enables period switching after
+  processing, loads the selected-period scholar state, and changes the action
+  label to Prepare session.
+- `backend/controllers/applicationController.js`: returns the current context's
+  academic-period ID and writes metadata to the selected active period.
+- `change_log.txt` and `docs/development-change-log.md`: document the corrected
+  operational meaning.
+
+### Impact assessment
+
+- **API:** no new route; the existing management query parameter and metadata
+  payload are now used consistently for the selected period.
+- **Database:** no additional schema change beyond the already prepared
+  Not-billed-yet migration; writes target the correct existing unique
+  scholar-period row.
+- **Security/privacy:** server-side active-period validation, duplicate checks,
+  authentication, role/section authorization, rate limiting, and Activity Logs
+  remain in place. No new personal data is returned.
+- **Accessibility:** native labelled selectors remain keyboard accessible;
+  loading and locked states use disabled controls and textual feedback.
+- **Configuration/deployment:** no dependency or environment change.
+- **Scope:** completed payroll-list records remain immutable. No fund release,
+  payment claiming, disbursement, reconciliation, or monetary auditing is added.
+
+### Validation, limitations, rollback, and next work
+
+All 82 backend tests passed. Frontend lint and production build, backend syntax,
+and Git whitespace validation passed. End-to-end authenticated verification is
+required after deployment using two active periods: open a processed scholar,
+choose the second period, confirm the old reference disappears, then prepare
+the fresh session.
+
+Only active periods can prepare new sessions; archived periods remain visible
+through history rather than the preparation selectors. Rollback can restore the
+previous drawer/controller behavior without deleting any newly created
+scholar-period row. Recommended next work is requirement carry-forward guidance
+for staff, not automatic copying of approvals without policy confirmation.
+
 ## 2026-09-07 - Compact Scholar Billing Period Form
 
 ### TL;DR
