@@ -1,6 +1,14 @@
 const prisma = require('../config/prisma');
 const { evaluateBillingEligibility } = require('../services/lifecycleIntegrity');
 
+const getPrimaryAcademicPeriod = async () => prisma.academic_periods.findFirst({
+  where: { is_active: true, is_primary: true },
+  orderBy: { updated_at: 'desc' },
+}) || prisma.academic_periods.findFirst({
+  where: { is_active: true },
+  orderBy: [{ updated_at: 'desc' }, { id: 'desc' }],
+});
+
 const getLifecycleReport = async (req, res) => {
   try {
     const requestedSchoolYear = String(req.query.schoolYear || '').trim();
@@ -9,10 +17,7 @@ const getLifecycleReport = async (req, res) => {
         where: { school_year: requestedSchoolYear },
         orderBy: [{ is_active: 'desc' }, { updated_at: 'desc' }],
       })
-      : prisma.academic_periods.findFirst({
-        where: { is_active: true },
-        orderBy: { updated_at: 'desc' },
-      }), prisma.academic_periods.findMany({ orderBy: [{ school_year: 'desc' }, { start_date: 'desc' }] })]);
+      : getPrimaryAcademicPeriod(), prisma.academic_periods.findMany({ orderBy: [{ school_year: 'desc' }, { start_date: 'desc' }] })]);
     if (!period) return res.status(404).json({ message: 'No academic period is available for this report.' });
 
     const applicants = await prisma.applicants.findMany({

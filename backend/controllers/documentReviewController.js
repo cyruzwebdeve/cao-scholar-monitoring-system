@@ -31,6 +31,14 @@ const getLatestScholarApplications = async () => {
     || Object.keys(application.initial_docs?.requirements || {}).some((key) => PRIORITY_PROOFS[key]));
 };
 
+const getPrimaryAcademicPeriod = async () => prisma.academic_periods.findFirst({
+  where: { is_active: true, is_primary: true },
+  orderBy: { updated_at: 'desc' },
+}) || prisma.academic_periods.findFirst({
+  where: { is_active: true },
+  orderBy: [{ updated_at: 'desc' }, { id: 'desc' }],
+});
+
 const normalizeFamilyName = (value) => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/gi, '').toUpperCase();
 const sameFamily = (left, right) => normalizeFamilyName(left?.fatherName) && normalizeFamilyName(left?.fatherName) === normalizeFamilyName(right?.fatherName)
   && normalizeFamilyName(left?.motherName) === normalizeFamilyName(right?.motherName);
@@ -42,7 +50,7 @@ const getDocumentReviews = async (req, res) => {
     const reviewerIds = [...new Set(applications.flatMap((application) => Object.values(application.initial_docs?.requirements || {}))
       .map((file) => Number(file?.reviewedBy))
       .filter(Number.isInteger))];
-    const activePeriod = await prisma.academic_periods.findFirst({ where: { is_active: true }, orderBy: { updated_at: 'desc' } });
+    const activePeriod = await getPrimaryAcademicPeriod();
     const [applicants, accounts, reviewers, physicalRequirements] = await Promise.all([
       prisma.applicants.findMany({ where: { id: { in: applicantIds } } }),
       prisma.control_accounts.findMany({ where: { applicant_id: { in: applicantIds } } }),
@@ -91,7 +99,7 @@ const updatePhysicalFolder = async (req, res) => {
       return res.status(400).json({ message: 'A valid scholar and received status are required.' });
     }
     const [activePeriod, scholar] = await Promise.all([
-      prisma.academic_periods.findFirst({ where: { is_active: true }, orderBy: { updated_at: 'desc' } }),
+      getPrimaryAcademicPeriod(),
       prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }),
     ]);
     if (!activePeriod) return res.status(409).json({ message: 'No active academic period is configured.' });
@@ -152,7 +160,7 @@ const reviewDocument = async (req, res) => {
     });
     if (!updatedDocuments) return res.status(404).json({ message: 'The uploaded requirement could not be found.' });
 
-    const activePeriod = await prisma.academic_periods.findFirst({ where: { is_active: true }, orderBy: { updated_at: 'desc' } });
+    const activePeriod = await getPrimaryAcademicPeriod();
     const statusField = definition.statusField;
     const operations = [prisma.application_submissions.update({
       where: { id: applicationId },
@@ -228,7 +236,7 @@ const approvePendingDocuments = async (req, res) => {
     });
     if (!approval) return res.status(409).json({ message: 'This scholar has no pending documents to approve.' });
 
-    const activePeriod = await prisma.academic_periods.findFirst({ where: { is_active: true }, orderBy: { updated_at: 'desc' } });
+    const activePeriod = await getPrimaryAcademicPeriod();
     const statusUpdates = Object.fromEntries(approval.approvedKeys.map((key) => [REQUIREMENT_DEFINITIONS[key].statusField, 'approved']));
     const operations = [prisma.application_submissions.update({
       where: { id: applicationId },

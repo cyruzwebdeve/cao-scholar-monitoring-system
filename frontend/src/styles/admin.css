@@ -1316,7 +1316,7 @@
   font-size: 9px;
 }
 .settings-active-period em,
-.settings-period-list article > em {
+.settings-period-actions em {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1486,7 +1486,14 @@
 }
 .settings-period-list article small.archived { background: #f1f1f4; color: #747480; }
 .settings-period-list article small.active { background: #e2f3e7; color: #187d48; }
-.settings-period-list article > button {
+.settings-period-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.settings-period-actions button {
   min-height: 30px;
   padding: 0 10px;
   border: 1px solid #d2ddd5;
@@ -1497,6 +1504,10 @@
   font-size: 8px;
   font-weight: 900;
   cursor: pointer;
+}
+.settings-period-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 .settings-period-empty {
   padding: 20px;
@@ -6252,6 +6263,28 @@
   color: #748078;
   font-size: 12px;
 }
+.billing-period-selector {
+  display: grid;
+  min-width: 250px;
+  gap: 6px;
+}
+.billing-period-selector > span {
+  color: #68776d;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.billing-period-selector select {
+  min-height: 40px;
+  padding: 0 34px 0 11px;
+  border: 1px solid #d5e2da;
+  border-radius: 9px;
+  background: #fff;
+  color: #244032;
+  font: inherit;
+  font-size: 11px;
+}
 .billing-heading > button {
   display: inline-flex;
   align-items: center;
@@ -6559,6 +6592,7 @@
 }
 @media (max-width: 680px) {
   .billing-heading { align-items: stretch; flex-direction: column; }
+  .billing-period-selector { width: 100%; min-width: 0; }
   .billing-heading > button { width: max-content; }
   .billing-metrics { grid-template-columns: 1fr; }
   .billing-filters { grid-template-columns: 1fr; }

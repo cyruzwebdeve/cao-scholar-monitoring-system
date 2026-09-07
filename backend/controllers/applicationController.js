@@ -81,14 +81,18 @@ const serializeAcademicPeriod = (period) => ({
   endDate: period.end_date,
   status: period.status,
   isActive: period.is_active,
+  isPrimary: Boolean(period.is_primary),
   createdAt: period.created_at,
   updatedAt: period.updated_at,
 });
 
 const getActiveAcademicPeriodRecord = async (client = prisma) => {
   const period = await client.academic_periods.findFirst({
-    where: { is_active: true },
+    where: { is_active: true, is_primary: true },
     orderBy: { updated_at: 'desc' },
+  }) || await client.academic_periods.findFirst({
+    where: { is_active: true },
+    orderBy: [{ updated_at: 'desc' }, { id: 'desc' }],
   });
   return period || {
     id: Number(CURRENT_SCHOOL_YEAR.replace('-', '')),
@@ -98,9 +102,17 @@ const getActiveAcademicPeriodRecord = async (client = prisma) => {
     end_date: null,
     status: 'active',
     is_active: true,
+    is_primary: true,
     created_at: new Date(),
     updated_at: new Date(),
   };
+};
+
+const getSelectedActiveAcademicPeriodRecord = async (value, client = prisma) => {
+  if (value === undefined || value === null || value === '') return getActiveAcademicPeriodRecord(client);
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  return client.academic_periods.findFirst({ where: { id, is_active: true } });
 };
 
 const normalizeFamilyName = (value) => String(value || '')
@@ -585,19 +597,13 @@ const activateAcademicPeriod = async (req, res) => {
     const existing = await prisma.academic_periods.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ message: 'Academic period not found.' });
     if (existing.is_active) return res.json({ message: 'This academic period is already active.', period: serializeAcademicPeriod(existing) });
-
-    const period = await prisma.$transaction(async (transaction) => {
-      await transaction.academic_periods.updateMany({
-        where: { is_active: true },
-        data: { is_active: false, status: 'archived' },
-      });
-      return transaction.academic_periods.update({
-        where: { id },
-        data: { is_active: true, status: 'active' },
-      });
+    const hasPrimary = await prisma.academic_periods.findFirst({ where: { is_primary: true, is_active: true }, select: { id: true } });
+    const period = await prisma.academic_periods.update({
+      where: { id },
+      data: { is_active: true, is_primary: !hasPrimary, status: 'active' },
     });
     return res.json({
-      message: `${period.school_year} · ${period.semester} is now the active academic period.`,
+      message: `${period.school_year} · ${period.semester} is now active${period.is_primary ? ' and is the Primary System Period' : ''}.`,
       period: serializeAcademicPeriod(period),
     });
   } catch (error) {
@@ -606,6 +612,39 @@ const activateAcademicPeriod = async (req, res) => {
   }
 };
 
+const setPrimaryAcademicPeriod = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Select a valid academic period.' });
+    const existing = await prisma.academic_periods.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ message: 'Academic period not found.' });
+    if (existing.is_primary && existing.is_active) return res.json({ message: 'This is already the Primary System Period.', period: serializeAcademicPeriod(existing) });
+    const period = await prisma.$transaction(async (transaction) => {
+      await transaction.academic_periods.updateMany({ where: { is_primary: true }, data: { is_primary: false } });
+      return transaction.academic_periods.update({ where: { id }, data: { is_active: true, is_primary: true, status: 'active' } });
+    });
+    return res.json({ message: `${period.school_year} · ${period.semester} is now the Primary System Period.`, period: serializeAcademicPeriod(period) });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error setting the Primary System Period.' });
+  }
+};
+
+const deactivateAcademicPeriod = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Select a valid academic period.' });
+    const existing = await prisma.academic_periods.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ message: 'Academic period not found.' });
+    if (!existing.is_active) return res.json({ message: 'This academic period is already inactive.', period: serializeAcademicPeriod(existing) });
+    if (existing.is_primary) return res.status(409).json({ message: 'Choose another Primary System Period before deactivating this period.' });
+    const period = await prisma.academic_periods.update({ where: { id }, data: { is_active: false, is_primary: false, status: 'archived' } });
+    return res.json({ message: `${period.school_year} · ${period.semester} was deactivated. Historical records remain available.`, period: serializeAcademicPeriod(period) });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error deactivating the academic period.' });
+  }
+};
 const ANNOUNCEMENT_AUDIENCES = ['all', 'applicants', 'scholars', 'applicants_scholars', 'admins'];
 const ANNOUNCEMENT_PRIORITIES = ['normal', 'high', 'urgent'];
 const ANNOUNCEMENT_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
@@ -788,7 +827,8 @@ const updateAnnouncement = async (req, res) => {
 
 const getScholarManagement = async (req, res) => {
   try {
-    const activePeriod = await getActiveAcademicPeriodRecord();
+    const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.query.academicPeriodId);
+    if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period.' });
     const scholarAccounts = await prisma.scholar_accounts.findMany({ orderBy: { issued_at: 'desc' } });
     const applicantIds = scholarAccounts.map(({ applicant_id }) => applicant_id);
     const [applicants, accounts, requirements, schools, applications, payrollClaims, academicPeriods] = await Promise.all([
@@ -824,6 +864,8 @@ const getScholarManagement = async (req, res) => {
     });
     const payrollBatchById = new Map(payrollBatches.map((batch) => [batch.id, batch]));
     const academicPeriodById = new Map(academicPeriods.map((period) => [period.id, period]));
+    const sortedAcademicPeriods = [...academicPeriods]
+      .sort((left, right) => right.school_year.localeCompare(left.school_year) || left.semester.localeCompare(right.semester));
     const payrollClaimsByApplicant = new Map();
     const payrollClaimByApplicant = new Map();
     payrollClaims.forEach((claim) => {
@@ -993,9 +1035,8 @@ const getScholarManagement = async (req, res) => {
         schoolType: String(school.school_type || 'public').toLowerCase() === 'private' ? 'Private' : 'Public',
       })),
       activePeriod: serializeAcademicPeriod(activePeriod),
-      academicPeriods: academicPeriods
-        .sort((left, right) => right.school_year.localeCompare(left.school_year) || left.semester.localeCompare(right.semester))
-        .map(serializeAcademicPeriod),
+      activePeriods: sortedAcademicPeriods.filter((period) => period.is_active).map(serializeAcademicPeriod),
+      academicPeriods: sortedAcademicPeriods.map(serializeAcademicPeriod),
     });
   } catch (error) {
     console.error(error);
@@ -1011,7 +1052,8 @@ const updateScholarBillingDetails = async (req, res) => {
   try {
     const applicantId = Number(req.params.applicantId);
     if (!Number.isInteger(applicantId) || applicantId <= 0) return res.status(400).json({ message: 'A valid scholar is required.' });
-    const activePeriod = await getActiveAcademicPeriodRecord();
+    const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
+    if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period.' });
     const [scholar, school, processedClaim] = await Promise.all([
       prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true }, select: { id: true } }),
       prisma.schools.findFirst({ where: { id: Number(req.body.schoolId), is_active: true }, select: { id: true, name: true, school_type: true } }),
@@ -1120,7 +1162,8 @@ const resolveScholarSchool = ({ applicant, requirement, application, schoolById,
 
 const processBillingSelection = async (req, res) => {
   try {
-    const activePeriod = await getActiveAcademicPeriodRecord();
+    const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
+    if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period for billing.' });
     const applicantIds = normalizeApplicantIds(req.body.applicantIds);
     const suppliedOverrides = Array.isArray(req.body.billingOverrides) ? req.body.billingOverrides : [];
     if (!applicantIds.length) return res.status(400).json({ message: 'Select at least one scholar for billing.' });
@@ -1323,7 +1366,8 @@ const processBillingSelection = async (req, res) => {
 
 const processPayrollSelection = async (req, res) => {
   try {
-    const activePeriod = await getActiveAcademicPeriodRecord();
+    const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
+    if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period for the payroll list.' });
     const applicantIds = normalizeApplicantIds(req.body.applicantIds);
     if (!applicantIds.length) return res.status(400).json({ message: 'Select at least one public-school scholar for the payroll list.' });
     if (applicantIds.length > 500) return res.status(400).json({ message: 'A payroll list cannot exceed 500 scholars.' });
@@ -2093,6 +2137,8 @@ module.exports = {
   getAcademicPeriods,
   createAcademicPeriod,
   activateAcademicPeriod,
+  setPrimaryAcademicPeriod,
+  deactivateAcademicPeriod,
   createApplication,
   inputExamScore,
   submitOnlineExam,

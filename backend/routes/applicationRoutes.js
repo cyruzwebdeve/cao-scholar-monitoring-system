@@ -18,6 +18,8 @@ const {
   getAcademicPeriods,
   createAcademicPeriod,
   activateAcademicPeriod,
+  setPrimaryAcademicPeriod,
+  deactivateAcademicPeriod,
   createApplication,
   inputExamScore,
   submitOnlineExam,
@@ -83,6 +85,8 @@ router.put('/application-settings', authenticate, checkRole(['SuperAdmin', 'Regu
 router.get('/academic-periods', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), getAcademicPeriods);
 router.post('/academic-periods', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), createAcademicPeriod);
 router.put('/academic-periods/:id/activate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), activateAcademicPeriod);
+router.put('/academic-periods/:id/primary', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), setPrimaryAcademicPeriod);
+router.put('/academic-periods/:id/deactivate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), deactivateAcademicPeriod);
 
 router.get('/dashboard/summary', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('dashboard'), getDashboardSummary);
 router.get('/schools/catalog', authenticate, checkRole(['SuperAdmin']), getSchoolCatalog);

@@ -63,6 +63,8 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const defaultPaidFilter = isPayroll ? 'Not paid yet' : 'All Payroll Statuses';
   const [records, setRecords] = useState([]);
   const [availableSchools, setAvailableSchools] = useState([]);
+  const [activePeriods, setActivePeriods] = useState([]);
+  const [selectedPeriodId, setSelectedPeriodId] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [, setPage] = useState(1);
@@ -94,7 +96,8 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const loadRecords = useCallback(async ({ showLoader = false } = {}) => {
     if (showLoader) setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/scholars/management`, { headers: authHeaders(token), cache: 'no-store' });
+      const periodQuery = selectedPeriodId ? `?academicPeriodId=${encodeURIComponent(selectedPeriodId)}` : '';
+      const response = await fetch(`${API_BASE}/scholars/management${periodQuery}`, { headers: authHeaders(token), cache: 'no-store' });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to load billing and payroll records.');
       const currentRecords = (body.scholars || []).map((record) => ({ ...record, isArchivedPeriod: false }));
@@ -111,13 +114,15 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
         })));
       setRecords([...currentRecords, ...archivedRecords]);
       setAvailableSchools(body.schools || []);
+      setActivePeriods(body.activePeriods || (body.activePeriod ? [body.activePeriod] : []));
+      setSelectedPeriodId((current) => current || String(body.activePeriod?.id || ''));
       setLoadError('');
     } catch (error) {
       setLoadError(error instanceof TypeError ? 'Unable to reach the server. Retrying automatically…' : error.message || 'Unable to load records.');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [selectedPeriodId, token]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => loadRecords({ showLoader: true }), 0);
@@ -262,7 +267,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
       const response = await fetch(`${API_BASE}/scholars/${billingEditor.applicantId}/billing-details`, {
         method: 'PUT',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...billingForm, schoolId: Number(billingForm.schoolId), billingAmount: Number(billingForm.billingAmount) }),
+        body: JSON.stringify({ ...billingForm, academicPeriodId: Number(selectedPeriodId), schoolId: Number(billingForm.schoolId), billingAmount: Number(billingForm.billingAmount) }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.message || 'Unable to update billing details.');
@@ -314,6 +319,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          academicPeriodId: Number(selectedPeriodId),
           applicantIds: queuedRecords.map(({ applicantId }) => applicantId),
           ...(!isPayroll ? {
             billingOverrides: queuedRecords
@@ -341,6 +347,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
     <div className="billing-management">
       <header className="billing-heading">
         <div><span>{isPayroll ? 'PAYROLL OPERATIONS' : 'BILLING OPERATIONS'}</span><h2>{isPayroll ? 'Payroll Management' : 'Billing Management'}</h2><p>{isPayroll ? 'Track public-school scholars assigned directly to Payroll.' : 'Prepare billing records for private-school scholars.'}</p></div>
+        <label className="billing-period-selector"><span>Processing period</span><select value={selectedPeriodId} disabled={loading || !activePeriods.length} onChange={(event) => { setSelectedPeriodId(event.target.value); setQueuedIds([]); setSourceSelection([]); setQueueSelection([]); setBillingOverrides({}); setOperationNotice(null); setPage(1); }}><option value="" disabled>Select active period</option>{activePeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}{period.isPrimary ? ' (Primary)' : ''}</option>)}</select></label>
       </header>
 
       <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></article>)}</section>

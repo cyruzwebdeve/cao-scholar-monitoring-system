@@ -16,12 +16,14 @@ model academic_periods {
   end_date    DateTime? @db.Date
   status      String    @default("upcoming") @db.VarChar(20)
   is_active   Boolean   @default(false)
+  is_primary  Boolean   @default(false)
   created_by  Int?
   created_at  DateTime  @default(now()) @db.Timestamp(6)
   updated_at  DateTime  @updatedAt @db.Timestamp(6)
 
   @@unique([school_year, semester])
   @@index([is_active])
+  @@index([is_primary])
   @@index([school_year])
 }
 

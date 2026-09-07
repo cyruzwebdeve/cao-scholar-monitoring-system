@@ -7,19 +7,30 @@ const DEFAULT_SCHOOL_YEAR = '2026-2027';
 const DEFAULT_SEMESTER = '1st Semester';
 
 const ensureAcademicPeriod = async () => {
-  const activePeriod = await prisma.academic_periods.findFirst({ where: { is_active: true } });
+  const primaryPeriod = await prisma.academic_periods.findFirst({ where: { is_active: true, is_primary: true } });
+  if (primaryPeriod) {
+    console.log(`Primary academic period already active: ${primaryPeriod.school_year} / ${primaryPeriod.semester}`);
+    return;
+  }
+
+  const activePeriod = await prisma.academic_periods.findFirst({
+    where: { is_active: true },
+    orderBy: [{ updated_at: 'desc' }, { id: 'desc' }],
+  });
   if (activePeriod) {
-    console.log(`Academic period already active: ${activePeriod.school_year} / ${activePeriod.semester}`);
+    await prisma.academic_periods.update({ where: { id: activePeriod.id }, data: { is_primary: true, status: 'active' } });
+    console.log(`Primary academic period assigned: ${activePeriod.school_year} / ${activePeriod.semester}`);
     return;
   }
 
   const period = await prisma.academic_periods.upsert({
     where: { school_year_semester: { school_year: DEFAULT_SCHOOL_YEAR, semester: DEFAULT_SEMESTER } },
-    update: { is_active: true, status: 'active' },
+    update: { is_active: true, is_primary: true, status: 'active' },
     create: {
       school_year: DEFAULT_SCHOOL_YEAR,
       semester: DEFAULT_SEMESTER,
       is_active: true,
+      is_primary: true,
       status: 'active',
     },
   });

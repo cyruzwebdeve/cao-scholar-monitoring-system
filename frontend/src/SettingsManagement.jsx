@@ -64,7 +64,9 @@ export default function SettingsManagement({ token, user }) {
   const [periodForm, setPeriodForm] = useState(emptyPeriodForm);
   const [savingPeriod, setSavingPeriod] = useState(false);
   const [pendingActivation, setPendingActivation] = useState(null);
+  const [pendingPrimary, setPendingPrimary] = useState(null);
   const [activatingPeriod, setActivatingPeriod] = useState(false);
+  const [updatingPeriodId, setUpdatingPeriodId] = useState(null);
   const [availability, setAvailability] = useState(emptyAvailability);
   const [availabilityLoading, setAvailabilityLoading] = useState(true);
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
@@ -72,7 +74,10 @@ export default function SettingsManagement({ token, user }) {
   const [availabilityNotice, setAvailabilityNotice] = useState('');
   const canManagePeriods = ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role);
   const canManageApplications = ['SuperAdmin', 'RegularAdmin'].includes(user?.role);
-  const activePeriod = periods.find((period) => period.isActive) || null;
+  const activePeriod = periods.find((period) => period.isPrimary)
+    || periods.find((period) => period.isActive)
+    || null;
+  const activePeriodCount = periods.filter((period) => period.isActive).length;
 
   const loadPeriods = useCallback(async () => {
     if (!token) return;
@@ -180,12 +185,34 @@ export default function SettingsManagement({ token, user }) {
       setPendingActivation(null);
       setPeriodNotice(body.message);
       await loadPeriods();
-      window.dispatchEvent(new CustomEvent('academic-period-changed', { detail: body.period }));
+      if (body.period?.isPrimary) window.dispatchEvent(new CustomEvent('academic-period-changed', { detail: body.period }));
     } catch (error) {
       setPeriodError(error.message || 'Unable to activate the academic period.');
       setPendingActivation(null);
     } finally {
       setActivatingPeriod(false);
+    }
+  };
+
+  const updatePeriodState = async (period, action) => {
+    if (!period || updatingPeriodId) return;
+    setUpdatingPeriodId(period.id);
+    setPeriodError('');
+    setPeriodNotice('');
+    try {
+      const response = await fetch(`${API_BASE}/academic-periods/${period.id}/${action}`, { method: 'PUT', headers: authHeaders(token) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to update the academic period.');
+      setPeriodNotice(body.message);
+      await loadPeriods();
+      if (action === 'primary') {
+        setPendingPrimary(null);
+        window.dispatchEvent(new CustomEvent('academic-period-changed', { detail: body.period }));
+      }
+    } catch (error) {
+      setPeriodError(error.message || 'Unable to update the academic period.');
+    } finally {
+      setUpdatingPeriodId(null);
     }
   };
 
@@ -283,7 +310,7 @@ export default function SettingsManagement({ token, user }) {
 
       <section className="settings-card settings-period-card">
         <div className="settings-card-heading">
-          <div><span className="settings-eyebrow">ACADEMIC PERIODS</span><h3>School year and semester</h3><p>Control the active cycle used by applications, billing, payroll, and reports.</p></div>
+          <div><span className="settings-eyebrow">ACADEMIC PERIODS</span><h3>School year and semester</h3><p>Keep multiple periods active for processing and choose one Primary System Period for applications and examinations.</p></div>
           <CalendarRange size={24} />
         </div>
 
@@ -292,12 +319,11 @@ export default function SettingsManagement({ token, user }) {
 
         <div className="settings-active-period">
           <div className="settings-active-period-icon"><CalendarRange size={21} /></div>
-          <div><span>ACTIVE ACADEMIC PERIOD</span><strong>{periodsLoading ? 'Loading…' : activePeriod ? `${activePeriod.schoolYear} · ${activePeriod.semester}` : 'No active period'}</strong><small>{activePeriod ? `${formatPeriodDate(activePeriod.startDate)} – ${formatPeriodDate(activePeriod.endDate)}` : 'Create and activate a period before processing new records.'}</small></div>
-          {activePeriod && <em>Current</em>}
+          <div><span>PRIMARY SYSTEM PERIOD</span><strong>{periodsLoading ? 'Loading…' : activePeriod ? `${activePeriod.schoolYear} · ${activePeriod.semester}` : 'No primary period'}</strong><small>{activePeriod ? `${formatPeriodDate(activePeriod.startDate)} – ${formatPeriodDate(activePeriod.endDate)} · ${activePeriodCount} active period${activePeriodCount === 1 ? '' : 's'}` : 'Activate a period before processing new records.'}</small></div>
+          {activePeriod && <em>Primary</em>}
         </div>
-
         <div className="settings-period-toolbar">
-          <div><strong>Period history</strong><span>Previous cycles remain available as archived billing and payroll data.</span></div>
+          <div><strong>Period directory</strong><span>Active periods are selectable in Billing and Payroll. Archived periods remain available as history.</span></div>
           {canManagePeriods && <button type="button" onClick={openPeriodForm}><Plus size={14} />New period</button>}
         </div>
 
@@ -319,9 +345,9 @@ export default function SettingsManagement({ token, user }) {
             <article key={period.id} className={period.isActive ? 'active' : ''}>
               <div><strong>{period.schoolYear}</strong><span>{period.semester}</span></div>
               <div><span>{formatPeriodDate(period.startDate)} – {formatPeriodDate(period.endDate)}</span><small className={period.status}>{period.status}</small></div>
-              {period.isActive
-                ? <em><Check size={12} />Active</em>
-                : canManagePeriods && <button type="button" onClick={() => setPendingActivation(period)}>Activate</button>}
+              <div className="settings-period-actions">{period.isActive
+                ? <><em><Check size={12} />{period.isPrimary ? 'Primary' : 'Active'}</em>{canManagePeriods && !period.isPrimary && <><button type="button" disabled={updatingPeriodId === period.id} onClick={() => setPendingPrimary(period)}>Set primary</button><button type="button" disabled={updatingPeriodId === period.id} onClick={() => updatePeriodState(period, 'deactivate')}>Deactivate</button></>}</>
+                : canManagePeriods && <button type="button" onClick={() => setPendingActivation(period)}>Activate</button>}</div>
             </article>
           ))}
           {!periodsLoading && !periods.length && <div className="settings-period-empty">No academic periods have been created.</div>}
@@ -329,7 +355,7 @@ export default function SettingsManagement({ token, user }) {
       </section>
 
       <section className="settings-card">
-        <div className="settings-card-heading"><div><span className="settings-eyebrow">EXAMINATION SETTINGS</span><h3>Exam delivery mode</h3><p>Choose how applicants will take the qualifying examination for the active academic period.</p></div><Monitor size={24} /></div>
+        <div className="settings-card-heading"><div><span className="settings-eyebrow">EXAMINATION SETTINGS</span><h3>Exam delivery mode</h3><p>Choose how applicants will take the qualifying examination for the Primary System Period.</p></div><Monitor size={24} /></div>
         <div className="settings-mode-grid"><button className={mode === 'online' ? 'selected' : ''} onClick={() => setMode('online')}><Monitor size={25} /><span><b>Online Examination</b><small>Applicants answer remotely through the Applicant Dashboard.</small></span>{mode === 'online' && <Check className="settings-check" size={18} />}</button><button className={mode === 'face-to-face' ? 'selected' : ''} onClick={() => setMode('face-to-face')}><UsersRound size={25} /><span><b>Face-to-Face Examination</b><small>Applicants attend the assigned examination venue.</small></span>{mode === 'face-to-face' && <Check className="settings-check" size={18} />}</button></div>
         <button className="settings-save" onClick={saveExamMode}><Save size={15} /> Save examination setting</button>
       </section>
@@ -340,8 +366,18 @@ export default function SettingsManagement({ token, user }) {
         <div className="admin-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !activatingPeriod) setPendingActivation(null); }}>
           <section className="admin-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="activate-period-title" aria-describedby="activate-period-description">
             <div className="admin-confirm-icon warning"><TriangleAlert size={24} /></div>
-            <div className="admin-confirm-copy"><span>ACADEMIC PERIOD ROLLOVER</span><h3 id="activate-period-title">Activate {pendingActivation.schoolYear} · {pendingActivation.semester}?</h3><p id="activate-period-description">The current period will be archived. Active scholars will start this period as not billed and not paid, while all previous billing and payroll records remain available as history.</p></div>
-            <div className="admin-confirm-actions"><button type="button" className="cancel" disabled={activatingPeriod} onClick={() => setPendingActivation(null)}>Keep current period</button><button type="button" className="danger settings-activate-confirm" disabled={activatingPeriod} onClick={activatePeriod}><CalendarRange size={15} />{activatingPeriod ? 'Activating…' : 'Activate period'}</button></div>
+            <div className="admin-confirm-copy"><span>ACTIVATE PROCESSING PERIOD</span><h3 id="activate-period-title">Activate {pendingActivation.schoolYear} · {pendingActivation.semester}?</h3><p id="activate-period-description">This adds the period to Billing and Payroll without deactivating other periods. The Primary System Period remains unchanged unless you set this period as primary afterward.</p></div>
+            <div className="admin-confirm-actions"><button type="button" className="cancel" disabled={activatingPeriod} onClick={() => setPendingActivation(null)}>Cancel</button><button type="button" className="danger settings-activate-confirm" disabled={activatingPeriod} onClick={activatePeriod}><CalendarRange size={15} />{activatingPeriod ? 'Activating…' : 'Activate period'}</button></div>
+          </section>
+        </div>
+      )}
+
+      {pendingPrimary && (
+        <div className="admin-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !updatingPeriodId) setPendingPrimary(null); }}>
+          <section className="admin-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="primary-period-title" aria-describedby="primary-period-description">
+            <div className="admin-confirm-icon warning"><TriangleAlert size={24} /></div>
+            <div className="admin-confirm-copy"><span>CHANGE PRIMARY SYSTEM PERIOD</span><h3 id="primary-period-title">Use {pendingPrimary.schoolYear} · {pendingPrimary.semester} as primary?</h3><p id="primary-period-description">New application, examination, document-review, and default report activity will use this period. Other active periods will remain available in Billing and Payroll.</p></div>
+            <div className="admin-confirm-actions"><button type="button" className="cancel" disabled={Boolean(updatingPeriodId)} onClick={() => setPendingPrimary(null)}>Cancel</button><button type="button" className="danger settings-activate-confirm" disabled={Boolean(updatingPeriodId)} onClick={() => updatePeriodState(pendingPrimary, 'primary')}><CalendarRange size={15} />{updatingPeriodId ? 'Updating…' : 'Set as primary'}</button></div>
           </section>
         </div>
       )}

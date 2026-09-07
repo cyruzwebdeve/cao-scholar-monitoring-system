@@ -5,6 +5,146 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-07 - Multiple Active Academic Periods with a Primary System Period
+
+### TL;DR
+
+- Staff can keep several school-year/semester periods active at the same time and select the intended period directly in Billing or Payroll.
+- Exactly one active period is designated as the Primary System Period for applications, examinations, document review, and other workflows that require a single safe default.
+- Billing and payroll-list batches, scholar requirements, references, and duplicate checks use the explicitly selected active period; historical records are preserved.
+- The change is additive and passed 82 backend tests, Prisma schema validation, backend syntax checks, frontend lint/build, and Git whitespace checks.
+
+### Objective and reason
+
+The objective was to let staff test and operate more than one academic period
+without forcing a rollover that archives the previous period. A simple removal
+of the single-active-period rule would have made application, examination, and
+document workflows ambiguous. The new model therefore combines multiple
+processing periods with one explicit Primary System Period.
+
+### Previous and new behavior
+
+Previously, activating a period automatically archived every other active
+period. Billing, payroll-list generation, application intake, examinations,
+document review, and reports all implicitly used whichever single row was
+active.
+
+Now, activating a period adds it to the active set and leaves existing periods
+active. Settings identifies the primary period, shows the active-period count,
+and provides actions to set another active period as primary or deactivate a
+non-primary period. The primary period cannot be deactivated until another
+period is selected as primary. Billing and Payroll show a Processing period
+selector and reload their records for that period before editing or processing.
+Same-scholar duplicate processing remains blocked within each period.
+
+### Affected roles and workflows
+
+- **Super Administrator, Administrator, and Billing / Payroll staff:** can use
+  the existing Settings permissions to activate periods, set the primary
+  period, and deactivate non-primary periods.
+- **Billing / Payroll staff:** explicitly select an active processing period;
+  billing-detail edits, Process Billing, and payroll-list generation are bound
+  to that selection.
+- **Applicants and examination staff:** continue using one predictable primary
+  period, so their existing process flow does not change.
+- **Document reviewers and Reports users:** default to the primary period when
+  no period is explicitly requested.
+
+### Implementation and data flow
+
+`academic_periods.is_primary` records the single global default. An additive
+migration promotes the most recently updated existing active period and adds a
+partial unique index so PostgreSQL permits only one primary row. A check
+constraint prevents a primary period from being inactive.
+
+The academic-period API now serializes `isPrimary`. Activation no longer
+archives other rows. Dedicated protected actions set the primary period and
+deactivate non-primary periods. The scholar-management read endpoint accepts
+an optional active `academicPeriodId`, returns all active choices, and scopes
+requirements and processed status to the selected period. Billing-detail,
+billing-process, and payroll-process requests send the selected identifier;
+the backend independently verifies that it still refers to an active period.
+Clients that omit the identifier continue to use the primary period.
+
+Production bootstrap now repairs an older installation that has an active row
+but no primary row, and creates the default period as both active and primary
+on an empty installation.
+
+### Files and system areas changed
+
+| Area | Change |
+|---|---|
+| `backend/prisma/schema.application.prisma` | Added the `is_primary` academic-period field and index |
+| `backend/prisma/migrations/20260907020000_multiple_active_academic_periods/migration.sql` | Backfills one primary period and enforces primary uniqueness/activity |
+| `backend/controllers/applicationController.js` | Added primary/selected-period resolution and period-aware billing/payroll operations |
+| `backend/controllers/documentReviewController.js` | Uses the primary period for single-default requirement review work |
+| `backend/controllers/lifecycleReportController.js` | Uses the primary period as the default report period |
+| `backend/routes/applicationRoutes.js` | Added protected primary-selection and deactivation endpoints |
+| `backend/scripts/bootstrap-production.js` | Ensures a primary period exists after clean or legacy bootstrap |
+| `frontend/src/SettingsManagement.jsx` | Added multi-active status, primary selection, and safe deactivation controls |
+| `frontend/src/BillingPayrollManagement.jsx` | Added the active Processing period selector and selected-period request payloads |
+| `frontend/src/styles/admin.css` | Added responsive period-selector and Settings action styling |
+
+### API, database, configuration, and deployment impact
+
+- **API:** `GET /api/scholars/management` accepts optional
+  `academicPeriodId`; billing-detail, billing-process, and payroll-process
+  mutations accept the same field. `PUT /api/academic-periods/:id/primary` and
+  `PUT /api/academic-periods/:id/deactivate` were added. Existing callers remain
+  compatible through primary-period fallback.
+- **Database:** one additive Boolean column, indexes, and a check constraint
+  are added. Existing periods and billing/payroll-list history are not deleted
+  or rewritten beyond marking the latest active period as primary.
+- **Configuration/dependencies:** no environment variable, package, or external
+  service changes are required.
+- **Deployment:** the backend migration must run before the updated API starts;
+  the existing Render build pipeline already performs Prisma generation and
+  migration deployment in that order.
+
+### Security, privacy, accessibility, and scope impact
+
+All new mutations retain authentication, role checks, section-access checks,
+rate limiting where already applied, and Activity Log middleware. The server
+does not trust the browser's period label and accepts only a positive identifier
+for a currently active period. No private documents or personal data are added
+to responses. Native labelled selectors and textual Primary/Active states keep
+the interface keyboard- and screen-reader-compatible and do not rely on color
+alone.
+
+The approved product boundary is unchanged: Payroll produces the official
+payroll list only. This work does not add fund release, claiming, disbursement,
+reconciliation, or monetary auditing.
+
+### Validation results
+
+- Backend automated suite: **82 passed, 0 failed**.
+- Prisma application schema validation: passed.
+- Backend controller, route, and bootstrap `node --check`: passed.
+- Frontend ESLint: passed.
+- Frontend production build: passed.
+- Git whitespace validation: passed.
+
+Local Prisma client regeneration reached the Windows replacement step but the
+existing query-engine DLL was locked by a running local Node process. No process
+was terminated because it may have been the user's server. Schema validation
+passed, and the clean Render build is expected to regenerate the client without
+that workstation-only file lock.
+
+### Known limitations, rollback, and next work
+
+Requirements are period-specific. A newly activated period therefore begins
+with fresh requirement and processing state; staff may need to confirm or
+record that period's physical-folder status before processing. The Scholar
+drawer still defaults to the Primary System Period, while the operational
+Billing and Payroll workspaces provide explicit multi-period selection.
+
+Rollback should restore the former activation/controller and frontend behavior
+but leave `is_primary` and the additive migration in place to avoid destructive
+schema reversal. Non-primary active rows can be deactivated through Settings
+before rollback if strict single-period behavior is required. Recommended next
+work is to complete the planned separation of School Year and Semester fields
+and add clearer period-specific requirement carry-forward assistance for staff.
+
 ## 2026-09-07 - New Academic-Period Billing Cycle Guidance
 
 ### TL;DR
