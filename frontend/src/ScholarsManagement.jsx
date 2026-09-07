@@ -9,7 +9,6 @@ import {
   FileCheck2,
   Filter,
   GraduationCap,
-  Pencil,
   ReceiptText,
   Save,
   Search,
@@ -59,8 +58,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const [page, setPage] = useState(1);
   const [exportOpen, setExportOpen] = useState(false);
   const [academicPeriods, setAcademicPeriods] = useState([]);
-  const [editingBilling, setEditingBilling] = useState(false);
-  const [billingForm, setBillingForm] = useState({ academicPeriodId: '', billingStatus: 'Pending' });
+  const [billingForm, setBillingForm] = useState({ schoolYear: '', semester: '', billingStatus: 'Not billed yet' });
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingEditError, setBillingEditError] = useState('');
   const [documentReview, setDocumentReview] = useState(null);
@@ -221,14 +219,27 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     setPage(1);
   };
 
-  const beginBillingEdit = () => {
+  const openBillingTab = () => {
+    const defaultPeriod = academicPeriods.find((period) => period.id === selected.billingAcademicPeriodId)
+      || academicPeriods.find((period) => period.schoolYear === selected.billingSchoolYear && period.semester === selected.billingSemester)
+      || academicPeriods.find((period) => period.isPrimary)
+      || academicPeriods.find((period) => period.isActive)
+      || academicPeriods[0];
     setBillingForm({
-      academicPeriodId: String(selected.billingAcademicPeriodId || ''),
-      billingStatus: selected.billingStatus || 'Pending',
+      schoolYear: selected.billingSchoolYear || defaultPeriod?.schoolYear || selected.schoolYear || '',
+      semester: selected.billingSemester || defaultPeriod?.semester || selected.semester || '',
+      billingStatus: selected.processRoute === 'billing'
+        ? (selected.billingStatus === 'Pending' ? 'Not billed yet' : selected.billingStatus || 'Not billed yet')
+        : 'Not applicable',
     });
     setBillingEditError('');
-    setEditingBilling(true);
+    setDrawerTab('finance');
   };
+
+  const billingSchoolYears = [...new Set(academicPeriods.map((period) => period.schoolYear))];
+  const billingSemesters = academicPeriods
+    .filter((period) => period.schoolYear === billingForm.schoolYear)
+    .map((period) => period.semester);
 
   const saveBillingMetadata = async (event) => {
     event.preventDefault();
@@ -236,14 +247,17 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     setBillingSaving(true);
     setBillingEditError('');
     try {
+      const selectedPeriod = academicPeriods.find((period) => (
+        period.schoolYear === billingForm.schoolYear && period.semester === billingForm.semester
+      ));
+      if (!selectedPeriod) throw new Error('Select a configured school year and semester.');
       const response = await fetch(`${API_BASE}/scholars/${selected.applicantId}/billing-metadata`, {
         method: 'PUT',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...billingForm, academicPeriodId: Number(billingForm.academicPeriodId) }),
+        body: JSON.stringify({ academicPeriodId: selectedPeriod.id, billingStatus: billingForm.billingStatus }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.message || 'Unable to update billing and payroll details.');
-      setEditingBilling(false);
       await loadScholars();
     } catch (error) {
       setBillingEditError(error.message || 'Unable to update billing and payroll details.');
@@ -303,7 +317,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
             <div data-label="Barangay"><span>{scholar.barangay}</span></div>
             <div data-label="Status"><ScholarBadge value={scholar.status} type="status" /></div>
             <div data-label="Documents"><ScholarBadge value={scholar.documentStatus} type="documents" /></div>
-            <div data-label="Action"><button type="button" className="scholars-view" aria-label={`View details for ${scholar.name}`} onClick={() => { setSelected(scholar); setDrawerTab('overview'); setEditingBilling(false); setDocumentNotice(''); }}><Eye size={13} />View details</button></div>
+            <div data-label="Action"><button type="button" className="scholars-view" aria-label={`View details for ${scholar.name}`} onClick={() => { setSelected(scholar); setDrawerTab('overview'); setDocumentNotice(''); }}><Eye size={13} />View details</button></div>
           </article>)}
         </div>
         {!!filtered.length && <footer className="scholars-table-footer"><span>Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}</span><nav className="scholars-pagination" aria-label="Scholar pages"><button type="button" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" key={item} aria-label={`Page ${item}`} className={item === currentPage ? 'active' : ''} aria-current={item === currentPage ? 'page' : undefined} onClick={() => setPage(item)}>{item}</button> : <span key={item}>…</span>)}<button type="button" aria-label="Next page" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>›</button></nav></footer>}
@@ -320,7 +334,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
 
           <nav className="scholars-drawer-tabs" role="tablist" aria-label="Scholar record sections">
             <button type="button" role="tab" aria-selected={drawerTab === 'overview'} className={drawerTab === 'overview' ? 'active' : ''} onClick={() => setDrawerTab('overview')}><GraduationCap size={15} />Overview</button>
-            <button type="button" role="tab" aria-selected={drawerTab === 'finance'} className={drawerTab === 'finance' ? 'active' : ''} onClick={() => setDrawerTab('finance')}><CircleDollarSign size={15} />Billing &amp; Payroll</button>
+            <button type="button" role="tab" aria-selected={drawerTab === 'finance'} className={drawerTab === 'finance' ? 'active' : ''} onClick={openBillingTab}><CircleDollarSign size={15} />Billing &amp; Payroll</button>
           </nav>
 
           {drawerTab === 'overview' ? (
@@ -338,23 +352,21 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
             </div>
           ) : (
             <div className="scholars-drawer-tab-panel" role="tabpanel">
+              <section className="scholars-detail-section scholars-finance-details">
+                <form className="scholars-billing-edit-form" onSubmit={saveBillingMetadata}>
+                  <div className="scholars-billing-fields">
+                    <label><span>School year</span><select aria-label="School year" value={billingForm.schoolYear} disabled={!canEditBilling || selected.billed || selected.inPayroll} onChange={(event) => { const schoolYear = event.target.value; const availableSemesters = academicPeriods.filter((period) => period.schoolYear === schoolYear).map((period) => period.semester); setBillingForm((current) => ({ ...current, schoolYear, semester: availableSemesters.includes(current.semester) ? current.semester : availableSemesters[0] || '' })); }}><option value="">School Year</option>{billingSchoolYears.map((schoolYear) => <option key={schoolYear}>{schoolYear}</option>)}</select></label>
+                    <label><span>Semester</span><select aria-label="Semester" value={billingForm.semester} disabled={!canEditBilling || selected.billed || selected.inPayroll || !billingForm.schoolYear} onChange={(event) => setBillingForm((current) => ({ ...current, semester: event.target.value }))}><option value="">Semester</option>{billingSemesters.map((semester) => <option key={semester}>{semester}</option>)}</select></label>
+                    <label><span>Billing reference</span><input aria-label="Billing reference" value={selected.billingReference || ''} placeholder="BILL REF NO." readOnly aria-readonly="true" /></label>
+                    <label><span>Billing status</span><select aria-label="Billing status" disabled={!canEditBilling || selected.billed || selected.inPayroll || selected.processRoute !== 'billing'} value={billingForm.billingStatus} onChange={(event) => setBillingForm((current) => ({ ...current, billingStatus: event.target.value }))}>{selected.processRoute === 'billing' ? <>{selected.billed && <option>Billed</option>}<option>Not billed yet</option><option>Ready for billing</option><option>On hold</option></> : <option>Not applicable</option>}</select></label>
+                  </div>
+                  {billingEditError && <p role="alert">{billingEditError}</p>}
+                  {canEditBilling && !selected.billed && !selected.inPayroll && <footer><button type="submit" disabled={billingSaving || !billingForm.schoolYear || !billingForm.semester}><Save size={12} />{billingSaving ? 'Saving…' : 'Save changes'}</button></footer>}
+                </form>
+              </section>
               <section className="scholars-finance-summary">
                 <article className={selected.processRoute === 'billing' && selected.billed ? 'complete' : 'pending'}><i><ReceiptText size={19} /></i><div><span>Billing status</span><strong>{selected.billingStatus || (selected.billed ? 'Billed' : 'Not billed yet')}</strong><small>{selected.processRoute === 'billing' ? selected.billed ? 'Included in a billing record' : 'Waiting for billing processing' : 'Public scholar follows the Payroll route'}</small></div></article>
                 <article className={selected.inPayroll ? 'complete' : 'pending'}><i><CircleDollarSign size={19} /></i><div><span>Payroll status</span><strong>{selected.payrollStatus || (selected.inPayroll ? 'Included in payroll list' : 'Not included yet')}</strong><small>{selected.processRoute === 'payroll' ? selected.inPayroll ? 'Included in the official payroll list' : 'Ready for payroll-list preparation' : 'Private scholar follows the Billing route'}</small></div></article>
-              </section>
-              <section className="scholars-detail-section scholars-finance-details">
-                <div className="scholars-finance-details-heading"><h4>Processing details</h4>{canEditBilling && !selected.billed && !selected.inPayroll && !editingBilling && <button type="button" onClick={beginBillingEdit}><Pencil size={12} />Edit</button>}</div>
-                {editingBilling ? (
-                  <form className="scholars-billing-edit-form" onSubmit={saveBillingMetadata}>
-                    <label><span>Billing reference</span><input value={selected.billingReference || 'Generated when billing is processed'} readOnly aria-readonly="true" /></label>
-                    <label><span>School year and semester</span><select required value={billingForm.academicPeriodId} onChange={(event) => setBillingForm((current) => ({ ...current, academicPeriodId: event.target.value }))}><option value="">Select period</option>{academicPeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}</option>)}</select></label>
-                    <label><span>Billing status</span><select disabled={selected.processRoute !== 'billing'} value={billingForm.billingStatus} onChange={(event) => setBillingForm((current) => ({ ...current, billingStatus: event.target.value }))}>{selected.processRoute === 'billing' ? <><option>Pending</option><option>Ready for billing</option><option>On hold</option></> : <option>Not applicable</option>}</select></label>
-                    {billingEditError && <p role="alert">{billingEditError}</p>}
-                    <footer><button type="button" disabled={billingSaving} onClick={() => setEditingBilling(false)}>Cancel</button><button type="submit" disabled={billingSaving}><Save size={12} />{billingSaving ? 'Saving…' : 'Save'}</button></footer>
-                  </form>
-                ) : (
-                  <dl><div><dt>Billing reference</dt><dd>{selected.billingReference || 'Not generated'}</dd></div><div><dt>School year / semester</dt><dd>{selected.billingSchoolYearSemester || selected.schoolYearSemester}</dd></div><div><dt>Billing status</dt><dd>{selected.billingStatus}</dd></div></dl>
-                )}
               </section>
               {(selected.billed || selected.inPayroll) && <section className="scholars-new-cycle-guidance"><CalendarRange size={18} /><div><strong>{selected.processRoute === 'billing' ? 'Need another billing cycle?' : 'Need another payroll cycle?'}</strong><span>The completed {selected.billingSchoolYearSemester || selected.schoolYearSemester} record remains locked. Create and activate the next academic period to start a fresh record with no reference.</span>{canOpenSettings ? <button type="button" onClick={openNewCycleSetup}>Set up the next academic period</button> : <small>Ask an administrator with Settings access to activate the next academic period.</small>}</div></section>}
               {!!selected.financialHistory?.filter((record) => !record.isActivePeriod).length && <section className="scholars-detail-section"><h4>Previous period history</h4><div className="scholars-finance-history">{selected.financialHistory.filter((record) => !record.isActivePeriod).map((record) => <article key={`${record.academicPeriodId}-${record.dateProcessed}`}><div><strong>{record.schoolYear} · {record.semester}</strong><span>{record.billingStatus} · {record.payrollStatus}</span></div><div><strong>{record.payReference || 'No pay reference'}</strong><span>{record.dateProcessed ? formatScholarDate(record.dateProcessed) : 'Not processed'}</span></div></article>)}</div></section>}

@@ -5500,27 +5500,55 @@
 .scholars-billing-edit-form {
   display: grid;
   gap: 11px;
-  padding: 13px;
-  border: 1px solid #dfe9e2;
-  border-radius: 10px;
-  background: #fbfdfb;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.scholars-billing-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 11px;
 }
 .scholars-billing-edit-form label { display: grid; gap: 5px; }
-.scholars-billing-edit-form label > span { color: #66786c; font-size: 9px; font-weight: 800; }
+.scholars-billing-fields label > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .scholars-billing-edit-form input,
 .scholars-billing-edit-form select {
   width: 100%;
-  min-height: 36px;
+  min-height: 40px;
   box-sizing: border-box;
-  padding: 7px 9px;
-  border: 1px solid #cedbd2;
-  border-radius: 7px;
+  padding: 8px 11px;
+  border: 1px solid #657069;
+  border-radius: 8px;
   background: #fff;
-  color: #34483a;
+  color: #26352c;
   font: inherit;
-  font-size: 10px;
+  font-size: 9px;
+  text-transform: uppercase;
 }
-.scholars-billing-edit-form input[readonly] { background: #f0f4f1; color: #718078; }
+.scholars-billing-edit-form input::placeholder { color: #26352c; opacity: 1; }
+.scholars-billing-edit-form input[readonly] { background: #fff; color: #59675e; }
+.scholars-billing-edit-form input:focus-visible,
+.scholars-billing-edit-form select:focus-visible {
+  outline: 2px solid rgba(18, 139, 77, .24);
+  outline-offset: 2px;
+  border-color: #128b4d;
+}
+.scholars-billing-edit-form input:disabled,
+.scholars-billing-edit-form select:disabled {
+  cursor: not-allowed;
+  background: #f3f6f4;
+  color: #77837b;
+}
 .scholars-billing-edit-form > p { margin: 0; color: #b42318; font-size: 9px; }
 .scholars-billing-edit-form footer { display: flex; justify-content: flex-end; gap: 7px; }
 .scholars-billing-edit-form footer button {

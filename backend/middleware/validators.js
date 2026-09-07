@@ -389,7 +389,7 @@ const validateScholarBillingDetails = (req, res, next) => {
 
 const validateScholarBillingMetadata = (req, res, next) => {
   const { academicPeriodId, billingStatus } = req.body;
-  const allowedStatuses = ['Pending', 'Ready for billing', 'On hold', 'Not applicable'];
+  const allowedStatuses = ['Not billed yet', 'Pending', 'Ready for billing', 'On hold', 'Not applicable'];
   if (!Number.isInteger(Number(academicPeriodId)) || Number(academicPeriodId) <= 0) {
     return res.status(400).json({ message: 'Select a valid school year and semester.' });
   }

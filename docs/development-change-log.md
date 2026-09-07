@@ -5,6 +5,103 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-07 - Compact Scholar Billing Period Form
+
+### TL;DR
+
+- Replaced the combined academic-period field with separate School Year and Semester selectors in the Scholar Billing & Payroll tab.
+- Kept Billing Reference read-only and blank until Process Billing generates it.
+- Made Billing Status directly editable before processing and changed its initial private-school value to `Not billed yet`.
+- Processed records remain locked, Public scholars remain `Not applicable`, and no billing or payroll-list history is removed.
+
+### Objective and reason
+
+The objective was to match the supplied compact two-column reference and make
+routine billing setup faster for staff. The former interface required opening
+a separate Edit state and selecting one combined school-year/semester label,
+which made the two values harder to scan and adjust independently.
+
+### Previous and new behavior
+
+Previously, Processing details rendered as a read-only definition list until
+staff clicked Edit. The edit form stacked Billing Reference, one combined
+academic-period selector, and Billing Status vertically. New requirement rows
+defaulted to the technical label `Pending`.
+
+Now, opening Billing & Payroll immediately presents a two-by-two field grid:
+School Year, Semester, Billing Reference, and Billing Status. Selecting a
+school year limits Semester to configured combinations, and saving resolves
+the pair back to its validated academic-period identifier. The system selects
+the scholar's saved period first, then the Primary System Period as the default.
+Billing Reference remains read-only and displays the requested placeholder
+until Process Billing creates the batch reference.
+
+### Affected roles and workflows
+
+- Authorized Billing users and Super Administrators can edit and save the
+  period and pre-processing status without entering a separate edit mode.
+- Private-school scholars begin as `Not billed yet`; staff may choose Ready for
+  billing or On hold before processing.
+- Public-school scholars retain the Payroll route and a disabled Not applicable
+  Billing Status.
+- Once a scholar is included in Billing or the official payroll list, all four
+  controls remain visible but locked to protect the completed period record.
+
+### Implementation and data flow
+
+The frontend derives unique School Year options from configured academic
+periods and derives Semester options from the selected year. On save it finds
+the exact configured pair and sends its numeric identifier plus Billing Status
+to the existing protected metadata endpoint. The backend retains independent
+validation and writes the existing period metadata fields.
+
+The Prisma default for `scholar_requirements.billing_status` is now
+`Not billed yet`. An additive migration changes the PostgreSQL default and
+updates only legacy `Pending` requirement rows that have no processed claim for
+the same scholar and period. Processed history is excluded from the backfill.
+
+### Files and system areas changed
+
+| Area | Change |
+|---|---|
+| `frontend/src/ScholarsManagement.jsx` | Added separate linked selectors and the always-visible four-field billing form |
+| `frontend/src/styles/admin.css` | Added compact two-column styling, accessible hidden labels, focus states, and locked states |
+| `backend/controllers/applicationController.js` | Normalizes legacy Pending values to Not billed yet in scholar-management responses |
+| `backend/middleware/validators.js` | Accepts the new editable status while retaining legacy Pending compatibility |
+| `backend/prisma/schema.application.prisma` | Changes the billing-status default |
+| `backend/prisma/migrations/20260907040000_default_not_billed_status/migration.sql` | Changes the database default and safely backfills unprocessed rows |
+| `backend/tests/billingMetadata.test.js` | Covers the new status as a supported pre-processing value |
+
+### Impact assessment
+
+- **API:** request shape remains compatible; the academic period is still sent
+  as `academicPeriodId`, and `Not billed yet` is now an accepted status.
+- **Database:** an additive default change and bounded backfill affect only
+  unprocessed legacy Pending rows. No reference, claim, batch, or history row
+  is removed.
+- **Configuration/dependencies:** no changes.
+- **Security/privacy:** authentication, roles, section access, rate limiting,
+  server validation, and Activity Logs remain unchanged. No additional personal
+  data is displayed.
+- **Accessibility:** every visually compact field retains an accessible label;
+  keyboard focus is explicit and disabled fields are programmatically locked.
+- **Deployment:** Render must apply the additive migration before serving the
+  updated API; no Vercel configuration change is needed.
+- **Product scope:** unchanged. Payroll functionality ends at generation of the
+  official payroll list and does not perform fund release or monetary auditing.
+
+### Validation, limitations, rollback, and next work
+
+The backend suite, Prisma schema validation, backend syntax, frontend lint and
+production build, and Git whitespace checks are run before deployment.
+
+School Year and Semester are visually separate but intentionally restricted to
+configured pairs so staff cannot create an orphan billing label. New academic
+periods must still be created in Settings. Rolling back the interface can leave
+the new textual default in place safely; reverting the database default should
+not rewrite already stored statuses. Recommended next work is the planned
+requirements-side assistance for starting a new active billing period.
+
 ## 2026-09-07 - Multiple Active Period Activation Hotfix
 
 ### TL;DR

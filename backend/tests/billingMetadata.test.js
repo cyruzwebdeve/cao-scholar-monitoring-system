@@ -22,7 +22,7 @@ test('accepts an available billing period identifier and supported status', () =
 });
 
 test('accepts each editable pre-processing billing status', () => {
-  for (const billingStatus of ['Pending', 'Ready for billing', 'On hold', 'Not applicable']) {
+  for (const billingStatus of ['Not billed yet', 'Pending', 'Ready for billing', 'On hold', 'Not applicable']) {
     assert.equal(validate({ academicPeriodId: 1, billingStatus }).nextCalled, true);
   }
 });

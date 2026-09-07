@@ -272,7 +272,7 @@ model scholar_requirements {
   billing_reference                 String?   @db.VarChar(40)
   billing_school_year               String?   @db.VarChar(9)
   billing_semester                  String?   @db.VarChar(30)
-  billing_status                    String    @default("Pending") @db.VarChar(30)
+  billing_status                    String    @default("Not billed yet") @db.VarChar(30)
   cert_tax_exemption_file           String?   @db.VarChar(255)
   cert_tax_exemption_review_status  String?   @default("pending") @db.VarChar(30)
   barangay_indigency_file           String?   @db.VarChar(255)

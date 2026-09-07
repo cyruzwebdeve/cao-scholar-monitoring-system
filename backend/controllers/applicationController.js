@@ -1018,7 +1018,7 @@ const getScholarManagement = async (req, res) => {
         notes: scholar.notes || '',
         processEligible: billingEligibility.eligible,
         billed,
-        billingStatus: processRoute === 'billing' ? (billed ? 'Billed' : requirement?.billing_status || 'Pending') : 'Not applicable',
+        billingStatus: processRoute === 'billing' ? (billed ? 'Billed' : requirement?.billing_status === 'Pending' ? 'Not billed yet' : requirement?.billing_status || 'Not billed yet') : 'Not applicable',
         inPayroll,
         paid,
         payrollStatus: processRoute === 'payroll' ? (inPayroll ? 'Included in payroll list' : 'Not included yet') : 'Not applicable',
