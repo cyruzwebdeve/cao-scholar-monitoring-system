@@ -389,12 +389,16 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
           ) : (
             <div className="scholars-drawer-tab-panel" role="tabpanel">
               <section className="scholars-detail-section scholars-finance-details">
+                <header className="scholars-billing-form-heading">
+                  <i><ReceiptText size={17} /></i>
+                  <div><span>BILLING PREPARATION</span><h4>Set up processing session</h4><p>Select the academic period and confirm the scholar's billing status before continuing.</p></div>
+                </header>
                 <form className="scholars-billing-edit-form" onSubmit={saveBillingMetadata}>
                   <div className="scholars-billing-fields">
                     <label><span>School year</span><select aria-label="School year" value={billingForm.schoolYear} disabled={!canEditBilling || billingPeriodLoading} onChange={(event) => { const schoolYear = event.target.value; const matchingPeriods = activeBillingPeriods.filter((period) => period.schoolYear === schoolYear); const nextPeriod = matchingPeriods.find((period) => period.semester === billingForm.semester) || matchingPeriods[0]; selectBillingPeriod(nextPeriod); }}><option value="">School Year</option>{billingSchoolYears.map((schoolYear) => <option key={schoolYear}>{schoolYear}</option>)}</select></label>
                     <label><span>Semester</span><select aria-label="Semester" value={billingForm.semester} disabled={!canEditBilling || billingPeriodLoading || !billingForm.schoolYear} onChange={(event) => selectBillingPeriod(activeBillingPeriods.find((period) => period.schoolYear === billingForm.schoolYear && period.semester === event.target.value))}><option value="">Semester</option>{billingSemesters.map((semester) => <option key={semester}>{semester}</option>)}</select></label>
-                    <label><span>Billing reference</span><input aria-label="Billing reference" value={selected.billingReference || ''} placeholder="BILL REF NO." readOnly aria-readonly="true" /></label>
-                    <label><span>Billing status</span><select aria-label="Billing status" disabled={!canEditBilling || selected.billed || selected.inPayroll} value={billingForm.billingStatus} onChange={(event) => setBillingForm((current) => ({ ...current, billingStatus: event.target.value }))}>{selected.billed && <option>Billed</option>}<option>Not billed yet</option><option>Ready for billing</option><option>On hold</option></select></label>
+                    <label><span>Billing reference</span><input aria-label="Billing reference" value={selected.billingReference || ''} placeholder="Generated after processing" readOnly aria-readonly="true" /><small>Assigned automatically by Process Billing.</small></label>
+                    <label><span>Billing status</span><select aria-label="Billing status" disabled={!canEditBilling || selected.billed || selected.inPayroll} value={billingForm.billingStatus} onChange={(event) => setBillingForm((current) => ({ ...current, billingStatus: event.target.value }))}>{selected.billed && <option>Billed</option>}<option>Not billed yet</option><option>Ready for billing</option><option>On hold</option></select><small>Editable until this period is processed.</small></label>
                   </div>
                   {billingEditError && <p role="alert">{billingEditError}</p>}
                   {canEditBilling && !selected.billed && !selected.inPayroll && <footer><button type="submit" disabled={billingSaving || billingPeriodLoading || !billingForm.schoolYear || !billingForm.semester}><Save size={12} />{billingSaving ? 'Preparing…' : 'Prepare & open Billing'}</button></footer>}

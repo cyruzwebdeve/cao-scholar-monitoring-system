@@ -5,6 +5,72 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-09 - Scholar Billing Preparation Form Refinement
+
+### TL;DR
+
+- The Scholar Billing preparation controls now use the same green card, typography, borders, spacing, and interaction styling as the administration environment.
+- School Year, Semester, Billing Reference, and Billing Status have persistent visible labels instead of relying on field contents.
+- Billing Reference and Billing Status include concise guidance explaining automatic generation and the editing lock.
+- No Billing/Payroll rules, API behavior, database records, or permissions changed.
+
+### Objective and reason
+
+The compact Billing preparation controls were functional but visually sparse,
+and their labels were hidden from sighted users. The objective was to make the
+form immediately understandable and visually consistent with the surrounding
+Scholar drawer without altering the recently restored Billing-to-Payroll flow.
+
+### Previous and new behavior
+
+Previously, field purpose was communicated primarily through selected values
+and placeholders, while the visible layout appeared as four disconnected
+boxes and a button. Now the fields sit inside a subtle green-accented setup
+card with a short heading, persistent uppercase labels, balanced spacing, and
+clear helper text. The generated Billing Reference has a distinct read-only
+treatment, and the action remains visually aligned with the system's primary
+green controls.
+
+### Affected users, workflow, and implementation
+
+Administrators and Billing staff see the refinement in Scholars -> Scholar
+Record -> Billing & Payroll. Their workflow is unchanged: select School Year
+and Semester, choose the pre-processing Billing Status, then use Prepare & open
+Billing. The JSX adds semantic visible label and guidance content; the admin
+stylesheet supplies the card header, field, focus, disabled, button, and
+narrow-screen presentation.
+
+### Files and system areas changed
+
+- `frontend/src/ScholarsManagement.jsx`: adds the setup heading, visible field
+  labels, and concise reference/status guidance.
+- `frontend/src/styles/admin.css`: adds environment-matched presentation and
+  responsive behavior for the Billing preparation form.
+- `change_log.txt` and `docs/development-change-log.md`: document the UX change.
+
+### Impact assessment
+
+- **API/database/configuration/dependencies:** no impact; no endpoints, request
+  payloads, schema, environment variables, or packages changed.
+- **Security/privacy:** no impact; authorization and server-side processing
+  remain unchanged, and no additional data is displayed or collected.
+- **Accessibility:** persistent labels supplement the existing accessible names;
+  focus visibility remains explicit, read-only state is visually distinct, and
+  the form becomes single-column on very narrow screens.
+- **Deployment:** frontend deployment only; no backend restart or migration is
+  required for this refinement.
+- **Product scope:** no change to Billing processing or official payroll-list
+  generation, and no out-of-scope payment-release behavior was introduced.
+
+### Validation, limitations, rollback, and next work
+
+Frontend ESLint, the Vite production build, and Git whitespace checks passed.
+The layout remains intentionally compact for the Scholar drawer and changes to
+one column only below 360 pixels. Rollback consists of removing the added form
+heading/guidance and restoring the previous form CSS; it has no data impact.
+Recommended next work is deployed visual confirmation at desktop and mobile
+drawer widths before applying the same pattern elsewhere.
+
 ## 2026-09-08 - Shared Billing-to-Payroll Flow for All School Classifications
 
 ### TL;DR
