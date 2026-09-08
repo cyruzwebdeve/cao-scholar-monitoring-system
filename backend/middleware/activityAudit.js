@@ -19,7 +19,7 @@ const ACTIONS = {
   'POST /billing/process': ['BILLING_PROCESSED', 'payroll_batches', 'Processed scholars for billing.'],
   'PUT /scholars/:applicantId/billing-details': ['SCHOLAR_BILLING_DETAILS_UPDATED', 'scholar_requirements', 'Updated scholar billing details.'],
   'PUT /scholars/:applicantId/billing-metadata': ['SCHOLAR_BILLING_METADATA_UPDATED', 'scholar_requirements', 'Updated scholar billing period and status.'],
-  'POST /payroll/process': ['PAYROLL_LIST_GENERATED', 'payroll_batches', 'Generated the official payroll list for public-school scholars.'],
+  'POST /payroll/process': ['PAYROLL_LIST_GENERATED', 'payroll_batches', 'Generated the official payroll list for billed scholars.'],
   'POST /scholars/:applicantId/accept': ['APPLICANT_ACCEPTED_AS_SCHOLAR', 'scholar_accounts', 'Accepted an applicant as a scholar.'],
   'PUT /results/:applicantId/re-evaluate': ['EXAMINATION_RESULT_REEVALUATED', 'results', 'Re-evaluated an examination result.'],
   'POST /announcements': ['ANNOUNCEMENT_CREATED', 'announcements', 'Created an announcement.'],

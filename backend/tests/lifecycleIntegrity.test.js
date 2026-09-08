@@ -10,7 +10,7 @@ const {
   isPayableClaim,
 } = require('../services/lifecycleIntegrity');
 
-test('[SUCCESS] school classification selects the billing or payroll-list route', () => {
+test('[SUCCESS] school classification selects its applicable requirement set', () => {
   assert.equal(getSchoolProcessRoute('Private'), 'billing');
   assert.equal(getSchoolProcessRoute(' private '), 'billing');
   assert.equal(getSchoolProcessRoute('Public'), 'payroll');

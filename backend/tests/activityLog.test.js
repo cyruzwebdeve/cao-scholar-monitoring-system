@@ -17,11 +17,11 @@ test('maps portal roles to stable audit actor types', () => {
   assert.equal(normalizeActorType({ role: 'Applicant' }), 'applicant');
 });
 
-test('payroll processing is logged as list generation rather than payment completion', () => {
+test('payroll processing is logged as billed-scholar list generation rather than payment completion', () => {
   assert.deepEqual(ACTIONS['POST /payroll/process'], [
     'PAYROLL_LIST_GENERATED',
     'payroll_batches',
-    'Generated the official payroll list for public-school scholars.',
+    'Generated the official payroll list for billed scholars.',
   ]);
 });
 

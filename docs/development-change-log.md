@@ -5,6 +5,132 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-08 - Shared Billing-to-Payroll Flow for All School Classifications
+
+### TL;DR
+
+- Public- and private-school scholars now both follow Billing first and may then enter the official Payroll list.
+- The separate School Year/Semester controls, editable pre-processing Billing status, automatic billing reference, and new-session behavior in the Scholar Billing tab were retained.
+- Payroll accepts only active scholars already processed through Billing for the selected period; it does not release or mark money as paid.
+- School-specific document applicability, staff authorization, duplicate protection, and historical period locking remain enforced.
+
+### Objective and reason
+
+The classification-only process sent private-school scholars exclusively to
+Billing and public-school scholars directly to Payroll. Staff requested the
+earlier shared operational sequence in which both classifications are billed
+before they can be placed on the official payroll list. The change is limited
+to Billing and Payroll routing and presentation; unrelated scholarship stages
+remain unchanged.
+
+### Previous and new behavior
+
+Previously, Billing displayed and accepted only private-school scholars, while
+Payroll displayed and accepted only public-school scholars. The Scholar drawer
+also routed public scholars directly to Payroll and labelled their Billing
+status as not applicable.
+
+Now both classifications start in Billing. After requirements are cleared,
+staff can edit the active-period billing details, queue the scholar, and select
+Process Billing. The system generates the billing reference and marks the
+scholar billed. The same scholar then becomes selectable in Payroll, where
+Generate payroll list adds the billed record to the official list. Unbilled
+scholars may be visible in Payroll for context but are labelled Billing
+required first and cannot be moved into the Payroll queue.
+
+### Affected roles and workflow
+
+Super Administrators, Regular Administrators with the necessary section
+access, and Billing/Payroll staff continue using their existing permissions.
+The staff workflow is now Scholar Billing tab -> Billing preparation and
+processing -> Payroll-list generation for both public- and private-school
+scholars. Billing overrides remain restricted to Super Administrators and
+Billing/Payroll Administrators and still require a recorded reason.
+
+### Implementation and data flow
+
+`getScholarManagement` now derives progress from stored period records rather
+than treating school classification as a terminal route. A billing reference
+or period claim establishes the Billed state; association with a generated
+Payroll batch establishes inclusion in Payroll. School classification still
+determines the applicable requirement set: the tuition receipt remains a
+private-school requirement and is not imposed on public-school scholars.
+
+Billing processing no longer rejects public-school selections. It continues
+to revalidate activity, requirements, duplicate status, and any authorized
+override on the server, then creates a Billing batch, claim, amount, and
+automatic billing reference transactionally. Payroll processing now requires
+the corresponding active, pending Billing claim, creates the official Payroll
+batch, and advances that claim to `listed`. The claim is associated with the
+generated Payroll batch while the original billing reference remains stored
+on the scholar's period requirement record.
+
+The Scholar Billing tab retains its separate School Year and Semester
+selectors, read-only system reference, editable pre-processing status, active
+period selection, completed-period lock, and short-lived handoff. Its prepare
+action now consistently opens Billing because Billing is again the first
+processing stage for every scholar.
+
+### Files and system areas changed
+
+- `backend/controllers/applicationController.js`: restores shared Billing
+  eligibility and requires a billed record before Payroll-list generation.
+- `backend/middleware/activityAudit.js`: describes Payroll activity as a list
+  of billed scholars rather than a classification-specific operation.
+- `backend/tests/activityLog.test.js` and
+  `backend/tests/lifecycleIntegrity.test.js`: align assertions and descriptions
+  with the shared process while retaining school-specific requirements.
+- `frontend/src/BillingPayrollManagement.jsx`: shows both classifications in
+  each workspace and applies sequential Billing/Payroll queue eligibility.
+- `frontend/src/ScholarsManagement.jsx`: retains the redesigned Billing tab and
+  directs new session preparation to Billing for both classifications.
+- `change_log.txt` and `docs/development-change-log.md`: record this change.
+
+### Impact assessment
+
+- **API:** endpoint paths and request shapes are unchanged. Billing now accepts
+  either school classification; Payroll now requires an existing billed claim
+  for the selected active academic period.
+- **Database:** no migration or new table is required. Existing Billing claims
+  are advanced to the generated Payroll batch, and the period-specific
+  `billing_reference` remains the durable evidence of Billing processing.
+- **Configuration/dependencies:** no environment variable, dependency, build,
+  or service configuration changes.
+- **Security:** server-side role, section-access, active-period, eligibility,
+  override, concurrency, and duplicate checks remain authoritative.
+- **Privacy:** no new personal information is collected, exposed, exported, or
+  stored in browser handoff state.
+- **Accessibility:** status text explicitly distinguishes Ready for payroll,
+  Billing required first, and inactive records; the established keyboard and
+  labelled control behavior is unchanged.
+- **Deployment:** backend and frontend deployment are both required when this
+  change is released; no database migration step is required.
+- **Product scope:** Payroll still ends at official list generation. No fund
+  release, claiming, disbursement confirmation, reconciliation, or monetary
+  audit behavior was introduced.
+
+### Validation and results
+
+All 82 backend tests passed. Backend controller and middleware syntax checks
+passed. Frontend ESLint passed, and the Vite production build completed after
+transforming 491 modules. Git whitespace validation passed.
+
+### Limitations, rollback, and recommended next work
+
+The current data model uses the same period claim as it advances from Billing
+to the generated Payroll batch; the Billing reference remains on the scholar
+period record and the original Billing batch retains its aggregate record.
+This preserves the existing one-claim-per-scholar-per-period constraint
+without a migration. A future reporting enhancement may present the two
+milestones more explicitly without changing that constraint.
+
+Rollback can restore classification-only filters and validation while leaving
+existing period records valid; already generated references or lists must not
+be deleted silently. Recommended next work is an end-to-end deployed test with
+one public- and one private-school scholar in the same active period, checking
+requirements, Billing references, Payroll eligibility, duplicate prevention,
+and historical locking.
+
 ## 2026-09-07 - Scholar-to-Billing/Payroll Session Handoff
 
 ### TL;DR
