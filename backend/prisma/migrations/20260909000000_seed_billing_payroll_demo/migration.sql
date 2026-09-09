@@ -18,22 +18,22 @@ BEGIN
   LIMIT 1;
 
   IF selected_period_id IS NULL THEN
-    INSERT INTO academic_periods (school_year, semester, status, is_active, is_primary)
-    VALUES ('2026-2027', '1st Semester', 'active', TRUE, TRUE)
+    INSERT INTO academic_periods (school_year, semester, status, is_active, is_primary, updated_at)
+    VALUES ('2026-2027', '1st Semester', 'active', TRUE, TRUE, CURRENT_TIMESTAMP)
     ON CONFLICT (school_year, semester) DO UPDATE
       SET status = 'active', is_active = TRUE, is_primary = TRUE, updated_at = CURRENT_TIMESTAMP
     RETURNING id, school_year, semester
       INTO selected_period_id, selected_school_year, selected_semester;
   END IF;
 
-  INSERT INTO schools (name, school_type, is_active)
-  VALUES ('PGCEAP Public Workflow Test School', 'public', TRUE)
+  INSERT INTO schools (name, school_type, is_active, updated_at)
+  VALUES ('PGCEAP Public Workflow Test School', 'public', TRUE, CURRENT_TIMESTAMP)
   ON CONFLICT (name) DO UPDATE
     SET school_type = 'public', is_active = TRUE, updated_at = CURRENT_TIMESTAMP
   RETURNING id INTO public_school_id;
 
-  INSERT INTO schools (name, school_type, is_active)
-  VALUES ('PGCEAP Private Workflow Test School', 'private', TRUE)
+  INSERT INTO schools (name, school_type, is_active, updated_at)
+  VALUES ('PGCEAP Private Workflow Test School', 'private', TRUE, CURRENT_TIMESTAMP)
   ON CONFLICT (name) DO UPDATE
     SET school_type = 'private', is_active = TRUE, updated_at = CURRENT_TIMESTAMP
   RETURNING id INTO private_school_id;
@@ -49,13 +49,14 @@ BEGIN
     INSERT INTO applicants (
       first_name, middle_name, last_name, email, phone, street, barangay,
       municipality, school_id, gender, date_of_birth, birthplace, civil_status,
-      family_income, gwa, guardians, status, school_year, deleted_at
+      family_income, gwa, guardians, status, school_year, deleted_at, updated_at
     ) VALUES (
       'TEST', demo.classification, 'SCHOLAR ' || demo.sequence_name,
       'billing.workflow.' || LOWER(demo.code) || '@pgceap.test',
       NULL, 'TEST DATA - NOT A REAL ADDRESS', 'Test Barangay', 'Daet',
       demo.school_id, NULL, NULL, 'TEST DATA', 'Single',
-      'Test data', 1.50, 'TEST DATA', 'passed', selected_school_year, NULL
+      'Test data', 1.50, 'TEST DATA', 'passed', selected_school_year, NULL,
+      CURRENT_TIMESTAMP
     )
     ON CONFLICT (email) DO UPDATE SET
       first_name = EXCLUDED.first_name,
@@ -69,13 +70,14 @@ BEGIN
     RETURNING id INTO selected_applicant_id;
 
     INSERT INTO control_accounts (
-      applicant_id, control_number, username, password_hash, is_active
+      applicant_id, control_number, username, password_hash, is_active,
+      updated_at
     ) VALUES (
       selected_applicant_id,
       'PGC-TEST-' || demo.code,
       'billing.workflow.' || LOWER(demo.code) || '@pgceap.test',
       '$2a$12$uwVCP8UU9XX7uGuV7CzejO8.RoykcULtIVo2DLvM2bhLI5/62oTUC',
-      FALSE
+      FALSE, CURRENT_TIMESTAMP
     )
     ON CONFLICT (applicant_id) DO UPDATE SET
       control_number = EXCLUDED.control_number,
@@ -86,7 +88,7 @@ BEGIN
 
     INSERT INTO application_submissions (
       applicant_id, email, identity, address, school_plan, family,
-      eligibility, initial_docs, status
+      eligibility, initial_docs, status, updated_at
     )
     SELECT
       selected_applicant_id,
@@ -106,17 +108,21 @@ BEGIN
       jsonb_build_object('familyIncome', 'Test data', 'gwa', '1.50'),
       '{}'::jsonb,
       jsonb_build_object('requirements', '{}'::jsonb),
-      'Scholar'
+      'Scholar',
+      CURRENT_TIMESTAMP
     WHERE NOT EXISTS (
       SELECT 1 FROM application_submissions WHERE applicant_id = selected_applicant_id
     );
 
-    INSERT INTO scholar_accounts (applicant_id, scholar_id, is_active, notes)
+    INSERT INTO scholar_accounts (
+      applicant_id, scholar_id, is_active, notes, updated_at
+    )
     VALUES (
       selected_applicant_id,
       'TEST-SCH-' || demo.code,
       TRUE,
-      'DUMMY DATA - Billing and Payroll workflow verification'
+      'DUMMY DATA - Billing and Payroll workflow verification',
+      CURRENT_TIMESTAMP
     )
     ON CONFLICT (applicant_id) DO UPDATE SET
       is_active = TRUE,
@@ -133,7 +139,7 @@ BEGIN
       registration_form_review_status, tuition_fee_receipt_file,
       tuition_fee_receipt_review_status, grade_report_file,
       grade_report_review_status, folder_physical_submitted,
-      folder_physical_submitted_at
+      folder_physical_submitted_at, updated_at
     ) VALUES (
       selected_applicant_id, selected_period_id, demo.school_id, '1st Year',
       'Test Program', demo.billing_amount,
@@ -145,7 +151,8 @@ BEGIN
       'DUMMY-APPROVED-REGISTRATION', 'approved',
       CASE WHEN demo.classification = 'PRIVATE' THEN 'DUMMY-APPROVED-TUITION-RECEIPT' ELSE NULL END,
       CASE WHEN demo.classification = 'PRIVATE' THEN 'approved' ELSE 'pending' END,
-      'DUMMY-APPROVED-GRADES', 'approved', TRUE, CURRENT_TIMESTAMP
+      'DUMMY-APPROVED-GRADES', 'approved', TRUE, CURRENT_TIMESTAMP,
+      CURRENT_TIMESTAMP
     )
     ON CONFLICT (applicant_id, billing_period_id) DO UPDATE SET
       school_id = EXCLUDED.school_id,

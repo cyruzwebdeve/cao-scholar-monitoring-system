@@ -45,10 +45,20 @@ accounts for stable display identifiers, and upserts period-specific
 requirements. Re-running the migration preserves any generated Billing
 reference and does not return a processed fixture to Ready for billing.
 
+The first deployment attempt exposed a baseline-schema compatibility issue:
+tables managed with Prisma `@updatedAt` require an explicit value when rows are
+inserted directly through SQL. The fixture migration now supplies
+`CURRENT_TIMESTAMP` for every required `updated_at` field. The deployment
+runner checks only this named fixture migration for an unfinished failed entry,
+marks that entry rolled back, and retries the corrected migration. It does not
+automatically resolve any other failed migration.
+
 ### Files and system areas changed
 
 - `backend/prisma/migrations/20260909000000_seed_billing_payroll_demo/migration.sql`:
   provisions the idempotent test schools, scholars, and requirement rows.
+- `backend/scripts/deploy-migrations.js`: performs narrowly scoped recovery of
+  the known rolled-back fixture migration before normal migration deployment.
 - `change_log.txt` and `docs/development-change-log.md`: document the fixture
   purpose, data impact, safeguards, and removal considerations.
 
@@ -69,7 +79,9 @@ reference and does not return a processed fixture to Ready for billing.
 - **Accessibility:** test records use consistent `TEST` names and control
   numbers so they can be located using existing labelled search controls.
 - **Deployment:** backend migration deployment is required. The migration is
-  idempotent and executes inside the normal Render migration process.
+  idempotent and executes inside the normal Render migration process. Recovery
+  is restricted to the specifically named fixture migration and only when its
+  migration record is unfinished and not already marked rolled back.
 - **Product scope:** the fixtures test Billing and official payroll-list
   generation only; they do not add release, claiming, disbursement,
   reconciliation, or monetary-audit behavior.
@@ -77,13 +89,13 @@ reference and does not return a processed fixture to Ready for billing.
 ### Validation, limitations, rollback, and next work
 
 The existing 82 backend tests, frontend ESLint, frontend production build, and
-backend syntax checks passed before this data-only migration. Git whitespace
-validation passed. A local transactional execution could not validate the new
-SQL because the local database has not applied the earlier `is_primary`
-academic-period migration; production applies migrations in order and already
-reports that schema through the deployed application. Final validation must
-confirm the Render migration result and query the records through the deployed
-authenticated interface.
+backend syntax checks passed. Git whitespace validation passed. All 15
+application migrations, including the corrected fixture migration, were then
+applied from baseline to a fresh isolated PostgreSQL schema. The resulting
+schema contained exactly four fixture applicants, and the temporary validation
+schema was removed afterward. Final validation must still confirm the Render
+migration result and query the records through the deployed authenticated
+interface.
 
 The requirement files are readiness markers rather than downloadable files,
 so the fixtures are intended for Billing and Payroll processing rather than
