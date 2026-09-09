@@ -5,6 +5,95 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-09 - Deployed Billing and Payroll Workflow Fixtures
+
+### TL;DR
+
+- Four clearly named dummy scholars are provisioned for staff testing: two public-school and two private-school records.
+- Each fixture is ready for Billing in the current primary active period and can continue to the official Payroll list.
+- Fixture portal accounts are disabled, all identity details are synthetic, and no usable uploaded document is represented.
+- The migration is idempotent and does not delete, reset, or overwrite processed operational records.
+
+### Objective and reason
+
+Staff needed safe records on the deployed system to verify the complete shared
+Billing-to-Payroll workflow without processing real scholars. The objective was
+to provide visibly labelled, deterministic fixtures covering both school
+classifications and the active academic period.
+
+### Previous and new behavior
+
+Previously, deployed testing depended on whatever scholar records happened to
+exist, which risked changing real or previously processed data. After this
+migration runs, staff can identify four records by their `PGC-TEST-` control
+numbers and `TEST ... SCHOLAR` names. Each begins at Ready for billing with an
+assigned test school, academic details, amount, approved requirement markers,
+and recorded physical-folder readiness.
+
+### Affected users, workflow, and implementation
+
+Administrators and Billing/Payroll staff can use the fixtures in the ordinary
+workflow: select the active period, process the public and private fixtures in
+Billing, confirm the generated Billing reference, then generate the official
+Payroll list. The records intentionally use the same server validations as
+normal scholars; there is no test-only bypass in the application.
+
+The SQL migration selects the primary active period, falling back to the most
+recent active period. It creates two clearly labelled test schools, upserts
+four synthetic applicants and scholar accounts, creates disabled control
+accounts for stable display identifiers, and upserts period-specific
+requirements. Re-running the migration preserves any generated Billing
+reference and does not return a processed fixture to Ready for billing.
+
+### Files and system areas changed
+
+- `backend/prisma/migrations/20260909000000_seed_billing_payroll_demo/migration.sql`:
+  provisions the idempotent test schools, scholars, and requirement rows.
+- `change_log.txt` and `docs/development-change-log.md`: document the fixture
+  purpose, data impact, safeguards, and removal considerations.
+
+### Impact assessment
+
+- **API:** no endpoint or payload change; fixtures use the normal Scholar,
+  Billing, and Payroll APIs.
+- **Database:** adds two test schools, four synthetic applicants, four disabled
+  control accounts, four scholar accounts, up to four application rows, and
+  four period requirement rows. It does not alter schema or existing records.
+- **Configuration/dependencies:** no environment variable or package change.
+- **Security:** fixture control accounts have disabled login status and an
+  unrecoverable generated password hash. Staff authorization and processing
+  validation remain unchanged.
+- **Privacy:** names, addresses, contact identifiers, family fields, schools,
+  and requirement markers are explicitly synthetic. No real document content
+  or private file location is included.
+- **Accessibility:** test records use consistent `TEST` names and control
+  numbers so they can be located using existing labelled search controls.
+- **Deployment:** backend migration deployment is required. The migration is
+  idempotent and executes inside the normal Render migration process.
+- **Product scope:** the fixtures test Billing and official payroll-list
+  generation only; they do not add release, claiming, disbursement,
+  reconciliation, or monetary-audit behavior.
+
+### Validation, limitations, rollback, and next work
+
+The existing 82 backend tests, frontend ESLint, frontend production build, and
+backend syntax checks passed before this data-only migration. Git whitespace
+validation passed. A local transactional execution could not validate the new
+SQL because the local database has not applied the earlier `is_primary`
+academic-period migration; production applies migrations in order and already
+reports that schema through the deployed application. Final validation must
+confirm the Render migration result and query the records through the deployed
+authenticated interface.
+
+The requirement files are readiness markers rather than downloadable files,
+so the fixtures are intended for Billing and Payroll processing rather than
+document-preview testing. Removal should be performed by a dedicated cleanup
+migration keyed to the `billing.workflow.*@pgceap.test` identifiers after staff
+finishes testing; processed batches should be handled explicitly rather than
+silently deleted. Recommended next work is to process one fixture of each
+classification, verify both generated references, and then schedule fixture
+cleanup.
+
 ## 2026-09-09 - Payroll Transfer-Board Record Scoping
 
 ### TL;DR
