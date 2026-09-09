@@ -199,7 +199,9 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   };
 
   const currentRecords = useMemo(() => records.filter((record) => !record.isArchivedPeriod), [records]);
-  const visibleRecords = filtered;
+  const visibleRecords = useMemo(() => filtered.filter((record) => (
+    !record.isArchivedPeriod && (!isPayroll || record.billed)
+  )), [filtered, isPayroll]);
   const queuedRecords = useMemo(() => records.filter((record) => !record.isArchivedPeriod && queuedIds.includes(record.applicantId)
     && (isPayroll ? record.billed && !record.inPayroll : !record.billed)), [records, queuedIds, isPayroll]);
   const sourceRecords = useMemo(() => visibleRecords.filter((record) => !queuedIds.includes(record.applicantId)), [visibleRecords, queuedIds]);

@@ -5,6 +5,70 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-09 - Payroll Transfer-Board Record Scoping
+
+### TL;DR
+
+- Payroll now lists only current-period scholars who have already completed Billing.
+- Archived period rows no longer appear as duplicate scholars in the operational transfer board.
+- Unbilled scholars remain counted by the surrounding management data but are not shown as non-actionable Payroll rows.
+- No records were deleted or changed, and Billing/Payroll validation remains authoritative.
+
+### Objective and reason
+
+The Payroll transfer board used the combined current-and-archived dataset that
+supports reporting filters. This could show the same scholar twice and could
+mislabel an archived row as inactive. It also displayed unbilled scholars even
+though Payroll correctly prevented staff from selecting them. The objective
+was to keep the operational board focused on the current processing period and
+the actual Billing-to-Payroll sequence.
+
+### Previous and new behavior
+
+Previously, archived financial-history rows and current rows could both appear
+under List of Scholars. Unbilled current scholars appeared with Billing
+required first, producing a cluttered list of records staff could not process.
+
+Now the transfer board excludes archived rows in both workspaces. In Payroll,
+it additionally excludes current scholars until Billing is completed. Billed
+scholars remain available and are labelled Ready for payroll or In payroll as
+appropriate. Aggregate cards and stored historical records are not removed.
+
+### Affected users, workflow, and implementation
+
+Billing and Payroll staff receive a cleaner Payroll queue with one operational
+row per scholar and period. The frontend derives `visibleRecords` from the
+existing filtered dataset, removes `isArchivedPeriod` rows, and—only in Payroll—
+requires the existing `billed` state. Server-side active-period, billed-claim,
+duplicate, and role checks remain unchanged.
+
+### Files and system areas changed
+
+- `frontend/src/BillingPayrollManagement.jsx`: scopes transfer-board records to
+  current-period entries and billed Payroll candidates.
+- `change_log.txt` and `docs/development-change-log.md`: document the correction.
+
+### Impact assessment
+
+- **API/database/configuration/dependencies:** no impact; this is frontend
+  presentation scoping and introduces no endpoint, schema, or package change.
+- **Security/privacy:** no impact; authorization and validation are unchanged,
+  and no additional data is exposed.
+- **Accessibility:** removes duplicated and non-actionable rows, reducing
+  navigation noise while retaining textual processing status.
+- **Deployment:** frontend deployment only; no backend restart or migration is
+  required.
+- **Product scope:** the workflow still ends at official payroll-list
+  generation and adds no payment-release functionality.
+
+### Validation, limitations, rollback, and next work
+
+Frontend ESLint, the production build, and Git whitespace validation passed.
+Historical entries remain available through existing history and record data
+rather than the live transfer board. Rollback requires restoring the unscoped
+filtered dataset assignment and has no data impact. Recommended next work is a
+deployed check using a scholar with both current and historical period records.
+
 ## 2026-09-09 - Scholar Billing Preparation Form Refinement
 
 ### TL;DR
