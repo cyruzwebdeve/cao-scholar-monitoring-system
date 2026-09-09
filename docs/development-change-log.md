@@ -5,6 +5,82 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-09 - Billing Queue Amount Clarity and Private Fixture Value
+
+### TL;DR
+
+- Billing and Payroll queues now show the assigned amount for every queued scholar.
+- The aggregate labels are now `Total billing amount` and `Total list amount`, making clear that they are sums rather than a separate charge.
+- Each unprocessed private-school dummy fixture is set to PHP 5,000 for the requested test scenario.
+- Processed fixture totals and all non-fixture scholar records remain unchanged.
+
+### Objective and reason
+
+The previous `Billable amount` footer did not explain which scholar amounts
+formed the total. Staff needed a transparent queue that could be checked before
+processing, and the private-school workflow fixtures needed a consistent PHP
+5,000 test value.
+
+### Previous and new behavior
+
+Previously, the processing queue showed only control number, name, school year,
+and semester, followed by one aggregate value. Staff could not verify the
+individual amounts without leaving the queue. The queue now includes a labelled
+Amount column for every scholar and uses explicit total labels in its footer.
+The two unprocessed private fixtures now contribute PHP 5,000 each, so queuing
+both produces a PHP 10,000 Billing total.
+
+### Affected users, workflow, and implementation
+
+Billing staff can compare each queued scholar's amount with the aggregate before
+selecting Process Billing. Payroll staff receive the same visibility before
+generating the official payroll list. The frontend formats the existing
+period-specific `claimAmount` value; it does not calculate or invent a second
+amount. A narrowly scoped SQL migration updates `billing_amount` only for the
+two synthetic private-fixture email identifiers while their Billing reference
+is still null. This guard preserves amounts already recorded by processing.
+
+### Files and system areas changed
+
+- `frontend/src/BillingPayrollManagement.jsx`: adds the queue Amount column and
+  clearer aggregate labels.
+- `frontend/src/styles/admin.css`: accommodates the fifth queue column and
+  styles its currency value consistently with the administration interface.
+- `backend/prisma/migrations/20260909010000_set_private_fixture_amount/migration.sql`:
+  applies the guarded PHP 5,000 fixture correction.
+- `change_log.txt` and `docs/development-change-log.md`: document the behavior,
+  data scope, and verification.
+
+### Impact assessment
+
+- **API:** no endpoint, request, response, or authorization change; the UI uses
+  the existing amount field.
+- **Database:** updates at most two unprocessed synthetic requirement rows. No
+  schema changes, operational scholar updates, deletions, or resets occur.
+- **Configuration/dependencies:** no impact.
+- **Security/privacy:** no new access path or personal data is introduced; the
+  migration keys only on documented synthetic fixture identifiers.
+- **Accessibility:** the new visible Amount header identifies every currency
+  value, while the footer text distinguishes individual values from totals.
+- **Deployment:** both frontend deployment and the additive backend data
+  migration are required for the complete change.
+- **Product scope:** amounts remain preparation data for Billing and official
+  payroll-list generation. No fund release, claiming, disbursement,
+  reconciliation, or monetary-audit behavior is added.
+
+### Validation, limitations, rollback, and next work
+
+Frontend lint and production build, the 82-test backend suite, migration-chain
+validation in an isolated PostgreSQL schema, and Git whitespace checks are used
+to verify the change before deployment. The PHP 5,000 value applies only to the
+two private dummy records and is not a general policy for all private-school
+scholars. If a fixture has already been processed, its recorded amount is
+intentionally retained. Rollback can restore the previous queue columns and
+labels; any unprocessed fixture amount can be corrected through a subsequent
+data migration. Recommended next work is staff verification that the two
+private fixtures show PHP 5,000 individually and PHP 10,000 together before
+Process Billing.
+
 ## 2026-09-09 - Deployed Billing and Payroll Workflow Fixtures
 
 ### TL;DR

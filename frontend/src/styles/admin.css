@@ -6530,7 +6530,7 @@
 .billing-source-table .billing-queue-table-head,
 .billing-source-table .billing-queue-row { grid-template-columns: 105px minmax(180px, 1fr) 96px; min-width: 412px; }
 .billing-target-table .billing-queue-table-head,
-.billing-target-table .billing-queue-row { grid-template-columns: 105px minmax(170px, 1fr) 88px 58px; min-width: 445px; }
+.billing-target-table .billing-queue-row { grid-template-columns: 100px minmax(145px, 1fr) 76px 58px 78px; min-width: 510px; }
 .billing-queue-table-head { min-height: 34px; padding: 0 11px; border-bottom: 1px solid #e5ebe7; background: #f8faf8; }
 .billing-queue-table-head span { color: #68786e; font-size: 7px; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; }
 .billing-queue-table-body { min-height: 0; max-height: 330px; overflow-y: auto; flex: 1; }
@@ -6545,6 +6545,7 @@
 .billing-queue-row > code,
 .billing-queue-row > button { min-width: 0; padding-right: 8px; }
 .billing-queue-row code { overflow: hidden; color: #247449; font-family: inherit; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.billing-row-amount { padding-right: 0; color: #254735; font-size: 8px; font-weight: 900; white-space: nowrap; }
 .billing-queue-row > button { min-height: 40px; padding-top: 5px; padding-bottom: 5px; border: 0; border-radius: 6px; background: transparent; font: inherit; text-align: left; cursor: pointer; }
 .billing-queue-row > button:focus-visible { outline: 2px solid #32a565; outline-offset: 1px; }
 .billing-queue-row > button:disabled { opacity: 1; cursor: default; }

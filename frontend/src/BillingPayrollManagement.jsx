@@ -462,7 +462,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
             <button type="button" className="billing-queue-export" onClick={() => setExportOpen(true)} disabled={!queuedRecords.length}><Download size={14} />Export CSV</button>
           </header>
           <div className="billing-queue-table billing-target-table">
-            <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>School year</span><span>Sem</span></div>
+            <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>School year</span><span>Sem</span><span>Amount</span></div>
             <div className="billing-queue-table-body">
               {!queuedRecords.length && <div className="billing-queue-empty"><ReceiptText size={20} /><strong>No scholars queued</strong><span>Use the transfer controls to add scholars.</span></div>}
               {queuedRecords.map((record) => <div className={`billing-queue-row ${queueSelection.includes(record.applicantId) ? 'selected' : ''} ${billingOverrides[record.applicantId] ? 'overridden' : ''}`} key={record.id}>
@@ -470,10 +470,11 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
                 <button type="button" className="billing-queue-name" aria-pressed={queueSelection.includes(record.applicantId)} title={billingOverrides[record.applicantId] || undefined} onClick={() => toggleSelection(setQueueSelection, record.applicantId)}><strong>{record.name}</strong><small>{queueSelection.includes(record.applicantId) ? 'Selected' : billingOverrides[record.applicantId] ? 'Eligibility override' : record.school}</small></button>
                 <span>{record.schoolYear}</span>
                 <span>{record.semester}</span>
+                <strong className="billing-row-amount">{formatAmount(record.claimAmount)}</strong>
               </div>)}
             </div>
           </div>
-          <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'List amount' : 'Billable amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing}>{processing ? 'Processing…' : isPayroll ? 'Generate payroll list' : 'Process billing'}</button></footer>
+          <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Total list amount' : 'Total billing amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing}>{processing ? 'Processing…' : isPayroll ? 'Generate payroll list' : 'Process billing'}</button></footer>
         </article>
       </section>
       {exportOpen && <CsvExportModal title={`Export ${isPayroll ? 'payroll' : 'billing'} queue`} description="Choose which scholar, academic, and processing fields to include in this CSV file." columns={billingExportColumns} rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `${mode}-records-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(queuedRecords, columns) })} />}
