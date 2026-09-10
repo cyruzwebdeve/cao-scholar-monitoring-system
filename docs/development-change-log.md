@@ -11,6 +11,7 @@ and how the result was verified.
 
 - Added a root `npm run build` command that Hostinger can detect from the monorepo.
 - The command installs frontend dependencies using the existing lockfile and builds only the Vite frontend.
+- Added an Apache/LiteSpeed SPA fallback so direct links such as `/login` and `/dashboard` load the React application.
 - Existing Vercel, Render, Prisma Postgres, and Vercel Blob services remain unchanged.
 - No application behavior, production data, permissions, or workflow changed.
 
@@ -28,7 +29,9 @@ Previously, production frontend builds could be run only from the `frontend`
 package. The repository root now exposes `npm run build`, which performs a
 frontend dependency installation using the existing lockfile and build-time
 development tools, then invokes the existing Vite production build. Its output remains
-`frontend/dist`.
+`frontend/dist`. A public `.htaccess` file is copied into that output and sends
+non-file, non-directory requests to `index.html`, matching the existing Vercel
+single-page application rewrite.
 
 ### Affected users, workflow, and implementation
 
@@ -41,6 +44,8 @@ existing Render API through the public `VITE_API_BASE` build variable.
 ### Files and system areas changed
 
 - `package.json`: adds the root production build entry point.
+- `frontend/public/.htaccess`: provides Hostinger Apache/LiteSpeed fallback
+  routing for React Router URLs.
 - `change_log.txt` and `docs/development-change-log.md`: document the deployment
   compatibility change and its boundaries.
 
@@ -59,7 +64,9 @@ existing Render API through the public `VITE_API_BASE` build variable.
 
 ### Validation, limitations, rollback, and next work
 
-Validation runs the new root command, frontend lint, and Git whitespace checks.
+Validation runs the new root command, confirms `.htaccess` is present in the
+build output, checks representative direct routes after Hostinger redeploys,
+runs frontend lint, and performs Git whitespace checks.
 The Hostinger deployment must use repository root `./`, build command
 `npm run build`, and output directory `frontend/dist`. This does not solve the
 Render Free cold start because the backend remains on Render. Rollback consists
