@@ -5,6 +5,68 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-10 - Hostinger Monorepo Frontend Build Entry Point
+
+### TL;DR
+
+- Added a root `npm run build` command that Hostinger can detect from the monorepo.
+- The command installs frontend dependencies using the existing lockfile and builds only the Vite frontend.
+- Existing Vercel, Render, Prisma Postgres, and Vercel Blob services remain unchanged.
+- No application behavior, production data, permissions, or workflow changed.
+
+### Objective and reason
+
+Hostinger's Git deployment interface continued reading scripts from the
+repository-root `package.json` even after the `frontend` root directory was
+selected. Because the root package exposed only development commands, the UI
+offered `npm run dev` choices and no production build. Development servers must
+not be used to publish the static frontend.
+
+### Previous and new behavior
+
+Previously, production frontend builds could be run only from the `frontend`
+package. The repository root now exposes `npm run build`, which performs a
+frontend dependency installation using the existing lockfile and build-time
+development tools, then invokes the existing Vite production build. Its output remains
+`frontend/dist`.
+
+### Affected users, workflow, and implementation
+
+This affects deployment operators configuring the optional Hostinger frontend
+staging deployment. Staff, applicants, and scholars receive no functional
+change. Hostinger can select the root production command instead of a Vite
+development server. The temporary Hostinger site will continue calling the
+existing Render API through the public `VITE_API_BASE` build variable.
+
+### Files and system areas changed
+
+- `package.json`: adds the root production build entry point.
+- `change_log.txt` and `docs/development-change-log.md`: document the deployment
+  compatibility change and its boundaries.
+
+### Impact assessment
+
+- **API/database:** no endpoint, payload, schema, migration, or data impact.
+- **Configuration/dependencies:** no package was added or upgraded; the command
+  uses the committed frontend manifest, lockfile, and existing scripts.
+- **Security/privacy:** no secret is added. Backend environment files and
+  credentials remain excluded from the frontend build.
+- **Accessibility:** no interface impact.
+- **Deployment:** enables an additional static Hostinger staging build. The
+  existing Vercel frontend remains available as the production rollback path,
+  while Render continues hosting the backend.
+- **Product scope:** no scholarship, Billing, or payroll-list workflow changes.
+
+### Validation, limitations, rollback, and next work
+
+Validation runs the new root command, frontend lint, and Git whitespace checks.
+The Hostinger deployment must use repository root `./`, build command
+`npm run build`, and output directory `frontend/dist`. This does not solve the
+Render Free cold start because the backend remains on Render. Rollback consists
+of removing the root build script; no data restoration is required. Next work
+is to deploy to the temporary Hostinger domain, add that origin to Render CORS,
+and complete an end-to-end staging check before attaching the purchased domain.
+
 ## 2026-09-09 - Billing Queue Amount Clarity and Private Fixture Value
 
 ### TL;DR
