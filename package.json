@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "npm --prefix frontend install --include=dev && npm --prefix frontend run build",
+    "build:backend": "npm --prefix backend install --include=dev && npm --prefix backend run prisma:generate",
     "dev": "node scripts/dev.js",
     "dev:frontend": "npm --prefix frontend run dev",
     "dev:backend": "npm --prefix backend run dev"

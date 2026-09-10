@@ -5,13 +5,14 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
-## 2026-09-10 - Hostinger Monorepo Frontend Build Entry Point
+## 2026-09-10 - Hostinger Monorepo Web-App Build Entry Points
 
 ### TL;DR
 
 - Added a root `npm run build` command that Hostinger can detect from the monorepo.
 - The command installs frontend dependencies using the existing lockfile and builds only the Vite frontend.
 - Added an Apache/LiteSpeed SPA fallback so direct links such as `/login` and `/dashboard` load the React application.
+- Added a separate `npm run build:backend` command that installs backend dependencies and generates the application Prisma client without modifying production data.
 - Existing Vercel, Render, Prisma Postgres, and Vercel Blob services remain unchanged.
 - No application behavior, production data, permissions, or workflow changed.
 
@@ -21,7 +22,8 @@ Hostinger's Git deployment interface continued reading scripts from the
 repository-root `package.json` even after the `frontend` root directory was
 selected. Because the root package exposed only development commands, the UI
 offered `npm run dev` choices and no production build. Development servers must
-not be used to publish the static frontend.
+not be used to publish the static frontend. The same root-level detection
+requires an explicit backend preparation command for a separate Express app.
 
 ### Previous and new behavior
 
@@ -31,7 +33,9 @@ frontend dependency installation using the existing lockfile and build-time
 development tools, then invokes the existing Vite production build. Its output remains
 `frontend/dist`. A public `.htaccess` file is copied into that output and sends
 non-file, non-directory requests to `index.html`, matching the existing Vercel
-single-page application rewrite.
+single-page application rewrite. The new backend command installs the backend
+package and generates its Prisma client; it intentionally does not seed data or
+run production migrations during the first staging deployment.
 
 ### Affected users, workflow, and implementation
 
@@ -44,6 +48,7 @@ existing Render API through the public `VITE_API_BASE` build variable.
 ### Files and system areas changed
 
 - `package.json`: adds the root production build entry point.
+- `package.json`: also adds the separate Hostinger backend preparation command.
 - `frontend/public/.htaccess`: provides Hostinger Apache/LiteSpeed fallback
   routing for React Router URLs.
 - `change_log.txt` and `docs/development-change-log.md`: document the deployment
@@ -57,22 +62,25 @@ existing Render API through the public `VITE_API_BASE` build variable.
 - **Security/privacy:** no secret is added. Backend environment files and
   credentials remain excluded from the frontend build.
 - **Accessibility:** no interface impact.
-- **Deployment:** enables an additional static Hostinger staging build. The
-  existing Vercel frontend remains available as the production rollback path,
-  while Render continues hosting the backend.
+- **Deployment:** enables separate static-frontend and Express-backend Hostinger
+  staging builds. The existing Vercel frontend and Render backend remain the
+  production rollback path until authenticated staging validation passes.
 - **Product scope:** no scholarship, Billing, or payroll-list workflow changes.
 
 ### Validation, limitations, rollback, and next work
 
-Validation runs the new root command, confirms `.htaccess` is present in the
+Validation runs both root commands, confirms `.htaccess` is present in the
 build output, checks representative direct routes after Hostinger redeploys,
 runs frontend lint, and performs Git whitespace checks.
 The Hostinger deployment must use repository root `./`, build command
 `npm run build`, and output directory `frontend/dist`. This does not solve the
-Render Free cold start because the backend remains on Render. Rollback consists
-of removing the root build script; no data restoration is required. Next work
-is to deploy to the temporary Hostinger domain, add that origin to Render CORS,
-and complete an end-to-end staging check before attaching the purchased domain.
+Render Free cold start until the Hostinger backend is validated and selected by
+the frontend. The backend staging app must use repository root `./`, build
+command `npm run build:backend`, and entry file `backend/server.js`. Rollback
+consists of removing the root scripts; no data restoration is required. Next
+work is to deploy the temporary backend with production-like secrets, verify it
+against Prisma Postgres and Blob storage, then switch only the temporary
+Hostinger frontend for authenticated end-to-end testing.
 
 ## 2026-09-09 - Billing Queue Amount Clarity and Private Fixture Value
 
