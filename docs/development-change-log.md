@@ -5,6 +5,53 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-10 - Hostinger Frontend Build Dependency Security Refresh
+
+### TL;DR
+
+- Cleared the high-severity Browserslist and moderate-severity baseline-browser-mapping advisories reported by the Hostinger frontend build.
+- Updated only the frontend lockfile to compatible patched dependency versions.
+- No interface, application workflow, API, database, environment variable, or user data changed.
+- The frontend security audit reports zero vulnerabilities; lint and production build validation are required before deployment.
+
+### Objective and reason
+
+The Hostinger frontend build completed successfully but reported two dependency
+advisories. The affected packages are build-tool dependencies rather than
+application runtime features, but known advisories must still be removed from
+the reproducible installation before the Hostinger deployment is promoted.
+
+### Previous and new behavior
+
+The frontend lockfile previously resolved Browserslist 4.28.4 and
+baseline-browser-mapping 2.10.38. It now resolves patched versions 4.28.9 and
+2.11.21 respectively, together with compatible current browser-data helper
+packages. Application behavior and generated routes remain unchanged.
+
+### Affected users, implementation, and system areas
+
+Deployment operators receive a clean dependency audit during subsequent
+frontend builds. Applicants, scholars, and staff receive no visible or workflow
+change. The update is confined to `frontend/package-lock.json`; source code and
+declared dependency ranges were not changed.
+
+### Impact assessment
+
+- **API/database/configuration:** no impact.
+- **Dependencies:** compatible lockfile refresh for frontend build tooling and browser compatibility data.
+- **Security:** removes the reported denial-of-service and unbounded-memory/prototype-write advisory ranges from the installed tree.
+- **Privacy/accessibility:** no impact.
+- **Deployment:** Hostinger and Vercel will install the corrected versions on their next Git deployment.
+- **Product scope:** no scholarship, Billing, payroll-list, or monetary-process change.
+
+### Validation, limitations, rollback, and next work
+
+Validation covers `npm audit`, frontend lint, the production Vite build, and Git
+whitespace checks. Rollback can restore the prior lockfile but would reintroduce
+the known advisory versions and is not recommended. Following deployment, the
+Hostinger frontend still requires login, direct-route, authorization, and core
+workflow smoke tests against the Hostinger backend before Render is retired.
+
 ## 2026-09-10 - Hostinger Build Dependency Security Refresh
 
 ### TL;DR
