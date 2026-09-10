@@ -5,6 +5,57 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-10 - Hostinger Build Dependency Security Refresh
+
+### TL;DR
+
+- Cleared the high-severity Nodemailer and moderate-severity qs advisories reported by Hostinger's backend build.
+- Updated only resolved lockfile versions within the project's existing dependency ranges.
+- No application workflow, API, database, environment variable, or user data changed.
+- Backend tests, build preparation, npm audit, and Git checks validate the update before staging promotion.
+
+### Objective and reason
+
+The first Hostinger backend build completed successfully but npm reported two
+production dependency advisories. Known production advisories must be resolved
+before the Hostinger backend is considered a candidate to replace Render.
+
+### Previous and new behavior
+
+The lockfile previously resolved Nodemailer 9.1.0 and qs 6.15.3, both covered by
+published advisories. It now resolves Nodemailer 9.1.1 and qs 6.16.0. Existing
+`package.json` ranges already permit these compatible versions, so no declared
+dependency or runtime architecture changed.
+
+### Affected users, implementation, and system areas
+
+Deployment operators receive a clean production dependency audit during the
+next Hostinger build. Staff, applicants, and scholars receive no visible or
+workflow change. `npm audit fix` updated `backend/package-lock.json` only; the
+mailer and Express request parser continue to use their existing application
+interfaces.
+
+### Impact assessment
+
+- **API/database/configuration:** no impact.
+- **Dependencies:** lockfile-only compatible updates to Nodemailer and qs.
+- **Security:** removes the reported mail-address parsing/access-control and
+  query-string parsing advisories from the installed production dependency tree.
+- **Privacy/accessibility:** no impact.
+- **Deployment:** the Hostinger and Render builds will install the corrected
+  versions on their next Git deployment.
+- **Product scope:** no scholarship, Billing, payroll-list, or monetary process
+  change.
+
+### Validation, limitations, rollback, and next work
+
+Validation includes `npm audit`, all backend tests, the Hostinger backend build
+command, and Git whitespace checks. Rollback can restore the previous lockfile,
+but doing so would reintroduce known advisories and is not recommended. The
+Hostinger backend still requires runtime health, database, authentication,
+document, mail, and workflow testing before frontend cutover; Render remains the
+production rollback service.
+
 ## 2026-09-10 - Hostinger Monorepo Web-App Build Entry Points
 
 ### TL;DR
