@@ -1,5 +1,6 @@
 const { PrismaClient: SourceClient } = require('@prisma/client');
 const { PrismaClient: TargetClient } = require('../generated/application-client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 require('dotenv').config();
 
 const urls = () => {
@@ -21,7 +22,7 @@ const resetSequences = async (client) => {
 const main = async () => {
   const { sourceUrl, targetUrl } = urls();
   const source = new SourceClient({ datasources: { db: { url: sourceUrl } } });
-  const target = new TargetClient({ datasources: { db: { url: targetUrl } } });
+  const target = new TargetClient({ adapter: new PrismaPg({ connectionString: targetUrl }) });
   try {
     for (const row of await source.academic_periods.findMany()) await upsert(target.academic_periods, row);
     for (const row of await source.activity_logs.findMany()) await upsert(target.activity_logs, row);

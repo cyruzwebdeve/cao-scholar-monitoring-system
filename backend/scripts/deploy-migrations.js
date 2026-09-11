@@ -3,6 +3,7 @@ require('dotenv').config();
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { PrismaClient } = require('../generated/application-client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 
 const recoverableFixtureMigration = '20260909000000_seed_billing_payroll_demo';
 
@@ -24,7 +25,7 @@ const runPrisma = (arguments_) => spawnSync(
 );
 
 const main = async () => {
-  const client = new PrismaClient({ datasources: { db: { url: migrationUrl } } });
+  const client = new PrismaClient({ adapter: new PrismaPg({ connectionString: migrationUrl }) });
   try {
     const failedFixture = await client.$queryRawUnsafe(
       `SELECT migration_name FROM "_prisma_migrations"

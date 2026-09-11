@@ -5,6 +5,63 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-11 - Rust-Free Prisma Client for Hostinger Backend Compatibility
+
+### TL;DR
+
+- Replaced the application client's native Prisma Rust query engine with Prisma's GA Rust-free client and PostgreSQL driver adapter.
+- Addresses the repeatable `PANIC: timer has gone away` failure and restart loop observed on Hostinger's process-limited Node.js runtime.
+- No schema migration or application-data change is included; Render remains the production rollback backend until Hostinger validation passes.
+- Prisma generation, a real local PostgreSQL query, dependency audit, syntax checks, and all 82 backend tests pass before deployment.
+
+### Objective and reason
+
+The Hostinger backend started successfully but every database query crashed the
+Prisma 5.22 native library engine with `PANIC: timer has gone away`. This drove
+the application into repeated termination and restart cycles while the hosting
+account remained near its 120-process limit. The existing Render deployment and
+the same Prisma PostgreSQL database remained healthy, isolating the failure to
+the native query engine inside Hostinger's shared runtime.
+
+### Previous and new behavior
+
+The application database client previously used Prisma 5's default embedded
+Rust library engine. It now uses Prisma 6.19.3 with `engineType = "client"` and
+`@prisma/adapter-pg`, so queries use Prisma's TypeScript/WASM query compiler and
+the JavaScript PostgreSQL driver rather than loading the failing native library.
+Controller and service calls continue using the same generated Prisma API.
+
+### Affected users, implementation, and system areas
+
+Once the staged backend is promoted, applicants, scholars, and staff should be
+able to use the Hostinger API without native-engine crashes. Prisma client
+creation in the runtime configuration, production migration precheck, and the
+application-database copy utility now supply a PostgreSQL adapter. Dependencies
+and the application Prisma generator were updated together and pinned to the
+validated Prisma 6.19.3 release.
+
+### Impact assessment
+
+- **API/user experience:** no endpoint contract or intended workflow change; backend availability on Hostinger is the affected outcome.
+- **Database/data:** no schema migration, seed, record update, or database-provider change.
+- **Configuration:** existing `DATABASE_URL`, `DIRECT_URL`, `DATABASE_TARGET`, and deployment variables retain their meanings; no new secret is required.
+- **Dependencies:** adds `@prisma/adapter-pg`, upgrades the Prisma CLI and client to 6.19.3, and pins a patched `deepmerge-ts` transitive version.
+- **Security/privacy:** npm audit reports zero vulnerabilities; credentials remain server-side and no logging of connection strings was added.
+- **Accessibility:** no impact.
+- **Deployment:** requires one backend-only Hostinger rebuild so the Rust-free generated client is produced; frontend auto-deployment must remain disconnected during the controlled rollout.
+- **Product scope:** no scholarship, Billing, payroll-list, payment, or auditing workflow change.
+
+### Validation, limitations, rollback, and next work
+
+Validation includes successful Prisma 6.19.3 client generation, JavaScript
+syntax checks, a real `SELECT 1` through the Rust-free client against the local
+PostgreSQL target, a zero-vulnerability npm audit, and all 82 backend tests.
+Hostinger runtime compatibility cannot be proven locally and must be confirmed
+with the deployed `/api/health` endpoint while monitoring process usage. Render
+remains the rollback service. If Hostinger validation fails, restore the prior
+Prisma lockfile and runtime configuration or continue using Render; do not
+change or migrate production data as part of rollback.
+
 ## 2026-09-10 - Hostinger Frontend Build Dependency Security Refresh
 
 ### TL;DR
