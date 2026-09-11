@@ -38,7 +38,9 @@ able to use the Hostinger API without native-engine crashes. Prisma client
 creation in the runtime configuration, production migration precheck, and the
 application-database copy utility now supply a PostgreSQL adapter. Dependencies
 and the application Prisma generator were updated together and pinned to the
-validated Prisma 6.19.3 release.
+validated Prisma 6.19.3 release. A backend-local `npm run build` alias generates
+that client without reinstalling dependencies, accommodating Hostinger's cached
+build-command selector while avoiding the former nested root installation.
 
 ### Impact assessment
 
