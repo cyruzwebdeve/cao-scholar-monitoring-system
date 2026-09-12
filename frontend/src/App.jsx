@@ -8,6 +8,7 @@ const ApplicationPage = lazy(() => import('./ApplicationPage'));
 const Dashboard = lazy(() => import('./Dashboard'));
 const ExamPage = lazy(() => import('./ExamPage'));
 const LandingPage = lazy(() => import('./LandingPage'));
+const LegalPage = lazy(() => import('./LegalPage'));
 const LoginPage = lazy(() => import('./LoginPage'));
 const PasswordRecoveryPage = lazy(() => import('./PasswordRecoveryPage'));
 const ScholarDashboard = lazy(() => import('./ScholarDashboard'));
@@ -132,6 +133,8 @@ function App() {
         <Route path="/exam" element={authToken && user?.role === 'Applicant' ? <ExamPage token={authToken} /> : <Navigate to={getHomeRedirect()} replace />} />
         <Route path="/forgot-password" element={<PasswordRecoveryPage mode="forgot" />} />
         <Route path="/reset-password" element={<PasswordRecoveryPage mode="reset" />} />
+        <Route path="/privacy-policy" element={<LegalPage document="privacy" />} />
+        <Route path="/terms-of-service" element={<LegalPage document="terms" />} />
         <Route
           path="/login"
           element={

@@ -4285,6 +4285,60 @@ The Hostinger runtime log consistently identified the missing parent-directory m
 
 The frontend and backend now contain separate copies of the same static datasets because they are deployed from independent roots; future geographic-data updates must keep them synchronized. Removing the backend copies restores the Hostinger startup failure. After pushing, redeploy only `api.cnpgceap-sms.com` and verify `/api/health` before further changes.
 
+# 2026-09-12 - Public privacy and terms documents for OAuth publication
+
+## TL;DR
+
+- Added public, authentication-free Privacy Policy and Terms of Service routes for applicants, scholars, staff, and Google OAuth review.
+- Documented the personal, academic, family, document, examination-result, security-log, and program-processing information the system actually handles.
+- Disclosed the narrow Gmail `gmail.send` use and stated that the system does not read recipient mail or retain individual examination answers server-side.
+- Linked both documents from the landing-page footer; frontend ESLint and production build passed.
+
+## Objective and reason
+
+Provide understandable public notices for people using PGCEAP and satisfy the application-domain information needed to prepare the external Google OAuth brand for production. The documents are based on implemented system behavior rather than generic template claims.
+
+## Previous and new behavior
+
+The public site previously had no dedicated privacy or terms routes and its footer linked only to About, Support, and Portal. Visitors can now open `/privacy-policy` and `/terms-of-service` without authentication, navigate between the documents, contact CAO by email, and return to the landing page.
+
+## Affected users and workflows
+
+- **Applicants and scholars:** can review information handling, browser storage, account responsibilities, document use, examination controls, and correction/privacy contact options before or while using the portal.
+- **Administrators and staff:** receive clear acceptable-use, role-access, operational-log, and official-workflow boundaries.
+- **CAO and OAuth reviewers:** receive public descriptions of the system, its Gmail send-only integration, and its application domain.
+
+## Implementation and data flow
+
+One lazy-loaded legal-page module renders either document from public React Router routes. It does not fetch, submit, or persist information. The Privacy Policy describes stored application/account data, uploaded requirements, attendance/results, role-protected operational records, transactional email, browser-held application drafts, and authorized service providers. It explicitly states that online exam answers are evaluated in the browser and only the resulting score is sent to the server. The Terms define truthful submission, account and exam integrity, acceptable use, document review, availability, and enforcement expectations.
+
+## Files and system areas changed
+
+- `frontend/src/LegalPage.jsx`
+- `frontend/src/styles/legal.css`
+- `frontend/src/App.jsx`
+- `frontend/src/LandingPage.jsx`
+- Project change documentation
+
+## Impact
+
+- **API:** no endpoint or payload change.
+- **Database:** no schema, migration, or record change.
+- **Configuration:** no environment-variable change; after frontend deployment the public URLs may be entered in Google Auth Platform Branding.
+- **Security:** no credentials are rendered or collected. The notice accurately limits Google access to `gmail.send` and directs compromise reports to CAO.
+- **Privacy:** makes existing practices and data categories visible; it does not create new collection or disclosure.
+- **Accessibility:** semantic headings, lists, navigation labels, visible links, responsive layouts, and keyboard-native links are provided.
+- **Deployment:** requires a frontend deployment before Google validates the public URLs. The backend does not require redeployment.
+- **Approved scope:** expressly states that the workflow ends at private-school certification-list and public-scholar payroll-list generation, without fund-release, claiming, disbursement, reconciliation, or monetary-audit functions.
+
+## Validation performed
+
+Frontend ESLint completed without errors. The Vite production build completed successfully with 496 modules transformed and emitted independent LegalPage JavaScript and CSS chunks. The existing non-blocking large-dashboard-chunk warning remains unrelated.
+
+## Known limitations, rollback, and recommended next work
+
+The content reflects the current code and known operations but is not a substitute for approval by the Province's Data Protection Officer or legal counsel. CAO should confirm its formal retention schedule, office contact details, governing program issuances, and third-party processor disclosures before final OAuth verification. Rolling back the routes and footer links removes the public documents without affecting stored data. After review, deploy only the frontend, verify both direct URLs return the documents, enter them in Google Auth Platform Branding, verify domain ownership if Google requests it, and then publish/re-authorize the OAuth client.
+
 # 2026-09-12 - Controlled Hostinger release completion
 
 ## TL;DR

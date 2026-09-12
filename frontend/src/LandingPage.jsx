@@ -314,6 +314,8 @@ function LandingPage({ portalPath = '/login', isAuthenticated = false }) {
             <a href="#about">About</a>
             <a href="#support">Support</a>
             <Link to="/login">Portal</Link>
+            <Link to="/privacy-policy">Privacy</Link>
+            <Link to="/terms-of-service">Terms</Link>
           </div>
         </div>
       </footer>
