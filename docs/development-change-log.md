@@ -4284,3 +4284,58 @@ The Hostinger runtime log consistently identified the missing parent-directory m
 ## Known limitations, rollback, and recommended next work
 
 The frontend and backend now contain separate copies of the same static datasets because they are deployed from independent roots; future geographic-data updates must keep them synchronized. Removing the backend copies restores the Hostinger startup failure. After pushing, redeploy only `api.cnpgceap-sms.com` and verify `/api/health` before further changes.
+
+# 2026-09-12 - Controlled Hostinger release completion
+
+## TL;DR
+
+- Deployed the tested feature release to the Hostinger frontend and backend applications.
+- Applied the two additive production migrations successfully; the follow-up backend build found all 18 migrations recorded and none pending.
+- Resolved the temporary API 503 with the packaged validation-data hotfix and verified public health as `healthy` with `database: connected`.
+- Preserved hosted records and generated-list history; no destructive migration, reset, or rollback occurred.
+
+## Objective and reason
+
+Promote the locally verified application, examination, scholar, Billing, Payroll, announcement, and interface improvements while preserving the existing Hostinger installation and managed PostgreSQL data.
+
+## Previous and new behavior
+
+Hostinger initially continued serving the previous frontend until manual redeployment. The frontend then published the new hashed bundle. The first backend release built and migrated correctly but returned 503 because runtime validation datasets were outside its isolated deployment root. Hotfix `e84cf30` packaged those datasets inside the backend, after which the service started normally.
+
+## Affected users and workflows
+
+All hosted roles now receive the released behavior documented in this change set. The temporary backend interruption ended after the hotfix; existing accounts, applications, examination records, scholar records, and generated lists were retained.
+
+## Implementation and data flow
+
+Git commit `011b8fa` delivered the feature release and deployment-aware migration build. Commit `e84cf30` corrected the isolated backend runtime path. Hostinger built each configured project independently; the backend applied committed Prisma migrations before startup and connected to the existing managed database.
+
+## Files and system areas changed
+
+- GitHub `main` release commits `011b8fa` and `e84cf30`
+- Hostinger frontend `cnpgceap-sms.com`
+- Hostinger backend `api.cnpgceap-sms.com`
+- Managed PostgreSQL migration ledger and two additive columns
+- Project change documentation
+
+## Impact
+
+- **API:** released the documented additive behavior and restored healthy production availability.
+- **Database:** added examination activation/delivery fields and optional announcement external URL; all 18 migrations are applied. No table or operational row was deleted.
+- **Configuration:** existing Hostinger roots, entry files, environment variables, and domains were retained.
+- **Security:** server-side validation, authorization, attendance gating, URL allow-listing, and classification enforcement are active; no secret was committed or logged.
+- **Privacy:** no hosted personal data was copied into source control or deployment documentation.
+- **Accessibility:** released labelled controls, modal feedback, responsive layouts, and clipping corrections described in the preceding entries.
+- **Deployment:** frontend and backend deployments completed; the API startup hotfix required one backend-only redeployment.
+- **Approved scope:** Billing and Payroll continue to end at certification-list and official payroll-list generation, without fund-release, claiming, disbursement, reconciliation, or monetary-audit functionality.
+
+## Validation performed
+
+- Pre-deployment: 97 backend tests, backend Prisma build, schema audit with zero logical orphans/duplicate candidates, frontend ESLint/build, Git whitespace check, and staged secret scan passed.
+- Production database: the two new migrations applied successfully; the hotfix build subsequently reported 18 migrations and no pending work.
+- Production frontend: HTTP 200 and new asset `assets/index-9w2jwiCi.js` confirmed.
+- Production backend: `/api/health` reported `status: healthy`, `database: connected`, and 119.3 ms database latency at verification time.
+
+## Known limitations, rollback, and recommended next work
+
+Hostinger auto-deployment was not active, so both initial releases required manual redeployment. The PostgreSQL driver emitted a future SSL-mode compatibility warning; current certificate verification remains the stronger behavior, and dependency upgrades should be handled separately rather than during this release. Keep the frontend/backend geographic datasets synchronized, enable reviewed auto-deployment only if desired, and perform a short authenticated production smoke test of login, settings, examination attendance, announcements, Billing certification export, and Payroll export.
