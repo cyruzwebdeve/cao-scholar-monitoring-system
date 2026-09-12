@@ -45,6 +45,7 @@ const createEmptyFormState = () => ({
   firstName: '', middleName: '', familyName: '', nameExtension: '', email: '', mobile: '', birthday: '', birthplace: '', sex: '', civilStatus: '',
   houseNumber: '', municipality: '', barangay: '', school: '', course: '', incomingYearLevel: '',
   fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardianName: '', guardianOccupation: '',
+  guardianSameAsParent: false, guardianParentRole: '',
   familyIncome: '', gwa: '', brothersCount: '0', sistersCount: '0', graduatedHonors: 'No', championContest: 'No', alsPasser: 'No', pwd: 'No', childOfPwd: 'No', soloParent: 'No', indigenousGroup: 'No', siblingRuleAccepted: false,
 });
 
@@ -147,11 +148,18 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
     () => barangaysData.filter((item) => item.municipalityCode === formState.municipality),
     [formState.municipality],
   );
+  const selectedParent = formState.guardianParentRole === 'father'
+    ? { name: formState.fatherName, occupation: formState.fatherOccupation }
+    : formState.guardianParentRole === 'mother'
+      ? { name: formState.motherName, occupation: formState.motherOccupation }
+      : { name: '', occupation: '' };
+  const displayedGuardianName = formState.guardianSameAsParent ? selectedParent.name : formState.guardianName;
+  const displayedGuardianOccupation = formState.guardianSameAsParent ? selectedParent.occupation : formState.guardianOccupation;
 
   const handleChange = (key, value) => {
     let parsedValue = value;
 
-    if (['firstName', 'middleName', 'familyName', 'nameExtension', 'birthplace', 'fatherName', 'motherName', 'guardianName'].includes(key)) {
+    if (['firstName', 'middleName', 'familyName', 'nameExtension', 'birthplace', 'houseNumber', 'course', 'fatherName', 'fatherOccupation', 'motherName', 'motherOccupation', 'guardianName', 'guardianOccupation'].includes(key)) {
       parsedValue = value.toUpperCase();
     }
 
@@ -162,6 +170,18 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
     if (key === 'municipality') {
       setFormState((prev) => ({ ...prev, municipality: parsedValue, barangay: '' }));
       setFieldErrors((prev) => ({ ...prev, municipality: '', barangay: '' }));
+      return;
+    }
+
+    if (key === 'guardianSameAsParent') {
+      setFormState((prev) => ({
+        ...prev,
+        guardianSameAsParent: Boolean(parsedValue),
+        guardianParentRole: '',
+        guardianName: '',
+        guardianOccupation: '',
+      }));
+      setFieldErrors((prev) => ({ ...prev, guardianName: '', guardianOccupation: '', guardianParentRole: '' }));
       return;
     }
 
@@ -178,6 +198,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
       setFieldErrors((current) => ({ ...current, priorityProof: 'Use a PDF, JPG, or PNG file.' }));
       return;
     }
+
     if (file.size > 6 * 1024 * 1024) {
       setFieldErrors((current) => ({ ...current, priorityProof: 'The proof must be smaller than 6 MB.' }));
       return;
@@ -205,6 +226,23 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
         errors[key] = 'This field is required.';
       }
     });
+
+    if (step === 1) {
+      if (!municipalityNameByCode[formState.municipality]) errors.municipality = 'Select a valid municipality.';
+      const validBarangay = barangaysData.some((item) => item.code === formState.barangay && item.municipalityCode === formState.municipality);
+      if (!validBarangay) errors.barangay = 'Select a valid barangay for the municipality.';
+    }
+
+    if (step === 2) {
+      if (formState.guardianSameAsParent) {
+        if (!['father', 'mother'].includes(formState.guardianParentRole)) {
+          errors.guardianParentRole = 'Select which parent is the guardian.';
+        }
+      } else {
+        if (!formState.guardianName.trim()) errors.guardianName = 'This field is required.';
+        if (!formState.guardianOccupation.trim()) errors.guardianOccupation = 'This field is required.';
+      }
+    }
 
     if (!formState.firstName || !validateName(formState.firstName)) {
       errors.firstName = 'Use uppercase letters only.';
@@ -303,8 +341,10 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
         fatherOccupation: formState.fatherOccupation,
         motherName: formState.motherName,
         motherOccupation: formState.motherOccupation,
-        guardianName: formState.guardianName,
-        guardianOccupation: formState.guardianOccupation,
+        guardianName: displayedGuardianName,
+        guardianOccupation: displayedGuardianOccupation,
+        guardianSameAsParent: formState.guardianSameAsParent,
+        guardianParentRole: formState.guardianSameAsParent ? formState.guardianParentRole : null,
         familyIncome: formState.familyIncome,
         gwa: formState.gwa,
         brothersCount: formState.brothersCount,
@@ -347,6 +387,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
       setAccountCredentials(body.applicant ? {
         ...body.applicant,
         temporaryPassword: body.applicant.temporaryPassword || generatedTemporaryPassword,
+        accountEmailSent: Boolean(body.notification?.accountEmailSent),
       } : null);
       setFormState(createEmptyFormState());
       setPriorityProof({ proofKey: '', fileName: '', fileData: '' });
@@ -454,16 +495,18 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
             <div className="form-row">
               <label className="form-group">
                 <FieldLabel required>MUNICIPALITY / CITY</FieldLabel>
-                <select value={formState.municipality} onChange={(e) => handleChange('municipality', e.target.value)}>
+                <select name="municipality" value={formState.municipality} onChange={(e) => handleChange('municipality', e.target.value)}>
                   <option value="">Select municipality</option>
                   {municipalityOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
+                {fieldErrors.municipality && <span className="error">{fieldErrors.municipality}</span>}
               </label>
               <label className="form-group">
                 <FieldLabel required>BARANGAY</FieldLabel>
                 <select
+                  name="barangay"
                   value={formState.barangay}
                   onChange={(e) => handleChange('barangay', e.target.value)}
                   disabled={!formState.municipality}
@@ -473,6 +516,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
                     <option key={option.code} value={option.code}>{option.name}</option>
                   ))}
                 </select>
+                {fieldErrors.barangay && <span className="error">{fieldErrors.barangay}</span>}
               </label>
             </div>
 
@@ -535,14 +579,52 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
               </label>
             </div>
 
+            <label className="sibling-rule-confirmation">
+              <input
+                name="guardianSameAsParent"
+                type="checkbox"
+                checked={formState.guardianSameAsParent}
+                onChange={(event) => handleChange('guardianSameAsParent', event.target.checked)}
+              />
+              <span>Guardian is the same as one of the parents listed above</span>
+            </label>
+
+            {formState.guardianSameAsParent && (
+              <label className="form-group">
+                <FieldLabel required>SELECT THE PARENT WHO IS THE GUARDIAN</FieldLabel>
+                <select name="guardianParentRole" value={formState.guardianParentRole} onChange={(event) => handleChange('guardianParentRole', event.target.value)}>
+                  <option value="">Select parent</option>
+                  <option value="father">Father</option>
+                  <option value="mother">Mother</option>
+                </select>
+                {fieldErrors.guardianParentRole && <span className="error">{fieldErrors.guardianParentRole}</span>}
+              </label>
+            )}
+
             <div className="form-row">
               <label className="form-group">
-                <FieldLabel required>PARENT / GUARDIAN FULL NAME</FieldLabel>
-                <input type="text" value={formState.guardianName} onChange={(e) => handleChange('guardianName', e.target.value)} placeholder="If different from parents" />
+                <FieldLabel required>GUARDIAN'S FULL NAME</FieldLabel>
+                <input
+                  name="guardianName"
+                  type="text"
+                  value={displayedGuardianName}
+                  onChange={(event) => handleChange('guardianName', event.target.value)}
+                  disabled={formState.guardianSameAsParent}
+                  placeholder="e.g. Juan Dela Cruz"
+                />
+                {fieldErrors.guardianName && <span className="error">{fieldErrors.guardianName}</span>}
               </label>
               <label className="form-group">
                 <FieldLabel required>GUARDIAN'S OCCUPATION</FieldLabel>
-                <input type="text" value={formState.guardianOccupation} onChange={(e) => handleChange('guardianOccupation', e.target.value)} placeholder="e.g. Vendor" />
+                <input
+                  name="guardianOccupation"
+                  type="text"
+                  value={displayedGuardianOccupation}
+                  onChange={(event) => handleChange('guardianOccupation', event.target.value)}
+                  disabled={formState.guardianSameAsParent}
+                  placeholder="e.g. Vendor"
+                />
+                {fieldErrors.guardianOccupation && <span className="error">{fieldErrors.guardianOccupation}</span>}
               </label>
             </div>
 
@@ -564,14 +646,12 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
               <label className="form-group form-group-tiny">
                 <FieldLabel>BROTHERS</FieldLabel>
                 <select value={formState.brothersCount} onChange={(e) => handleChange('brothersCount', e.target.value)}>
-                  <option value="">0</option>
                   {countOptions.map((option) => <option key={option} value={option}>{option}</option>)}
                 </select>
               </label>
               <label className="form-group form-group-tiny">
                 <FieldLabel>SISTERS</FieldLabel>
                 <select value={formState.sistersCount} onChange={(e) => handleChange('sistersCount', e.target.value)}>
-                  <option value="">0</option>
                   {countOptions.map((option) => <option key={option} value={option}>{option}</option>)}
                 </select>
               </label>
@@ -632,7 +712,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
       default:
         return null;
     }
-  }, [step, formState, fieldErrors, user, barangayOptions, priorityProof.fileName, priorityProof.proofKey]);
+  }, [step, formState, fieldErrors, user, barangayOptions, displayedGuardianName, displayedGuardianOccupation, priorityProof.fileName, priorityProof.proofKey]);
 
   if (submitted) {
     return (
@@ -666,6 +746,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
                 )}
               </dl>
               <p className="submission-account-note">Keep these details private. You will need them to sign in to the applicant portal.</p>
+              {!accountCredentials.accountEmailSent && <p className="submission-account-note">Email delivery is not configured or did not complete. Save the credentials shown above and ask the administrator to run the local mailer verification.</p>}
             </section>
           )}
           <button

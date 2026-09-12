@@ -15,7 +15,7 @@ const {
 const {
   evaluateBillingEligibility,
   evaluateBillingOverride,
-  isPayableClaim,
+  getSchoolProcessRoute,
 } = require('../services/lifecycleIntegrity');
 const {
   assignApplicantToMunicipalityExam,
@@ -26,10 +26,12 @@ const {
 } = require('../services/examAssignments');
 const { recordActivitySafely } = require('../services/activityLog');
 const { getApplicationAvailability } = require('../services/applicationAvailability');
+const { canAccessOnlineExamination, getExaminationSettings, isExaminationScheduleOpen } = require('../services/examinationAccess');
 const { buildApplicantGuidance } = require('../services/applicantGuidance');
 const { evaluateEligibility, serializeAssessment } = require('../services/eligibilityRecommendation');
 const { PRIORITY_PROOFS, selectedPriorityCriteria } = require('../services/priorityEligibility');
 const { createBillingReference } = require('../services/billingReference');
+const { resolveBillingAmount } = require('../services/billingGrant');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -210,6 +212,8 @@ const createApplication = async (req, res) => {
             motherOccupation: family.motherOccupation,
             guardianName: family.guardianName,
             guardianOccupation: family.guardianOccupation,
+            guardianSameAsParent: family.guardianSameAsParent,
+            guardianParentRole: family.guardianParentRole || null,
           }),
           siblings_boys: family.brothersCount === '5+' ? 5 : Number(family.brothersCount || 0),
           siblings_girls: family.sistersCount === '5+' ? 5 : Number(family.sistersCount || 0),
@@ -267,7 +271,7 @@ const createApplication = async (req, res) => {
       message: 'Application submitted and applicant account created.',
       application,
       applicant: { id: application.applicant_id, email: normalizedEmail, controlNumber: account.control_number },
-      notification: { accountEmailSent: emailDelivery.sent },
+      notification: { accountEmailSent: emailDelivery.sent, reason: emailDelivery.reason || null },
     };
     if (process.env.NODE_ENV !== 'production') response.applicant.temporaryPassword = generatedPassword;
     return res.status(201).json(response);
@@ -651,6 +655,7 @@ const deactivateAcademicPeriod = async (req, res) => {
 const ANNOUNCEMENT_AUDIENCES = ['all', 'applicants', 'scholars', 'applicants_scholars', 'admins'];
 const ANNOUNCEMENT_PRIORITIES = ['normal', 'high', 'urgent'];
 const ANNOUNCEMENT_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+const { normalizeFacebookPostUrl } = require('../services/announcementLinks');
 
 const serializeAnnouncement = (announcement) => ({
   id: announcement.id,
@@ -665,6 +670,7 @@ const serializeAnnouncement = (announcement) => ({
   imageName: announcement.image_name,
   imageType: announcement.image_type,
   imageData: announcement.image_data,
+  externalUrl: announcement.external_url,
   createdBy: announcement.created_by,
   createdAt: announcement.created_at,
   updatedAt: announcement.updated_at,
@@ -681,6 +687,8 @@ const parseAnnouncementPayload = (body) => {
   const imageName = body.imageName ? String(body.imageName).trim().slice(0, 255) : null;
   const imageType = body.imageType ? String(body.imageType).trim().slice(0, 100) : null;
   const imageData = body.imageData ? String(body.imageData) : null;
+  const rawExternalUrl = String(body.externalUrl || '').trim();
+  const externalUrl = normalizeFacebookPostUrl(rawExternalUrl);
   if (!title || title.length > 200) return { error: 'Announcement title is required and must not exceed 200 characters.' };
   if (!content || content.length > 5000) return { error: 'Announcement content is required and must not exceed 5,000 characters.' };
   if (!ANNOUNCEMENT_AUDIENCES.includes(audience)) return { error: 'Select a valid announcement audience.' };
@@ -689,12 +697,13 @@ const parseAnnouncementPayload = (body) => {
   if (publishAt && Number.isNaN(publishAt.getTime())) return { error: 'Enter a valid publishing date.' };
   if (expiresAt && Number.isNaN(expiresAt.getTime())) return { error: 'Enter a valid expiration date.' };
   if (status === 'scheduled' && !publishAt) return { error: 'A publishing date is required for scheduled announcements.' };
+  if (rawExternalUrl && !externalUrl) return { error: 'Enter a valid HTTPS Facebook post URL.' };
   const isImageDataUrl = /^data:image\/(jpeg|png|webp|gif);base64,/i.test(imageData || '');
   if (imageData && !isImageDataUrl && !isBlobUrl(imageData)) return { error: 'Upload a valid JPG, PNG, WEBP, or GIF image.' };
   if (isImageDataUrl && imageData.length > 4.5 * 1024 * 1024) return { error: 'Announcement image must not exceed 3 MB.' };
   const effectivePublishDate = publishAt || new Date();
   if (expiresAt && expiresAt <= effectivePublishDate) return { error: 'Expiration must be later than the publishing date.' };
-  return { title, content, audience, priority, status, publishAt, expiresAt, imageName, imageType, imageData };
+  return { title, content, audience, priority, status, publishAt, expiresAt, imageName, imageType, imageData, externalUrl };
 };
 
 const persistAnnouncementImage = async (payload) => {
@@ -781,6 +790,7 @@ const createAnnouncement = async (req, res) => {
         image_name: payload.imageName,
         image_type: payload.imageType,
         image_data: storedImage,
+        external_url: payload.externalUrl,
         created_by: req.user.id,
       },
     });
@@ -815,6 +825,7 @@ const updateAnnouncement = async (req, res) => {
         image_name: payload.imageName,
         image_type: payload.imageType,
         image_data: storedImage,
+        external_url: payload.externalUrl,
       },
     });
     if (existing.image_data && existing.image_data !== storedImage) {
@@ -887,7 +898,6 @@ const getScholarManagement = async (req, res) => {
       ['Certificate of Grades (previous semester attended)', 'grade_report_file', 'grade_report_review_status', 'grades'],
       ['Registration Form (1st semester of current school year)', 'registration_form_file', 'registration_form_review_status', 'registration_form'],
       ['Official Receipt of Tuition Fee (private school scholars)', 'tuition_fee_receipt_file', 'tuition_fee_receipt_review_status', 'tuition_receipt'],
-      ['White Long Folder with Fastener', 'folder_physical_submitted', null, null],
     ];
     const scholars = scholarAccounts.map((scholar) => {
       const applicant = applicantById.get(scholar.applicant_id);
@@ -901,14 +911,18 @@ const getScholarManagement = async (req, res) => {
       const schoolType = String(school?.school_type || 'public').toLowerCase() === 'private'
         ? 'Private'
         : 'Public';
+      const configuredBillingAmount = requirement?.billing_amount === null || requirement?.billing_amount === undefined
+        ? 0
+        : Number(requirement.billing_amount);
+      const effectiveBillingAmount = resolveBillingAmount(schoolType, configuredBillingAmount);
       const payrollClaim = payrollClaimByApplicant.get(applicant.id);
       const payrollBatch = payrollClaim ? payrollBatchById.get(payrollClaim.payroll_batch_id) : null;
       const currentRecordRoute = payrollBatch
         ? (String(payrollBatch.batch_number || '').startsWith('BILL-') || String(payrollBatch.status || '').toLowerCase() === 'billed' ? 'billing' : 'payroll')
         : null;
-      const billed = Boolean(requirement?.billing_reference || payrollClaim);
+      const billed = Boolean(payrollClaim && currentRecordRoute === 'billing');
       const inPayroll = Boolean(payrollClaim && currentRecordRoute === 'payroll');
-      const processRoute = billed ? 'payroll' : 'billing';
+      const processRoute = getSchoolProcessRoute(schoolType);
       const normalizedClaimStatus = String(payrollClaim?.claim_status || '').toLowerCase();
       const normalizedBatchStatus = String(payrollBatch?.status || '').toLowerCase();
       const paid = Boolean(payrollClaim?.claimed_date)
@@ -937,9 +951,9 @@ const getScholarManagement = async (req, res) => {
           schoolYear: period?.school_year || (batch?.billing_period_id === activePeriod.id ? activePeriod.school_year : 'Legacy period'),
           semester: period?.semester || (batch?.billing_period_id === activePeriod.id ? activePeriod.semester : 'Not specified'),
           processRoute: historyRoute,
-          billed: true,
+          billed: historyRoute === 'billing',
           inPayroll: historyRoute === 'payroll',
-          billingStatus: 'Billed',
+          billingStatus: historyRoute === 'billing' ? 'Certification listed' : 'Not applicable',
           payrollStatus: historyRoute === 'payroll' ? 'Included in payroll list' : 'Not applicable',
           payReference: historyPaid ? claim.claimed_notes || batch?.batch_number || null : null,
           dateProcessed: claim.updated_at || null,
@@ -1001,7 +1015,7 @@ const getScholarManagement = async (req, res) => {
         yearLevel: requirement?.year_level || applicationPlan.incomingYearLevel || null,
         course: requirement?.course || applicationPlan.course || null,
         major: requirement?.major || null,
-        billingAmount: requirement?.billing_amount === null || requirement?.billing_amount === undefined ? 0 : Number(requirement.billing_amount),
+        billingAmount: effectiveBillingAmount,
         billingNotes: requirement?.billing_notes || '',
         billingReference: requirement?.billing_reference || null,
         billingAcademicPeriodId: billingAcademicPeriod.id,
@@ -1019,13 +1033,13 @@ const getScholarManagement = async (req, res) => {
         notes: scholar.notes || '',
         processEligible: billingEligibility.eligible,
         billed,
-        billingStatus: billed ? 'Billed' : requirement?.billing_status === 'Pending' ? 'Not billed yet' : requirement?.billing_status || 'Not billed yet',
+        billingStatus: processRoute === 'billing' ? (billed ? 'Certification listed' : 'Not listed yet') : 'Not applicable',
         inPayroll,
         paid,
-        payrollStatus: inPayroll ? 'Included in payroll list' : 'Not included yet',
+        payrollStatus: processRoute === 'payroll' ? (inPayroll ? 'Included in payroll list' : 'Not included yet') : 'Not applicable',
         payReference: inPayroll ? payrollBatch?.batch_number || null : paid ? payrollClaim?.claimed_notes || null : null,
         dateProcessed: payrollClaim?.updated_at || null,
-        claimAmount: payrollClaim ? Number(payrollClaim.claim_amount) : (requirement?.billing_amount === null || requirement?.billing_amount === undefined ? 0 : Number(requirement.billing_amount)),
+        claimAmount: payrollClaim ? resolveBillingAmount(schoolType, payrollClaim.claim_amount) : effectiveBillingAmount,
         claimStatus: payrollClaim?.claim_status || null,
         batchStatus: payrollBatch?.status || null,
         financialHistory,
@@ -1067,6 +1081,7 @@ const updateScholarBillingDetails = async (req, res) => {
     if (!school) return res.status(400).json({ message: 'Select an active school from the catalog.' });
     if (processedClaim) return res.status(409).json({ message: 'Billing details are locked after the scholar is processed for the active period.' });
 
+    const billingAmount = resolveBillingAmount(school.school_type, req.body.billingAmount);
     const details = await prisma.scholar_requirements.upsert({
       where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: activePeriod.id } },
       create: {
@@ -1076,7 +1091,7 @@ const updateScholarBillingDetails = async (req, res) => {
         year_level: req.body.yearLevel.trim() || null,
         course: req.body.course.trim() || null,
         major: req.body.major.trim() || null,
-        billing_amount: Number(req.body.billingAmount),
+        billing_amount: billingAmount,
         billing_notes: req.body.billingNotes.trim() || null,
         updated_by: req.user.id,
       },
@@ -1085,7 +1100,7 @@ const updateScholarBillingDetails = async (req, res) => {
         year_level: req.body.yearLevel.trim() || null,
         course: req.body.course.trim() || null,
         major: req.body.major.trim() || null,
-        billing_amount: Number(req.body.billingAmount),
+        billing_amount: billingAmount,
         billing_notes: req.body.billingNotes.trim() || null,
         updated_by: req.user.id,
       },
@@ -1257,21 +1272,31 @@ const processBillingSelection = async (req, res) => {
         schoolById,
         schoolByName,
       });
-      const result = evaluateBillingEligibility({
+      let result = evaluateBillingEligibility({
         isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
         alreadyBilled: billedIds.has(applicantId),
         initialDocs: application?.initial_docs,
         requirement,
         schoolType: school?.school_type,
       });
+      if (getSchoolProcessRoute(school?.school_type) !== 'billing') {
+        result = {
+          ...result,
+          eligible: false,
+          reasons: [...result.reasons, {
+            code: 'PUBLIC_SCHOOL_PAYROLL_ROUTE',
+            message: 'Public-school scholars go directly to Payroll and cannot be added to the Private certification list.',
+          }],
+        };
+      }
       const suppliedReason = overrideByApplicant.get(applicantId);
       const override = suppliedReason ? evaluateBillingOverride({ eligibility: result, reason: suppliedReason }) : null;
-      return { applicantId, ...result, override };
+      return { applicantId, schoolType: String(school?.school_type || 'public').toLowerCase(), ...result, override };
     });
     const ineligible = eligibility.filter(({ eligible, override }) => !eligible && !override?.allowed);
     if (ineligible.length) {
       return res.status(409).json({
-        message: 'Some selected scholars are not ready for billing. Complete the requirements or use an authorized override where permitted.',
+        message: 'Some selected scholars are not ready for the Private-scholar certification list. Complete the requirements or use an authorized override where permitted.',
         ineligible: ineligible.map(({ applicantId, reasons, override }) => ({
           applicantId,
           reasons,
@@ -1283,9 +1308,10 @@ const processBillingSelection = async (req, res) => {
     const appliedOverrides = new Map(eligibility
       .filter(({ eligible, override }) => !eligible && override?.allowed)
       .map(({ applicantId, override }) => [applicantId, override.reason]));
-    const billingAmountByApplicant = new Map(requirements.map((requirement) => [
-      requirement.applicant_id,
-      Number(requirement.billing_amount || 0),
+    const requirementAmountByApplicant = new Map(requirements.map((requirement) => [requirement.applicant_id, Number(requirement.billing_amount || 0)]));
+    const billingAmountByApplicant = new Map(eligibility.map(({ applicantId, schoolType }) => [
+      applicantId,
+      resolveBillingAmount(schoolType, requirementAmountByApplicant.get(applicantId)),
     ]));
     const batchTotal = eligibleIds.reduce((total, applicantId) => total + (billingAmountByApplicant.get(applicantId) || 0), 0);
 
@@ -1343,7 +1369,7 @@ const processBillingSelection = async (req, res) => {
     }
 
     return res.status(201).json({
-      message: `${eligibleIds.length} scholar${eligibleIds.length === 1 ? '' : 's'} processed for billing and made available for payroll-list preparation.`,
+      message: `Private-scholar certification list generated for ${eligibleIds.length} scholar${eligibleIds.length === 1 ? '' : 's'}.`,
       batch: { id: result.id, batchNumber: result.batch_number, billingReference: result.batch_number, totalScholars: result.total_scholars },
       overrideCount: appliedOverrides.size,
       activePeriod: serializeAcademicPeriod(activePeriod),
@@ -1362,44 +1388,66 @@ const processPayrollSelection = async (req, res) => {
     const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
     if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period for the payroll list.' });
     const applicantIds = normalizeApplicantIds(req.body.applicantIds);
-    if (!applicantIds.length) return res.status(400).json({ message: 'Select at least one billed scholar for the payroll list.' });
+    if (!applicantIds.length) return res.status(400).json({ message: 'Select at least one public-school scholar for the payroll list.' });
     if (applicantIds.length > 500) return res.status(400).json({ message: 'A payroll list cannot exceed 500 scholars.' });
 
-    const [scholarAccounts, periodBatches] = await Promise.all([
+    const [scholarAccounts, applicants, applications, requirements, schools, existingClaims] = await Promise.all([
       prisma.scholar_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, is_active: true } }),
-      prisma.payroll_batches.findMany({
-        where: { billing_period_id: activePeriod.id },
-        select: { id: true, batch_number: true, status: true },
+      prisma.applicants.findMany({ where: { id: { in: applicantIds }, deleted_at: null }, select: { id: true, school_id: true } }),
+      prisma.application_submissions.findMany({
+        where: { applicant_id: { in: applicantIds } },
+        orderBy: { submitted_at: 'desc' },
+        select: { applicant_id: true, initial_docs: true, school_plan: true },
+      }),
+      prisma.scholar_requirements.findMany({ where: { applicant_id: { in: applicantIds }, billing_period_id: activePeriod.id } }),
+      prisma.schools.findMany({ select: { id: true, name: true, school_type: true } }),
+      prisma.payroll_claims.findMany({
+        where: { applicant_id: { in: applicantIds }, academic_period_id: activePeriod.id },
+        select: { applicant_id: true },
       }),
     ]);
-    const billingBatchIds = periodBatches
-      .filter((batch) => String(batch.batch_number || '').startsWith('BILL-') || String(batch.status || '').toLowerCase() === 'billed')
-      .map(({ id }) => id);
-    const claims = billingBatchIds.length
-      ? await prisma.payroll_claims.findMany({
-        where: { applicant_id: { in: applicantIds }, payroll_batch_id: { in: billingBatchIds } },
-        orderBy: { updated_at: 'desc' },
-      })
-      : [];
+    const processedIds = new Set(existingClaims.map(({ applicant_id }) => applicant_id));
     const scholarByApplicant = new Map(scholarAccounts.map((scholar) => [scholar.applicant_id, scholar]));
-    const claimByApplicant = new Map();
-    claims.forEach((claim) => {
-      if (!claimByApplicant.has(claim.applicant_id)) claimByApplicant.set(claim.applicant_id, claim);
+    const applicantById = new Map(applicants.map((applicant) => [applicant.id, applicant]));
+    const applicationByApplicant = new Map();
+    applications.forEach((application) => {
+      if (!applicationByApplicant.has(application.applicant_id)) applicationByApplicant.set(application.applicant_id, application);
     });
-    const selectedClaims = applicantIds.map((applicantId) => claimByApplicant.get(applicantId));
-    const ineligible = applicantIds.filter((applicantId, index) => (
-      !scholarByApplicant.get(applicantId)?.is_active || !isPayableClaim(selectedClaims[index])
-    ));
+    const requirementByApplicant = new Map(requirements.map((requirement) => [requirement.applicant_id, requirement]));
+    const schoolById = new Map(schools.map((school) => [school.id, school]));
+    const schoolByName = new Map(schools.map((school) => [String(school.name).trim().toLowerCase(), school]));
+    const eligibility = applicantIds.map((applicantId) => {
+      const application = applicationByApplicant.get(applicantId);
+      const requirement = requirementByApplicant.get(applicantId);
+      const school = resolveScholarSchool({ applicant: applicantById.get(applicantId), requirement, application, schoolById, schoolByName });
+      const readiness = evaluateBillingEligibility({
+        isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
+        alreadyBilled: false,
+        initialDocs: application?.initial_docs,
+        requirement,
+        schoolType: school?.school_type,
+      });
+      const reasons = [...readiness.reasons];
+      if (processedIds.has(applicantId)) {
+        reasons.push({ code: 'ALREADY_PROCESSED_FOR_PERIOD', message: 'Scholar already has a Billing or Payroll list record for this academic period.' });
+      }
+      if (getSchoolProcessRoute(school?.school_type) !== 'payroll') {
+        reasons.push({ code: 'PRIVATE_SCHOOL_BILLING_ROUTE', message: 'Private-school scholars remain in Billing for the certification list and cannot be added to Payroll.' });
+      }
+      return { applicantId, eligible: reasons.length === 0, reasons };
+    });
+    const ineligible = eligibility.filter(({ eligible }) => !eligible);
     if (ineligible.length) {
       return res.status(409).json({
-        message: 'Some selected scholars are inactive, not yet billed, or already included in a payroll list. Refresh the list and try again.',
-        ineligible: ineligible.map((applicantId) => ({ applicantId })),
+        message: 'Some selected scholars are not ready for the payroll list. Only eligible public-school scholars may be included.',
+        ineligible: ineligible.map(({ applicantId, reasons }) => ({ applicantId, reasons })),
       });
     }
 
     const timestamp = new Date();
     const batchNumber = `PAYROLL-${timestamp.toISOString().replace(/\D/g, '').slice(0, 17)}`;
-    const totalAmount = selectedClaims.reduce((total, claim) => total + Number(claim.claim_amount || 0), 0);
+    const amountByApplicant = new Map(applicantIds.map((applicantId) => [applicantId, resolveBillingAmount('public')]));
+    const totalAmount = applicantIds.reduce((total, applicantId) => total + amountByApplicant.get(applicantId), 0);
     const batch = await prisma.$transaction(async (transaction) => {
       const createdBatch = await transaction.payroll_batches.create({
         data: {
@@ -1410,51 +1458,48 @@ const processPayrollSelection = async (req, res) => {
           status: 'generated',
           prepared_by: req.user.id,
           prepared_at: timestamp,
-          remarks: `${activePeriod.school_year} · ${activePeriod.semester} official payroll list for billed scholars`,
+          remarks: `${activePeriod.school_year} · ${activePeriod.semester} official payroll list for public-school scholars`,
           updated_at: timestamp,
         },
       });
-      const updated = await transaction.payroll_claims.updateMany({
-        where: {
-          id: { in: selectedClaims.map(({ id }) => id) },
-          payroll_batch_id: { in: billingBatchIds },
-          claimed_date: null,
-          claim_status: { notIn: ['paid', 'claimed', 'released', 'listed'] },
-        },
-        data: {
+      await transaction.payroll_claims.createMany({
+        data: applicantIds.map((applicantId) => ({
           payroll_batch_id: createdBatch.id,
+          academic_period_id: activePeriod.id,
+          applicant_id: applicantId,
+          claim_amount: amountByApplicant.get(applicantId),
           claim_status: 'listed',
-          notes: 'Included in the official payroll list after billing',
+          notes: 'Included in the official public-scholar payroll list',
           updated_at: timestamp,
-        },
+        })),
       });
-      if (updated.count !== selectedClaims.length) {
-        const conflict = new Error('Payroll selection changed while it was being generated.');
-        conflict.code = 'PAYROLL_CONFLICT';
-        throw conflict;
-      }
       return createdBatch;
     });
 
     res.locals.auditTargetId = batch.id;
     return res.status(201).json({
-      message: `Official payroll list generated for ${applicantIds.length} billed scholar${applicantIds.length === 1 ? '' : 's'}.`,
+      message: `Official payroll list generated for ${applicantIds.length} public-school scholar${applicantIds.length === 1 ? '' : 's'}.`,
       batch: { id: batch.id, batchNumber: batch.batch_number, totalScholars: batch.total_scholars },
       activePeriod: serializeAcademicPeriod(activePeriod),
     });
   } catch (error) {
     console.error(error);
-    if (error?.code === 'PAYROLL_CONFLICT' || error?.code === 'P2002') {
+    if (error?.code === 'P2002') {
       return res.status(409).json({ message: 'The payroll selection was already included or changed. Refresh the list and try again.' });
     }
     return res.status(500).json({ message: 'Server error generating the payroll list.' });
   }
 };
-
 const submitOnlineExam = async (req, res) => {
   try {
     const applicantId = req.user.id;
-    const activePeriod = await getActiveAcademicPeriodRecord();
+    const [activePeriod, examinationSettings] = await Promise.all([
+      getActiveAcademicPeriodRecord(),
+      getExaminationSettings(prisma),
+    ]);
+    if (!examinationSettings.isEnabled || examinationSettings.deliveryMode !== 'online') {
+      return res.status(403).json({ message: 'The online examination is not currently available.' });
+    }
     const score = Number(req.body.score);
     if (!Number.isFinite(score) || score < 0 || score > 20) return res.status(400).json({ message: 'Invalid examination score.' });
     const passingScore = 14;
@@ -1470,17 +1515,17 @@ const submitOnlineExam = async (req, res) => {
       },
       orderBy: { updated_at: 'desc' },
     });
-    if (!exam) {
-      return res.status(409).json({ message: 'No active examination is available for your municipality.' });
+    if (!exam || !isExaminationScheduleOpen(exam)) {
+      return res.status(409).json({ message: 'The examination is outside the active testing window for your municipality.' });
+    }
+    const slot = await prisma.exam_slots.findUnique({
+      where: { applicant_id_exam_id: { applicant_id: applicantId, exam_id: exam.id } },
+    });
+    if (!slot?.appeared) {
+      return res.status(403).json({ message: 'Your online examination is locked until CAO marks your attendance as Present.' });
     }
     const existing = await prisma.results.findFirst({ where: { applicant_id: applicantId, exam_id: exam.id } });
     if (existing) return res.status(409).json({ message: 'This examination has already been submitted. Please wait for the Scholarship Office to release the result.' });
-    const submittedAt = new Date();
-    const slot = await prisma.exam_slots.upsert({
-      where: { applicant_id_exam_id: { applicant_id: applicantId, exam_id: exam.id } },
-      create: { applicant_id: applicantId, exam_id: exam.id, appeared: true, appeared_at: submittedAt },
-      update: { appeared: true, appeared_at: submittedAt, forfeited_at: null },
-    });
     const data = { score, passing_score: passingScore, passed: score >= passingScore, updated_at: new Date() };
     const result = await prisma.results.create({ data: { exam_slot_id: slot.id, applicant_id: applicantId, exam_id: exam.id, ...data } });
     await prisma.application_submissions.updateMany({
@@ -1533,7 +1578,7 @@ const getMyApplication = async (req, res) => {
       },
       select: { id: true },
     });
-    const [result, scholar, scholarRequirement, payrollClaim, scheduledExam, eligibilityAssessment] = applicantId ? await Promise.all([
+    const [result, scholar, scholarRequirement, payrollClaim, scheduledExam, eligibilityAssessment, examSlots, examinationSettings] = applicantId ? await Promise.all([
       prisma.results.findFirst({ where: { applicant_id: applicantId }, orderBy: { created_at: 'desc' } }),
       prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }),
       prisma.scholar_requirements.findFirst({ where: { applicant_id: applicantId, billing_period_id: activePeriod.id } }),
@@ -1549,10 +1594,19 @@ const getMyApplication = async (req, res) => {
         })
         : null,
       prisma.eligibility_assessments.findFirst({ where: { applicant_id: applicantId }, orderBy: { generated_at: 'desc' } }),
-    ]) : [null, null, null, null, null, null];
+      prisma.exam_slots.findMany({ where: { applicant_id: applicantId }, orderBy: { updated_at: 'desc' } }),
+      getExaminationSettings(prisma),
+    ]) : [null, null, null, null, null, null, null, await getExaminationSettings(prisma)];
     const exam = result
       ? await prisma.exams.findUnique({ where: { id: result.exam_id }, select: { title: true, exam_date: true, academic_year: true } })
       : null;
+    const examSlot = examSlots?.find((slot) => slot.exam_id === (scheduledExam?.id || result?.exam_id)) || null;
+    const selectedSchool = applicant?.school_id
+      ? await prisma.schools.findUnique({ where: { id: applicant.school_id }, select: { name: true, school_type: true } })
+      : await prisma.schools.findFirst({
+        where: { name: { equals: String(application.school_plan?.school || '').trim(), mode: 'insensitive' } },
+        select: { name: true, school_type: true },
+      });
     const payrollBatch = payrollClaim
       ? await prisma.payroll_batches.findUnique({ where: { id: payrollClaim.payroll_batch_id } })
       : null;
@@ -1564,10 +1618,16 @@ const getMyApplication = async (req, res) => {
       payrollClaim,
       payrollBatch,
       scheduledExam,
+      examinationSettings,
+      examSlot,
     });
     return res.json({
       application,
       applicant,
+      school: selectedSchool ? {
+        name: selectedSchool.name,
+        schoolType: String(selectedSchool.school_type || 'public').toLowerCase() === 'private' ? 'Private' : 'Public',
+      } : null,
       guidance,
       eligibilityAssessment: scholar ? serializeAssessment(eligibilityAssessment) : null,
       scholar: scholar ? {
@@ -1577,10 +1637,6 @@ const getMyApplication = async (req, res) => {
         isActive: scholar.is_active,
         notes: scholar.notes,
       } : null,
-      scholarRequirements: {
-        physicalFolderSubmitted: Boolean(scholarRequirement?.folder_physical_submitted),
-        physicalFolderSubmittedAt: scholarRequirement?.folder_physical_submitted_at || null,
-      },
       allowance: payrollClaim ? {
         amount: Number(payrollClaim.claim_amount),
         status: payrollClaim.claim_status,
@@ -1597,6 +1653,21 @@ const getMyApplication = async (req, res) => {
         examDate: exam?.exam_date || null,
         academicYear: exam?.academic_year || activePeriod.school_year,
         isScholar: Boolean(scholar),
+        access: {
+          allowed: canAccessOnlineExamination({
+            completed: Boolean(result),
+            settings: examinationSettings,
+            exam: scheduledExam,
+            examSlot,
+          }),
+          isEnabled: examinationSettings.isEnabled,
+          deliveryMode: examinationSettings.deliveryMode,
+        },
+        attendance: {
+          status: examSlot?.appeared ? 'Present' : examSlot?.forfeited_at ? 'Absent' : 'Pending',
+          appearedAt: examSlot?.appeared_at || null,
+          forfeitedAt: examSlot?.forfeited_at || null,
+        },
         schedule: scheduledExam ? {
           id: scheduledExam.id,
           title: scheduledExam.title,
@@ -1771,21 +1842,21 @@ const updateSchoolClassification = async (req, res) => {
 const getApplicantManagement = async (req, res) => {
   try {
     const activePeriod = await getActiveAcademicPeriodRecord();
-    const applicants = await prisma.applicants.findMany({ where: { deleted_at: null }, orderBy: { created_at: 'desc' }, select: { id: true, first_name: true, middle_name: true, last_name: true, email: true, municipality: true, barangay: true, school_year: true, status: true, created_at: true } });
+    const applicants = await prisma.applicants.findMany({ where: { deleted_at: null }, orderBy: { created_at: 'desc' }, select: { id: true, first_name: true, middle_name: true, last_name: true, name_ext: true, email: true, phone: true, street: true, municipality: true, barangay: true, school_year: true, status: true, gender: true, date_of_birth: true, birthplace: true, civil_status: true, family_income: true, gwa: true, siblings_boys: true, siblings_girls: true, created_at: true } });
     const applicantIds = applicants.map(({ id }) => id);
     const [accounts, slots, results, exams, scholarAccounts, applications] = await Promise.all([
-      prisma.control_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, control_number: true, last_login_at: true } }),
-      prisma.exam_slots.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, exam_id: true, appeared: true, appeared_at: true } }),
+      prisma.control_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, control_number: true, username: true, last_login_at: true } }),
+      prisma.exam_slots.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, exam_id: true, appeared: true, appeared_at: true, forfeited_at: true } }),
       prisma.results.findMany({ where: { applicant_id: { in: applicantIds } }, orderBy: { created_at: 'desc' }, select: { id: true, applicant_id: true, exam_id: true, score: true, passing_score: true, passed: true, remarks: true, created_at: true, updated_at: true } }),
       prisma.exams.findMany({
         orderBy: { updated_at: 'desc' },
         select: { id: true, title: true, exam_date: true, exam_end_date: true, venue: true, municipality: true, academic_year: true, is_active: true, updated_at: true },
       }),
       prisma.scholar_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, scholar_id: true, is_active: true } }),
-      prisma.application_submissions.findMany({ where: { applicant_id: { in: applicantIds }, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' }, select: { id: true, applicant_id: true, family: true, eligibility: true } }),
+      prisma.application_submissions.findMany({ where: { applicant_id: { in: applicantIds }, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' }, select: { id: true, applicant_id: true, identity: true, address: true, school_plan: true, family: true, eligibility: true, submitted_at: true } }),
     ]);
     const accountByApplicant = new Map(accounts.map((account) => [account.applicant_id, account]));
-    const slotByApplicant = new Map(slots.map((slot) => [slot.applicant_id, slot]));
+    const slotByAssignment = new Map(slots.map((slot) => [`${slot.applicant_id}:${slot.exam_id}`, slot]));
     const resultByApplicant = new Map();
     results.forEach((result) => { if (!resultByApplicant.has(result.applicant_id)) resultByApplicant.set(result.applicant_id, result); });
     const applicationByApplicant = new Map();
@@ -1804,25 +1875,52 @@ const getApplicantManagement = async (req, res) => {
       stats: { total: applicants.length, scheduled: scheduledApplicantCount, completed: results.length, passed: results.filter(({ passed }) => passed).length },
       applicants: applicants.map((applicant) => {
         const account = accountByApplicant.get(applicant.id);
-        const slot = slotByApplicant.get(applicant.id);
         const result = resultByApplicant.get(applicant.id);
-        const linkedExam = examById.get(result?.exam_id || slot?.exam_id);
         const scheduledExam = scheduledExamByMunicipality.get(normalizeMunicipality(applicant.municipality));
-        const exam = linkedExam || scheduledExam;
+        const resultExam = examById.get(result?.exam_id);
+        const exam = resultExam || scheduledExam;
+        const slot = exam ? slotByAssignment.get(`${applicant.id}:${exam.id}`) : null;
         const scholar = scholarByApplicant.get(applicant.id);
+        const application = applicationByApplicant.get(applicant.id);
+        const identity = application?.identity || {};
+        const address = application?.address || {};
+        const schoolPlan = application?.school_plan || {};
+        const family = application?.family || {};
         const eligibilityRecommendation = evaluateEligibility({
-          application: applicationByApplicant.get(applicant.id),
+          application,
           result,
         });
         return {
           id: applicant.id,
-          name: [applicant.last_name, applicant.first_name, applicant.middle_name].filter(Boolean).join(', '),
+          name: [applicant.last_name, [applicant.first_name, applicant.middle_name, applicant.name_ext].filter(Boolean).join(' ')].filter(Boolean).join(', '),
           initials: `${applicant.first_name[0] || ''}${applicant.last_name[0] || ''}`.toUpperCase(),
-          username: `${applicant.first_name}.${applicant.last_name}`.toLowerCase(),
+          username: account?.username || `${applicant.first_name}.${applicant.last_name}`.toLowerCase(),
           controlNo: account?.control_number || `Applicant #${applicant.id}`,
           email: applicant.email,
+          phone: identity.mobile || applicant.phone || null,
+          birthDate: identity.birthday || applicant.date_of_birth || null,
+          birthplace: identity.birthplace || applicant.birthplace || null,
+          gender: identity.sex || applicant.gender || null,
+          civilStatus: identity.civilStatus || applicant.civil_status || null,
+          street: address.houseNumber || applicant.street || null,
           municipality: applicant.municipality || 'Not specified',
           barangay: applicant.barangay || 'Not specified',
+          school: schoolPlan.school || null,
+          course: schoolPlan.course || null,
+          yearLevel: schoolPlan.incomingYearLevel || null,
+          gwa: family.gwa || (applicant.gwa === null || applicant.gwa === undefined ? null : Number(applicant.gwa)),
+          familyIncome: family.familyIncome || applicant.family_income || null,
+          fatherName: family.fatherName || null,
+          fatherOccupation: family.fatherOccupation || null,
+          motherName: family.motherName || null,
+          motherOccupation: family.motherOccupation || null,
+          guardianName: family.guardianName || null,
+          guardianOccupation: family.guardianOccupation || null,
+          guardianRelationship: family.guardianSameAsParent
+            ? family.guardianParentRole === 'father' ? 'Father' : family.guardianParentRole === 'mother' ? 'Mother' : 'Parent'
+            : 'Guardian',
+          brothersCount: family.brothersCount ?? applicant.siblings_boys ?? 0,
+          sistersCount: family.sistersCount ?? applicant.siblings_girls ?? 0,
           schoolYear: !applicant.school_year || applicant.school_year === STALE_DEFAULT_SCHOOL_YEAR
             ? activePeriod.school_year
             : applicant.school_year,
@@ -1830,6 +1928,9 @@ const getApplicantManagement = async (req, res) => {
           lastLogin: account?.last_login_at || null,
           status: result?.passed ? 'Passed' : result ? 'Exam Completed' : applicant.status === 'pending' ? 'Pending' : applicant.status,
           resultStatus: result ? (result.passed ? 'Passed' : 'Failed') : slot?.appeared ? 'For review' : 'Pending',
+          attendanceStatus: slot?.appeared ? 'Present' : slot?.forfeited_at ? 'Absent' : 'Pending',
+          appearedAt: slot?.appeared_at || null,
+          examId: exam?.id || null,
           examScore: result?.score === null || result?.score === undefined ? null : Number(result.score),
           passingScore: result?.passing_score === null || result?.passing_score === undefined ? null : Number(result.passing_score),
           reviewerNotes: result?.remarks || '',
@@ -1849,6 +1950,53 @@ const getApplicantManagement = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error fetching applicants.' });
+  }
+};
+
+const updateExaminationAttendance = async (req, res) => {
+  try {
+    const examId = Number(req.params.examId);
+    const applicantId = Number(req.params.applicantId);
+    const status = String(req.body?.status || '').trim().toLowerCase();
+    if (!Number.isInteger(examId) || examId <= 0 || !Number.isInteger(applicantId) || applicantId <= 0) {
+      return res.status(400).json({ message: 'A valid examination and applicant are required.' });
+    }
+    if (!['pending', 'present'].includes(status)) {
+      return res.status(400).json({ message: 'Attendance status must be Pending or Present.' });
+    }
+
+    const activePeriod = await getActiveAcademicPeriodRecord();
+    const [exam, slot, result] = await Promise.all([
+      prisma.exams.findFirst({ where: { id: examId, academic_year: activePeriod.school_year }, select: { id: true } }),
+      prisma.exam_slots.findUnique({ where: { applicant_id_exam_id: { applicant_id: applicantId, exam_id: examId } } }),
+      prisma.results.findFirst({ where: { applicant_id: applicantId, exam_id: examId }, select: { id: true } }),
+    ]);
+    if (!exam) return res.status(404).json({ message: 'The active-period examination was not found.' });
+    if (!slot) return res.status(404).json({ message: 'The applicant is not assigned to this examination.' });
+    if (result && status !== 'present') {
+      return res.status(409).json({ message: 'Attendance cannot be changed after the examination has been submitted.' });
+    }
+
+    const recordedAt = new Date();
+    const updated = await prisma.exam_slots.update({
+      where: { id: slot.id },
+      data: status === 'present'
+        ? { appeared: true, appeared_at: slot.appeared_at || recordedAt, forfeited_at: null }
+        : { appeared: false, appeared_at: null, forfeited_at: null },
+    });
+    res.locals.auditTargetId = updated.id;
+    res.locals.auditDescription = `Updated examination attendance to ${status}.`;
+    return res.json({
+      message: `Attendance marked ${status}.`,
+      attendance: {
+        status: updated.appeared ? 'Present' : updated.forfeited_at ? 'Absent' : 'Pending',
+        appearedAt: updated.appeared_at || null,
+        forfeitedAt: updated.forfeited_at || null,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error updating examination attendance.' });
   }
 };
 
@@ -2146,6 +2294,7 @@ module.exports = {
   getApplicantManagement,
   getExaminationManagement,
   saveExaminationManagement,
+  updateExaminationAttendance,
   acceptApplicantAsScholar,
   reevaluateExamResult,
 };

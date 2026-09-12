@@ -2,10 +2,12 @@ import {
   Bell,
   CalendarDays,
   ChevronRight,
+  ClipboardCheck,
   ClipboardList,
   FileText,
   LogOut,
   MapPin,
+  Monitor,
   RefreshCw,
   UserRound,
   WifiOff,
@@ -87,58 +89,10 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   const [eligibilityAssessment, setEligibilityAssessment] = useState(null);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [examActivated, setExamActivated] = useState(false);
-  const [examMode, setExamMode] = useState(() => localStorage.getItem('examDeliveryMode') || 'online');
-  const [examDetails, setExamDetails] = useState(null);
   const [latestAnnouncement, setLatestAnnouncement] = useState(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState("");
   const [dashboardReloadKey, setDashboardReloadKey] = useState(0);
-  useEffect(() => {
-    const syncExamStatus = () => {
-      try {
-        if (examination?.schedule) {
-          setExamActivated(Boolean(examination.schedule.isActive));
-          return;
-        }
-        const activeMunicipalities = JSON.parse(localStorage.getItem('activeExamMunicipalities') || '[]');
-        const applicantMunicipality = application?.address?.municipality;
-        setExamActivated(applicantMunicipality ? activeMunicipalities.includes(applicantMunicipality) : false);
-      } catch { setExamActivated(false); }
-    };
-    window.addEventListener('storage', syncExamStatus);
-    window.addEventListener('exam-activation-changed', syncExamStatus);
-    const syncExamMode = () => setExamMode(localStorage.getItem('examDeliveryMode') || 'online');
-    const syncExamDetails = () => {
-      try {
-        if (examination?.schedule) {
-          const schedule = examination.schedule;
-          setExamDetails(schedule.isActive ? { municipality: schedule.municipality, venue: schedule.venue, date: schedule.date, endDate: schedule.endDate || schedule.date } : null);
-          return;
-        }
-        const active = JSON.parse(localStorage.getItem('activeExamDetails') || 'null');
-        const exams = JSON.parse(localStorage.getItem('examVenueData') || '[]');
-        const activeMunicipalities = JSON.parse(localStorage.getItem('activeExamMunicipalities') || '[]');
-        const applicantMunicipality = application?.address?.municipality;
-        if (!applicantMunicipality || !activeMunicipalities.includes(applicantMunicipality)) {
-          setExamDetails(null);
-          return;
-        }
-        const assigned = exams.find((exam) => exam.municipality === applicantMunicipality)
-          || (active?.municipality === applicantMunicipality ? active : null);
-        setExamDetails(assigned ? { municipality: assigned.municipality, venue: assigned.venue, date: assigned.date, endDate: assigned.endDate || assigned.date } : null);
-      } catch { setExamDetails(null); }
-    };
-    syncExamStatus();
-    syncExamMode();
-    syncExamDetails();
-    window.addEventListener('storage', syncExamMode);
-    window.addEventListener('exam-mode-changed', syncExamMode);
-    window.addEventListener('storage', syncExamDetails);
-    window.addEventListener('exam-activation-changed', syncExamDetails);
-    window.addEventListener('exam-schedule-changed', syncExamDetails);
-    return () => { window.removeEventListener('storage', syncExamStatus); window.removeEventListener('exam-activation-changed', syncExamStatus); window.removeEventListener('storage', syncExamMode); window.removeEventListener('exam-mode-changed', syncExamMode); window.removeEventListener('storage', syncExamDetails); window.removeEventListener('exam-activation-changed', syncExamDetails); window.removeEventListener('exam-schedule-changed', syncExamDetails); };
-  }, [application, examination, profile]);
   useEffect(() => {
     let active = true;
     fetch(`${API_BASE}/auth/me`, { headers: authHeaders(token) })
@@ -150,7 +104,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
         }
       })
       .catch(() => {});
-    fetch(`${API_BASE}/applications/me`, { headers: authHeaders(token) })
+    fetch(`${API_BASE}/applications/me`, { headers: authHeaders(token), cache: 'no-store' })
       .then(async (response) => {
         const body = await response.json().catch(() => null);
         if (!response.ok) {
@@ -164,6 +118,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
         setExamination(body?.examination || null);
         setGuidance(body?.guidance || null);
         setEligibilityAssessment(body?.eligibilityAssessment || null);
+        setDashboardError('');
       })
       .catch((error) => {
         if (!active) return;
@@ -180,6 +135,30 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
       active = false;
     };
   }, [token, onUserUpdate, user?.role, dashboardReloadKey]);
+
+  useEffect(() => {
+    const refreshDashboard = () => setDashboardReloadKey((key) => key + 1);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshDashboard();
+    };
+    const refreshFromStorage = (event) => {
+      if (['examinationSettingsRevision', 'examinationScheduleRevision'].includes(event.key)) refreshDashboard();
+    };
+    const timer = window.setInterval(refreshWhenVisible, 15000);
+    window.addEventListener('focus', refreshDashboard);
+    window.addEventListener('storage', refreshFromStorage);
+    window.addEventListener('exam-mode-changed', refreshDashboard);
+    window.addEventListener('exam-schedule-persisted', refreshDashboard);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshDashboard);
+      window.removeEventListener('storage', refreshFromStorage);
+      window.removeEventListener('exam-mode-changed', refreshDashboard);
+      window.removeEventListener('exam-schedule-persisted', refreshDashboard);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -219,6 +198,14 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   }, [latestAnnouncement]);
 
   const scheduledExam = examination?.schedule;
+  const examActivated = Boolean(examination?.access?.isEnabled && scheduledExam?.isActive);
+  const examMode = examination?.access?.deliveryMode || 'paper';
+  const examDetails = scheduledExam?.isActive ? {
+    municipality: scheduledExam.municipality,
+    venue: scheduledExam.venue,
+    date: scheduledExam.date,
+    endDate: scheduledExam.endDate || scheduledExam.date,
+  } : null;
   const showExamSchedule = Boolean(scheduledExam && !examination?.completed);
 
   useEffect(() => {
@@ -442,6 +429,14 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
             </div>
           </article>
           <article className="applicant-stat-card">
+            <div className="applicant-stat-icon green"><ClipboardCheck size={21} /></div>
+            <div>
+              <span>Examination attendance</span>
+              <strong>{examination?.attendance?.status || 'Pending'}</strong>
+              <small>{examination?.attendance?.appearedAt ? `Recorded ${formatApplicantDate(examination.attendance.appearedAt)}` : 'Recorded by CAO at the examination venue'}</small>
+            </div>
+          </article>
+          <article className="applicant-stat-card">
             <div className="applicant-stat-icon gold">
               <CalendarDays size={21} />
             </div>
@@ -505,9 +500,9 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
         <section className="applicant-bottom-grid">
           <PortalGuidance
             guidance={guidance}
-            resolveRoute={(route) => route === 'examination' && examMode === 'online' ? '/examination' : null}
+            resolveRoute={(route) => route === 'examination' && examination?.access?.allowed ? '/examination' : null}
           >
-            {!examCompleted && examActivated && examMode === 'face-to-face' && examDetails && (
+            {!examCompleted && examActivated && examDetails && (
               <div className="applicant-guidance-schedule">
                 <div className="applicant-guidance-schedule-main">
                   <span className="applicant-guidance-schedule-icon"><CalendarDays size={18} /></span>
@@ -515,13 +510,13 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
                     <span>Qualifying examination</span>
                     <strong>{formatApplicantExamRange(examDetails.date, examDetails.endDate)}</strong>
                   </div>
-                  <span className="applicant-guidance-mode">Face-to-face</span>
+                  <span className="applicant-guidance-mode">{examMode === 'online' ? 'Online examination' : 'Paper and Pen'}</span>
                 </div>
                 <div className="applicant-guidance-location">
-                  <MapPin size={16} />
+                  {examMode === 'online' ? <Monitor size={16} /> : <MapPin size={16} />}
                   <div>
-                    <span>Venue</span>
-                    <strong>{examDetails.venue}</strong>
+                    <span>{examMode === 'online' ? 'Delivery' : 'Venue'}</span>
+                    <strong>{examMode === 'online' ? 'Applicant Portal' : examDetails.venue}</strong>
                     {examDetails.municipality && <small>{examDetails.municipality}</small>}
                   </div>
                 </div>
@@ -538,13 +533,13 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
               <FileText size={20} className="applicant-heading-icon" />
             </div>
             {showExamSchedule && (
-              <div className={`applicant-exam-announcement${scheduledExam.isActive ? '' : ' pending'}`}>
+              <div className={`applicant-exam-announcement${examActivated ? '' : ' pending'}`}>
                 <div className="applicant-exam-announcement-heading">
                   <CalendarDays size={16} />
-                  <span>{scheduledExam.isActive ? 'EXAMINATION SCHEDULE' : 'EXAMINATION SCHEDULE PENDING'}</span>
+                  <span>{examActivated ? `${examMode === 'online' ? 'ONLINE' : 'PAPER AND PEN'} EXAMINATION SCHEDULE` : 'EXAMINATION SCHEDULE PENDING'}</span>
                 </div>
-                <strong>{scheduledExam.isActive ? formatApplicantExamRange(scheduledExam.date, scheduledExam.endDate) : 'Wait for the schedule of your examination'}</strong>
-                <span>{scheduledExam.isActive ? `${scheduledExam.venue} · ${scheduledExam.municipality}` : 'The Community Affairs Office will publish the schedule here once it is activated.'}</span>
+                <strong>{examActivated ? formatApplicantExamRange(scheduledExam.date, scheduledExam.endDate) : 'Wait for the schedule of your examination'}</strong>
+                <span>{examActivated ? `${examMode === 'online' ? 'Applicant Portal' : scheduledExam.venue} · ${scheduledExam.municipality}` : 'The Community Affairs Office will publish the schedule here once examination access is activated.'}</span>
               </div>
             )}
             {latestAnnouncement ? (

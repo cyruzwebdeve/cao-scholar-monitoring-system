@@ -7,7 +7,7 @@
     "node": ">=20.19 <25"
   },
   "scripts": {
-    "build": "npm run prisma:generate",
+    "build": "node ./scripts/build.js",
     "predev": "npm run prisma:generate",
     "dev": "nodemon server.js",
     "start": "node server.js",
@@ -24,6 +24,7 @@
     "seed:billingadmin": "node ./scripts/create-billingadmin.js",
     "seed:demo": "node ./scripts/seed-demo-applicants-scholars.js",
     "seed:complete-applicants": "node ./scripts/seed-complete-applicants.js",
+    "seed:local-payroll-test": "node ./scripts/seed-local-payroll-fixture.js",
     "seed:production": "node ./scripts/bootstrap-production.js",
     "render-build": "npm run prisma:generate && npm run prisma:deploy && npm run seed:production",
     "test": "node --test",

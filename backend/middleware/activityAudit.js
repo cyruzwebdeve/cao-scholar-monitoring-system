@@ -7,6 +7,7 @@ const ACTIONS = {
   'PUT /application-settings': ['APPLICATION_AVAILABILITY_UPDATED', 'application_settings', 'Updated application availability.'],
   'PUT /schools/classification': ['SCHOOL_CLASSIFICATION_UPDATED', 'schools', 'Updated a school classification.'],
   'PUT /examinations/management': ['EXAMINATION_SCHEDULES_UPDATED', 'exams', 'Saved examination schedules and assignments.'],
+  'PUT /examinations/:examId/attendance/:applicantId': ['EXAMINATION_ATTENDANCE_UPDATED', 'exam_slots', 'Updated examination attendance.'],
   'PUT /applications/me/requirements': ['SCHOLAR_REQUIREMENT_UPLOADED', 'scholar_requirements', 'Uploaded a scholar requirement.'],
   'PUT /applications/:id/exam': ['EXAMINATION_RESULT_RECORDED', 'results', 'Recorded an examination result.'],
   'POST /applications/me/exam-result': ['EXAMINATION_SUBMITTED', 'results', 'Submitted a qualifying examination.'],
@@ -16,10 +17,10 @@ const ACTIONS = {
   'PUT /applications/:id/paid': ['SCHOLAR_MARKED_PAID', 'payroll_claims', 'Marked a scholar payment as paid.'],
   'POST /payroll/billing-batch': ['PAYROLL_BATCH_CREATED', 'payroll_batches', 'Created a payroll batch.'],
   'PUT /payroll/billing-batch/:id/release': ['PAYROLL_BATCH_RELEASED', 'payroll_batches', 'Released a payroll batch.'],
-  'POST /billing/process': ['BILLING_PROCESSED', 'payroll_batches', 'Processed scholars for billing.'],
+  'POST /billing/process': ['BILLING_PROCESSED', 'payroll_batches', 'Generated the private-scholar tuition certification list.'],
   'PUT /scholars/:applicantId/billing-details': ['SCHOLAR_BILLING_DETAILS_UPDATED', 'scholar_requirements', 'Updated scholar billing details.'],
   'PUT /scholars/:applicantId/billing-metadata': ['SCHOLAR_BILLING_METADATA_UPDATED', 'scholar_requirements', 'Updated scholar billing period and status.'],
-  'POST /payroll/process': ['PAYROLL_LIST_GENERATED', 'payroll_batches', 'Generated the official payroll list for billed scholars.'],
+  'POST /payroll/process': ['PAYROLL_LIST_GENERATED', 'payroll_batches', 'Generated the official payroll list for public-school scholars.'],
   'POST /scholars/:applicantId/accept': ['APPLICANT_ACCEPTED_AS_SCHOLAR', 'scholar_accounts', 'Accepted an applicant as a scholar.'],
   'PUT /results/:applicantId/re-evaluate': ['EXAMINATION_RESULT_REEVALUATED', 'results', 'Re-evaluated an examination result.'],
   'POST /announcements': ['ANNOUNCEMENT_CREATED', 'announcements', 'Created an announcement.'],
@@ -29,7 +30,6 @@ const ACTIONS = {
   'PUT /staff/:id/password': ['STAFF_PASSWORD_CHANGED', 'admins', 'Changed a staff account password.'],
   'PUT /document-reviews/:applicationId/:requirementKey': ['SCHOLAR_DOCUMENT_REVIEWED', 'application_submissions', 'Reviewed a scholar requirement document.'],
   'PUT /document-reviews/:applicationId/approve-pending': ['SCHOLAR_DOCUMENTS_BULK_APPROVED', 'application_submissions', 'Approved all pending requirement documents for a scholar.'],
-  'PUT /document-reviews/:applicantId/physical-folder': ['PHYSICAL_FOLDER_RECEIPT_UPDATED', 'scholar_requirements', 'Updated a scholar physical folder receipt.'],
   'PUT /notifications/:id/read': ['SCHOLAR_NOTIFICATION_READ', 'scholar_notifications', 'Read a targeted scholar notification.'],
 };
 

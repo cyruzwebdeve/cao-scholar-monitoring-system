@@ -49,6 +49,7 @@ model announcements {
   image_name   String?   @db.VarChar(255)
   image_type   String?   @db.VarChar(100)
   image_data   String?
+  external_url String?   @db.VarChar(2048)
   created_by   Int?
   created_at   DateTime  @default(now()) @db.Timestamp(6)
   updated_at   DateTime  @updatedAt @db.Timestamp(6)

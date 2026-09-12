@@ -250,6 +250,19 @@ function SuccessScreen({ alreadySubmitted = false }) {
   )
 }
 
+function AccessBlockedScreen({ message }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: '#F3F8F5' }}>
+      <div className="text-center max-w-lg px-6">
+        <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg" style={{ backgroundColor: '#008B47', color: 'white' }}><ShieldIcon /></div>
+        <h2 className="text-3xl font-bold mb-3" style={{ color: '#008B47', fontFamily: 'Outfit, sans-serif' }}>Examination unavailable</h2>
+        <p className="text-gray-500 text-sm leading-relaxed">{message || 'The question view is available only while your assigned online examination is active.'}</p>
+        <a href="/applicant-dashboard" className="inline-flex items-center justify-center mt-6 px-6 py-3 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#008B47', fontFamily: 'Outfit, sans-serif' }}>Return to applicant dashboard</a>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App({ token }) {
@@ -261,18 +274,33 @@ export default function App({ token }) {
   const [showModal, setShowModal] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [alreadySubmitted, setAlreadySubmitted] = useState(false)
-  const [checkingSubmission, setCheckingSubmission] = useState(true)
+  const [checkingSubmission, setCheckingSubmission] = useState(Boolean(token))
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState(() => token ? '' : 'Sign in with an applicant account before opening the examination.')
   const { display: timeDisplay, seconds } = useTimer(44 * 60 + 12)
   const timerWarning = seconds < 5 * 60
 
   useEffect(() => {
     let active = true
-    fetch(`${API_BASE}/applications/me`, { headers: authHeaders(token) })
-      .then(response => response.ok ? response.json() : null)
-      .then(body => {
-        if (active && body?.examination?.completed) setAlreadySubmitted(true)
+    if (!token) return () => { active = false }
+    fetch(`${API_BASE}/applications/me`, { headers: authHeaders(token), cache: 'no-store' })
+      .then(async response => {
+        const body = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(body?.message || 'Unable to verify examination access.')
+        return body
       })
-      .catch(() => {})
+      .then(body => {
+        if (!active) return
+        if (body?.examination?.completed) setAlreadySubmitted(true)
+        else if (!body?.examination?.access?.allowed) {
+          const attendanceStatus = body?.examination?.attendance?.status;
+          setAccessDeniedMessage(
+            body?.examination?.access?.deliveryMode === 'online' && attendanceStatus !== 'Present'
+              ? 'The question view is locked until CAO marks your examination attendance as Present.'
+              : 'The question view is locked until CAO activates Online Examination during your municipality schedule.',
+          )
+        }
+      })
+      .catch(error => { if (active) setAccessDeniedMessage(error.message) })
       .finally(() => { if (active) setCheckingSubmission(false) })
     return () => { active = false }
   }, [token])
@@ -308,10 +336,10 @@ export default function App({ token }) {
     }, 0)
     const response = await fetch(`${API_BASE}/applications/me/exam-result`, { method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, body: JSON.stringify({ score }) })
     if (!response.ok) {
-      if (response.status === 409) {
-        setShowModal(false)
-        setAlreadySubmitted(true)
-      }
+      const body = await response.json().catch(() => ({}))
+      setShowModal(false)
+      if (String(body.message || '').includes('already been submitted')) setAlreadySubmitted(true)
+      else setAccessDeniedMessage(body.message || 'The examination is no longer available.')
       return
     }
     setShowModal(false)
@@ -320,6 +348,7 @@ export default function App({ token }) {
 
   if (checkingSubmission) return <div className="fixed inset-0 flex items-center justify-center text-sm font-semibold" style={{ backgroundColor: '#F3F8F5', color: '#008B47', fontFamily: 'Outfit, sans-serif' }}>Checking examination status…</div>
   if (submitted || alreadySubmitted) return <SuccessScreen alreadySubmitted={alreadySubmitted} />
+  if (accessDeniedMessage) return <AccessBlockedScreen message={accessDeniedMessage} />
 
   return (
     <div className="exam-taking-page flex flex-col" style={{ height: '100vh', fontFamily: 'Inter, sans-serif', backgroundColor: '#F3F8F5' }}>

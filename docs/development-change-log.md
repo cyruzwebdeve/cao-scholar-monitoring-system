@@ -3009,3 +3009,1225 @@ auditing. Existing ERD files were not modified.
 - `docs/system-features-innovations.md` — new consolidated feature reference.
 - `change_log.txt` — concise dated summary.
 - `docs/development-change-log.md` — this detailed entry.
+# 2026-09-11 - Local database schema and Prisma tooling repair
+
+## TL;DR
+
+- Synchronized the localhost application database with the current Prisma schema, resolving the login HTTP 500.
+- Made programmatic Prisma CLI launches reliable on Node.js 24 and made schema auditing compatible with the Rust-free PostgreSQL adapter.
+- Preserved existing local records; Hostinger and all production services were untouched.
+- Verified the local administrator query, expected HTTP 401 behavior for invalid credentials, and an integrity audit with no relationship orphans or audited duplicate groups.
+
+## Objective and reason
+
+Restore reliable local authentication for the local-first development workflow. The API health endpoint was healthy because its simple query did not exercise the missing columns, while administrator login failed when the current Prisma client queried an older local `_v2` schema. The intended schema provisioner was also blocked on Node.js 24 because `require.resolve('prisma')` resolved Prisma's type declaration rather than its executable CLI.
+
+## Previous and new behavior
+
+Previously, the local database accepted health queries but rejected current-model administrator queries with a missing-column error, resulting in `Server error during login.` The local schema provisioner could not run under Node.js 24, and the schema auditor could not deserialize PostgreSQL's native `name` type through the Rust-free adapter. The local schema now matches the current Prisma model, authentication reaches normal credential validation, Prisma utilities resolve the declared CLI binary directly, and audit metadata columns are cast to text.
+
+## Users and workflows affected
+
+Developers and maintainers can again test authentication locally. No production applicant, scholar, staff, Billing, Payroll, or Super Administrator account or workflow was changed. The approved operational scope still ends at official payroll-list generation.
+
+## Implementation and data flow
+
+- Added a shared Prisma CLI resolver based on `prisma/package.json` and its declared `bin.prisma` path.
+- Updated application provisioning, clean-database provisioning, Prisma Studio, and production migration utilities to use that resolver.
+- Added an explicit `--accept-data-loss` pass-through to the local application provisioner. It remains disabled unless deliberately supplied.
+- Cast `information_schema` name-typed values to text in the schema audit for PostgreSQL driver-adapter compatibility.
+- Ran the provisioner against the localhost suffixed application database only. Prisma added missing schema elements and the declared uniqueness constraint without deleting existing rows.
+
+## Files and system areas changed
+
+- `backend/scripts/prisma-cli.js`
+- `backend/scripts/provision-application-database.js`
+- `backend/scripts/provision-clean-database.js`
+- `backend/scripts/studio-application-database.js`
+- `backend/scripts/deploy-migrations.js`
+- `backend/scripts/audit-schema.js`
+- Local localhost PostgreSQL `_v2` application schema
+- Project change documentation
+
+## Impact
+
+- **API:** no endpoint or response-contract change; local login no longer fails because of schema drift.
+- **Database:** local schema synchronized additively with current Prisma declarations; existing records were retained. The new uniqueness constraint was accepted explicitly after the missing period column explained why preflight duplicate inspection could not run.
+- **Configuration:** no `.env` value changed.
+- **Security and privacy:** no credentials or record contents were logged in documentation. Schema tooling retains its local/production target safeguards, and potential data-loss acceptance requires an explicit flag.
+- **Accessibility and UX:** no interface change; the erroneous local login failure is removed.
+- **Deployment:** no deployment was performed. Hostinger, DNS, Vercel, Render, and the managed database were untouched. The CLI resolver also prevents the same Node.js 24 resolution failure in future controlled utility runs.
+
+## Validation
+
+- Confirmed local `/api/health` reported `healthy` and database `connected`.
+- Reproduced the administrator query's missing-column failure before synchronization.
+- Ran the local application provisioner successfully against `scholar_monitoring_v2` and regenerated Prisma Client 6.19.3.
+- Confirmed the configured local administrator record can be queried and is active.
+- Sent an invalid-password probe and received HTTP 401, proving authentication now follows its normal rejection path instead of returning HTTP 500.
+- Schema audit completed with zero logical relationship orphans and zero duplicate groups for every audited unique candidate.
+
+## Limitations, rollback, and recommended next work
+
+Two preserved legacy local payroll-claim rows currently have no academic-period value because schema synchronization does not replay historical data migrations; the field is nullable and this does not affect login. Before testing historical payroll behavior, recreate or deliberately backfill local fixtures through an approved local-only procedure. Code rollback can restore the previous utility resolution, but reverting the additive local schema is unnecessary and could remove data. Run the full automated backend suite before committing these changes.
+
+# 2026-09-11 - Windows-safe combined local launcher
+
+## TL;DR
+
+- Added `start-local.cmd` to launch the frontend and backend together on Windows.
+- Developers can run locally even when PowerShell blocks the `npm.ps1` shim.
+- Application behavior, database structure, production configuration, and Hostinger are unchanged.
+- Verified the frontend returned HTTP 200 and the backend health endpoint reported a connected database.
+
+## Objective and reason
+
+Provide a single, reliable local command for running both application services before any production deployment. The repository already had a cross-platform `npm run dev` orchestrator, but the current Windows environment prevents direct invocation of the PowerShell `npm.ps1` shim under its execution policy.
+
+## Previous and new behavior
+
+Previously, developers could run `npm run dev`, but that command could be blocked before npm started on restricted Windows PowerShell installations. Developers can now run `.\start-local.cmd`; it checks for Node.js and npm, moves to the repository root, and invokes the existing combined launcher through `npm.cmd`. `Ctrl+C` remains the shutdown mechanism for both child services.
+
+## Users and workflows affected
+
+This affects developers and maintainers only. Applicant, scholar, staff, Billing, Payroll, and Super Administrator workflows are unchanged. The approved workflow still ends at official payroll-list generation.
+
+## Implementation and data flow
+
+`start-local.cmd` delegates to the root `npm run dev` script. The existing `scripts/dev.js` process starts `frontend` through Vite and `backend` through Nodemon, inheriting the local environment. No new network service, runtime dependency, or data path was introduced.
+
+## Files and system areas changed
+
+- `start-local.cmd`: new Windows launcher.
+- `README.md`: documented the launcher and shutdown command.
+- `change_log.txt` and `docs/development-change-log.md`: recorded the development-tooling change.
+
+## Impact
+
+- **API:** no endpoint or contract changes.
+- **Database:** no schema, migration, or record changes; the local health validation used a read-only connectivity check.
+- **Configuration:** no environment-variable changes.
+- **Security and privacy:** no secrets are stored or displayed; the launcher uses the existing local environment.
+- **Accessibility and UX:** no end-user interface changes; developer startup feedback now includes both local addresses.
+- **Deployment:** no Hostinger, Vercel, Render, DNS, or production process changes.
+
+## Validation
+
+- Launched the existing combined development orchestrator through `npm.cmd run dev`.
+- Vite started at `http://localhost:5173` and returned HTTP 200.
+- Express started at `http://localhost:3601`; `/api/health` reported `healthy` with the database `connected`.
+- Both test processes were stopped after validation.
+
+## Limitations, rollback, and recommended next work
+
+The `.cmd` convenience launcher is Windows-specific; macOS and Linux developers should continue using `npm run dev`. Rollback consists of removing `start-local.cmd` and its documentation. Before feature work, confirm the local `.env` intentionally targets the desired development database and never use production credentials casually.
+
+# 2026-09-12 - Application, examination, scholar, billing, and payroll enhancements
+
+## TL;DR
+
+- Strengthened application address entry, guardian/parent identity handling, sibling controls, and mail-delivery feedback for applicants.
+- Persisted examination activation and Paper and Pen/Online delivery mode, secured the online question window server-side, restored applicant attendance visibility, and added attendance-list export.
+- Tailored scholar requirements by school type, removed the scholar-facing decision explanation, added configurable CAO Facebook access, and provided a printable private-scholar certification template.
+- Enforced the private-scholar grant at exactly PHP 5,000 and made official payroll-list generation automatically download a genuine XLSX workbook.
+- Applied only the additive examination settings to the localhost database and passed 90 backend tests, frontend lint/build, local API checks, and dependency audits; production remains untouched.
+
+## Objective and reason
+
+Implement the approved feature-fix list in the local development environment before any Hostinger promotion. The work corrects weak location validation, ambiguous guardian/parent identity handling, browser-only examination controls, premature question visibility, incomplete attendance presentation, school-type-specific scholar documents, incorrect private grant amounts, and the absence of an automatic Excel payroll-list export. It also makes a non-configured mailer visible rather than silently appearing successful.
+
+## Previous and new behavior
+
+Previously, Section 2 accepted limited backend municipality values and did not verify that a barangay belonged to its municipality; its free-text address and course fields retained mixed case. The form did not explicitly record whether a guardian was one of the listed parents, sibling selects contained duplicate visual zero options, and email delivery failures were not surfaced on the application confirmation. The existing backend one-family/one-active-sibling rule already rejected matching parent pairs and remains authoritative.
+
+The form now uppercases its Section 2 free-text address and course fields, validates location codes in the browser, and validates the complete municipality/barangay relationship again against repository datasets on the server. Applicants declare whether the guardian is one of the listed parents; when selected, a Father/Mother selector copies that parent's name and occupation, while an unrelated guardian is entered manually. No guardian-address fields are displayed or stored. Sibling counts use one real zero option in each Select.
+
+Examination delivery was previously stored only in one browser's local storage, and the route could render questions before the API established an active test window. Examination enabled state and delivery mode are now singleton database settings. Only authenticated Applicants can route to the question view, and both question rendering and submission require the global examination switch, Online delivery, an active municipality schedule, the Philippine calendar date window, and no earlier result. Paper and Pen remains the safe default. Applicant dashboards again show examination attendance, while administrators can download a municipality attendance CSV containing assigned applicants and recorded attendance states.
+
+Public scholars no longer see the private tuition-receipt requirement; private scholars retain it and receive a printable, pre-filled certification template. The scholar-facing eligibility/official decision explanation block was removed. A direct CAO Facebook post action is supported through `VITE_CAO_FACEBOOK_ANNOUNCEMENT_URL` and remains hidden until the exact official post URL is configured.
+
+Private-scholar billing now resolves to exactly PHP 5,000 in management responses, edits, billing-batch totals, and created claim records regardless of a missing, lower, or higher submitted amount. The private amount field is fixed in the UI, and the backend remains authoritative. Clicking Generate payroll list now creates the official in-scope list and automatically downloads an XLSX workbook with identification, school, location, amount, signature, total, and batch metadata. No fund-release, claiming, disbursement, reconciliation, or monetary-audit function was added.
+
+## Affected users and workflows
+
+- **Applicants:** stricter applicant-address input, explicit guardian/parent selection, accurate sibling selectors, visible email-delivery status, protected examination access, and attendance status.
+- **Scholars:** school-type-appropriate public requirements, a cleaner portal, optional official Facebook link, and a private-scholar certification template.
+- **Administrators:** persisted examination controls and municipality attendance exports.
+- **Billing/Payroll staff:** reliable private-grant values and automatic official payroll-list XLSX output.
+- **Developers:** clearer mailer verification diagnostics and local-only schema/test workflow.
+
+## Implementation and data flow
+
+- Repository municipality and barangay JSON files now drive client choices and server-side municipality/barangay relationship validation.
+- Guardian identity state is kept in the application draft. Submission stores the resolved guardian name and occupation, the same-as-parent declaration, and the selected Father/Mother role in the existing family JSON and legacy guardian JSON projection; no guardian address is collected.
+- `application_settings` gained `examination_enabled` and constrained `exam_delivery_mode` fields through an additive migration. A protected settings API reads and updates them, and an examination-access service resolves safe defaults and Philippine date-window eligibility.
+- The applicant application response contains examination access and attendance state; the online examination page refuses to mount question content when access is not allowed. Submission repeats the same authoritative server checks.
+- Applicant-management responses expose attendance status and timestamp for the administrative CSV export.
+- Scholar application responses include resolved school classification. The frontend filters tuition receipt accordingly and constructs the print-only certification document locally without uploading a new private file.
+- The CAO post link comes only from a public frontend environment value; no URL was guessed or hard-coded.
+- A centralized billing grant resolver returns PHP 5,000 for every private-school classification and preserves valid configured public amounts.
+- ExcelJS is loaded dynamically only when a payroll list is successfully generated; it produces the XLSX locally from the exact submitted queue and returned batch metadata.
+- Mail delivery remains non-transactional so a provider outage cannot roll back an application. The response now exposes a safe delivery state, the confirmation tells applicants to save displayed credentials when delivery fails, and the verification command lists missing variable names without their values.
+
+## Files and system areas changed
+
+- Application UI and validation: `frontend/src/components/ApplicationForm.jsx`, `backend/middleware/validators.js`, `backend/controllers/applicationController.js`.
+- Examination controls and security: `backend/services/examinationAccess.js`, `backend/controllers/applicationSettingsController.js`, `backend/routes/applicationRoutes.js`, `frontend/src/SettingsManagement.jsx`, `frontend/src/ExamPage.jsx`, `frontend/src/App.jsx`, `frontend/src/ApplicantDashboard.jsx`, and `frontend/src/Dashboard.jsx`.
+- Database: `backend/prisma/schema.application.prisma` and `backend/prisma/migrations/20260912000000_add_examination_controls/migration.sql`.
+- Scholar portal: `frontend/src/ScholarDashboard.jsx` and `frontend/.env.example`.
+- Billing/payroll: `backend/services/billingGrant.js`, `frontend/src/BillingPayrollManagement.jsx`, `frontend/package.json`, and `frontend/package-lock.json`.
+- Mail diagnostics: `backend/scripts/verify-mailer.js`.
+- Tests: `backend/tests/examinationAccess.test.js`, `backend/tests/billingGrant.test.js`, and `backend/tests/applicationGuardian.test.js`.
+- Project change documentation.
+
+## Impact
+
+- **API:** added authenticated GET/PUT `/api/examination-settings`; enriched `/api/applications/me` with school classification, examination access, and attendance; enriched applicant-management attendance fields; application creation reports a safe mail-delivery reason. Existing mutation authorization and rate limits remain in place.
+- **Database:** additive boolean and constrained delivery-mode columns on singleton `application_settings`; no applicant, scholar, billing, payroll, document, or legacy payment record was deleted or rewritten. Local schema synchronization retained existing records.
+- **Configuration:** added optional public `VITE_CAO_FACEBOOK_ANNOUNCEMENT_URL`. Gmail API or SMTP variables remain required for actual sending. Secrets must stay in untracked local/host settings.
+- **Security:** online question views are protected at route, read, and submission layers; forged municipality/barangay pairs are rejected server-side; XLSX and CSV exports are initiated only in authenticated staff workspaces. The printable certificate escapes record values before writing its isolated document.
+- **Privacy:** no additional guardian address is collected. Guardian identity/occupation remains in the existing restricted application/family record. Attendance exports contain applicant identity/contact details and must be handled as restricted operational records. No private URL or credential is embedded in documentation.
+- **Accessibility:** new switches and actions use labelled native inputs/buttons, locked examination access has a clear return path, and attendance state is presented in text. The certification template supports browser print/save-to-PDF.
+- **Deployment:** no Hostinger, Render, Vercel, DNS, or managed-database deployment occurred. A future deployment must run the additive migration before the new backend starts and configure the optional official Facebook URL.
+- **Approved scope:** payroll behavior ends at generating and exporting the official payroll list. Older payment/release-oriented code remains legacy and unchanged; this work does not validate, release, claim, reconcile, or audit money.
+
+## Validation performed
+
+- Synchronized `scholar_monitoring_v2` on localhost with the application Prisma schema and regenerated Prisma Client 6.19.3.
+- Passed all 90 backend tests, including new examination-window/default, private-grant, and guardian/parent identity validation tests.
+- Passed frontend ESLint and the Vite production build (493 modules transformed), including the corrected guardian/parent selector UI.
+- Confirmed local API health was healthy with PostgreSQL connected.
+- Authenticated locally and round-tripped examination settings from inactive Paper and Pen to active Online and back to the safe inactive Paper and Pen default.
+- Confirmed both frontend and backend npm audits report zero vulnerabilities.
+- `git diff --check` reported only the repository's existing Windows line-ending notices and no whitespace errors.
+
+## Known limitations, rollback, and recommended next work
+
+Actual email delivery is not locally testable until the maintainer configures one complete Gmail API or Gmail App Password method in `backend/.env` and runs `npm --prefix backend run mailer:verify`; credentials must never be pasted into source control or change logs. The CAO Facebook action also requires the exact official post URL in the frontend environment variable. The generated certification is a working template and should receive CAO approval for final wording/signatories before operational use.
+
+Rollback can remove the new UI/API behavior and leave the two additive examination columns harmlessly in place. Do not drop them during an emergency rollback because destructive schema changes are unnecessary. Before production promotion, complete role-based browser testing for application submission, applicant exam lock/open/close behavior, public/private scholar views, attendance export, private billing processing, and XLSX opening in Microsoft Excel or LibreOffice; then obtain explicit deployment approval.
+
+# 2026-09-12 - Windows local launcher process-tree cleanup
+
+## TL;DR
+
+- Corrected the combined Windows launcher so Ctrl+C terminates launcher-owned Vite, nodemon, and API descendants.
+- Removed stale local processes that were serving obsolete frontend/backend code on ports 5173 and 3601.
+- Verified the clean API accepts the valid Santa Elena/San Lorenzo location pair and proceeds to the current guardian validation.
+- No database records, production services, or Hostinger resources were changed.
+
+## Objective and reason
+
+Prevent outdated local code from continuing to serve after the combined development launcher is stopped. On Windows, terminating only each immediate npm wrapper could leave its Node descendants alive. Those stale processes retained the expected ports, causing later launches to move Vite to another port or silently leave the browser connected to an obsolete API validator.
+
+## Previous and new behavior
+
+Previously, the root launcher called `child.kill()` on the two immediate npm child processes. Windows npm and nodemon process trees could outlive those wrappers, so `localhost:5173` or `localhost:3601` could still serve an earlier code version. The launcher now uses Windows `taskkill` with tree termination for only the child process IDs it created. Other platforms retain signal-based child termination.
+
+## Affected users and workflows
+
+- **Developers/testers:** stopping the combined local session now releases its standard frontend and backend ports reliably.
+- **Applicants and staff:** no deployed or production workflow changes; this affects only local testing.
+
+## Implementation and data flow
+
+`scripts/dev.js` now imports `spawnSync` and, during Windows shutdown, terminates each launcher-owned npm process tree before the launcher exits. It does not enumerate or terminate unrelated system processes during normal operation.
+
+## Impact
+
+- **Files:** `scripts/dev.js` and change documentation.
+- **API/database/configuration:** no contract, schema, data, environment-variable, or credential changes.
+- **Security/privacy/accessibility:** no production security, personal-data, or user-interface impact.
+- **Deployment:** local development only; no Hostinger or other deployment occurred.
+- **Approved scope:** no payroll, fund-release, payment, or monetary-audit behavior changed.
+
+## Validation performed
+
+- Identified stale Node listeners created on September 11 and confirmed the obsolete API returned `Municipality is invalid.` for Santa Elena/San Lorenzo.
+- Removed the stale listeners and started exactly one current frontend on port 5173 and one current backend on port 3601.
+- Repeated a non-persisting validation request: the same location pair passed and the API correctly reached the intentionally failing guardian-detail validation.
+- Passed JavaScript syntax validation for the updated launcher.
+
+## Known limitations, rollback, and recommended next work
+
+Forced Windows tree termination interrupts in-flight local requests, which is expected when a developer explicitly stops the development session. Rollback consists of restoring signal-only termination, but doing so may recreate orphaned Node processes. Continue using the root launcher rather than opening duplicate frontend/backend sessions separately.
+
+# 2026-09-12 - Examination setting spacing and save-result modal
+
+## TL;DR
+
+- Added consistent internal spacing, a separated action footer, and a visible gap between Examination Settings and System Health.
+- Added an accessible modal confirming the saved activation state and Paper/Online delivery mode.
+- Save failures now also open a clearly labelled failure modal while retaining the inline retry message.
+- Passed frontend lint and the production build; no API, database, or deployment changes were needed.
+
+## Objective and reason
+
+Improve the visual hierarchy of the examination controls and provide unmistakable feedback when an administrator presses **Save examination setting**. The previous card placed controls and the save button in a comparatively flat sequence, while successful saves appeared only as a short-lived page-heading badge that could be missed.
+
+## Previous and new behavior
+
+Previously, the activation panel followed the card heading without dedicated spacing, the two delivery choices and save button shared generic margins, and successful feedback appeared briefly near the page title. The card now has explicit spacing between the heading, activation panel, delivery choices, and a bordered save-action footer. An explicit sibling margin also separates its bottom border from the differently classed System Health panel. A successful save opens a modal describing whether Examination Mode is active or inactive and whether Paper and Pen or Online Examination was persisted. A failed save opens a failure modal and preserves the existing inline error/retry control.
+
+## Affected users and workflows
+
+- **Super Administrators and Administrators:** receive clear visual confirmation after saving examination controls.
+- **Applicants:** no workflow change; the already-authoritative saved setting continues to control examination access.
+- **Other staff:** examination controls remain read-only according to existing permissions.
+
+## Implementation and data flow
+
+`SettingsManagement` stores a transient save-result object after the existing PUT request finishes. The modal renders only from that response result, displays the server-returned activation and delivery values on success, supports Escape/backdrop/button dismissal, and moves initial focus to its close action. Responsive CSS stacks the explanatory note and save button on narrow screens.
+
+## Files and system areas changed
+
+- `frontend/src/SettingsManagement.jsx`
+- `frontend/src/styles/admin.css`
+- `frontend/src/styles/admin-responsive.css`
+- Project change documentation
+
+## Impact
+
+- **API:** no endpoint or payload changes; the existing PUT `/api/examination-settings` response drives the modal.
+- **Database/configuration:** no schema, records, environment variables, or secrets changed.
+- **Security/privacy:** existing role authorization remains unchanged; the modal contains only examination configuration status and no personal data.
+- **Accessibility:** modal semantics, labelled title/description, keyboard dismissal, initial button focus, and textual success/failure states were added.
+- **Deployment:** local source only; nothing was deployed to Hostinger or another environment.
+- **Approved scope:** no Billing, Payroll, payment, fund-release, or monetary-audit behavior changed.
+
+## Validation performed
+
+- Frontend ESLint passed.
+- Vite production build passed with 493 transformed modules.
+- Git whitespace validation reported no errors; only the repository's existing Windows line-ending notices appeared.
+
+## Known limitations, rollback, and recommended next work
+
+The save result is intentionally modal and must be dismissed before continuing. Rollback consists of removing the save-result state/modal and examination-specific spacing rules; the persisted setting and API remain unaffected. Complete a browser check at desktop and narrow viewport widths before any approved deployment.
+
+# 2026-09-12 - School Catalog consolidated into Settings
+
+## TL;DR
+
+- Moved the complete School Catalog interface into the Super Administrator Settings workspace.
+- Removed the redundant School Catalog sidebar destination while preserving stale-navigation compatibility.
+- Preserved catalog refresh, metrics, search, classification filters, classification editing, and authorization.
+- Passed frontend lint and production build; no API, database, or deployment behavior changed.
+
+## Objective and reason
+
+Consolidate system-wide configuration in one Settings workspace rather than presenting School Catalog as a separate top-level administration destination. School classification controls are configuration data used by application, scholar, Billing, and Payroll list-generation logic, making Settings the clearer operational location.
+
+## Previous and new behavior
+
+Previously, Super Administrators opened School Catalog from a dedicated sidebar item and Settings contained application, period, examination, and health controls. School Catalog is now rendered as an embedded Settings card for Super Administrators, between Examination Settings and System Health. Its complete interface and classification modal remain operational. The standalone sidebar item was removed. If an existing in-memory navigation state still names School Catalog, the dashboard renders Settings instead of a dead or generic page.
+
+## Affected users and workflows
+
+- **Super Administrators:** manage the school catalog from Settings instead of a separate sidebar page.
+- **Regular and Billing/Payroll Administrators:** retain their previous permissions; the embedded catalog is not exposed to them.
+- **Applicants and scholars:** school choices and stored classifications behave exactly as before.
+
+## Implementation and data flow
+
+`SettingsManagement` conditionally mounts `SchoolCatalogManagement` only for the Super Administrator role. The catalog component accepts an embedded presentation flag but continues using the same authenticated catalog GET and classification PUT requests. Dashboard routing keeps a compatibility path from the retired section name to Settings, and the sidebar no longer advertises the standalone destination.
+
+## Files and system areas changed
+
+- `frontend/src/components/Sidebar.jsx`
+- `frontend/src/Dashboard.jsx`
+- `frontend/src/SettingsManagement.jsx`
+- `frontend/src/SchoolCatalogManagement.jsx`
+- `frontend/src/styles/school-catalog.css`
+- Project change documentation
+
+## Impact
+
+- **API/database/configuration:** no endpoint, payload, schema, record, or environment-variable changes.
+- **Security:** the existing Super Administrator-only visibility and server authorization are preserved.
+- **Privacy:** no new personal information is displayed or stored.
+- **Accessibility:** existing labelled search/filter controls and classification modal are preserved; responsive embedded layout avoids nested narrow-screen width reduction.
+- **Deployment:** local source only; nothing was deployed to Hostinger or another environment.
+- **Approved scope:** school classification continues to inform in-scope Billing and official payroll-list generation only; no fund-release, payment, claiming, reconciliation, or monetary-audit feature was added.
+
+## Validation performed
+
+- Frontend ESLint passed.
+- Vite production build passed with 493 transformed modules.
+- Git whitespace validation reported no errors beyond existing Windows line-ending notices.
+
+## Known limitations, rollback, and recommended next work
+
+The Settings page is longer for Super Administrators because it now contains the catalog directory. Search and classification filters remain available to manage that length. Rollback consists of restoring the sidebar route/import and removing the embedded render and styles; no data rollback is required. Complete a desktop and mobile browser check before any approved deployment.
+
+# 2026-09-12 - Examination modal action alignment
+
+## TL;DR
+
+- Rebuilt the attendance-download and exam-activation controls as a consistent action group.
+- Prevented the attendance label from collapsing into multiple narrow lines.
+- Added two-column tablet/mobile behavior and single-column behavior on very narrow screens.
+- Preserved existing CSV export and examination activation logic.
+
+## Objective and reason
+
+Correct the visually broken action area in the municipality examination applicant modal. The unclassified attendance button was compressed between the activation description and fixed-width activation button, causing `Download Attendance List` to wrap into an awkward narrow column.
+
+## Previous and new behavior
+
+Previously, three direct flex children competed for the modal width and only the activation button had dedicated styling. Both actions are now grouped, share consistent height, typography, spacing, alignment, and non-wrapping labels, while retaining distinct secondary and primary visual treatments. On smaller screens the group uses two equal columns, then stacks below 440 pixels.
+
+## Affected users and workflows
+
+- **Administrators managing examinations:** receive clearer, easier-to-select attendance and activation actions.
+- **Applicants:** no access or examination behavior changed.
+
+## Implementation and data flow
+
+The existing event handlers remain attached to their respective buttons. Only the JSX grouping, concise attendance label, CSS presentation, and responsive layout changed.
+
+## Files and system areas changed
+
+- `frontend/src/Dashboard.jsx`
+- `frontend/src/styles/admin.css`
+- Project change documentation
+
+## Impact
+
+- **API/database/configuration/security/privacy:** no changes.
+- **Accessibility:** larger consistent targets and stable text labels improve readability and operability.
+- **Deployment:** local source only; nothing was deployed.
+- **Approved scope:** no Billing, Payroll, payment, fund-release, or monetary-audit behavior changed.
+
+## Validation performed
+
+- Frontend ESLint passed.
+- Vite production build passed with 493 transformed modules.
+- Git whitespace validation reported no errors beyond existing Windows line-ending notices.
+
+## Known limitations, rollback, and recommended next work
+
+The modal retains its existing maximum width; exceptionally long translations may require future localization-specific sizing. Rollback consists of restoring the previous inline buttons and removing the action-group CSS. Perform a quick browser check at desktop, tablet, and phone widths before deployment.
+
+# 2026-09-12 - Applicant examination-state synchronization
+
+## TL;DR
+
+- Corrected the Applicant Portal to recognize the persisted `paper` and `online` delivery modes.
+- Made global examination deactivation override municipality activation in applicant schedule presentation and guidance.
+- Added prompt same-tab/cross-tab refresh plus focus, visibility, and 15-second visible-tab synchronization against the server.
+- Passed 91 backend tests, frontend lint, and production build; no database migration or deployment occurred.
+
+## Objective and reason
+
+Ensure examination activation and delivery changes made by administrators are accurately reflected in the Applicant Portal. The portal contained a stale comparison against `face-to-face` even though the persisted contract now returns `paper` or `online`, loaded application state only once, and presented an active municipality schedule without consistently considering the global examination switch.
+
+## Previous and new behavior
+
+Previously, Paper and Pen details could fail to render because the client expected the obsolete mode string. An Applicant Portal tab already open during an administrative change retained its initial data until manually reloaded. The announcement used municipality `isActive` directly, so a globally disabled examination could still appear published. Applicant guidance likewise considered the municipality schedule without the global switch.
+
+The portal now uses `paper` and `online`, labels the saved delivery mode, shows the venue for Paper and Pen or Applicant Portal delivery for Online Examination, and treats global plus municipality activation as a combined requirement. It requests uncached `/applications/me` data whenever the tab gains focus or visibility, after same-tab save events, after cross-tab revision events, and every 15 seconds while visible. Server-generated guidance also receives the persisted global setting and remains in the waiting state while examination access is globally disabled.
+
+## Affected users and workflows
+
+- **Applicants:** see current examination state and correct Paper/Online instructions without requiring a full browser reload.
+- **Super Administrators and Administrators:** saved global settings propagate to applicant tabs.
+- **Authorized examination staff:** persisted municipality activation changes propagate after the save request succeeds.
+
+## Implementation and data flow
+
+- Successful examination-settings and schedule writes publish non-sensitive timestamp revision keys for same-origin cross-tab synchronization and dispatch same-tab events.
+- Applicant Dashboard listeners trigger a fresh authenticated, no-cache application request; a visible-tab polling fallback covers other browsers/devices.
+- The backend feeds resolved examination settings into applicant guidance, so presentation and recommended actions follow the same global activation rule as the access payload.
+- Online question access remains additionally constrained by the active Philippine-date examination window and prior-submission checks.
+
+## Files and system areas changed
+
+- `frontend/src/SettingsManagement.jsx`
+- `frontend/src/Dashboard.jsx`
+- `frontend/src/ApplicantDashboard.jsx`
+- `backend/controllers/applicationController.js`
+- `backend/services/applicantGuidance.js`
+- `backend/tests/applicantGuidance.test.js`
+- Project change documentation
+
+## Impact
+
+- **API:** no endpoint or payload shape changed; `/applications/me` guidance now consistently respects the already-returned examination setting.
+- **Database/configuration:** no schema, records, environment variables, or credentials changed.
+- **Security:** access remains server-authoritative; refresh events contain only timestamps, never tokens or applicant data.
+- **Privacy:** no new personal information is collected, cached, or broadcast.
+- **Accessibility:** applicants receive explicit textual Paper and Pen/Online labels and delivery descriptions.
+- **Deployment:** local source only; nothing was deployed to Hostinger or another environment.
+- **Approved scope:** no Billing, Payroll, payment, fund-release, or monetary-audit behavior changed.
+
+## Validation performed
+
+- Added and passed a backend test proving global deactivation keeps an otherwise active municipality schedule in the applicant waiting state.
+- Passed all 91 backend tests.
+- Passed frontend ESLint and the Vite production build with 493 transformed modules.
+- Git whitespace validation reported no errors beyond existing Windows line-ending notices.
+
+## Known limitations, rollback, and recommended next work
+
+Cross-device updates rely on the 15-second visible-tab poll, while same-browser tabs update immediately after a successful persisted save. Online question access will correctly remain locked outside the configured Philippine-date window even when both activation switches are on. Rollback consists of removing the refresh listeners/revision signals and restoring the prior display checks, but would reintroduce stale portal state. Browser-test global on/off, municipality on/off, Paper and Pen, Online inside the date window, and Online outside the window before deployment.
+
+# 2026-09-12 - Examination guidance icon correction
+
+## TL;DR
+
+- Replaced the generic checklist icon on the examination-schedule action with a calendar-check icon.
+- Improved visual recognition for applicants without changing navigation or examination access.
+- Frontend lint and production-build verification completed successfully.
+
+## Objective and reason
+
+Make the `Review your examination schedule` action visually match its purpose. The generic checklist symbol did not clearly communicate that the card opens a scheduled examination.
+
+## Previous and new behavior
+
+Previously, every personalized guidance action displayed the same checklist icon. Examination actions now display a calendar with a check mark, while non-examination actions continue using the existing checklist icon.
+The icon container now also uses a more specific grid rule and zero line-height so the shared action-span styling cannot override its centering; the SVG is aligned consistently in both axes.
+
+## Affected users and workflows
+
+Applicants receive a clearer visual cue when reviewing their assigned examination schedule. The action destination and all administrative workflows remain unchanged.
+
+## Implementation and data flow
+
+`PortalGuidance` selects the Lucide `CalendarCheck2` component when an action has the existing `examination` type and falls back to `ListChecks` for other action types. No data flow changed.
+
+## Files and system areas changed
+
+- `frontend/src/components/PortalGuidance.jsx`
+- Project change documentation
+
+## Impact
+
+- **API/database/configuration/security/privacy:** no impact.
+- **Accessibility:** the icon remains decorative and hidden from assistive technology; the existing descriptive text remains authoritative.
+- **Deployment:** local source only; nothing was deployed.
+- **Approved scope:** no Billing, Payroll, payment, fund-release, or monetary-audit behavior changed.
+
+## Validation performed
+
+- Frontend ESLint passed.
+- Vite production build passed.
+
+## Known limitations, rollback, and recommended next work
+
+The icon is selected from the action type, so future examination actions automatically receive the same visual. Rollback consists of restoring the single checklist icon. Confirm the card visually in the Applicant Portal before the next approved deployment.
+
+# 2026-09-12 - Attendance-gated online examination access
+
+## TL;DR
+
+- Replaced misleading schedule-action wording with state-specific examination instructions.
+- Online questions remain locked until authorized staff mark the applicant `Present` in Examination Attendance.
+- Added persisted Pending and Present attendance controls with server authorization and activity logging; Absent is not selectable.
+- Passed all 93 backend tests, frontend ESLint, and the production build; no schema migration or deployment occurred.
+
+## Objective and reason
+
+Align the Applicant Portal action with its actual destination and prevent applicants from viewing online questions before staff confirm their physical attendance. The previous `Review your examination schedule` action could open the questionnaire, and access relied only on global mode, municipality activation, and the date window.
+
+## Previous and new behavior
+
+Previously, an eligible online applicant could open the question view during an active schedule even while attendance was Pending, and submitting the examination automatically changed attendance to Present. Administrators could view attendance but had no control for recording it.
+
+Now, Pending online applicants see `Wait for attendance confirmation` without an Open link. Once authorized staff select Present, the guidance becomes `Start your online examination` and links to the secured question view. Paper-and-Pen guidance says `Attend your qualifying examination` and does not imply that it opens online questions. Both the application-access response and the submission endpoint require an existing Present exam assignment; submission no longer self-confirms attendance.
+
+## Affected users and workflows
+
+- **Applicants:** cannot view or submit online questions until attendance is explicitly Present and all existing activation/date conditions are satisfied.
+- **Super Administrators, Administrators, and authorized examination staff:** can record Pending or Present from the assigned-applicant list.
+- **Paper-and-Pen applicants:** receive accurate venue-attendance wording rather than an online-question action.
+
+## Implementation and data flow
+
+The Examination Management applicant list sends an authenticated attendance update containing only the selected Pending or Present status and route identifiers. The server rejects Absent and all other status values, then verifies the active-period examination, the applicant's existing assignment, role, and Examination section access before updating `exam_slots`. Completed examinations cannot be changed away from Present. Applicant data refresh then exposes the stored status. A shared access helper requires global Online mode, an active in-window municipality schedule, no prior result, and `examSlot.appeared === true`. The submission endpoint performs its own Present check to prevent client-side bypass.
+
+## Files and system areas changed
+
+- `backend/services/examinationAccess.js`
+- `backend/services/applicantGuidance.js`
+- `backend/controllers/applicationController.js`
+- `backend/routes/applicationRoutes.js`
+- `backend/middleware/activityAudit.js`
+- `backend/tests/examinationAccess.test.js`
+- `backend/tests/applicantGuidance.test.js`
+- `frontend/src/Dashboard.jsx`
+- `frontend/src/ApplicantDashboard.jsx`
+- `frontend/src/ExamPage.jsx`
+- `frontend/src/styles/admin.css`
+- Project change documentation
+
+## Impact
+
+- **API:** added authenticated `PUT /examinations/:examId/attendance/:applicantId`; the existing `/applications/me` access decision is stricter without changing its shape.
+- **Database:** no schema migration; existing `exam_slots.appeared`, `appeared_at`, and `forfeited_at` fields store the status.
+- **Configuration:** no environment or configuration changes.
+- **Security:** server-side access and submission checks prevent direct-route and crafted-request bypass; role and section-access middleware protect attendance changes.
+- **Privacy:** no new personal information is collected or returned.
+- **Accessibility:** each attendance selector has an applicant-specific accessible label; guidance remains textually explicit without relying on color or icons.
+- **Deployment:** local source only; nothing was deployed.
+- **Approved scope:** no Billing, Payroll, payment, fund-release, or monetary-audit behavior changed.
+
+## Validation performed
+
+- Added tests proving Pending attendance blocks access, Present permits access during the valid window, completed examinations remain blocked, and guidance removes the route until attendance confirmation.
+- Passed all 93 backend tests and backend syntax checks.
+- Passed frontend ESLint and the Vite production build with 494 transformed modules.
+
+## Known limitations, rollback, and recommended next work
+
+Applicant tabs on another device may take up to the existing 15-second visible-tab refresh interval to reflect a newly recorded status. Attendance cannot be recorded when no exam assignment exists, which intentionally protects against cross-examination changes. Rollback requires removing the attendance endpoint/control and Present checks together; removing only the UI would leave applicants permanently locked. Before deployment, browser-test Pending and Present transitions with separate staff and applicant sessions, verify that crafted Absent updates are rejected, and test direct URL and submission attempts while Pending.
+
+# 2026-09-12 - White long folder requirement retirement
+
+## TL;DR
+
+- Removed the White Long Folder with Fastener from scholar-facing and staff-facing requirement screens.
+- Removed the folder from guidance, completion calculations, and Billing eligibility checks.
+- Retired the physical-folder receipt API without deleting historical values or database columns.
+- Passed all 93 backend tests, frontend ESLint, and the production build; no deployment occurred.
+
+## Objective and reason
+
+Remove the white long folder as an active PGCEAP scholar requirement so scholars are not instructed to submit it and staff do not need to record a receipt before Billing preparation.
+
+## Previous and new behavior
+
+Previously, the Scholar Portal listed a White Long Folder with Fastener, applicant guidance generated a physical-folder action, Document Reviews included a receipt directory, and missing receipt state blocked Billing eligibility. The application and scholar-management requirement summaries also exposed the item.
+
+The active workflow now contains only applicable online document requirements. Requirement completion depends exclusively on approval of those files, guidance never requests a folder, Document Reviews no longer displays or updates folder receipts, and legacy folder state cannot block Billing.
+
+## Affected users and workflows
+
+- **Scholars:** no longer see or receive reminders for a white long folder.
+- **Billing and document-review staff:** no longer record physical-folder receipts or treat them as a Billing prerequisite.
+- **Administrators:** scholar requirement summaries no longer include the folder.
+
+## Implementation and data flow
+
+The shared requirement snapshot and Billing evaluator ignore physical-folder fields. Applicant guidance derives completion and actions only from applicable online requirements. Scholar Portal rendering, notifications, counts, and completion messaging no longer consume folder state. The Document Reviews response no longer queries or returns physical-folder entries, and its receipt mutation route was removed. Existing `folder_physical_submitted` values are not read by the active workflow.
+
+## Files and system areas changed
+
+- `backend/services/lifecycleIntegrity.js`
+- `backend/services/applicantGuidance.js`
+- `backend/controllers/applicationController.js`
+- `backend/controllers/documentReviewController.js`
+- `backend/routes/applicationRoutes.js`
+- `backend/middleware/activityAudit.js`
+- `backend/tests/lifecycleIntegrity.test.js`
+- `backend/tests/applicantGuidance.test.js`
+- `frontend/src/ScholarDashboard.jsx`
+- `frontend/src/DocumentReviewManagement.jsx`
+- `frontend/src/styles/scholar-portal.css`
+- `frontend/src/styles/document-reviews.css`
+- Project change documentation
+
+## Impact
+
+- **API:** removed `PUT /document-reviews/:applicantId/physical-folder` and the `physicalFolders` collection from Document Reviews; `/applications/me` no longer returns the folder-only `scholarRequirements` object.
+- **Database:** no schema or data migration. Legacy folder columns and historical values are retained but disabled to avoid destructive data loss.
+- **Configuration:** no impact.
+- **Security/privacy:** removes an obsolete write surface and unnecessary folder-status exposure; no personal data was added or migrated.
+- **Accessibility:** requirement lists and status messaging are shorter and no longer contain an unavailable physical action.
+- **Deployment:** local source only; nothing was deployed.
+- **Approved scope:** Billing readiness changed only by removal of this document prerequisite; payroll-list generation and the boundary excluding release/payment workflows remain unchanged.
+
+## Validation performed
+
+- Updated eligibility coverage to prove both true and false legacy folder values have no effect.
+- Updated guidance coverage to prove only applicable online-document actions are produced.
+- Passed all 93 backend tests and backend syntax checks.
+- Passed frontend ESLint and the Vite production build with 494 transformed modules.
+
+## Known limitations, rollback, and recommended next work
+
+The legacy database columns remain intentionally available for historical compatibility but are unused. Rollback would restore the UI, endpoint, guidance action, and eligibility blocker; retained values allow that without reconstructing data. Before deployment, browser-test Scholar requirements, Document Reviews, Scholar Management, and Billing readiness for both public- and private-school scholars.
+
+# 2026-09-12 - Expanded Applicant Record details
+
+## TL;DR
+
+- Expanded the Applicant Record drawer with existing personal, address, academic, family, examination, and account information.
+- Uses the latest active application plus applicant and account records; no new information is collected or stored.
+- Keeps passwords, uploaded document contents, and authentication data out of the response and interface.
+- Passed all 93 backend tests, frontend ESLint, and the production build; no deployment occurred.
+
+## Objective and reason
+
+Give authorized administrators a sufficiently complete applicant profile from the Applicant directory without requiring them to cross-reference the original form or unrelated workspaces.
+
+## Previous and new behavior
+
+Previously, the drawer showed only email, a derived username, municipality, barangay, school year, registration time, and last login. It omitted most of the submitted application information.
+
+The drawer now groups available data into Contact Information, Personal Information, Residential Address, Academic Information, Parent and Guardian Information, Examination Information, and Account Activity. Missing values are explicitly labelled `Not provided`, `Not assigned`, or `Not scheduled`. The username now comes from the actual control-account record rather than being reconstructed from the applicant's name.
+
+## Affected users and workflows
+
+- **Super Administrators, Administrators, and authorized applicant-management staff:** can review a fuller applicant record from the existing View action.
+- **Applicants and scholars:** no portal workflow or stored information changes.
+
+## Implementation and data flow
+
+The existing protected applicant-management query selects additional non-secret applicant columns and identity, address, school-plan, and family JSON from the latest non-withdrawn application. The server normalizes these values into the existing applicant record response. A dedicated drawer component renders compact labelled groups and retains the existing scrolling, close control, backdrop behavior, and responsive width.
+
+## Files and system areas changed
+
+- `backend/controllers/applicationController.js`
+- `frontend/src/Dashboard.jsx`
+- Project change documentation
+
+## Impact
+
+- **API:** the existing `/applicants/management` applicant objects gained additional fields; no endpoint or existing field was removed.
+- **Database/configuration:** no schema, migration, stored-data, or environment change.
+- **Security:** the endpoint retains authentication, role checks, and Applicants section authorization. Password hashes, reset tokens, document bodies, and other credentials are not selected or returned.
+- **Privacy:** more already-collected applicant information is visible in the authorized staff drawer; access scope is unchanged and no information is exposed publicly.
+- **Accessibility:** information is grouped under descriptive headings with semantic definition lists and explicit missing-value text.
+- **Deployment:** local source only; nothing was deployed.
+- **Approved scope:** no Billing, Payroll, payment, fund-release, or monetary-audit behavior changed.
+
+## Validation performed
+
+- Backend controller syntax validation passed.
+- All 93 backend tests passed.
+- Frontend ESLint passed.
+- Vite production build passed with 494 transformed modules.
+
+## Known limitations, rollback, and recommended next work
+
+Older applicant records may legitimately show missing values where historical application JSON did not contain the newer fields. The drawer intentionally does not display uploaded document contents or raw eligibility proof data. Rollback consists of returning the management query and drawer to their smaller field set. Browser-check a recent and a legacy applicant at desktop and mobile widths before deployment.
+
+# 2026-09-12 - Administrator-managed Facebook links for announcements
+
+## TL;DR
+
+- Administrators can attach an optional exact official CAO Facebook post URL while creating or editing an announcement.
+- Scholars see a `View official Facebook post` action only when the currently published announcement contains a validated link.
+- Replaced the single build-time Facebook URL with a per-announcement database field; existing announcements remain valid with no link.
+- Validation accepts HTTPS Facebook hosts only; local backend tests, frontend lint/build, Prisma generation, and migration checks passed.
+
+## Objective and reason
+
+Allow scholarship-related posts from the official CAO Facebook Page to be represented in the Scholar Portal without Facebook Page administration or Meta API credentials. The workflow deliberately uses administrator review and manual entry rather than unreliable public-page scraping.
+
+## Previous and new behavior
+
+Previously, the Scholar Portal could show one static Facebook link supplied through `VITE_CAO_FACEBOOK_ANNOUNCEMENT_URL`. It was independent of Announcement Management and could not associate a source post with a particular notice.
+
+Announcement Management now provides an optional Official Facebook post field. The URL is saved with the announcement and returned through the existing audience-aware announcement API. When that announcement is the scholar's latest visible notice, its card opens the official post in a new tab. Announcements without a Facebook URL retain the existing requirements action. The obsolete static environment variable and duplicate standalone card were removed.
+
+## Affected users and workflows
+
+- **Authorized announcement administrators:** paste and review the exact Facebook post link before publishing or scheduling a notice.
+- **Scholars:** open the official source directly from the matching portal announcement.
+- **Applicants:** announcement selection and content remain unchanged; this new call-to-action is limited to the Scholar Portal.
+
+## Implementation and data flow
+
+The announcement editor sends `externalUrl` with the existing payload. Backend middleware and controller normalization independently require HTTPS and an exact supported Facebook hostname, remove URL fragments, and reject deceptive look-alike domains. Prisma stores the normalized value in nullable `announcements.external_url`. Serialization returns it as `externalUrl`; the Scholar Portal renders it with a new-tab link protected by `noopener noreferrer`.
+
+## Files and system areas changed
+
+- Announcement Prisma schemas and additive migration
+- Announcement controller, validator, URL normalization service, and tests
+- Announcement Management editor and preview
+- Scholar Portal announcement action and administration styling
+- Frontend environment example and project change documentation
+
+## Impact
+
+- **API:** announcement request and response objects gained the optional `externalUrl` field; existing consumers and records remain compatible.
+- **Database:** additive nullable `VARCHAR(2048)` column only; no existing rows are rewritten or deleted.
+- **Configuration:** removed obsolete `VITE_CAO_FACEBOOK_ANNOUNCEMENT_URL`; no Facebook token or API credential is required.
+- **Security:** server validation permits HTTPS links only on exact Facebook hosts and rejects credentials, non-HTTPS URLs, malformed values, and look-alike domains. Existing authentication, role, section-access, and rate-limit controls remain.
+- **Privacy:** no Facebook account data, tracking token, applicant information, or scholar information is sent to Facebook until a scholar deliberately opens the external link.
+- **Accessibility:** the optional field has a visible label and helper text; the scholar action has descriptive link text and keyboard-native behavior.
+- **Deployment:** local source and local database only; Hostinger and production were not changed.
+- **Approved scope:** no Billing, Payroll, fund-release, payment-claiming, reconciliation, or monetary-audit behavior changed.
+
+## Validation performed
+
+- URL unit coverage verifies supported Facebook hosts, fragment removal, optional empty values, HTTPS enforcement, and rejection of deceptive domains.
+- Prisma Client generation and the additive local migration completed successfully.
+- Full backend tests, frontend ESLint, Vite production build, and Git whitespace validation passed.
+
+## Known limitations, rollback, and recommended next work
+
+The system does not automatically read or mirror Facebook posts because CAO Page/API access is unavailable. Administrators must enter the title, message, optional image, and exact official URL manually. Facebook may require visitors to sign in when opening a post. Rollback removes the UI/action and application use of `external_url`; leaving the nullable database column in place is harmless, while dropping it would discard saved links. Browser-test create, edit, schedule, publish, expiration, and Scholar Portal opening before any deployment.
+
+# 2026-09-12 - Local Public-scholar fixture for Payroll Excel testing
+
+## TL;DR
+
+- Added one clearly labelled local-only Public scholar ready for direct Payroll-list generation.
+- The fixture amount is exactly PHP 3,000 and includes the school, municipality, control number, and period data needed for workbook verification.
+- Corrected and removed the obsolete pending Private-to-Payroll test state; the fixture login remains disabled and cloud/production execution is blocked.
+- Local state verification, backend syntax/tests, frontend lint/build, and Git whitespace checks passed; no deployment occurred.
+
+## Objective and reason
+
+Provide a safe record for testing the automatic official-payroll `.xlsx` download without selecting an operational scholar, while following the authoritative rule that only Public-school scholars enter Payroll.
+
+## Previous and new behavior
+
+The first local fixture incorrectly represented a Private scholar as already billed and waiting for Payroll. It has been corrected in place to `PAYROLL TEST, EXCEL, PUBLIC`, control number `PGC-TEST-XLSX`, in the current primary period. Its obsolete dummy Billing claim and Billing batch were removed, its amount is PHP 3,000, and it now waits directly in the Public Payroll queue.
+
+## Affected users and workflows
+
+- **Local Super Administrators and Billing/Payroll staff:** can select the labelled Public fixture in Payroll and generate one official test list.
+- **Applicants and scholars:** no operational account or portal workflow is affected; the fixture account cannot sign in.
+
+## Implementation and data flow
+
+The guarded seed resolves the active period, upserts a test-only Public school, applicant, disabled control account, application, active scholar record, and approved applicable requirement snapshot. It deliberately creates no Billing claim: Payroll generation creates the official Payroll batch and listed claim. If the test scholar has already been included in a generated list, the seed refuses to reset it.
+
+## Files and system areas changed
+
+- `backend/scripts/seed-local-payroll-fixture.js`
+- `backend/package.json`
+- Local application database test records
+- Project change documentation
+
+## Impact
+
+- **API:** no endpoint or contract change from the fixture itself.
+- **Database:** corrected explicitly labelled test records only in the local `_v2` database; removed only the fixture's obsolete pending Billing claim and its empty test batch. No operational row was changed.
+- **Configuration:** the local command remains `npm run seed:local-payroll-test`; no secret or environment variable was added.
+- **Security/privacy:** execution is rejected for cloud/production targets; all identity and address values are conspicuous fictitious test data and the login is disabled.
+- **Accessibility:** no interface structure changed; the name and control number make the fixture searchable.
+- **Deployment:** no Hostinger, managed database, or production deployment occurred.
+- **Approved scope:** the fixture stops at official payroll-list generation and does not model release, claiming, disbursement, reconciliation, or monetary audit.
+
+## Validation performed
+
+- Seed syntax and local execution passed.
+- Database verification confirmed `public` classification, PHP 3,000, no Billing reference, and zero current-period Payroll records before testing.
+- The full 97-test backend suite, frontend ESLint, and Vite production build passed.
+
+## Known limitations, rollback, and recommended next work
+
+The fixture supports one Payroll generation in the selected period and intentionally refuses to erase generated-list history. For another test, use a newly active period or a separately labelled fixture. Rollback removes the local-only fixture in dependency-safe order. Verify the success/error notice before attempting another generation if the browser download is interrupted.
+
+# 2026-09-12 - Restored school-classification Billing and Payroll routing
+
+## TL;DR
+
+- Private-school scholars now remain exclusively in Billing for the PHP 5,000 tuition certification list.
+- Public-school scholars bypass Billing and enter Payroll directly for the PHP 3,000 official payroll list.
+- Both server mutations independently reject the wrong school classification; interface lists, statuses, metrics, guidance, and exports follow the same routing.
+- Passed 97 backend tests, frontend ESLint, production build, local fixture verification, and API/database health checks; nothing was deployed.
+
+## Objective and reason
+
+Restore the CAO-approved classification workflow after the shared Billing-to-Payroll path incorrectly routed both school types through Billing. Private grants support tuition through the school and belong in the certification-list workflow; Public grants belong in the official scholar Payroll list.
+
+## Previous and new behavior
+
+Previously, all scholars entered Billing and only billed records appeared in Payroll. That incorrectly permitted Private scholars to progress to Payroll and required Public scholars to pass through Billing.
+
+Billing now displays and processes only Private scholars, fixes their amount at PHP 5,000, and generates a tuition certification-list record. Payroll displays and processes only Public scholars, requires no Billing prerequisite, fixes their amount at PHP 3,000, and generates the official `.xlsx` payroll list. Private records cannot be submitted to Payroll, and Public records cannot be submitted to Billing even through a crafted API request.
+
+## Affected users and workflows
+
+- **Billing staff:** review and list eligible Private scholars for tuition certification only.
+- **Payroll staff:** generate official payroll lists directly for eligible Public scholars.
+- **Private scholars:** remain outside the Payroll queue.
+- **Public scholars:** bypass Billing and appear directly in Payroll when their applicable requirements are approved.
+
+## Implementation and data flow
+
+School Catalog classification resolves each scholar's authoritative route. The management API returns `processRoute` from that classification rather than deriving it from prior processing state. Billing validates Private classification, applicable documents, active status, and duplicate prevention before creating a PHP 5,000 certification batch record. Payroll validates Public classification, applicable non-tuition documents, active status, and current-period uniqueness before atomically creating a PHP 3,000 official list and claim records. The frontend independently filters and queues records by `processRoute`; exported workbooks use the server-resolved amounts.
+
+## Files and system areas changed
+
+- `backend/controllers/applicationController.js`
+- `backend/services/billingGrant.js`
+- `backend/middleware/activityAudit.js`
+- Related backend grant and activity-log tests
+- `frontend/src/BillingPayrollManagement.jsx`
+- Local Payroll test fixture and project change documentation
+
+## Impact
+
+- **API:** `POST /billing/process` now rejects Public scholars and `POST /payroll/process` now rejects Private scholars or duplicate current-period records. Scholar management route/status fields again reflect classification.
+- **Database:** no schema migration. New list records retain existing tables but are classification-scoped. Only the known local dummy fixture was corrected; no operational data was migrated or deleted.
+- **Configuration:** no new setting or secret.
+- **Security:** server-side classification checks prevent client filtering from being bypassed; existing authentication, role, section access, rate limits, and atomic duplicate controls remain.
+- **Privacy:** no additional personal information is collected or exposed.
+- **Accessibility:** queue status text distinguishes `Ready for certification` from `Ready for payroll`, and controls retain native keyboard behavior and descriptive labels.
+- **Deployment:** local source/database only; Hostinger and production remain untouched.
+- **Approved scope:** both processes end at generating their official lists. Legacy release, paid, claim, and payout-completion code remains retained for compatibility but is outside the active workflow and was not expanded or redefined as fund release.
+
+## Validation performed
+
+- Updated amount tests prove Private always resolves to PHP 5,000 and Public always resolves to PHP 3,000.
+- Updated activity-log coverage describes Public Payroll-list generation without asserting payment completion.
+- Passed all 97 backend tests and controller/seed syntax checks.
+- Passed frontend ESLint and the Vite production build with 494 transformed modules.
+- Verified the local Public fixture has PHP 3,000, no Billing reference, and no generated Payroll record before manual testing.
+
+## Known limitations, rollback, and recommended next work
+
+Historical list records are preserved and may reflect the earlier workflow; this change does not silently rewrite real history. Legacy payment/release endpoints and fields remain in the codebase for compatibility but are not part of the approved active process and should be separately disabled or removed under a reviewed migration. Rollback would restore the shared route, which is not recommended because it conflicts with the clarified policy. Browser-test one eligible Private scholar in Billing and the Public `PGC-TEST-XLSX` fixture in Payroll before deployment.
+
+# 2026-09-12 - Ten local Private and Public workflow fixtures
+
+## TL;DR
+
+- Added five Private-school Billing fixtures and five Public-school Payroll fixtures to the active local academic period.
+- Every fixture is fully eligible, unprocessed, assigned the correct fixed amount, and uses a disabled login with fictitious data.
+- The repeatable seed refuses cloud/production targets and refuses to reset a fixture already included in a generated list.
+- Controller verification, all 97 backend tests, frontend ESLint, and the production build passed; nothing was deployed.
+
+## Objective and reason
+
+Provide enough fresh local-only records to test both approved school-classification workflows without reusing a scholar that has already entered a generated list. Private fixtures test tuition certification-list generation, while Public fixtures test official Payroll-list generation and automatic workbook download.
+
+## Previous and new behavior
+
+Previously, local testing had one corrected Public fixture, which could be consumed by a single Payroll generation. The seed now creates ten deterministic test scholars: `PGC-BILL-001` through `PGC-BILL-005` are Private and route only to Billing at PHP 5,000; `PGC-PAY-001` through `PGC-PAY-005` are Public and route only to Payroll at PHP 3,000. No claim or batch is pre-created, so all ten begin available for their respective queues.
+
+## Affected users and workflows
+
+- **Local Billing staff:** can test Private scholar selection and certification-list generation with five independent records.
+- **Local Payroll staff:** can test Public scholar selection, official list generation, and `.xlsx` download with five independent records.
+- **Applicants and scholars:** no real account is affected; fixture portal logins are disabled.
+
+## Implementation and data flow
+
+The guarded seed resolves the active academic period, upserts one labelled Private test school and one labelled Public test school, then upserts fictitious applicant, disabled control-account, application, active scholar, and approved applicable-document records. Private records include the tuition receipt required by their route; Public records deliberately omit it because it is not applicable. Before updating an existing deterministic fixture, the seed checks for a current-period generated-list claim and stops rather than deleting history.
+
+## Files and system areas changed
+
+- `backend/scripts/seed-local-payroll-fixture.js`
+- Local application database test records
+- Project change documentation
+
+## Impact
+
+- **API:** no endpoint or response contract changed.
+- **Database:** ten explicitly labelled local dummy records and two local test schools were upserted; no schema changed and no claim or batch was generated.
+- **Configuration:** the existing command remains `npm run seed:local-payroll-test`; no environment variable or secret was added.
+- **Security:** production and cloud execution are rejected, fixture login accounts are disabled, and generated-list history is not reset.
+- **Privacy:** all names, addresses, email addresses, and document markers are fictitious test data; no real personal data is used.
+- **Accessibility:** no interface structure changed; deterministic control numbers make the test records searchable.
+- **Deployment:** local source and local database only; Hostinger and production were not touched.
+- **Approved scope:** fixtures support only Billing certification-list and official Payroll-list generation. They do not model fund release, claims, disbursement, reconciliation, or monetary auditing.
+
+## Validation performed
+
+- Script syntax and local seed execution passed for all ten records in school year 2026-2027, 1st Semester.
+- Management-controller verification returned ten records with no eligibility blockers: five `Private / billing / PHP 5,000` and five `Public / payroll / PHP 3,000`.
+- All records reported `billed: false` and `inPayroll: false` before manual testing.
+- All 97 backend tests passed.
+- Frontend ESLint and Vite production build passed with 494 transformed modules; the existing large ExcelJS chunk warning remains non-blocking.
+
+## Known limitations, rollback, and recommended next work
+
+The seed intentionally refuses to recycle a fixture after official-list generation in the active period. Use remaining fixture controls or activate a new test period rather than erasing list history. Rollback may delete only these deterministic local records in dependency-safe order; it must not target operational data. Manually test one Private and one Public record first, confirm the success or error message before retrying, and preserve unused records for later cases.
+
+# 2026-09-12 - Private certification-list Excel download
+
+## TL;DR
+
+- `Generate certification list` now downloads the generated Private-scholar list as an `.xlsx` workbook after the server succeeds.
+- The workbook includes its batch and academic period, Private scholar details, fixed PHP 5,000 grant amounts, signature space, and total.
+- Preserved the five dummy records already included in a certification list and added five fresh Private records, `PGC-BILL-006` through `PGC-BILL-010`, for retesting.
+- Frontend ESLint/build, fixture syntax/execution, and management-controller readiness verification passed; nothing was deployed.
+
+## Objective and reason
+
+Correct the Billing action that generated the server-side certification batch but did not download a file. The parallel Payroll action already produced an Excel workbook, so Billing staff reasonably expected the certification action to do likewise.
+
+## Previous and new behavior
+
+Previously, the Private certification request succeeded and marked selected records as listed, but only the Payroll branch called the Excel download helper. The Billing branch now creates and downloads a dedicated tuition certification workbook immediately after a successful response. Download failure is reported separately without falsely implying that the database operation failed.
+
+The first five Private fixtures were already processed during discovery and remain immutable history. Five new unprocessed Private fixtures were added for the corrected download test. Repeat seeding skips fixtures with generated-list claims and never erases or recreates their processing history.
+
+## Affected users and workflows
+
+- **Billing staff:** receive the official working `.xlsx` file immediately after generating a Private-scholar certification list.
+- **Local testers:** can use `PGC-BILL-006` through `PGC-BILL-010` without altering the first generated test batch.
+- **Public Payroll staff:** retain the existing automatic Payroll workbook behavior.
+
+## Implementation and data flow
+
+After the authenticated Billing API atomically creates its certification batch, the frontend builds an ExcelJS workbook from the exact records submitted and the batch/period returned by the server. It then triggers a browser download whose filename contains the batch reference. The object URL is revoked after a short delay to avoid prematurely invalidating the browser download. Database processing remains server-authoritative and occurs only once.
+
+## Files and system areas changed
+
+- `frontend/src/BillingPayrollManagement.jsx`
+- `backend/scripts/seed-local-payroll-fixture.js`
+- Local application database dummy records
+- Project change documentation
+
+## Impact
+
+- **API:** no endpoint or contract change.
+- **Database:** five additional clearly labelled local Private dummy records were added; previously generated test claims were preserved. No schema changed.
+- **Configuration:** no new environment variable or secret.
+- **Security:** existing authentication, section permissions, server validation, duplicate protection, and cloud/production seed guard remain. Spreadsheet values come from authorized management data.
+- **Privacy:** no new information is collected; the replacement records are fictitious and have disabled logins.
+- **Accessibility:** the existing button and visible success/error notice remain keyboard accessible; no new interactive control was introduced.
+- **Deployment:** local source/database only; Hostinger and production were not changed.
+- **Approved scope:** this generates a certification list only and does not represent tuition payment, release, disbursement, reconciliation, or monetary auditing.
+
+## Validation performed
+
+- Frontend ESLint passed.
+- Vite production build passed with 494 transformed modules; the existing lazy ExcelJS chunk-size warning remains non-blocking.
+- Fixture script syntax and execution passed; generated test records were skipped rather than reset.
+- Controller verification confirmed `PGC-BILL-006` through `PGC-BILL-010` are Private, routed to Billing, fully eligible, unprocessed, and fixed at PHP 5,000.
+
+## Known limitations, rollback, and recommended next work
+
+If a browser blocks or interrupts the download after the API succeeds, the batch still exists and must not be regenerated with the same scholars. The current workspace does not yet expose historical certification-batch re-download; that would require a separately reviewed read-only history feature. Rollback can remove the workbook helper while preserving generated database history, although that would restore the original defect. Retest with one fresh fixture before selecting all five.
+
+# 2026-09-12 - Billing Reference quick filter
+
+## TL;DR
+
+- Added a dedicated Billing Reference selector to the Billing and Payroll quick-filter panel.
+- Staff can select all references, no reference, or an exact generated certification-list reference.
+- Exact-reference selection automatically narrows the status to Billed, and Billing Reference is now available in custom CSV exports.
+- Frontend ESLint and the production build passed; no backend, database, or deployment change occurred.
+
+## Objective and reason
+
+Allow staff to find every scholar belonging to a specific Private-school certification batch without manually searching individual control numbers or names.
+
+## Previous and new behavior
+
+Previously, the quick filters exposed only a legacy Pay Reference selector, even though Billing records have their own generated Billing reference. The panel now includes a separate Billing Reference selector populated from authorized scholar-management records. It supports `All Billing References`, `No billing reference`, and exact reference values. Selecting an exact value also selects `Billed` to avoid contradictory filters; Clear filters restores the workspace default.
+
+## Affected users and workflows
+
+- **Billing staff and authorized administrators:** can isolate a generated Private certification batch by its Billing reference.
+- **Payroll staff:** retain their existing filters; the shared workspace also exposes the additive reference selector.
+- **Applicants and scholars:** no portal behavior changes.
+
+## Implementation and data flow
+
+The frontend derives a unique sorted reference list from the existing `billingReference` field returned by Scholar Management, applies the chosen value during in-memory filtering, and includes that field among optional CSV columns. No additional request or persistence occurs.
+
+## Files and system areas changed
+
+- `frontend/src/BillingPayrollManagement.jsx`
+- Project change documentation
+
+## Impact
+
+- **API:** none; the existing `billingReference` response field is reused.
+- **Database:** none.
+- **Configuration:** none.
+- **Security/privacy:** no new data is exposed and existing authenticated management access remains authoritative.
+- **Accessibility:** the filter uses a labelled native select and remains keyboard operable.
+- **Deployment:** local source only; nothing was deployed.
+- **Approved scope:** this is list discovery only and does not represent payment release, claiming, reconciliation, or monetary auditing.
+
+## Validation performed
+
+- Frontend ESLint passed.
+- Vite production build passed with 494 transformed modules; the existing ExcelJS chunk-size warning remains non-blocking.
+
+## Known limitations, rollback, and recommended next work
+
+The options reflect references present in the currently loaded authorized records and selected processing-period dataset. Removing the selector and its in-memory predicate cleanly rolls back the change without affecting stored records. Browser-test exact-reference and no-reference selection after the next certification-list generation.
+
+# 2026-09-12 - Payroll Reference filter correction
+
+## TL;DR
+
+- Fixed generated Payroll references showing an empty scholar list.
+- Exact Payroll Reference selection now removes conflicting Billing and legacy payment-status filters.
+- Renamed the filter and options consistently to Payroll Reference.
+- Frontend ESLint/build passed; no API, database, or deployment change occurred.
+
+## Objective and reason
+
+Ensure a generated Payroll-list reference displays the scholars belonging to that list. The old selector silently required Billed and Paid states, although Public scholars bypass Billing and official-list generation does not mean payment.
+
+## Previous and new behavior
+
+Previously, selecting a valid `PAYROLL-*` reference could produce zero results because contradictory filters were applied. Exact reference selection now makes the Billing and legacy payment-status filters unrestricted, then filters by the selected Payroll reference itself.
+
+## Affected users and workflows
+
+Authorized Payroll staff can locate generated official-list members by reference. Billing, applicant, and scholar workflows are unchanged.
+
+## Implementation and data flow
+
+This is an in-memory frontend filter correction using the existing authorized `payReference` value. It does not create, delete, or reinterpret list records.
+
+## Files and system areas changed
+
+- `frontend/src/BillingPayrollManagement.jsx`
+- Project change documentation
+
+## Impact
+
+- **API, database, and configuration:** no impact.
+- **Security/privacy:** existing authenticated data and permissions are unchanged.
+- **Accessibility:** the labelled native selector remains keyboard operable and now uses accurate terminology.
+- **Deployment:** local source only; nothing was deployed.
+- **Approved scope:** Payroll Reference identifies official list generation, not fund release, payment, reconciliation, or monetary audit.
+
+## Validation performed
+
+Frontend ESLint and the Vite production build passed with 494 transformed modules. The existing ExcelJS chunk-size warning remains non-blocking.
+
+## Known limitations, rollback, and recommended next work
+
+The selector lists references contained in the currently loaded authorized records. Rolling back restores the contradictory-filter defect. Manually select the displayed `PAYROLL-*` reference and confirm its scholars now appear.
+
+# 2026-09-12 - Quick-filter layout alignment
+
+## TL;DR
+
+- Placed Billed and Paid status selectors side by side so the three quick-filter columns have a balanced vertical orientation.
+- Billing and Payroll reference selectors retain full-width rows for readable batch values.
+- Frontend ESLint/build passed; behavior and stored data are unchanged.
+
+## Objective and reason
+
+Correct the uneven Quick Filters card after adding Billing Reference. The middle group had four full-width rows while the adjacent groups had three, creating an unnecessarily tall and visually unbalanced panel.
+
+## Previous and new behavior
+
+Billed and Paid previously occupied separate full-width rows. They now share one responsive two-column row, followed by full-width Billing Reference and Payroll Reference selectors.
+
+## Affected users and workflows
+
+Authorized Billing and Payroll users receive a more compact, aligned filter panel. Filter values and results are unchanged.
+
+## Implementation and data flow
+
+The two status labels are grouped in a CSS grid row. No data flow changed.
+
+## Files and system areas changed
+
+- `frontend/src/BillingPayrollManagement.jsx`
+- `frontend/src/styles/admin.css`
+- Detailed development documentation
+
+## Impact
+
+- **API, database, configuration, security, and privacy:** no impact.
+- **Accessibility:** native labelled selectors and keyboard behavior are preserved.
+- **Deployment:** local source only; nothing was deployed.
+- **Approved scope:** no financial workflow behavior changed.
+
+## Validation performed
+
+Frontend ESLint and the Vite production build passed with 494 transformed modules. The existing ExcelJS chunk-size warning remains non-blocking.
+
+## Known limitations, rollback, and recommended next work
+
+Very narrow displays continue to use the existing stacked filter-group layout. Removing the wrapper and its grid rule restores the previous orientation. Visually verify the card at desktop and mobile widths.
+
+# 2026-09-12 - Examination Attendance modal clipping fix
+
+## TL;DR
+
+- Fixed applicant attendance rows being cut off by the bottom edge of the Examination Management modal.
+- The modal now uses a bounded column layout with an independently scrolling applicant list.
+- Removed accidental responsive padding from the modal container while preserving its intended inner spacing.
+- Frontend ESLint/build passed; application behavior and data are unchanged.
+
+## Objective and reason
+
+Keep the attendance selector and applicant row fully visible when the modal content exceeds the available viewport height.
+
+## Previous and new behavior
+
+The modal hid overflow while its applicant list used a separate fixed maximum height, allowing their combined height to exceed the modal and clip the last visible row. The modal is now a flex column, and the list consumes only remaining space and scrolls internally.
+
+## Affected users and workflows
+
+Examination administrators can view and operate every Pending/Present selector without content being covered. Attendance rules and persistence are unchanged.
+
+## Implementation and data flow
+
+CSS now gives the modal a vertical flex layout, gives its list `min-height: 0` and flexible remaining height, and retains vertical overflow on the list. A mobile rule no longer applies container padding that conflicted with child spacing.
+
+## Files and system areas changed
+
+- `frontend/src/styles/admin.css`
+- `frontend/src/styles/admin-responsive.css`
+- Detailed development documentation
+
+## Impact
+
+- **API, database, configuration, security, and privacy:** no impact.
+- **Accessibility:** attendance controls remain visible and keyboard operable within a predictable scroll region.
+- **Deployment:** local source only; nothing was deployed.
+- **Approved scope:** no examination or financial workflow logic changed.
+
+## Validation performed
+
+Frontend ESLint and the Vite production build passed with 494 transformed modules. The existing ExcelJS chunk-size warning remains non-blocking.
+
+## Known limitations, rollback, and recommended next work
+
+The list still depends on the viewport height and scrolls when necessary, by design. Reverting the flex and list sizing rules restores the clipping defect. Visually verify the first and last attendance rows at desktop and narrow viewport heights.
+
+# 2026-09-12 - Deployment-aware Hostinger backend build
+
+## TL;DR
+
+- Made the standard backend `npm run build` safe for Hostinger's configured build command.
+- Production/cloud builds now generate Prisma Client and apply committed migrations before the server starts.
+- Local builds generate the client but explicitly skip production migration deployment.
+- Local build verification passed without contacting or changing the managed database.
+
+## Objective and reason
+
+Prevent deployment of application code that expects the new examination-control and announcement external-link columns before those additive migrations exist in the hosted database. Hostinger is configured to invoke the standard backend build script rather than the Render-specific build alias.
+
+## Previous and new behavior
+
+Previously, `npm run build` generated Prisma Client only, so a successful Hostinger build could still start against an outdated schema. The build now detects `NODE_ENV=production` or `DATABASE_TARGET=cloud`, then invokes the guarded committed-migration runner. Development builds remain unable to accidentally deploy production migrations.
+
+## Affected users and workflows
+
+- **Deployment operators:** receive a fail-fast build if hosted migrations cannot be applied.
+- **Administrators, applicants, and scholars:** avoid runtime failures caused by application/schema mismatch.
+- **Local developers:** retain normal Prisma generation without managed-database mutation.
+
+## Implementation and data flow
+
+The new build orchestrator resolves the installed Prisma CLI, generates the application client, inspects deployment-target environment variables, and conditionally executes the existing migration runner. The runner uses `DIRECT_URL` when available and otherwise `DATABASE_URL`, and Prisma applies only unapplied committed migrations transactionally according to its migration ledger.
+
+## Files and system areas changed
+
+- `backend/package.json`
+- `backend/scripts/build.js`
+- Existing migration runner and committed migrations are reused
+- Project change documentation
+
+## Impact
+
+- **API:** no endpoint or response-contract change.
+- **Database:** hosted deployments may apply only the two committed additive migrations; local verification applied none. Existing rows are preserved and receive safe defaults where required.
+- **Configuration:** Hostinger must provide `DATABASE_URL` and production targeting through `NODE_ENV=production` or `DATABASE_TARGET=cloud`; `DIRECT_URL` remains preferred but the guarded runner can use `DATABASE_URL`.
+- **Security:** database credentials remain server-side, are not logged, and migration failure prevents startup with a mismatched schema.
+- **Privacy:** no personal information is added to build output or configuration.
+- **Accessibility:** no interface impact.
+- **Deployment:** standard Hostinger backend builds now include migration deployment; Render retains its existing explicit build sequence.
+- **Approved scope:** no Billing/Payroll business workflow is extended beyond official list generation.
+
+## Validation performed
+
+Local `npm run build` generated Prisma Client 6.19.3 successfully and reported that production migration deployment was skipped. The build script contains no managed credentials and did not contact the hosted database.
+
+## Known limitations, rollback, and recommended next work
+
+The hosted database account must have permission to apply the committed additive migrations. A failure intentionally blocks deployment rather than starting incompatible code. Rollback restores the former generate-only build, but doing so requires migrations to be applied manually before application startup. Verify the hosted health endpoint and the two new settings after deployment.

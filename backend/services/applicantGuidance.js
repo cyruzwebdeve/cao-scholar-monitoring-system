@@ -31,6 +31,8 @@ const buildApplicantGuidance = ({
   payrollClaim,
   payrollBatch,
   scheduledExam,
+  examinationSettings,
+  examSlot,
 } = {}) => {
   if (!application) {
     return {
@@ -52,7 +54,12 @@ const buildApplicantGuidance = ({
   const hasResult = Boolean(result);
   const isScholar = Boolean(scholar?.is_active);
   const examBypassed = isScholar && !hasResult && String(scholar?.notes || '').includes('verified proof');
-  const examScheduled = Boolean(scheduledExam?.is_active);
+  const examinationAccessEnabled = examinationSettings === undefined
+    ? true
+    : Boolean(examinationSettings?.isEnabled);
+  const examScheduled = Boolean(examinationAccessEnabled && scheduledExam?.is_active);
+  const examinationDeliveryMode = examinationSettings?.deliveryMode || 'paper';
+  const attendanceConfirmed = Boolean(examSlot?.appeared);
   const requirementSnapshot = getRequirementSnapshot({
     initialDocs: application.initial_docs,
     requirement: scholarRequirement,
@@ -62,8 +69,7 @@ const buildApplicantGuidance = ({
   const pendingRequirements = requirementSnapshot.online.filter(({ submitted, approved, status }) => (
     submitted && !approved && !REJECTED_STATUSES.has(status)
   ));
-  const requirementsComplete = requirementSnapshot.onlineApproved === requirementSnapshot.onlineTotal
-    && requirementSnapshot.physicalFolderSubmitted;
+  const requirementsComplete = requirementSnapshot.onlineApproved === requirementSnapshot.onlineTotal;
   const includedInPayrollList = Boolean(payrollClaim);
 
   const timeline = [
@@ -103,7 +109,7 @@ const buildApplicantGuidance = ({
       label: 'Scholar requirements',
       status: requirementsComplete ? 'completed' : isScholar ? 'current' : 'upcoming',
       detail: requirementsComplete
-        ? 'All online requirements and the physical folder are recorded.'
+        ? 'All online requirements are approved and recorded.'
         : isScholar
           ? `${requirementSnapshot.onlineApproved} of ${requirementSnapshot.onlineTotal} online requirements are approved.`
           : 'Requirements become available after scholar acceptance.',
@@ -124,6 +130,17 @@ const buildApplicantGuidance = ({
 
   if (!hasResult) {
     if (examScheduled) {
+      const isOnlineExamination = examinationDeliveryMode === 'online';
+      const actionTitle = isOnlineExamination
+        ? attendanceConfirmed ? 'Start your online examination' : 'Wait for attendance confirmation'
+        : 'Attend your qualifying examination';
+      const actionDescription = isOnlineExamination
+        ? attendanceConfirmed
+          ? 'Your attendance is confirmed. Open the secured question view when you are ready.'
+          : `Report to ${scheduledExam.venue || 'your assigned venue'}. Online questions unlock after CAO marks you Present.`
+        : scheduledExam.venue
+          ? `Report to ${scheduledExam.venue} on your published examination date.`
+          : 'Report to your assigned venue on the published examination date.';
       return {
         state: 'action_required',
         headline: 'Your examination is scheduled',
@@ -131,12 +148,10 @@ const buildApplicantGuidance = ({
         actions: [makeAction({
           id: 'complete-examination',
           type: 'examination',
-          title: 'Review your examination schedule',
-          description: scheduledExam.venue
-            ? `Your assigned venue is ${scheduledExam.venue}.`
-            : 'Open the examination details to review your assigned schedule.',
+          title: actionTitle,
+          description: actionDescription,
           priority: 'high',
-          route: 'examination',
+          route: isOnlineExamination && attendanceConfirmed ? 'examination' : null,
         })],
         timeline,
       };
@@ -188,16 +203,6 @@ const buildApplicantGuidance = ({
       title: `Upload ${formatCount(missingRequirements.length, 'missing requirement')}`,
       description: missingRequirements.map(({ label }) => label).join(', '),
       priority: 'high',
-      route: 'requirements',
-    }));
-  }
-  if (!requirementSnapshot.physicalFolderSubmitted) {
-    actions.push(makeAction({
-      id: 'submit-physical-folder',
-      type: 'physical_requirement',
-      title: 'Submit your white long folder',
-      description: 'Bring the physical folder with fastener directly to the Community Affairs Office.',
-      priority: 'normal',
       route: 'requirements',
     }));
   }

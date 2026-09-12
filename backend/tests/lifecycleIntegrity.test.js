@@ -36,7 +36,7 @@ const approvedDocuments = () => ({
   requirements: Object.fromEntries(ONLINE_REQUIREMENTS.map(({ key }) => [key, { fileName: `${key}.pdf`, status: 'Approved' }])),
 });
 
-test('[SUCCESS] an active scholar with six approved files and a physical folder is billable', () => {
+test('[SUCCESS] an active scholar with all applicable online files is billable', () => {
   const result = evaluateBillingEligibility({
     isActive: true,
     alreadyBilled: false,
@@ -61,15 +61,15 @@ test('[FAILED] pending or missing Billing staff decisions block billing', () => 
   assert.deepEqual(new Set(result.reasons.map(({ code }) => code)), new Set(['REQUIREMENT_NOT_APPROVED', 'REQUIREMENT_MISSING']));
 });
 
-test('[FAILED] an unreceived physical folder blocks billing', () => {
+test('[SUCCESS] legacy physical-folder state no longer affects billing eligibility', () => {
   const result = evaluateBillingEligibility({
     isActive: true,
     alreadyBilled: false,
     initialDocs: approvedDocuments(),
     requirement: { folder_physical_submitted: false },
   });
-  assert.equal(result.eligible, false);
-  assert.ok(result.reasons.some(({ code }) => code === 'PHYSICAL_FOLDER_MISSING'));
+  assert.equal(result.eligible, true);
+  assert.equal(result.reasons.some(({ code }) => code === 'PHYSICAL_FOLDER_MISSING'), false);
 });
 
 test('[FAILED] an inactive or previously billed scholar cannot re-enter billing', () => {

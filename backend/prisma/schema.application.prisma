@@ -56,6 +56,7 @@ model announcements {
   image_name   String?   @db.VarChar(255)
   image_type   String?   @db.VarChar(100)
   image_data   String?
+  external_url String?   @db.VarChar(2048)
   created_by   Int?
   created_at   DateTime  @default(now()) @db.Timestamp(6)
   updated_at   DateTime  @updatedAt @db.Timestamp(6)
@@ -131,13 +132,15 @@ model application_submissions {
 }
 
 model application_settings {
-  id         Int       @id @default(1)
-  is_enabled Boolean   @default(true)
-  opens_at   DateTime? @db.Timestamp(6)
-  closes_at  DateTime? @db.Timestamp(6)
-  updated_by Int?
-  created_at DateTime  @default(now()) @db.Timestamp(6)
-  updated_at DateTime  @updatedAt @db.Timestamp(6)
+  id                    Int       @id @default(1)
+  is_enabled            Boolean   @default(true)
+  opens_at              DateTime? @db.Timestamp(6)
+  closes_at             DateTime? @db.Timestamp(6)
+  examination_enabled   Boolean   @default(false)
+  exam_delivery_mode    String    @default("paper") @db.VarChar(20)
+  updated_by            Int?
+  created_at            DateTime  @default(now()) @db.Timestamp(6)
+  updated_at            DateTime  @updatedAt @db.Timestamp(6)
 }
 
 model control_accounts {

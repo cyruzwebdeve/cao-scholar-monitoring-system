@@ -1,4 +1,4 @@
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 
 const npmCli = process.env.npm_execpath;
 const nodeCommand = process.env.npm_node_execpath || process.execPath;
@@ -46,7 +46,18 @@ function stopAll(signal = 'SIGTERM') {
   if (stopping) return;
   stopping = true;
   children.forEach((child) => {
-    if (!child.killed) child.kill(signal);
+    if (child.killed) return;
+    if (process.platform === 'win32' && child.pid) {
+      // npm.cmd and nodemon create descendant processes on Windows. Killing
+      // only the immediate wrapper can leave stale Vite/API servers bound to
+      // ports 5173 and 3601, so terminate the launcher-owned process tree.
+      spawnSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+      return;
+    }
+    child.kill(signal);
   });
 
   setTimeout(() => process.exit(exitCode), 3000).unref();

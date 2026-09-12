@@ -11,7 +11,6 @@ const APPROVED_STATUSES = new Set(['approved', 'complete', 'completed']);
 const OVERRIDABLE_BILLING_REASON_CODES = new Set([
   'REQUIREMENT_MISSING',
   'REQUIREMENT_NOT_APPROVED',
-  'PHYSICAL_FOLDER_MISSING',
 ]);
 
 const normalizeStatus = (value) => String(value || '').trim().toLowerCase();
@@ -42,7 +41,6 @@ const getRequirementSnapshot = ({ initialDocs, requirement, schoolType = 'privat
     online,
     onlineApproved: online.filter(({ approved }) => approved).length,
     onlineTotal: online.length,
-    physicalFolderSubmitted: Boolean(requirement?.folder_physical_submitted),
   };
 };
 
@@ -55,9 +53,6 @@ const evaluateBillingEligibility = ({ isActive, alreadyBilled, initialDocs, requ
     if (!item.submitted) reasons.push({ code: 'REQUIREMENT_MISSING', requirement: item.key, message: `${item.label} has not been uploaded.` });
     else if (!item.approved) reasons.push({ code: 'REQUIREMENT_NOT_APPROVED', requirement: item.key, message: `${item.label} has not been approved by Billing staff.` });
   });
-  if (!snapshot.physicalFolderSubmitted) {
-    reasons.push({ code: 'PHYSICAL_FOLDER_MISSING', message: 'The white long folder has not been received by CAO.' });
-  }
   if (alreadyBilled) reasons.push({ code: 'ALREADY_BILLED', message: 'Scholar is already billed for this academic period.' });
 
   return { eligible: reasons.length === 0, reasons, snapshot };

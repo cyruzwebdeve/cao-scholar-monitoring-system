@@ -3,10 +3,10 @@ const { authenticate, authenticateOptional } = require('../middleware/auth');
 const { auditSuccessfulMutation } = require('../middleware/activityAudit');
 const { checkRole, checkSectionAccess } = require('../middleware/rbac');
 const { getActivityLogs } = require('../controllers/activityController');
-const { getApplicationSettings, updateApplicationSettings } = require('../controllers/applicationSettingsController');
+const { getApplicationSettings, updateApplicationSettings, getExaminationSettingsController, updateExaminationSettings } = require('../controllers/applicationSettingsController');
 const { getLifecycleReport } = require('../controllers/lifecycleReportController');
 const { getMyNotifications, markMyNotificationRead } = require('../controllers/notificationController');
-const { approvePendingDocuments, getDocumentReviews, reviewDocument, streamDocument, updatePhysicalFolder } = require('../controllers/documentReviewController');
+const { approvePendingDocuments, getDocumentReviews, reviewDocument, streamDocument } = require('../controllers/documentReviewController');
 const {
   changeStaffPassword,
   createStaffAccount,
@@ -49,6 +49,7 @@ const {
   getApplicantManagement,
   getExaminationManagement,
   saveExaminationManagement,
+  updateExaminationAttendance,
   acceptApplicantAsScholar,
   reevaluateExamResult,
 } = require('../controllers/applicationController');
@@ -82,6 +83,8 @@ router.use(auditSuccessfulMutation);
 router.get('/academic-periods/active', getActiveAcademicPeriod);
 router.get('/application-settings', getApplicationSettings);
 router.put('/application-settings', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('settings'), updateApplicationSettings);
+router.get('/examination-settings', authenticate, checkRole(['Applicant', 'Scholar', 'SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getExaminationSettingsController);
+router.put('/examination-settings', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('settings'), updateExaminationSettings);
 router.get('/academic-periods', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), getAcademicPeriods);
 router.post('/academic-periods', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), createAcademicPeriod);
 router.put('/academic-periods/:id/activate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), activateAcademicPeriod);
@@ -98,13 +101,13 @@ router.put('/staff/:id', authenticate, staffWriteRateLimiter, checkRole(['SuperA
 router.put('/staff/:id/password', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin']), validateStaffPassword, changeStaffPassword);
 router.get('/document-reviews', authenticate, checkRole(['BillingPayrollAdmin', 'SuperAdmin']), checkSectionAccess('documentReviews'), getDocumentReviews);
 router.get('/document-reviews/:applicationId/:requirementKey/file', authenticate, checkRole(['BillingPayrollAdmin', 'SuperAdmin']), checkSectionAccess('documentReviews'), streamDocument);
-router.put('/document-reviews/:applicantId/physical-folder', authenticate, documentReviewRateLimiter, checkRole(['BillingPayrollAdmin', 'SuperAdmin']), checkSectionAccess('documentReviews'), updatePhysicalFolder);
 router.put('/document-reviews/:applicationId/approve-pending', authenticate, documentReviewRateLimiter, checkRole(['BillingPayrollAdmin', 'SuperAdmin']), checkSectionAccess('documentReviews'), approvePendingDocuments);
 router.put('/document-reviews/:applicationId/:requirementKey', authenticate, documentReviewRateLimiter, checkRole(['BillingPayrollAdmin', 'SuperAdmin']), checkSectionAccess('documentReviews'), validateDocumentReview, reviewDocument);
 router.put('/schools/classification', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), updateSchoolClassification);
 router.get('/applicants/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('applicants'), getApplicantManagement);
 router.get('/examinations/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), getExaminationManagement);
 router.put('/examinations/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), saveExaminationManagement);
+router.put('/examinations/:examId/attendance/:applicantId', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), updateExaminationAttendance);
 
 // Public route to create a baseline application and optionally register a user
 router.post('/applications', applicationSubmissionRateLimiter, authenticateOptional, validateCreateApplication, createApplication);

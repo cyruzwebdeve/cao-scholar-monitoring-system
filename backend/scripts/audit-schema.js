@@ -51,7 +51,7 @@ const quoteIdentifier = (value) => `"${String(value).replaceAll('"', '""')}"`;
 
 const main = async () => {
   const columns = await prisma.$queryRaw`
-    SELECT table_name, column_name
+    SELECT table_name::text AS table_name, column_name::text AS column_name
     FROM information_schema.columns
     WHERE table_schema = 'public'
     ORDER BY table_name, ordinal_position

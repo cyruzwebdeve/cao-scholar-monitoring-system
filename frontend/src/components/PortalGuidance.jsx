@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  CalendarCheck2,
   CheckCircle2,
   ChevronRight,
   Clock3,
@@ -51,9 +52,10 @@ function PortalGuidance({ guidance, resolveRoute, children }) {
       <div className="portal-guidance-actions" aria-label="Personalized next actions">
         {(guidance.actions || []).map((action) => {
           const href = resolveRoute?.(action.route, action) || null;
+          const ActionIcon = action.type === 'examination' ? CalendarCheck2 : ListChecks;
           return (
             <article className={`portal-guidance-action priority-${action.priority || 'normal'}`} key={action.id}>
-              <span className="portal-guidance-action-icon"><ListChecks size={17} aria-hidden="true" /></span>
+              <span className="portal-guidance-action-icon"><ActionIcon size={17} aria-hidden="true" /></span>
               <div>
                 <strong>{action.title}</strong>
                 <span>{action.description}</span>

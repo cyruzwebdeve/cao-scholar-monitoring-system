@@ -23,7 +23,6 @@ const navItemsByRole = {
     { label: 'Billing', icon: FileText, section: 'billing' },
     { label: 'Payroll', icon: Boxes, section: 'payroll' },
     { label: 'Announcements', icon: Megaphone, section: 'announcements' },
-    { label: 'School Catalog', icon: FileText },
     { label: 'Activity Logs', icon: ClipboardList },
     { label: 'Reports', icon: ChartColumn, section: 'reports' },
     { label: 'Settings', icon: Settings2, section: 'settings' },

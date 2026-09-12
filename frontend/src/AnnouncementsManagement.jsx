@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CalendarClock,
+  ExternalLink,
   FilePenLine,
   ImagePlus,
   Megaphone,
@@ -33,6 +34,7 @@ const emptyForm = () => ({
   imageName: '',
   imageType: '',
   imageData: '',
+  externalUrl: '',
 });
 
 const toDateTimeInput = (value) => {
@@ -103,7 +105,7 @@ export default function AnnouncementsManagement({ token }) {
   }), [announcements]);
 
   const filtered = useMemo(() => announcements.filter((announcement) => {
-    const search = `${announcement.title} ${announcement.content}`.toLowerCase();
+    const search = `${announcement.title} ${announcement.content} ${announcement.externalUrl || ''}`.toLowerCase();
     return search.includes(query.trim().toLowerCase())
       && (statusFilter === 'all' || announcement.status === statusFilter)
       && (audienceFilter === 'any' || announcement.audience === audienceFilter)
@@ -130,6 +132,7 @@ export default function AnnouncementsManagement({ token }) {
       imageName: announcement.imageName || '',
       imageType: announcement.imageType || '',
       imageData: announcement.imageData || '',
+      externalUrl: announcement.externalUrl || '',
     });
     setFormError('');
     setEditorOpen(true);
@@ -240,9 +243,9 @@ export default function AnnouncementsManagement({ token }) {
       <form className="announcement-editor" role="dialog" aria-modal="true" aria-labelledby="announcement-editor-title" onSubmit={saveAnnouncement}>
         <header><div><span><Megaphone size={18} /></span><div><small>ANNOUNCEMENT EDITOR</small><h3 id="announcement-editor-title">{editingId ? 'Edit announcement' : 'Create announcement'}</h3></div></div><button type="button" onClick={() => setEditorOpen(false)} disabled={saving} aria-label="Close editor"><X size={19} /></button></header>
         <div className="announcement-editor-body">
-          <section><h4>Message</h4><label><span>Title</span><input required maxLength={200} value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} placeholder="Enter a clear announcement title" /></label><label><span>Content</span><textarea required maxLength={5000} rows={7} value={form.content} onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))} placeholder="Write the announcement message…" /><small>{form.content.length} / 5,000</small></label><div className="announcement-image-field"><span>Image <small>(optional)</small></span>{form.imageData ? <div className="announcement-image-selected"><img src={form.imageData} alt="Announcement preview" /><span><strong>{form.imageName}</strong><small>{form.imageType}</small></span><button type="button" onClick={() => setForm((current) => ({ ...current, imageName: '', imageType: '', imageData: '' }))}><Trash2 size={14} />Remove</button></div> : <label className="announcement-image-upload"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={selectAnnouncementImage} /><ImagePlus size={18} /><span><strong>Add announcement image</strong><small>JPG, PNG, WEBP, or GIF · Maximum 3 MB</small></span></label>}</div></section>
+          <section><h4>Message</h4><label><span>Title</span><input required maxLength={200} value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} placeholder="Enter a clear announcement title" /></label><label><span>Content</span><textarea required maxLength={5000} rows={7} value={form.content} onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))} placeholder="Write the announcement message…" /><small>{form.content.length} / 5,000</small></label><label><span>Official Facebook post <small>(optional)</small></span><input type="url" inputMode="url" maxLength={2048} value={form.externalUrl} onChange={(event) => setForm((current) => ({ ...current, externalUrl: event.target.value }))} placeholder="https://www.facebook.com/..." /><small>Paste the exact official CAO Facebook post URL.</small></label><div className="announcement-image-field"><span>Image <small>(optional)</small></span>{form.imageData ? <div className="announcement-image-selected"><img src={form.imageData} alt="Announcement preview" /><span><strong>{form.imageName}</strong><small>{form.imageType}</small></span><button type="button" onClick={() => setForm((current) => ({ ...current, imageName: '', imageType: '', imageData: '' }))}><Trash2 size={14} />Remove</button></div> : <label className="announcement-image-upload"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={selectAnnouncementImage} /><ImagePlus size={18} /><span><strong>Add announcement image</strong><small>JPG, PNG, WEBP, or GIF · Maximum 3 MB</small></span></label>}</div></section>
           <section><h4>Delivery</h4><div className="announcement-editor-grid"><label><span>Audience</span><select value={form.audience} onChange={(event) => setForm((current) => ({ ...current, audience: event.target.value }))}>{Object.entries(audienceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span>Priority</span><select value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label><label><span>Status</span><select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option value="draft">Draft</option><option value="scheduled">Scheduled</option><option value="published">Published</option><option value="archived">Archived</option></select></label><label><span>Publish date</span><input type="datetime-local" required={form.status === 'scheduled'} value={form.publishAt} onChange={(event) => setForm((current) => ({ ...current, publishAt: event.target.value }))} /></label><label><span>Expires <small>(optional)</small></span><input type="datetime-local" value={form.expiresAt} onChange={(event) => setForm((current) => ({ ...current, expiresAt: event.target.value }))} /></label></div></section>
-          <aside className={`announcement-preview ${form.priority}`}>{form.imageData && <img src={form.imageData} alt="" />}<div><span>PREVIEW · {audienceLabels[form.audience]}</span><strong>{form.title || 'Announcement title'}</strong><p>{form.content || 'Your announcement message will appear here.'}</p></div></aside>
+          <aside className={`announcement-preview ${form.priority}`}>{form.imageData && <img src={form.imageData} alt="" />}<div><span>PREVIEW · {audienceLabels[form.audience]}</span><strong>{form.title || 'Announcement title'}</strong><p>{form.content || 'Your announcement message will appear here.'}</p>{form.externalUrl && <em className="announcement-preview-link"><ExternalLink size={13} /> View official Facebook post</em>}</div></aside>
           {formError && <div className="announcement-form-error"><TriangleAlert size={15} />{formError}</div>}
         </div>
         <footer><button type="button" className="secondary" onClick={() => setEditorOpen(false)} disabled={saving}>Cancel</button><button type="submit" className="primary" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Save changes' : form.status === 'published' ? 'Publish announcement' : 'Save announcement'}</button></footer>

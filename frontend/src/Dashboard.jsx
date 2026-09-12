@@ -52,7 +52,6 @@ import ReportsManagement from './ReportsManagement';
 import ActivityLogsManagement from './ActivityLogsManagement';
 import StaffManagement from './StaffManagement';
 import DocumentReviewManagement from './DocumentReviewManagement';
-import SchoolCatalogManagement from './SchoolCatalogManagement';
 import municipalitiesData from '../../municipality.json';
 import barangaysData from '../../brgy.json';
 import './styles/admin-prelude.css';
@@ -705,6 +704,76 @@ const applicantExportColumns = [
   { key: 'lastLogin', label: 'Last Login' },
 ];
 
+const applicantDetailValue = (value, fallback = 'Not provided') => (
+  value === null || value === undefined || String(value).trim() === '' ? fallback : value
+);
+
+function ApplicantDetailDrawer({ applicant, onClose }) {
+  const guardianLabel = applicant.guardianRelationship
+    ? `Guardian (${applicant.guardianRelationship})`
+    : 'Guardian';
+  return (
+    <div className="applicant-drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <aside className="applicant-detail-drawer" role="dialog" aria-modal="true" aria-labelledby="applicant-detail-title">
+        <button type="button" className="applicant-drawer-close" onClick={onClose} aria-label="Close applicant details"><X size={19} /></button>
+        <div className="applicant-drawer-profile"><span className="applicant-drawer-avatar">{applicant.initials}</span><div><span className="applicants-eyebrow">APPLICANT RECORD</span><h3 id="applicant-detail-title">{applicant.name}</h3><p>{applicant.controlNo}</p></div></div>
+        <span className={`applicant-status applicant-drawer-status ${applicant.status.toLowerCase().replace(/\s+/g, '-')}`}>{applicant.status}</span>
+
+        <div className="applicant-detail-section"><h4>Contact information</h4><dl>
+          <div><dt>Email address</dt><dd>{applicantDetailValue(applicant.email)}</dd></div>
+          <div><dt>Mobile number</dt><dd>{applicantDetailValue(applicant.phone)}</dd></div>
+          <div><dt>Username</dt><dd>{applicantDetailValue(applicant.username, 'Not available')}</dd></div>
+        </dl></div>
+
+        <div className="applicant-detail-section"><h4>Personal information</h4><dl>
+          <div><dt>Date of birth</dt><dd>{applicant.birthDate ? formatDate(applicant.birthDate) : 'Not provided'}</dd></div>
+          <div><dt>Birthplace</dt><dd>{applicantDetailValue(applicant.birthplace)}</dd></div>
+          <div><dt>Sex</dt><dd>{applicantDetailValue(applicant.gender)}</dd></div>
+          <div><dt>Civil status</dt><dd>{applicantDetailValue(applicant.civilStatus)}</dd></div>
+        </dl></div>
+
+        <div className="applicant-detail-section"><h4>Residential address</h4><dl>
+          <div><dt>House / street / purok</dt><dd>{applicantDetailValue(applicant.street)}</dd></div>
+          <div><dt>Barangay</dt><dd>{applicantDetailValue(applicant.barangay)}</dd></div>
+          <div><dt>Municipality</dt><dd>{applicantDetailValue(applicant.municipality)}</dd></div>
+        </dl></div>
+
+        <div className="applicant-detail-section"><h4>Academic information</h4><dl>
+          <div><dt>School</dt><dd>{applicantDetailValue(applicant.school)}</dd></div>
+          <div><dt>Course / program</dt><dd>{applicantDetailValue(applicant.course)}</dd></div>
+          <div><dt>Incoming year level</dt><dd>{applicantDetailValue(applicant.yearLevel)}</dd></div>
+          <div><dt>School year</dt><dd>{applicantDetailValue(applicant.schoolYear)}</dd></div>
+          <div><dt>GWA</dt><dd>{applicantDetailValue(applicant.gwa)}</dd></div>
+        </dl></div>
+
+        <div className="applicant-detail-section"><h4>Parent and guardian information</h4><dl>
+          <div><dt>Father</dt><dd>{applicantDetailValue(applicant.fatherName)}</dd></div>
+          <div><dt>Father&apos;s occupation</dt><dd>{applicantDetailValue(applicant.fatherOccupation)}</dd></div>
+          <div><dt>Mother</dt><dd>{applicantDetailValue(applicant.motherName)}</dd></div>
+          <div><dt>Mother&apos;s occupation</dt><dd>{applicantDetailValue(applicant.motherOccupation)}</dd></div>
+          <div><dt>{guardianLabel}</dt><dd>{applicantDetailValue(applicant.guardianName)}</dd></div>
+          <div><dt>Guardian occupation</dt><dd>{applicantDetailValue(applicant.guardianOccupation)}</dd></div>
+          <div><dt>Family income</dt><dd>{applicantDetailValue(applicant.familyIncome)}</dd></div>
+          <div><dt>Brothers</dt><dd>{applicantDetailValue(applicant.brothersCount, '0')}</dd></div>
+          <div><dt>Sisters</dt><dd>{applicantDetailValue(applicant.sistersCount, '0')}</dd></div>
+        </dl></div>
+
+        <div className="applicant-detail-section"><h4>Examination information</h4><dl>
+          <div><dt>Attendance</dt><dd>{applicantDetailValue(applicant.attendanceStatus, 'Pending')}</dd></div>
+          <div><dt>Result status</dt><dd>{applicantDetailValue(applicant.resultStatus, 'Pending')}</dd></div>
+          <div><dt>Venue</dt><dd>{applicantDetailValue(applicant.examVenue, 'Not assigned')}</dd></div>
+          <div><dt>Schedule</dt><dd>{applicant.examDate ? formatExamDateRange(applicant.examDate, applicant.examEndDate) : 'Not scheduled'}</dd></div>
+        </dl></div>
+
+        <div className="applicant-detail-section"><h4>Account activity</h4><dl>
+          <div><dt>Registered</dt><dd>{formatDateTime(applicant.registered)}</dd></div>
+          <div><dt>Last login</dt><dd>{formatDateTime(applicant.lastLogin)}</dd></div>
+        </dl></div>
+      </aside>
+    </div>
+  );
+}
+
 function ApplicantsManagement({ token }) {
   const [data, setData] = useState({ stats: { total: 0, scheduled: 0, completed: 0, passed: 0 }, applicants: [] });
   const [query, setQuery] = useState('');
@@ -835,7 +904,7 @@ function ApplicantsManagement({ token }) {
       </section>
       {exportOpen && <CsvExportModal title="Export applicant records" description="Choose the applicant fields to include. Current filters and sorting will be preserved." columns={applicantExportColumns} rowCount={sortedApplicants.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `applicants-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(sortedApplicants, columns) })} />}
     </div>
-    {selectedApplicant && <div className="applicant-drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedApplicant(null); }}><aside className="applicant-detail-drawer" role="dialog" aria-modal="true" aria-labelledby="applicant-detail-title"><button type="button" className="applicant-drawer-close" onClick={() => setSelectedApplicant(null)} aria-label="Close applicant details"><X size={19} /></button><div className="applicant-drawer-profile"><span className="applicant-drawer-avatar">{selectedApplicant.initials}</span><div><span className="applicants-eyebrow">APPLICANT RECORD</span><h3 id="applicant-detail-title">{selectedApplicant.name}</h3><p>{selectedApplicant.controlNo}</p></div></div><span className={`applicant-status applicant-drawer-status ${selectedApplicant.status.toLowerCase().replace(/\s+/g, '-')}`}>{selectedApplicant.status}</span><div className="applicant-detail-section"><h4>Contact information</h4><dl><div><dt>Email address</dt><dd>{selectedApplicant.email || 'Not provided'}</dd></div><div><dt>Username</dt><dd>{selectedApplicant.username || 'Not available'}</dd></div></dl></div><div className="applicant-detail-section"><h4>Application details</h4><dl><div><dt>Municipality</dt><dd>{selectedApplicant.municipality}</dd></div><div><dt>Barangay</dt><dd>{selectedApplicant.barangay}</dd></div><div><dt>School year</dt><dd>{selectedApplicant.schoolYear}</dd></div></dl></div><div className="applicant-detail-section"><h4>Account activity</h4><dl><div><dt>Registered</dt><dd>{formatDateTime(selectedApplicant.registered)}</dd></div><div><dt>Last login</dt><dd>{formatDateTime(selectedApplicant.lastLogin)}</dd></div></dl></div></aside></div>}
+    {selectedApplicant && <ApplicantDetailDrawer applicant={selectedApplicant} onClose={() => setSelectedApplicant(null)} />}
   </>;
 }
 
@@ -906,6 +975,8 @@ function ExaminationManagement({ token }) {
   const [showDeactivateAllDialog, setShowDeactivateAllDialog] = useState(false);
   const [scheduleReady, setScheduleReady] = useState(false);
   const [scheduleSaveError, setScheduleSaveError] = useState('');
+  const [attendanceSaveError, setAttendanceSaveError] = useState('');
+  const [attendanceSavingId, setAttendanceSavingId] = useState(null);
   const [activeExamMunicipalities, setActiveExamMunicipalities] = useState(() => {
     try { return JSON.parse(localStorage.getItem('activeExamMunicipalities') || '[]'); } catch { return []; }
   });
@@ -929,6 +1000,7 @@ function ExaminationManagement({ token }) {
             const date = formatStoredExamDate(savedExam.date, localExam.date);
             return {
               ...localExam,
+              id: savedExam.id,
               venue: savedExam.venue || localExam.venue,
               date,
               endDate: formatStoredExamDate(savedExam.endDate, date),
@@ -967,6 +1039,8 @@ function ExaminationManagement({ token }) {
             throw new Error(body.message || 'Unable to save examination schedules.');
           }
           setScheduleSaveError('');
+          localStorage.setItem('examinationScheduleRevision', String(Date.now()));
+          window.dispatchEvent(new Event('exam-schedule-persisted'));
         })
         .catch((error) => setScheduleSaveError(error.message || 'Unable to save examination schedules.'));
     }, 450);
@@ -1116,6 +1190,53 @@ function ExaminationManagement({ token }) {
     examinations.some((exam) => exam.municipality === applicant.municipality)
   )).length;
 
+  const downloadAttendanceList = (exam) => {
+    const records = applicants.filter((applicant) => applicant.municipality === exam.municipality);
+    downloadCsv({
+      filename: `attendance-${exam.municipality}-${new Date().toISOString().slice(0, 10)}.csv`,
+      rows: [
+        ['Control number', 'Applicant', 'Email', 'Municipality', 'Venue', 'Attendance', 'Recorded at'],
+        ...records.map((applicant) => [
+          applicant.controlNo,
+          applicant.name,
+          applicant.email,
+          applicant.municipality,
+          exam.venue,
+          applicant.attendanceStatus || 'Pending',
+          applicant.appearedAt ? new Date(applicant.appearedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' }) : '',
+        ]),
+      ],
+    });
+  };
+
+  const updateAttendance = async (applicant, status) => {
+    const examId = applicant.examId || selectedExam?.id;
+    if (!examId) {
+      setAttendanceSaveError('Save the examination schedule before recording attendance.');
+      return;
+    }
+    setAttendanceSavingId(applicant.id);
+    setAttendanceSaveError('');
+    try {
+      const response = await fetch(`${API_BASE}/examinations/${examId}/attendance/${applicant.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+        body: JSON.stringify({ status }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || 'Unable to update attendance.');
+      setApplicants((current) => current.map((record) => record.id === applicant.id ? {
+        ...record,
+        attendanceStatus: body.attendance?.status || status,
+        appearedAt: body.attendance?.appearedAt || null,
+      } : record));
+    } catch (error) {
+      setAttendanceSaveError(error.message || 'Unable to update attendance.');
+    } finally {
+      setAttendanceSavingId(null);
+    }
+  };
+
   return (
     <div className="examination-management">
       <header className="exam-page-heading">
@@ -1172,8 +1293,16 @@ function ExaminationManagement({ token }) {
         <div className="exam-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedExam(null); }}>
           <section className="exam-applicant-modal" role="dialog" aria-modal="true" aria-labelledby="exam-applicant-modal-title">
             <div className="exam-modal-header"><div><span>ASSIGNED APPLICANTS</span><h3 id="exam-applicant-modal-title">{selectedExam.municipality}</h3><p>{selectedExam.venue} · {formatExamDateRange(selectedExam.date, selectedExam.endDate)}</p></div><button type="button" className="exam-modal-close" onClick={() => setSelectedExam(null)} aria-label="Close applicant list">×</button></div>
-            <div className="exam-activation-panel"><div><strong>Exam Activation</strong><small>{activeExamMunicipalities.includes(selectedExam.municipality) ? 'Applicants can access this examination.' : 'Applicants cannot access this examination yet.'}</small></div><button type="button" className={`exam-activation-button ${activeExamMunicipalities.includes(selectedExam.municipality) ? 'active' : ''}`} onClick={() => toggleExamActivation(selectedExam.municipality)}>{activeExamMunicipalities.includes(selectedExam.municipality) ? 'Deactivate Exam' : 'Activate Exam'}</button></div>
-            <div className="exam-applicant-list">{applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).length ? applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).map((applicant) => <div className="exam-applicant-row" key={applicant.id}><span className="exam-applicant-avatar">{applicant.initials || applicant.name?.slice(0, 2).toUpperCase() || 'AP'}</span><div><strong>{applicant.name || 'Unnamed applicant'}</strong><small>{applicant.email || applicant.controlNo || 'No contact information'}</small></div><span className="exam-applicant-status">Assigned</span></div>) : <p className="exam-empty-state">No applicants are currently assigned to this venue.</p>}</div>
+            <div className="exam-activation-panel">
+              <div><strong>Exam Activation</strong><small>{activeExamMunicipalities.includes(selectedExam.municipality) ? 'Schedule active. Online questions still require Present attendance.' : 'Applicants cannot access this examination yet.'}</small></div>
+              <div className="exam-activation-actions">
+                <button type="button" className="exam-attendance-button" onClick={() => downloadAttendanceList(selectedExam)}><Download size={14} />Download attendance</button>
+                <button type="button" className={`exam-activation-button ${activeExamMunicipalities.includes(selectedExam.municipality) ? 'active' : ''}`} onClick={() => toggleExamActivation(selectedExam.municipality)}>{activeExamMunicipalities.includes(selectedExam.municipality) ? 'Deactivate exam' : 'Activate exam'}</button>
+              </div>
+            </div>
+            {attendanceSaveError && <div className="exam-attendance-error" role="alert">{attendanceSaveError}</div>}
+            <div className="exam-attendance-heading"><div><strong>Examination Attendance</strong><span>Mark an applicant Present to unlock their online examination.</span></div><small>Changes save automatically</small></div>
+            <div className="exam-applicant-list">{applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).length ? applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).map((applicant) => <div className="exam-applicant-row" key={applicant.id}><span className="exam-applicant-avatar">{applicant.initials || applicant.name?.slice(0, 2).toUpperCase() || 'AP'}</span><div><strong>{applicant.name || 'Unnamed applicant'}</strong><small>{applicant.email || applicant.controlNo || 'No contact information'}</small></div><label className="exam-attendance-control"><span>Attendance</span><select value={applicant.attendanceStatus === 'Present' ? 'Present' : 'Pending'} disabled={attendanceSavingId === applicant.id || Number.isFinite(applicant.examScore)} onChange={(event) => updateAttendance(applicant, event.target.value)} aria-label={`Attendance for ${applicant.name || 'applicant'}`}><option value="Pending">Pending</option><option value="Present">Present</option></select></label></div>) : <p className="exam-empty-state">No applicants are currently assigned to this venue.</p>}</div>
           </section>
         </div>
       )}
@@ -1234,9 +1363,8 @@ function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange, 
   if (activeSection === 'Activity Logs' && user?.role === 'SuperAdmin') return <ActivityLogsManagement token={token} />;
   if (activeSection === 'Staff' && user?.role === 'SuperAdmin') return <StaffManagement token={token} onLogout={onLogout} />;
   if (activeSection === 'Document Reviews' && ['BillingPayrollAdmin', 'SuperAdmin'].includes(user?.role)) return <DocumentReviewManagement token={token} />;
-  if (activeSection === 'School Catalog' && user?.role === 'SuperAdmin') return <SchoolCatalogManagement token={token} />;
   if (activeSection === 'Reports') return <ReportsManagement token={token} />;
-  if (activeSection === 'Settings') return <SettingsManagement token={token} user={user} />;
+  if (activeSection === 'Settings' || (activeSection === 'School Catalog' && user?.role === 'SuperAdmin')) return <SettingsManagement token={token} user={user} />;
 
   const view = sectionViews[activeSection] || sectionViews.Dashboard;
 

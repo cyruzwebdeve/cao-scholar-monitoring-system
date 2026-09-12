@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
 import SystemHealthPanel from './components/SystemHealthPanel';
+import SchoolCatalogManagement from './SchoolCatalogManagement';
 
 const emptyPeriodForm = { schoolYear: '', semester: '1st Semester', startDate: '', endDate: '' };
 const emptyAvailability = { isEnabled: true, opensAt: '', closesAt: '', state: 'open', isOpen: true };
@@ -54,8 +55,12 @@ const getNextSchoolYear = (schoolYear) => {
 };
 
 export default function SettingsManagement({ token, user }) {
-  const [mode, setMode] = useState(() => localStorage.getItem('examDeliveryMode') || 'online');
-  const [saved, setSaved] = useState(false);
+  const [mode, setMode] = useState('paper');
+  const [examinationEnabled, setExaminationEnabled] = useState(false);
+  const [examinationLoading, setExaminationLoading] = useState(true);
+  const [examinationSaving, setExaminationSaving] = useState(false);
+  const [examinationError, setExaminationError] = useState('');
+  const [examinationSaveNotice, setExaminationSaveNotice] = useState(null);
   const [periods, setPeriods] = useState([]);
   const [periodsLoading, setPeriodsLoading] = useState(true);
   const [periodError, setPeriodError] = useState('');
@@ -113,6 +118,23 @@ export default function SettingsManagement({ token, user }) {
     }
   }, []);
 
+  const loadExaminationSettings = useCallback(async () => {
+    if (!token) return;
+    setExaminationLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/examination-settings`, { headers: authHeaders(token), cache: 'no-store' });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to load examination settings.');
+      setMode(body.examination?.deliveryMode === 'online' ? 'online' : 'paper');
+      setExaminationEnabled(Boolean(body.examination?.isEnabled));
+      setExaminationError('');
+    } catch (error) {
+      setExaminationError(error.message || 'Unable to load examination settings.');
+    } finally {
+      setExaminationLoading(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     const initialLoad = window.setTimeout(loadPeriods, 0);
     return () => window.clearTimeout(initialLoad);
@@ -124,6 +146,11 @@ export default function SettingsManagement({ token, user }) {
   }, [loadAvailability]);
 
   useEffect(() => {
+    const initialLoad = window.setTimeout(loadExaminationSettings, 0);
+    return () => window.clearTimeout(initialLoad);
+  }, [loadExaminationSettings]);
+
+  useEffect(() => {
     if (!pendingActivation) return undefined;
     const closeDialog = (event) => {
       if (event.key === 'Escape' && !activatingPeriod) setPendingActivation(null);
@@ -132,11 +159,43 @@ export default function SettingsManagement({ token, user }) {
     return () => window.removeEventListener('keydown', closeDialog);
   }, [activatingPeriod, pendingActivation]);
 
-  const saveExamMode = () => {
-    localStorage.setItem('examDeliveryMode', mode);
-    window.dispatchEvent(new Event('exam-mode-changed'));
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2200);
+  useEffect(() => {
+    if (!examinationSaveNotice) return undefined;
+    const closeDialog = (event) => {
+      if (event.key === 'Escape') setExaminationSaveNotice(null);
+    };
+    window.addEventListener('keydown', closeDialog);
+    return () => window.removeEventListener('keydown', closeDialog);
+  }, [examinationSaveNotice]);
+
+  const saveExamMode = async () => {
+    if (!canManageApplications || examinationSaving) return;
+    setExaminationSaving(true);
+    setExaminationError('');
+    try {
+      const response = await fetch(`${API_BASE}/examination-settings`, {
+        method: 'PUT',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isEnabled: examinationEnabled, deliveryMode: mode }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to save examination settings.');
+      setMode(body.examination.deliveryMode);
+      setExaminationEnabled(body.examination.isEnabled);
+      localStorage.setItem('examinationSettingsRevision', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('exam-mode-changed', { detail: body.examination }));
+      setExaminationSaveNotice({
+        type: 'success',
+        title: 'Examination setting saved',
+        message: `${body.examination.isEnabled ? 'Examination mode is active' : 'Examination mode is inactive'} with ${body.examination.deliveryMode === 'online' ? 'Online Examination' : 'Paper and Pen'} selected.`,
+      });
+    } catch (error) {
+      const message = error.message || 'Unable to save examination settings.';
+      setExaminationError(message);
+      setExaminationSaveNotice({ type: 'error', title: 'Setting was not saved', message });
+    } finally {
+      setExaminationSaving(false);
+    }
   };
 
   const openPeriodForm = () => {
@@ -263,7 +322,6 @@ export default function SettingsManagement({ token, user }) {
     <div className="settings-management">
       <div className="settings-heading">
         <div><span className="settings-page-eyebrow">SYSTEM CONFIGURATION</span><h2>Settings</h2><p>Configure academic periods, examinations, and scholarship portal preferences.</p></div>
-        {saved && <span className="settings-saved"><Check size={14} /> Settings saved</span>}
       </div>
 
       <section className="settings-card settings-application-card">
@@ -354,13 +412,42 @@ export default function SettingsManagement({ token, user }) {
         </div>
       </section>
 
-      <section className="settings-card">
-        <div className="settings-card-heading"><div><span className="settings-eyebrow">EXAMINATION SETTINGS</span><h3>Exam delivery mode</h3><p>Choose how applicants will take the qualifying examination for the Primary System Period.</p></div><Monitor size={24} /></div>
-        <div className="settings-mode-grid"><button className={mode === 'online' ? 'selected' : ''} onClick={() => setMode('online')}><Monitor size={25} /><span><b>Online Examination</b><small>Applicants answer remotely through the Applicant Dashboard.</small></span>{mode === 'online' && <Check className="settings-check" size={18} />}</button><button className={mode === 'face-to-face' ? 'selected' : ''} onClick={() => setMode('face-to-face')}><UsersRound size={25} /><span><b>Face-to-Face Examination</b><small>Applicants attend the assigned examination venue.</small></span>{mode === 'face-to-face' && <Check className="settings-check" size={18} />}</button></div>
-        <button className="settings-save" onClick={saveExamMode}><Save size={15} /> Save examination setting</button>
+      <section className="settings-card settings-examination-card">
+        <div className="settings-card-heading"><div><span className="settings-eyebrow">FACE-TO-FACE EXAMINATION</span><h3>Examination mode and delivery</h3><p>Manually activate the examination and choose whether applicants use paper or the secured online question view.</p></div><Monitor size={24} /></div>
+        {examinationError && <div className="settings-period-message error" role="status"><TriangleAlert size={15} /><span>{examinationError}</span><button type="button" onClick={loadExaminationSettings}>Retry</button></div>}
+        <div className={`settings-availability-status ${examinationEnabled ? 'open' : 'disabled'}`}>
+          <span className="settings-availability-status-icon"><Power size={18} /></span>
+          <div><small>EXAMINATION MODE</small><strong>{examinationEnabled ? 'Active' : 'Inactive'}</strong><span>{examinationEnabled ? 'Eligible applicants can access their active municipality schedule.' : 'All applicant examination question views are blocked.'}</span></div>
+          <label className="settings-availability-switch"><input type="checkbox" checked={examinationEnabled} disabled={!canManageApplications || examinationLoading || examinationSaving} onChange={(event) => setExaminationEnabled(event.target.checked)} /><span aria-hidden="true" /><b>{examinationEnabled ? 'Activated' : 'Deactivated'}</b></label>
+        </div>
+        <div className="settings-mode-grid"><button type="button" disabled={examinationLoading || examinationSaving} className={mode === 'paper' ? 'selected' : ''} onClick={() => setMode('paper')}><UsersRound size={25} /><span><b>Paper and Pen</b><small>Applicants attend the venue and answer a printed examination.</small></span>{mode === 'paper' && <Check className="settings-check" size={18} />}</button><button type="button" disabled={examinationLoading || examinationSaving} className={mode === 'online' ? 'selected' : ''} onClick={() => setMode('online')}><Monitor size={25} /><span><b>Online Examination</b><small>Applicants answer through the secured Applicant Portal during the active schedule.</small></span>{mode === 'online' && <Check className="settings-check" size={18} />}</button></div>
+        <div className="settings-examination-actions">
+          <span>Changes take effect for applicant examination access after saving.</span>
+          <button className="settings-save" disabled={!canManageApplications || examinationLoading || examinationSaving} onClick={saveExamMode}><Save size={15} />{examinationSaving ? ' Saving…' : ' Save examination setting'}</button>
+        </div>
       </section>
 
+      {user?.role === 'SuperAdmin' && <SchoolCatalogManagement token={token} embedded />}
+
       {user?.role === 'SuperAdmin' && <SystemHealthPanel />}
+
+      {examinationSaveNotice && (
+        <div className="admin-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExaminationSaveNotice(null); }}>
+          <section className={`admin-confirm-dialog settings-save-dialog ${examinationSaveNotice.type}`} role="dialog" aria-modal="true" aria-labelledby="examination-save-title" aria-describedby="examination-save-description">
+            <div className={`admin-confirm-icon ${examinationSaveNotice.type}`}>
+              {examinationSaveNotice.type === 'success' ? <Check size={25} /> : <TriangleAlert size={24} />}
+            </div>
+            <div className="admin-confirm-copy">
+              <span>{examinationSaveNotice.type === 'success' ? 'SETTINGS UPDATED' : 'SAVE FAILED'}</span>
+              <h3 id="examination-save-title">{examinationSaveNotice.title}</h3>
+              <p id="examination-save-description">{examinationSaveNotice.message}</p>
+            </div>
+            <div className="admin-confirm-actions">
+              <button type="button" className="settings-save-modal-close" autoFocus onClick={() => setExaminationSaveNotice(null)}>{examinationSaveNotice.type === 'success' ? 'Done' : 'Close'}</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {pendingActivation && (
         <div className="admin-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !activatingPeriod) setPendingActivation(null); }}>

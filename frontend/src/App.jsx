@@ -128,8 +128,8 @@ function App() {
     <BrowserRouter>
       <Suspense fallback={<div className="route-loading"><span className="route-loading-mark" />Loading PGCEAP...</div>}>
         <Routes>
-        <Route path="/examination" element={<ExamPage token={authToken} />} />
-        <Route path="/exam" element={<ExamPage token={authToken} />} />
+        <Route path="/examination" element={authToken && user?.role === 'Applicant' ? <ExamPage token={authToken} /> : <Navigate to={getHomeRedirect()} replace />} />
+        <Route path="/exam" element={authToken && user?.role === 'Applicant' ? <ExamPage token={authToken} /> : <Navigate to={getHomeRedirect()} replace />} />
         <Route path="/forgot-password" element={<PasswordRecoveryPage mode="forgot" />} />
         <Route path="/reset-password" element={<PasswordRecoveryPage mode="reset" />} />
         <Route

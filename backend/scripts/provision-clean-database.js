@@ -1,5 +1,6 @@
 const { spawnSync } = require('child_process');
 const { PrismaClient } = require('@prisma/client');
+const prismaCli = require('./prisma-cli');
 require('dotenv').config();
 
 const CLEAN_SUFFIX = '_clean';
@@ -42,7 +43,6 @@ const main = async () => {
   }
 
   const environment = { ...process.env, DATABASE_URL: targetUrl };
-  const prismaCli = require.resolve('prisma');
   run(process.execPath, [prismaCli, 'db', 'push', '--schema', 'prisma/schema.cleaned.prisma'], environment);
   run(process.execPath, [prismaCli, 'generate', '--schema', 'prisma/schema.cleaned.prisma'], environment);
   console.log(`Clean schema provisioned from ${sourceName} into ${targetName}.`);

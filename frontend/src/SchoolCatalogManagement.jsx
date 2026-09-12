@@ -34,7 +34,7 @@ const mergeCatalog = (savedSchools = []) => {
   return schools.sort((left, right) => left.name.localeCompare(right.name));
 };
 
-function SchoolCatalogManagement({ token }) {
+function SchoolCatalogManagement({ token, embedded = false }) {
   const [schools, setSchools] = useState([]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
@@ -134,9 +134,9 @@ function SchoolCatalogManagement({ token }) {
   };
 
   return (
-    <div className="school-catalog-page">
+    <div className={`school-catalog-page ${embedded ? 'school-catalog-embedded' : ''}`}>
       <header className="school-catalog-heading">
-        <div><span>CATALOG MANAGEMENT</span><h2>School Catalog</h2><p>Review institutions and maintain the Public or Private classification used by Billing and Payroll.</p></div>
+        <div><span>{embedded ? 'SCHOOL CONFIGURATION' : 'CATALOG MANAGEMENT'}</span><h2>School Catalog</h2><p>Review institutions and maintain the Public or Private classification used by Billing and Payroll.</p></div>
         <div className="school-catalog-refresh"><button type="button" onClick={loadCatalog} disabled={loading}><RefreshCw size={15} className={loading ? 'spinning' : ''} />Refresh catalog</button><small>{lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })}` : 'Waiting for live data'}</small></div>
       </header>
 

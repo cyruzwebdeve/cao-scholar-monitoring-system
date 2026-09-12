@@ -4,6 +4,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { PrismaClient } = require('../generated/application-client');
 const { PrismaPg } = require('@prisma/adapter-pg');
+const prismaCli = require('./prisma-cli');
 
 const recoverableFixtureMigration = '20260909000000_seed_billing_payroll_demo';
 
@@ -16,7 +17,7 @@ if (!migrationUrl) throw new Error('DIRECT_URL or DATABASE_URL is required to de
 
 const runPrisma = (arguments_) => spawnSync(
   process.execPath,
-  [require.resolve('prisma'), ...arguments_, '--schema', 'prisma/schema.application.prisma'],
+  [prismaCli, ...arguments_, '--schema', 'prisma/schema.application.prisma'],
   {
     cwd: path.resolve(__dirname, '..'),
     env: { ...process.env, DATABASE_URL: migrationUrl, DATABASE_TARGET: 'cloud' },

@@ -723,6 +723,8 @@
   background: rgba(12, 28, 15, 0.48);
 }
 .exam-applicant-modal {
+  display: flex;
+  flex-direction: column;
   width: min(100%, 560px);
   max-height: min(680px, 90vh);
   overflow: hidden;
@@ -739,9 +741,9 @@
   background: #f7fcf5;
 }
 .exam-activation-panel {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
   padding: 14px 22px;
   border-bottom: 1px solid #e5eee3;
@@ -760,7 +762,18 @@
   color: #87958a;
   font-size: 0.7rem;
 }
+.exam-activation-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.exam-attendance-button,
 .exam-activation-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   padding: 9px 13px;
   border: 1px solid #10a352;
   border-radius: 8px;
@@ -771,6 +784,15 @@
   font-weight: 800;
   cursor: pointer;
   white-space: nowrap;
+}
+.exam-attendance-button {
+  border-color: #b9d9c4;
+  background: #f7fbf8;
+  color: #247449;
+}
+.exam-attendance-button:hover {
+  border-color: #77bd91;
+  background: #edf8f1;
 }
 .exam-activation-button.active {
   border-color: #d59a48;
@@ -807,8 +829,9 @@
 }
 .exam-applicant-list {
   display: grid;
+  flex: 1 1 auto;
   gap: 10px;
-  max-height: 470px;
+  min-height: 0;
   overflow-y: auto;
   padding: 18px 22px 22px;
 }
@@ -1046,7 +1069,118 @@
   font-weight: 700;
   cursor: pointer;
 }
+.exam-attendance-control {
+  display: grid;
+  gap: 4px;
+  flex: 0 0 118px;
+}
+.exam-attendance-control > span {
+  color: #6f7e73;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.exam-attendance-control select {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 26px 6px 9px;
+  border: 1px solid #cfe1d2;
+  border-radius: 8px;
+  background: #f7fbf7;
+  color: #28633b;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+.exam-attendance-control select:focus-visible {
+  outline: 3px solid rgba(34, 150, 76, 0.18);
+  border-color: #22964c;
+}
+.exam-attendance-control select:disabled { cursor: wait; opacity: 0.65; }
+.exam-attendance-error {
+  margin: 14px 22px 0;
+  padding: 9px 11px;
+  border: 1px solid #efb8b8;
+  border-radius: 9px;
+  background: #fff0f0;
+  color: #a83232;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.exam-attendance-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 22px;
+  padding: 18px 0 0;
+}
+.exam-attendance-heading strong,
+.exam-attendance-heading span { display: block; }
+.exam-attendance-heading strong { color: #28472f; font-size: 0.8rem; }
+.exam-attendance-heading span {
+  margin-top: 3px;
+  color: #78867c;
+  font-size: 0.68rem;
+}
+.exam-attendance-heading > small {
+  color: #378152;
+  font-size: 0.64rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.settings-examination-card .settings-availability-status {
+  margin-top: 20px;
+}
+.settings-examination-card .settings-mode-grid {
+  margin: 18px 0 0;
+}
+.settings-examination-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #edf2f0;
+}
+.settings-examination-actions > span {
+  color: #7c8c82;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.settings-examination-actions .settings-save {
+  flex: 0 0 auto;
+}
+.admin-confirm-icon.success {
+  background: #e6f6ec;
+  color: #11834a;
+}
+.admin-confirm-icon.error {
+  background: #fff0ee;
+  color: #b84c43;
+}
+.settings-save-dialog .admin-confirm-copy > span {
+  color: #17864d;
+}
+.settings-save-dialog.error .admin-confirm-copy > span {
+  color: #b84c43;
+}
+.admin-confirm-actions .settings-save-modal-close {
+  min-width: 88px;
+  border: 1px solid #168d50;
+  background: #168d50;
+  color: #fff;
+}
+.settings-save-dialog.error .settings-save-modal-close {
+  border-color: #b84c43;
+  background: #b84c43;
+}
 .settings-card + .settings-card {
+  margin-top: 18px;
+}
+.settings-examination-card + .system-health-panel {
   margin-top: 18px;
 }
 .settings-availability-form {
@@ -1590,10 +1724,21 @@
   }
   .exam-activation-panel {
     align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
+  .exam-activation-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+  .exam-attendance-button,
   .exam-activation-button {
     width: 100%;
+  }
+}
+@media (max-width: 440px) {
+  .exam-activation-actions {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -6485,6 +6630,7 @@
 .billing-filter-group > header { margin-bottom: 11px; }
 .billing-filter-group > header strong { display: block; color: #27824e; font-size: 9px; font-weight: 900; letter-spacing: 0.07em; text-transform: uppercase; }
 .billing-filter-group-fields { display: grid; gap: 10px; }
+.billing-filter-status-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .billing-filter-group .billing-search { grid-column: auto; }
 .billing-filter-date-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .billing-filters label { min-width: 0; }
@@ -6837,6 +6983,7 @@
 .announcement-preview > div > span { display: block; color: #23814e; font-size: 8px; font-weight: 900; letter-spacing: 0.07em; }
 .announcement-preview > div > strong { display: block; margin-top: 7px; color: #2e4235; font-size: 13px; }
 .announcement-preview > div > p { margin: 5px 0 0; color: #718078; font-size: 10px; line-height: 1.55; white-space: pre-wrap; }
+.announcement-preview-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 9px; color: #187c49; font-size: 9px; font-style: normal; font-weight: 900; }
 .portal-announcement-image { display: block; width: 100%; max-height: 260px; margin: 13px 0 4px; border-radius: 10px; object-fit: cover; }
 .announcement-form-error { display: flex; align-items: center; gap: 7px; margin-top: 12px; padding: 9px 10px; border: 1px solid #efb7b3; border-radius: 7px; background: #fff4f3; color: #ae3e38; font-size: 8px; }
 .announcement-editor > footer { min-height: 61px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 20px; border-top: 1px solid #e3eae5; }

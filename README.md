@@ -60,6 +60,15 @@ Start the frontend and backend together:
 npm run dev
 ~~~
 
+On Windows, you can instead use the included launcher. It calls `npm.cmd`
+directly, so it also works when PowerShell blocks the `npm.ps1` shim:
+
+~~~powershell
+.\start-local.cmd
+~~~
+
+Press `Ctrl+C` in the launcher terminal to stop both services.
+
 The default local addresses are:
 
 - Frontend: http://localhost:5173

@@ -1,8 +1,10 @@
 const { spawnSync } = require('child_process');
 const { PrismaClient } = require('@prisma/client');
+const prismaCli = require('./prisma-cli');
 require('dotenv').config();
 
 const TARGET_SUFFIX = '_v2';
+const acceptDataLoss = process.argv.includes('--accept-data-loss');
 
 const urls = () => {
   const source = new URL(process.env.DATABASE_URL);
@@ -14,7 +16,7 @@ const urls = () => {
 };
 
 const runPrisma = (args, targetUrl) => {
-  const result = spawnSync(process.execPath, [require.resolve('prisma'), ...args], {
+  const result = spawnSync(process.execPath, [prismaCli, ...args], {
     cwd: require('path').resolve(__dirname, '..'),
     env: { ...process.env, DATABASE_URL: targetUrl },
     encoding: 'utf8',
@@ -36,7 +38,13 @@ const main = async () => {
   } finally {
     await source.$disconnect();
   }
-  runPrisma(['db', 'push', '--schema', 'prisma/schema.application.prisma'], targetUrl);
+  runPrisma([
+    'db',
+    'push',
+    '--schema',
+    'prisma/schema.application.prisma',
+    ...(acceptDataLoss ? ['--accept-data-loss'] : []),
+  ], targetUrl);
   runPrisma(['generate', '--schema', 'prisma/schema.application.prisma'], targetUrl);
   console.log(`Application schema is ready in ${targetName}.`);
 };

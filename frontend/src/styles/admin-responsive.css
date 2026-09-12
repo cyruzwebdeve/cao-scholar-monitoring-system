@@ -336,6 +336,16 @@ body {
     width: 100%;
   }
 
+  .settings-examination-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .settings-examination-actions .settings-save {
+    justify-content: center;
+    width: 100%;
+  }
+
   .applicants-export,
   .rm-heading-actions,
   .scholars-export,
@@ -398,7 +408,6 @@ body {
   }
 
   .announcement-editor-body,
-  .exam-applicant-modal,
   .school-classification-modal {
     padding-right: 16px;
     padding-left: 16px;

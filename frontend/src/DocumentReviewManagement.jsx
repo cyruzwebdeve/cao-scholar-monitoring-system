@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_BASE, authHeaders } from './services/api';
 import './styles/document-reviews.css';
 
-const emptyData = { stats: { total: 0, pending: 0, approved: 0, rejected: 0 }, reviews: [], physicalFolders: [] };
+const emptyData = { stats: { total: 0, pending: 0, approved: 0, rejected: 0 }, reviews: [] };
 
 const formatDate = (value, fallback = 'Not available') => {
   if (!value) return fallback;
@@ -250,25 +250,6 @@ function DocumentReviewManagement({ token }) {
     }
   };
 
-  const updatePhysicalFolder = async (item) => {
-    setSaving(true);
-    try {
-      const response = await fetch(`${API_BASE}/document-reviews/${item.applicantId}/physical-folder`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
-        body: JSON.stringify({ received: !item.received }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.message || 'Unable to update the physical folder.');
-      setNotice({ tone: 'success', message: payload.message });
-      await loadReviews();
-    } catch (saveError) {
-      setNotice({ tone: 'error', message: saveError.message || 'Unable to update the physical folder.' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const approvePendingForScholar = async () => {
     if (!bulkGroup) return;
     setSaving(true);
@@ -343,13 +324,6 @@ function DocumentReviewManagement({ token }) {
               </article>
             );
           })}
-        </div>
-      </section>
-      <section className="document-review-directory physical-folder-directory">
-        <div className="document-review-toolbar"><div><i><FileCheck2 size={19} /></i><section><h3>Physical folder receipts</h3><p>Record the white long folder before a scholar becomes eligible for Billing.</p></section></div><span className="physical-folder-count">{(data.physicalFolders || []).filter(({ received }) => received).length} of {(data.physicalFolders || []).length} received</span></div>
-        <div className="physical-folder-list">
-          {(data.physicalFolders || []).map((item) => <article key={item.applicantId}><div><strong>{item.scholarName}</strong><small>{item.controlNumber || `Scholar #${item.applicantId}`}</small></div><span className={item.received ? 'received' : 'missing'}>{item.received ? `Received ${formatDate(item.receivedAt)}` : 'Not received'}</span><button type="button" className={item.received ? 'remove' : 'receive'} disabled={saving} onClick={() => updatePhysicalFolder(item)}>{item.received ? 'Undo receipt' : 'Mark received'}</button></article>)}
-          {!loading && !(data.physicalFolders || []).length && <div className="document-review-group-empty"><FileCheck2 size={25} /><strong>No active scholars</strong><span>Accepted scholars will appear here.</span></div>}
         </div>
       </section>
       {selected && <ReviewModal review={selected} preview={preview} previewLoading={previewLoading} previewError={previewError} onClose={closeReview} onDecision={(value) => { setDecisionError(''); setDecision(value); }} />}

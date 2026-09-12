@@ -1,5 +1,6 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
+const prismaCli = require('./prisma-cli');
 require('dotenv').config();
 
 if (!process.env.DATABASE_URL) {
@@ -15,7 +16,7 @@ if (!databaseUrl.pathname.endsWith('_v2')) {
 const result = spawnSync(
   process.execPath,
   [
-    require.resolve('prisma'),
+    prismaCli,
     'studio',
     '--schema',
     'prisma/schema.application.prisma',

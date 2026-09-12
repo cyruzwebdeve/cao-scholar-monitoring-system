@@ -2,6 +2,8 @@ const isNonEmptyString = (value) => typeof value === 'string' && value.trim().le
 const isNonNegativeNumber = (value) => typeof value === 'number' && value >= 0;
 const isPlainObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
 const { isStrongPassword } = require('../services/passwordReset');
+const municipalitiesData = require('../../municipality.json');
+const barangaysData = require('../../brgy.json');
 
 const validateEmail = (email) => {
   return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -33,30 +35,20 @@ const validateDateString = (value) => {
   return !Number.isNaN(parsed.getTime());
 };
 
-const allowedMunicipalities = [
-  'Basud',
-  'Capalonga',
-  'Daet',
-  'Jose Panganiban',
-  'Labo',
-  'Mercedes',
-  'Paracale',
-  'San Lorenzo Ruiz',
-  'Talisay',
-  'Others',
-];
+const municipalityCodeByName = new Map(municipalitiesData.map((item) => [item.name, item.code]));
+const barangaysByMunicipalityCode = barangaysData.reduce((result, item) => {
+  if (!result.has(item.municipalityCode)) result.set(item.municipalityCode, new Set());
+  result.get(item.municipalityCode).add(item.name);
+  return result;
+}, new Map());
 
-const allowedBarangays = [
-  'Aguirangan',
-  'Magang',
-  'Bagong Silang',
-  'Calintaan',
-  'Poblacion',
-  'San Antonio',
-  'San Francisco',
-  'San Vicente',
-  'Others',
-];
+const isValidAddressLocation = (address) => {
+  if (!isPlainObject(address)) return false;
+  const municipalityCode = municipalityCodeByName.get(address.municipality);
+  return Boolean(municipalityCode && barangaysByMunicipalityCode.get(municipalityCode)?.has(address.barangay));
+};
+
+const validateUppercaseText = (value) => isNonEmptyString(value) && value === value.toUpperCase();
 
 const allowedYearLevels = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduate'];
 const allowedSexOptions = ['Male', 'Female', 'Prefer not to say'];
@@ -179,18 +171,12 @@ const validateCreateApplication = (req, res, next) => {
     return res.status(400).json({ message: 'address is required and must be an object.' });
   }
 
-  if (!isNonEmptyString(address.houseNumber)) {
-    return res.status(400).json({ message: 'House number or street is required.' });
+  if (!validateUppercaseText(address.houseNumber)) {
+    return res.status(400).json({ message: 'House number or street must be provided in uppercase.' });
   }
 
-  if (!allowedMunicipalities.includes(address.municipality)) {
-    return res.status(400).json({ message: 'Municipality is invalid.' });
-  }
-
-  // Barangays come from the complete frontend barangay dataset, so do not
-  // restrict valid submissions to a small hard-coded sample list.
-  if (!isNonEmptyString(address.barangay)) {
-    return res.status(400).json({ message: 'Barangay is invalid.' });
+  if (!isValidAddressLocation(address)) {
+    return res.status(400).json({ message: 'Select a valid municipality and barangay combination.' });
   }
 
   if (!isPlainObject(schoolPlan)) {
@@ -203,8 +189,8 @@ const validateCreateApplication = (req, res, next) => {
     return res.status(400).json({ message: 'School is invalid.' });
   }
 
-  if (schoolPlan.course !== undefined && !isNonEmptyString(schoolPlan.course)) {
-    return res.status(400).json({ message: 'Course is invalid.' });
+  if (schoolPlan.course !== undefined && !validateUppercaseText(schoolPlan.course)) {
+    return res.status(400).json({ message: 'Course must be provided in uppercase.' });
   }
 
   if (!allowedYearLevels.includes(schoolPlan.incomingYearLevel)) {
@@ -237,6 +223,24 @@ const validateCreateApplication = (req, res, next) => {
 
   if (!isNonEmptyString(family.guardianOccupation)) {
     return res.status(400).json({ message: 'Guardian occupation is required.' });
+  }
+
+  if (typeof family.guardianSameAsParent !== 'boolean') {
+    return res.status(400).json({ message: 'Specify whether the guardian is one of the applicant parents.' });
+  }
+
+  if (family.guardianSameAsParent) {
+    if (!['father', 'mother'].includes(family.guardianParentRole)) {
+      return res.status(400).json({ message: 'Select whether the father or mother is the guardian.' });
+    }
+
+    const selectedParentName = family.guardianParentRole === 'father' ? family.fatherName : family.motherName;
+    const selectedParentOccupation = family.guardianParentRole === 'father' ? family.fatherOccupation : family.motherOccupation;
+    if (family.guardianName !== selectedParentName || family.guardianOccupation !== selectedParentOccupation) {
+      return res.status(400).json({ message: 'Guardian details must match the selected parent.' });
+    }
+  } else if (family.guardianParentRole !== null && family.guardianParentRole !== undefined && family.guardianParentRole !== '') {
+    return res.status(400).json({ message: 'A parent role can only be selected when the guardian is a parent.' });
   }
 
   if (!allowedIncomeOptions.includes(family.familyIncome)) {
@@ -312,7 +316,7 @@ const validatePayrollBatch = (req, res, next) => {
 };
 
 const validateAnnouncement = (req, res, next) => {
-  const { title, content } = req.body;
+  const { title, content, externalUrl } = req.body;
 
   if (!isNonEmptyString(title)) {
     return res.status(400).json({ message: 'Announcement title is required.' });
@@ -320,6 +324,13 @@ const validateAnnouncement = (req, res, next) => {
 
   if (!isNonEmptyString(content)) {
     return res.status(400).json({ message: 'Announcement content is required.' });
+  }
+
+  if (String(externalUrl || '').trim()) {
+    const { normalizeFacebookPostUrl } = require('../services/announcementLinks');
+    if (!normalizeFacebookPostUrl(externalUrl)) {
+      return res.status(400).json({ message: 'Enter a valid HTTPS Facebook post URL.' });
+    }
   }
 
   next();

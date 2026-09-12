@@ -18,13 +18,41 @@ test('scheduled applicants receive a specific examination action and transparent
   const guidance = buildApplicantGuidance({
     application: application(),
     scheduledExam: { is_active: true, venue: 'Provincial Capitol Auditorium' },
+    examinationSettings: { isEnabled: true, deliveryMode: 'online' },
+    examSlot: { appeared: true },
   });
 
   assert.equal(guidance.state, 'action_required');
   assert.equal(guidance.actions[0].id, 'complete-examination');
   assert.equal(guidance.actions[0].route, 'examination');
+  assert.equal(guidance.actions[0].title, 'Start your online examination');
   assert.equal(guidance.timeline.find(({ id }) => id === 'examination').status, 'current');
   assert.equal(guidance.timeline.find(({ id }) => id === 'decision').status, 'upcoming');
+});
+
+test('online examination guidance waits for CAO attendance confirmation', () => {
+  const guidance = buildApplicantGuidance({
+    application: application(),
+    scheduledExam: { is_active: true, venue: 'Provincial Capitol Auditorium' },
+    examinationSettings: { isEnabled: true, deliveryMode: 'online' },
+    examSlot: { appeared: false },
+  });
+
+  assert.equal(guidance.actions[0].title, 'Wait for attendance confirmation');
+  assert.equal(guidance.actions[0].route, null);
+  assert.match(guidance.actions[0].description, /marks you Present/i);
+});
+
+test('globally disabled examination access keeps an active municipality schedule pending', () => {
+  const guidance = buildApplicantGuidance({
+    application: application(),
+    scheduledExam: { is_active: true, venue: 'Provincial Capitol Auditorium' },
+    examinationSettings: { isEnabled: false, deliveryMode: 'online' },
+  });
+
+  assert.equal(guidance.state, 'waiting');
+  assert.equal(guidance.actions[0].id, 'wait-exam-schedule');
+  assert.match(guidance.timeline.find(({ id }) => id === 'examination').detail, /not published/i);
 });
 
 test('examined applicants are told to wait without exposing an unreleased result', () => {
@@ -50,7 +78,7 @@ test('verified priority scholars show a completed examination-bypass stage', () 
   assert.match(examinationStage.detail, /bypassed/i);
 });
 
-test('active scholars receive prioritized missing, rejected, and physical requirement actions', () => {
+test('active scholars receive only applicable online requirement actions', () => {
   const documents = approvedDocuments();
   documents.grades.status = 'Rejected';
   delete documents.valid_id;
@@ -64,7 +92,7 @@ test('active scholars receive prioritized missing, rejected, and physical requir
   assert.equal(guidance.state, 'action_required');
   assert.deepEqual(
     guidance.actions.map(({ id }) => id),
-    ['replace-rejected-requirements', 'upload-missing-requirements', 'submit-physical-folder'],
+    ['replace-rejected-requirements', 'upload-missing-requirements'],
   );
   assert.equal(guidance.timeline.find(({ id }) => id === 'requirements').status, 'current');
 });

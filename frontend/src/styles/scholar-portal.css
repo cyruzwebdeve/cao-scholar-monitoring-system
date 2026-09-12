@@ -609,22 +609,6 @@
   opacity: 0;
   cursor: inherit;
 }
-.scholar-physical-badge {
-  flex: 0 0 auto;
-  padding: 8px 10px;
-  border: 1px solid #ead6aa;
-  border-radius: 8px;
-  background: #fff8e8;
-  color: #9a6a13;
-  font-size: 0.68rem;
-  font-weight: 800;
-  text-align: center;
-}
-.scholar-physical-badge.received {
-  border-color: #b9ddc6;
-  background: #e8f6ed;
-  color: #23854a;
-}
 .scholar-requirements-error {
   display: flex;
   align-items: center;
