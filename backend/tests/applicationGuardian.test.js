@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const municipalities = require('../../municipality.json');
+const municipalities = require('../data/municipality.json');
 const barangays = require('../../brgy.json');
 const { validateCreateApplication } = require('../middleware/validators');
 

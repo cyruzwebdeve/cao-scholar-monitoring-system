@@ -4231,3 +4231,56 @@ Local `npm run build` generated Prisma Client 6.19.3 successfully and reported t
 ## Known limitations, rollback, and recommended next work
 
 The hosted database account must have permission to apply the committed additive migrations. A failure intentionally blocks deployment rather than starting incompatible code. Rollback restores the former generate-only build, but doing so requires migrations to be applied manually before application startup. Verify the hosted health endpoint and the two new settings after deployment.
+
+# 2026-09-12 - Hostinger backend validation-data startup hotfix
+
+## TL;DR
+
+- Diagnosed the post-deployment API 503 as a missing `../../municipality.json` runtime import.
+- Added municipality and barangay validation datasets inside the independently packaged `backend` deployment root.
+- Updated backend runtime and test imports while retaining the root datasets required by the separate frontend build.
+- Production migrations had already succeeded and were not rolled back; no hosted application records were deleted or reset.
+
+## Objective and reason
+
+Restore the Hostinger API after the backend build and additive migrations succeeded but application startup repeatedly failed. Hostinger packages the configured `backend` root into its Node runtime, so files located above that root are unavailable even when they exist in the repository.
+
+## Previous and new behavior
+
+The new strict address validator loaded municipality and barangay datasets from the repository root using `../../`. This worked in the full local checkout but failed in Hostinger's isolated backend artifact. Equivalent deployable datasets now live in `backend/data`, and backend code imports only from within its deployment boundary.
+
+## Affected users and workflows
+
+- **All hosted users:** API availability is restored once the hotfix is redeployed.
+- **Applicants:** strict municipality/barangay validation retains the same accepted values.
+- **Local developers:** frontend and backend builds continue using their respective packaged dataset copies.
+
+## Implementation and data flow
+
+The JSON datasets are static non-secret reference data. Middleware loads them from `backend/data` at process startup and uses them for the same municipality/barangay membership checks. No request, response, or persistence logic changed.
+
+## Files and system areas changed
+
+- `backend/data/municipality.json`
+- `backend/data/brgy.json`
+- `backend/middleware/validators.js`
+- `backend/tests/applicationGuardian.test.js`
+- Project change documentation
+
+## Impact
+
+- **API:** restores startup; endpoint contracts are unchanged.
+- **Database:** no new migration or record change. The previously deployed additive examination and announcement migrations remain applied.
+- **Configuration:** no environment-variable change.
+- **Security/privacy:** datasets contain public geographic reference names only; no credentials or personal information.
+- **Accessibility:** no interface impact.
+- **Deployment:** requires one backend redeployment after the hotfix push; the already deployed frontend need not be rebuilt for this fix.
+- **Approved scope:** no Billing/Payroll workflow extension.
+
+## Validation performed
+
+The Hostinger runtime log consistently identified the missing parent-directory module as the startup blocker. Local validation must confirm middleware import, backend tests/build, and then the public health endpoint after redeployment.
+
+## Known limitations, rollback, and recommended next work
+
+The frontend and backend now contain separate copies of the same static datasets because they are deployed from independent roots; future geographic-data updates must keep them synchronized. Removing the backend copies restores the Hostinger startup failure. After pushing, redeploy only `api.cnpgceap-sms.com` and verify `/api/health` before further changes.

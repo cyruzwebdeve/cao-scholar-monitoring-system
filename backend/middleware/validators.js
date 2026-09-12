@@ -2,8 +2,10 @@ const isNonEmptyString = (value) => typeof value === 'string' && value.trim().le
 const isNonNegativeNumber = (value) => typeof value === 'number' && value >= 0;
 const isPlainObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
 const { isStrongPassword } = require('../services/passwordReset');
-const municipalitiesData = require('../../municipality.json');
-const barangaysData = require('../../brgy.json');
+// Hostinger packages the configured `backend` root independently, so runtime
+// validation data must live inside that deployable root rather than above it.
+const municipalitiesData = require('../data/municipality.json');
+const barangaysData = require('../data/brgy.json');
 
 const validateEmail = (email) => {
   return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());

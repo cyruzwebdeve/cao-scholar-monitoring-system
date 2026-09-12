@@ -1,0 +1,134 @@
+[
+    {
+        "code":  "051601000",
+        "name":  "Basud",
+        "oldName":  "",
+        "isCapital":  false,
+        "provinceCode":  "051600000",
+        "districtCode":  false,
+        "regionCode":  "050000000",
+        "islandGroupCode":  "luzon",
+        "psgc10DigitCode":  "0501601000"
+    },
+    {
+        "code":  "051602000",
+        "name":  "Capalonga",
+        "oldName":  "",
+        "isCapital":  false,
+        "provinceCode":  "051600000",
+        "districtCode":  false,
+        "regionCode":  "050000000",
+        "islandGroupCode":  "luzon",
+        "psgc10DigitCode":  "0501602000"
+    },
+    {
+        "code":  "051603000",
+        "name":  "Daet",
+        "oldName":  "",
+        "isCapital":  true,
+        "provinceCode":  "051600000",
+        "districtCode":  false,
+        "regionCode":  "050000000",
+        "islandGroupCode":  "luzon",
+        "psgc10DigitCode":  "0501603000"
+    },
+    {
+        "code":  "051604000",
+        "name":  "San Lorenzo Ruiz",
+        "oldName":  "Imelda",
+        "isCapital":  false,
+        "provinceCode":  "051600000",
+        "districtCode":  false,
+        "regionCode":  "050000000",
+        "islandGroupCode":  "luzon",
+        "psgc10DigitCode":  "0501604000"
+    },
+    {
+        "code":  "051605000",
+        "name":  "Jose Panganiban",
+        "oldName":  "",
+        "isCapital":  false,
+        "provinceCode":  "051600000",
+        "districtCode":  false,
+        "regionCode":  "050000000",
+        "islandGroupCode":  "luzon",
+        "psgc10DigitCode":  "0501605000"
+    },
+    {
+        "code":  "051606000",
+        "name":  "Labo",
+        "oldName":  "",
+        "isCapital":  false,
+        "provinceCode":  "051600000",
+        "districtCode":  false,
+        "regionCode":  "050000000",
+        "islandGroupCode":  "luzon",
+        "psgc10DigitCode":  "0501606000"
+    },
+    {
+        "code":  "051607000",
+        "name":  "Mercedes",
+        "oldName":  "",
+        "isCapital":  false,
+        "provinceCode":  "051600000",
+        "districtCode":  false,
+        "regionCode":  "050000000",
+        "islandGroupCode":  "luzon",
+        "psgc10DigitCode":  "0501607000"
+    },
+    {
+        "code":  "051608000",
+        "name":  "Paracale",
+        "oldName":  "",
+        "isCapital":  false,
+        "provinceCode":  "051600000",
+        "districtCode":  false,
+        "regionCode":  "050000000",
+        "islandGroupCode":  "luzon",
+        "psgc10DigitCode":  "0501608000"
+    },
+    {
+        "code":  "051609000",
+        "name":  "San Vicente",
+        "oldName":  "",
+        "isCapital":  false,
+        "provinceCode":  "051600000",
+        "districtCode":  false,
+        "regionCode":  "050000000",
+        "islandGroupCode":  "luzon",
+        "psgc10DigitCode":  "0501609000"
+    },
+    {
+        "code":  "051610000",
+        "name":  "Santa Elena",
+        "oldName":  "",
+        "isCapital":  false,
+        "provinceCode":  "051600000",
+        "districtCode":  false,
+        "regionCode":  "050000000",
+        "islandGroupCode":  "luzon",
+        "psgc10DigitCode":  "0501610000"
+    },
+    {
+        "code":  "051611000",
+        "name":  "Talisay",
+        "oldName":  "",
+        "isCapital":  false,
+        "provinceCode":  "051600000",
+        "districtCode":  false,
+        "regionCode":  "050000000",
+        "islandGroupCode":  "luzon",
+        "psgc10DigitCode":  "0501611000"
+    },
+    {
+        "code":  "051612000",
+        "name":  "Vinzons",
+        "oldName":  "",
+        "isCapital":  false,
+        "provinceCode":  "051600000",
+        "districtCode":  false,
+        "regionCode":  "050000000",
+        "islandGroupCode":  "luzon",
+        "psgc10DigitCode":  "0501612000"
+    }
+]
