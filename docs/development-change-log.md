@@ -5,6 +5,43 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-15 - Private Allowance Card Certification Subtitle
+
+### TL;DR
+
+- Added `Latest certification list generated` beneath the Private Scholar's generation date, matching the subtitle structure of adjacent summary cards.
+- When no valid generation date exists, the subtitle reads `Awaiting certification-list generation` rather than suggesting a list was generated.
+- Preserved the date-only primary value, historical lookup, Public card, and Billing/Payroll processes; no data or configuration changes.
+- Frontend lint/build and whitespace checks passed before the deployment push.
+
+### Objective, behavior, roles, and implementation
+
+The user requested a relevant subtitle because the Private Allowance card
+looked plain beside the other two cards. Previously the Private card omitted
+the shared small-text row. It now uses that existing row and typography to
+explain the displayed date, with a separate awaiting state for unavailable or
+invalid dates. Only Private Scholar presentation changes; Public users retain
+the existing allowance-status subtitle. Changes are limited to
+`frontend/src/ScholarDashboard.jsx` and both development change logs.
+
+### Impact assessment
+
+- **API/database:** no endpoint, payload, query, schema, migration, write, or historical-record impact.
+- **Configuration/deployment:** no environment or hosting-setting change; the frontend update follows the existing Hostinger auto-deployment workflow.
+- **Security/privacy:** no additional personal data, permissions, credentials, or document access.
+- **Accessibility/UX:** descriptive text uses the established subtitle element and styles; no interaction or navigation changes.
+- **Scope/legacy:** explicitly describes certification-list generation, not fund release or allowance receipt. Existing legacy monetary code is retained unchanged.
+
+### Validation, limitations, rollback, and next work
+
+Frontend lint/build and whitespace checks passed. The build reported only
+non-blocking bundle-size/plugin-timing warnings. The
+generated and awaiting branches are reviewed in source; Public subtitle
+selection is unchanged. Backend tests are not rerun for this presentation-only
+change. There is no new history table or time display. Rollback is a single
+code revert with no database action. Confirm Hostinger completion and refresh
+the Private Scholar Dashboard to inspect the hosted subtitle.
+
 ## 2026-09-15 - Private Dashboard Includes Historical Certification Dates
 
 ### TL;DR

@@ -213,6 +213,11 @@ function ScholarDashboard({ token, user, onLogout }) {
   const allowance = portalData.allowance;
   const allowanceStatus = formatAllowanceStatus(allowance);
   const certificationDate = formatPortalDate(portalData.certificationCreatedAt || allowance?.certificationCreatedAt, 'Not generated', 'Asia/Manila');
+  const allowanceSubtitle = isPrivateScholar
+    ? certificationDate !== 'Not generated'
+      ? 'Latest certification list generated'
+      : 'Awaiting certification-list generation'
+    : allowanceStatus;
   const allowanceAmount = allowance
     ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(allowance.amount)
     : 'Not scheduled';
@@ -370,7 +375,7 @@ function ScholarDashboard({ token, user, onLogout }) {
 
         <section className="scholar-stat-grid">
           <article className="scholar-stat-card"><div className="scholar-stat-icon green"><CheckCircle2 size={21} /></div><div><span>Scholarship status</span><strong>{portalData.scholar?.isActive ? 'Active Scholar' : 'Scholar record unavailable'}</strong><small>{portalData.scholar?.issuedAt ? `Approved ${formatPortalDate(portalData.scholar.issuedAt)}` : 'Approval date unavailable'}</small></div></article>
-          <article className="scholar-stat-card"><div className="scholar-stat-icon gold"><CircleDollarSign size={21} /></div><div><span>Allowance</span><strong>{isPrivateScholar ? certificationDate : allowanceAmount}</strong>{!isPrivateScholar && <small>{allowanceStatus}</small>}</div></article>
+          <article className="scholar-stat-card"><div className="scholar-stat-icon gold"><CircleDollarSign size={21} /></div><div><span>Allowance</span><strong>{isPrivateScholar ? certificationDate : allowanceAmount}</strong><small>{allowanceSubtitle}</small></div></article>
           <article className="scholar-stat-card">
             <div className="scholar-stat-icon blue"><FileCheck2 size={21} /></div>
             <div>
