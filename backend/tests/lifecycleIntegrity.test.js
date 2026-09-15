@@ -42,6 +42,7 @@ test('[SUCCESS] an active scholar with all applicable online files is billable',
     alreadyBilled: false,
     initialDocs: approvedDocuments(),
     requirement: { folder_physical_submitted: true },
+    schoolType: 'Private',
   });
   assert.equal(result.eligible, true);
   assert.equal(result.snapshot.onlineApproved, 6);
@@ -141,4 +142,37 @@ test('[FAILED] billing override requires a meaningful reason', () => {
   });
 
   assert.equal(evaluateBillingOverride({ eligibility, reason: 'urgent' }).allowed, false);
+});
+
+test('a missing classification never invents a Private tuition requirement and blocks list generation', () => {
+  const documents = approvedDocuments();
+  delete documents.requirements.tuition_receipt;
+  for (const schoolType of [undefined, null, '', 'unknown']) {
+    const result = evaluateBillingEligibility({ isActive: true, initialDocs: documents, schoolType, requireSchoolClassification: true });
+    assert.equal(result.eligible, false);
+    assert.equal(result.snapshot.onlineTotal, 5);
+    assert.deepEqual(result.reasons.map(({ code }) => code), ['SCHOOL_CLASSIFICATION_MISSING']);
+    assert.equal(evaluateBillingOverride({ eligibility: result, reason: 'Attempted classification bypass.' }).allowed, false);
+  }
+});
+
+test('explicit Private classification still requires an approved tuition receipt', () => {
+  const documents = approvedDocuments();
+  delete documents.requirements.tuition_receipt;
+  const result = evaluateBillingEligibility({ isActive: true, initialDocs: documents, schoolType: 'Private', requireSchoolClassification: true });
+  assert.equal(result.snapshot.onlineTotal, 6);
+  assert.deepEqual(result.reasons.map(({ requirement }) => requirement), ['tuition_receipt']);
+});
+
+test('strict Public list eligibility uses exactly five requirements', () => {
+  const documents = approvedDocuments();
+  delete documents.requirements.tuition_receipt;
+  const result = evaluateBillingEligibility({ isActive: true, initialDocs: documents, schoolType: ' PUBLIC ', requireSchoolClassification: true });
+  assert.equal(result.eligible, true);
+  assert.equal(result.snapshot.onlineTotal, 5);
+});
+
+test('already processed records are blocked by the shared eligibility check', () => {
+  const result = evaluateBillingEligibility({ isActive: true, initialDocs: approvedDocuments(), schoolType: 'Public', alreadyProcessedForPeriod: true, requireSchoolClassification: true });
+  assert.deepEqual(result.reasons.map(({ code }) => code), ['ALREADY_PROCESSED_FOR_PERIOD']);
 });

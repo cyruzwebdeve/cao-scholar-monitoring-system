@@ -36,6 +36,7 @@ const { publicExamQuestions, scoreExamAnswers } = require('../services/examQuest
 const { ADMIN_INITIAL_REQUIREMENT_KEYS, SCHOLAR_SEMESTER_REQUIREMENT_KEYS } = require('../services/documentReview');
 const { resolveRequirementSubmission } = require('../services/requirementSubmission');
 const { latestCertificationCreatedAt } = require('../services/certificationDate');
+const { normalizeSchoolName, resolveScholarSchool } = require('../services/scholarSchool');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -924,7 +925,7 @@ const getScholarManagement = async (req, res) => {
     const applicantById = new Map(applicants.map((applicant) => [applicant.id, applicant]));
     const accountByApplicant = new Map(accounts.map((account) => [account.applicant_id, account]));
     const schoolById = new Map(schools.map((school) => [school.id, school]));
-    const schoolByName = new Map(schools.map((school) => [String(school.name).trim().toLowerCase(), school]));
+    const schoolByName = new Map(schools.map((school) => [normalizeSchoolName(school.name), school]));
     const requirementByApplicant = new Map();
     requirements.forEach((requirement) => {
       if (!requirementByApplicant.has(requirement.applicant_id)) requirementByApplicant.set(requirement.applicant_id, requirement);
@@ -965,11 +966,9 @@ const getScholarManagement = async (req, res) => {
       const application = applicationByApplicant.get(applicant.id);
       const applicationPlan = application?.school_plan || {};
       const applicationRequirements = application?.initial_docs?.requirements || {};
-      const school = schoolById.get(requirement?.school_id || applicant.school_id)
-        || schoolByName.get(String(applicationPlan.school || '').trim().toLowerCase());
-      const schoolType = String(school?.school_type || 'public').toLowerCase() === 'private'
-        ? 'Private'
-        : 'Public';
+      const school = resolveScholarSchool({ applicant, requirement, application, schoolById, schoolByName });
+      const resolvedSchoolType = String(school?.school_type || '').trim().toLowerCase();
+      const schoolType = resolvedSchoolType === 'private' ? 'Private' : resolvedSchoolType === 'public' ? 'Public' : 'Unclassified';
       const configuredBillingAmount = requirement?.billing_amount === null || requirement?.billing_amount === undefined
         ? 0
         : Number(requirement.billing_amount);
@@ -1050,9 +1049,13 @@ const getScholarManagement = async (req, res) => {
       const billingEligibility = evaluateBillingEligibility({
         isActive: scholar.is_active,
         alreadyBilled: billed,
+        alreadyProcessedForPeriod: !billed && (payrollClaimsByApplicant.get(applicant.id) || []).some((claim) => (
+          claim.academic_period_id === activePeriod.id || payrollBatchById.get(claim.payroll_batch_id)?.billing_period_id === activePeriod.id
+        )),
         initialDocs: application?.initial_docs,
         requirement,
-        schoolType,
+        schoolType: school?.school_type,
+        requireSchoolClassification: true,
       });
       return {
         id: scholar.id,
@@ -1232,12 +1235,6 @@ const updateScholarBillingMetadata = async (req, res) => {
   }
 };
 
-const resolveScholarSchool = ({ applicant, requirement, application, schoolById, schoolByName }) => (
-  schoolById.get(requirement?.school_id || applicant?.school_id)
-  || schoolByName.get(String(application?.school_plan?.school || '').trim().toLowerCase())
-  || null
-);
-
 const processBillingSelection = async (req, res) => {
   try {
     const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
@@ -1316,7 +1313,7 @@ const processBillingSelection = async (req, res) => {
     const scholarByApplicant = new Map(scholarAccounts.map((scholar) => [scholar.applicant_id, scholar]));
     const applicantById = new Map(applicants.map((applicant) => [applicant.id, applicant]));
     const schoolById = new Map(schools.map((school) => [school.id, school]));
-    const schoolByName = new Map(schools.map((school) => [String(school.name).trim().toLowerCase(), school]));
+    const schoolByName = new Map(schools.map((school) => [normalizeSchoolName(school.name), school]));
     const applicationByApplicant = new Map();
     applications.forEach((application) => {
       if (!applicationByApplicant.has(application.applicant_id)) applicationByApplicant.set(application.applicant_id, application);
@@ -1338,8 +1335,9 @@ const processBillingSelection = async (req, res) => {
         initialDocs: application?.initial_docs,
         requirement,
         schoolType: school?.school_type,
+        requireSchoolClassification: true,
       });
-      if (getSchoolProcessRoute(school?.school_type) !== 'billing') {
+      if (school && getSchoolProcessRoute(school.school_type) !== 'billing') {
         result = {
           ...result,
           eligible: false,
@@ -1475,7 +1473,7 @@ const processPayrollSelection = async (req, res) => {
     });
     const requirementByApplicant = new Map(requirements.map((requirement) => [requirement.applicant_id, requirement]));
     const schoolById = new Map(schools.map((school) => [school.id, school]));
-    const schoolByName = new Map(schools.map((school) => [String(school.name).trim().toLowerCase(), school]));
+    const schoolByName = new Map(schools.map((school) => [normalizeSchoolName(school.name), school]));
     const eligibility = applicantIds.map((applicantId) => {
       const application = applicationByApplicant.get(applicantId);
       const requirement = requirementByApplicant.get(applicantId);
@@ -1483,15 +1481,14 @@ const processPayrollSelection = async (req, res) => {
       const readiness = evaluateBillingEligibility({
         isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
         alreadyBilled: false,
+        alreadyProcessedForPeriod: processedIds.has(applicantId),
         initialDocs: application?.initial_docs,
         requirement,
         schoolType: school?.school_type,
+        requireSchoolClassification: true,
       });
       const reasons = [...readiness.reasons];
-      if (processedIds.has(applicantId)) {
-        reasons.push({ code: 'ALREADY_PROCESSED_FOR_PERIOD', message: 'Scholar already has a Billing or Payroll list record for this academic period.' });
-      }
-      if (getSchoolProcessRoute(school?.school_type) !== 'payroll') {
+      if (school && getSchoolProcessRoute(school.school_type) !== 'payroll') {
         reasons.push({ code: 'PRIVATE_SCHOOL_BILLING_ROUTE', message: 'Private-school scholars remain in Billing for the certification list and cannot be added to Payroll.' });
       }
       return { applicantId, eligible: reasons.length === 0, reasons };

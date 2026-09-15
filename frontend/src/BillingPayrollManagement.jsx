@@ -456,7 +456,14 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
         }),
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.message || `Unable to process ${mode} records.`);
+      if (!response.ok) {
+        const details = (Array.isArray(body.ineligible) ? body.ineligible : []).map(({ applicantId, reasons }) => {
+          const name = processedRecords.find((record) => record.applicantId === applicantId)?.name || 'Selected scholar';
+          const messages = (Array.isArray(reasons) ? reasons : []).map(({ message }) => message).filter(Boolean);
+          return messages.length ? `${name}: ${messages.join(' ')}` : '';
+        }).filter(Boolean).join(' ');
+        throw new Error([body.message || `Unable to process ${mode} records.`, details].filter(Boolean).join(' '));
+      }
       let downloadWarning = '';
       try {
         if (isPayroll) {
@@ -575,10 +582,11 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
                   && record.processEligible
                   && (isPayroll ? !record.inPayroll : !record.billed);
                 const canOverride = canUseBillingOverride && !record.isArchivedPeriod && !record.billed
-                  && record.status === 'Active' && !record.processEligible;
+                  && record.status === 'Active' && !record.processEligible
+                  && record.schoolType !== 'Unclassified';
                 const isSelected = canMove && sourceSelection.includes(record.applicantId);
                 const statusLabel = isPayroll
-                  ? record.inPayroll ? 'In payroll list' : canMove ? 'Ready for payroll' : 'Requirements incomplete'
+                  ? record.inPayroll ? 'In payroll list' : canMove ? 'Ready for payroll' : record.schoolType === 'Unclassified' ? 'School classification required' : 'Requirements incomplete'
                   : record.billed ? 'Certification listed' : record.processEligible ? 'Ready for certification' : canOverride ? 'Override available' : 'Requirements incomplete';
                 const unavailableReason = record.billingEligibilityReasons?.[0]?.message;
                 return <div className={`billing-queue-row ${isSelected ? 'selected' : ''} ${canMove || canOverride ? '' : 'archived'} ${canOverride ? 'override-available' : ''}`} key={record.id}>
@@ -587,6 +595,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
                   <div className="billing-source-status">
                     <span className={`billing-queue-ready ${canOverride ? 'override' : canMove ? '' : 'archived'}`}>{statusLabel}</span>
                     {!isPayroll && !record.isArchivedPeriod && !record.billed && <button type="button" onClick={() => openBillingEditor(record)} aria-label={`Edit billing details for ${record.name}`}><Pencil size={12} />Edit</button>}
+                    {isPayroll && userRole === 'SuperAdmin' && record.schoolType === 'Unclassified' && !record.isArchivedPeriod && !record.inPayroll && <button type="button" onClick={() => openBillingEditor(record)} aria-label={`Select school for ${record.name}`}><Pencil size={12} />Select school</button>}
                   </div>
                 </div>;
               })}

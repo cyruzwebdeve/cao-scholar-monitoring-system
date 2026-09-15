@@ -5,6 +5,103 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-15 - Payroll School Resolution and Public Requirement Regression Fix
+
+### TL;DR
+
+- Fixed the conflicting fallback that demanded a Private tuition receipt when Payroll could not resolve a Public scholar's school classification.
+- Listing and generation now share school resolution, recover valid applicant IDs behind dangling period references, and normalize planned school names consistently.
+- Unresolved classifications are explicitly blocked as `School classification required`, not silently treated as eligible Public records; Super Administrators can select a catalog school from Payroll using the existing protected editor.
+- Preserved five Public requirements, six Private requirements, Public PHP 3,000 Payroll and Private PHP 5,000 certification, with actual-controller regression tests covering generation and refusal paths.
+- All 134 backend tests, frontend lint/build, changed-backend syntax, and whitespace checks passed; no production data was edited from the workstation.
+
+### Objective and reason
+
+The user reported a hosted Payroll 409 response requesting an Official Receipt
+of Tuition Fee for a Public scholar. Local reproduction identified two
+inconsistent fallbacks: missing classification defaulted to Public routing but
+Private requirement selection. The queue also displayed Public/Ready because
+its normalized school display masked an unresolved school lookup. Previous
+tests covered explicitly supplied classifications but not this controller path.
+
+### Previous and new behavior
+
+Previously a dangling academic-period school ID could hide a valid applicant
+school; school-name normalization differed across resolution sites, and missing
+types demanded a receipt without a Private-route error. A shared resolver now
+checks a valid period school, then a valid applicant school, then a normalized
+planned school name. String-valued legacy IDs and whitespace/case/Unicode NFC
+differences resolve consistently. A valid period-specific school still retains
+precedence, including an intentional Private transfer.
+
+Receipt selection now requires an explicit Private classification. Missing
+types use only the common five-file snapshot rather than inventing a Private
+receipt, but both list-generation endpoints and management readiness require
+a recognized catalog classification and block unknowns with
+`SCHOOL_CLASSIFICATION_MISSING`. The missing-classification reason is not
+overrideable. Management readiness also checks existing period list membership
+instead of offering a duplicate record as Ready. Public scholars remain subject
+to approval of three CAO Initial Requirements plus COG and Registration Form.
+Private scholars still require those five plus the tuition receipt.
+
+### Roles, implementation, and files
+
+Affected users are authorized CAO Billing/Payroll staff and administrators;
+scholars do not need to upload a receipt to repair school linkage. The shared
+resolver is in `backend/services/scholarSchool.js`, used by management listing,
+Payroll generation, and Private certification generation. The lifecycle service
+has explicit strict-classification and existing-period-record guards. The
+frontend now displays backend per-scholar refusal reasons instead of discarding
+them, labels unresolved schools accurately, prevents classification overrides,
+and exposes `Select school` in Payroll only to Super Administrators. That action
+reuses the existing school-details editor and role/section-protected write API;
+other authorized staff can use the existing Billing editor if their permissions
+allow it. No authorization scope is expanded.
+
+Changed areas: application controller, lifecycle eligibility service/tests,
+new school resolver/tests, actual-controller processing tests,
+`frontend/src/BillingPayrollManagement.jsx`, and both development change logs.
+
+### Impact assessment
+
+- **API:** existing endpoints/response shapes remain compatible; readiness reasons may contain the new missing-classification code, and school display may be `Unclassified`. No new endpoint or permission is introduced.
+- **Database:** no migration, schema reset, seed, historical backfill, automated correction, or workstation production write. Selecting a school through the existing editor updates the chosen period's existing academic details using its established audited flow.
+- **Configuration/deployment:** no environment, DNS, build-command, hosting, mail, or Blob settings change. The user requested correction of the deployed system; the verified fix is pushed through existing Hostinger auto-deployment.
+- **Security/privacy:** unknown schools cannot bypass generation eligibility or authorized overrides. Refusal details are shown only to already authorized staff; no tokens, document storage URLs, or personal data are added to logs. Controller tests use a fully mocked database and no live email.
+- **Accessibility/UX:** the queue communicates a real school-linkage problem instead of a false upload requirement; the existing accessible editor/button patterns are reused. Generation failures display readable per-scholar reasons.
+- **Scope/legacy:** only certification/payroll-list preparation changes. Existing legacy monetary fields/routes remain retained outside approved scope; no payment release, claiming, receipt confirmation, reconciliation, or monetary audit is added.
+
+### Validation and results
+
+Targeted service/controller regression tests pass. Actual-controller tests
+exercise management-versus-generation parity, valid Public generation without
+tuition receipt, dangling/missing school IDs, normalized planned-school fallback,
+unresolved classification refusal without a receipt error, Private payroll
+refusal, duplicate list refusal, pending COG refusal, valid Private PHP 5,000
+certification generation, and refusal to override an unresolved classification.
+Controller/service syntax and whitespace checks passed. The full backend suite
+passed all 134 tests, and frontend lint and the production build passed with
+only the existing non-blocking bundle-size warning. These tests use mock
+database records rather than the user's production database, so hosted data
+linkage and deployment completion still require the explicit smoke test below.
+
+### Limitations, rollback, and next work
+
+This fix does not invent school classification or rewrite existing production
+records. If neither a valid school ID nor an exact normalized catalog name
+exists for an older record, staff must select the actual Public/Private catalog
+school once. School renames/aliases and ambiguous catalog data require human
+confirmation rather than classification guessed from institution names. Existing
+initial-document metadata semantics and unrelated revision partials are retained.
+
+After both Hostinger services show Completed for the fix commit, refresh Payroll,
+verify the processing period, and retry the Public scholar. If `Select school`
+appears, select its actual Public catalog school and save before queuing it.
+Confirm a generated Public workbook contains PHP 3,000 without a tuition receipt.
+Rollback uses a normal code revert; no database rollback is needed, but reverting
+restores the inconsistent fallback bug. Do not delete requirements or existing
+official lists to work around the error.
+
 ## 2026-09-15 - Private Allowance Card Certification Subtitle
 
 ### TL;DR

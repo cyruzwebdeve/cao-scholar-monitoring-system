@@ -19,7 +19,7 @@ const getSchoolProcessRoute = (schoolType) => (
   normalizeStatus(schoolType) === 'private' ? 'billing' : 'payroll'
 );
 
-const getRequirementSnapshot = ({ initialDocs, requirement, schoolType = 'private' } = {}) => {
+const getRequirementSnapshot = ({ initialDocs, requirement, schoolType = 'public' } = {}) => {
   const uploadedRequirements = initialDocs?.requirements || {};
   const applicableRequirements = getSchoolProcessRoute(schoolType) === 'billing'
     ? ONLINE_REQUIREMENTS
@@ -44,9 +44,13 @@ const getRequirementSnapshot = ({ initialDocs, requirement, schoolType = 'privat
   };
 };
 
-const evaluateBillingEligibility = ({ isActive, alreadyBilled, initialDocs, requirement, schoolType } = {}) => {
+const evaluateBillingEligibility = ({ isActive, alreadyBilled, alreadyProcessedForPeriod = false, initialDocs, requirement, schoolType, requireSchoolClassification = false } = {}) => {
   const snapshot = getRequirementSnapshot({ initialDocs, requirement, schoolType });
   const reasons = [];
+
+  if (requireSchoolClassification && !['public', 'private'].includes(normalizeStatus(schoolType))) {
+    reasons.push({ code: 'SCHOOL_CLASSIFICATION_MISSING', message: 'Select a valid school with a Public or Private classification in this academic period before generating a list.' });
+  }
 
   if (!isActive) reasons.push({ code: 'SCHOLAR_INACTIVE', message: 'Scholar account is not active.' });
   snapshot.online.forEach((item) => {
@@ -54,6 +58,7 @@ const evaluateBillingEligibility = ({ isActive, alreadyBilled, initialDocs, requ
     else if (!item.approved) reasons.push({ code: 'REQUIREMENT_NOT_APPROVED', requirement: item.key, message: `${item.label} has not been approved by Billing staff.` });
   });
   if (alreadyBilled) reasons.push({ code: 'ALREADY_BILLED', message: 'Scholar is already billed for this academic period.' });
+  if (alreadyProcessedForPeriod) reasons.push({ code: 'ALREADY_PROCESSED_FOR_PERIOD', message: 'Scholar already has a Billing or Payroll list record for this academic period.' });
 
   return { eligible: reasons.length === 0, reasons, snapshot };
 };
