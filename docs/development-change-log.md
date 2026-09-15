@@ -5,6 +5,63 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-15 - Restore Unclassified Scholar Visibility in Processing Lists
+
+### TL;DR
+
+- Fixed the frontend Public-only filter that hid Unclassified scholars after the school-resolution correction.
+- Unclassified records now remain visible in both Payroll and Billing for school correction; they cannot enter the ordinary generation queue.
+- Known Public and Private records retain their own processing views, and existing explicit user filters still apply.
+- Seven frontend visibility/queue tests, 28 targeted backend processing tests, frontend lint/build, and whitespace checks passed before deployment.
+
+### Objective and previous/new behavior
+
+The user reported that three of five scholars disappeared from Payroll after
+the previous deployment. The backend retained all records and marked unresolved
+schools `Unclassified`, but the frontend processing filter required `Public`
+exactly in Payroll and `Private` exactly in Billing. This also hid the newly
+added `Select school` correction action. The frontend now separates record
+visibility from eligibility: unresolved records stay visible for correction,
+while only explicitly classified eligible records can move into the normal queue.
+
+### Roles, implementation, and files
+
+Authorized CAO staff can again see the unresolved rows. The existing Super
+Administrator `Select school` action becomes reachable without changing any
+permissions. `frontend/src/utils/processingVisibility.js` centralizes processing
+view visibility and ordinary queue eligibility; the management component uses
+these helpers for the mode filter, movable list, and row-selection state.
+Both modes clearly label Unclassified rows `School classification required`.
+Private certification overrides retain their existing separate queue flow.
+Files include that helper, `frontend/tests/processingVisibility.test.js`,
+`frontend/src/BillingPayrollManagement.jsx`, and both development change logs.
+
+### Impact assessment
+
+- **API/database:** no backend change, new endpoint, schema, migration, query, deletion, seed, or production record modification.
+- **Configuration/deployment:** no environment or hosting-setting changes; the correction is promoted through existing Hostinger auto-deployment.
+- **Security/privacy:** existing role and section checks remain intact. Visibility does not bypass missing-classification, requirement-approval, duplicate, or server-side generation guards.
+- **Accessibility/UX:** the existing row/status/correction-button patterns are restored for unresolved records; no new modal or navigation pattern.
+- **Scope/legacy:** only list-preparation visibility changes. Existing legacy monetary code is retained unchanged; no fund release or receipt confirmation is introduced.
+
+### Validation, limitations, rollback, and next work
+
+All seven frontend tests passed, including the exact five-record/two-Public/
+three-Unclassified visibility case, both processing views, missing classifications,
+visible-but-not-queueable records, known valid routes, and archived/incomplete/
+already-listed refusals. All 28 targeted backend school/eligibility/controller
+tests passed, preserving the previous Public tuition-receipt correction.
+Frontend lint/build and whitespace checks passed; the production build reported
+only non-blocking bundle-size/plugin-timing warnings. Hosted visibility must
+still be confirmed after the auto-deployment completes.
+
+Explicit search, school-type, status, period, and date filters still narrow the
+list intentionally. Unresolved schools still require a catalog link; they are
+not automatically reclassified Public merely to make generation succeed.
+Rollback is a code revert with no database rollback, but restores hidden rows.
+After Hostinger completion, refresh Payroll with All School Types and confirm
+the missing rows and `Select school` buttons are visible.
+
 ## 2026-09-15 - Payroll School Resolution and Public Requirement Regression Fix
 
 ### TL;DR

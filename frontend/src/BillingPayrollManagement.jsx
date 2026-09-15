@@ -21,6 +21,7 @@ import { API_BASE, authHeaders } from './services/api';
 import CsvExportModal from './components/CsvExportModal';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
 import { clearProcessingHandoff, readProcessingHandoff } from './utils/processingHandoff';
+import { canQueueForProcessing, isVisibleInProcessingMode } from './utils/processingVisibility';
 
 const formatDate = (value) => {
   if (!value) return 'Not processed';
@@ -271,7 +272,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
       && matchesBillingReference
       && matchesReference
       && (paid === 'All Payroll Statuses' || (paid === 'Paid' ? record.paid : !record.paid))
-      && normalizedSchoolType === (isPayroll ? 'Public' : 'Private')
+      && isVisibleInProcessingMode(record, isPayroll ? 'payroll' : 'billing')
       && (schoolYearSem === 'All School Years / Semesters' || record.schoolYearSemester === schoolYearSem)
       && (school === 'All Schools' || record.school === school)
       && (schoolType === 'All School Types' || normalizedSchoolType === schoolType)
@@ -301,12 +302,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
     && record.processRoute === (isPayroll ? 'payroll' : 'billing')
     && (isPayroll ? !record.inPayroll : !record.billed)), [records, queuedIds, isPayroll]);
   const sourceRecords = useMemo(() => visibleRecords.filter((record) => !queuedIds.includes(record.applicantId)), [visibleRecords, queuedIds]);
-  const movableSourceRecords = useMemo(() => sourceRecords.filter((record) => (
-    !record.isArchivedPeriod
-    && record.processRoute === (isPayroll ? 'payroll' : 'billing')
-    && record.processEligible
-    && (isPayroll ? !record.inPayroll : !record.billed)
-  )), [sourceRecords, isPayroll]);
+  const movableSourceRecords = useMemo(() => sourceRecords.filter((record) => canQueueForProcessing(record, isPayroll ? 'payroll' : 'billing')), [sourceRecords, isPayroll]);
   const selectedMovableIds = sourceSelection.filter((id) => movableSourceRecords.some((record) => record.applicantId === id));
   const queuedTotalAmount = queuedRecords.reduce((sum, record) => sum + Number(record.claimAmount || 0), 0);
   const routedRecords = currentRecords.filter((item) => item.processRoute === (isPayroll ? 'payroll' : 'billing'));
@@ -577,17 +573,16 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
               {loading && !records.length && <div className="billing-queue-empty"><span className="scholars-spinner" />Loading scholars…</div>}
               {!loading && !sourceRecords.length && <div className="billing-queue-empty"><Search size={20} /><strong>No scholar records</strong><span>{hasFilters ? 'No records match the selected filters.' : 'Scholar records will appear here automatically.'}</span></div>}
               {sourceRecords.map((record) => {
-                const canMove = !record.isArchivedPeriod
-                  && record.processRoute === (isPayroll ? 'payroll' : 'billing')
-                  && record.processEligible
-                  && (isPayroll ? !record.inPayroll : !record.billed);
+                const canMove = canQueueForProcessing(record, isPayroll ? 'payroll' : 'billing');
                 const canOverride = canUseBillingOverride && !record.isArchivedPeriod && !record.billed
                   && record.status === 'Active' && !record.processEligible
                   && record.schoolType !== 'Unclassified';
                 const isSelected = canMove && sourceSelection.includes(record.applicantId);
-                const statusLabel = isPayroll
-                  ? record.inPayroll ? 'In payroll list' : canMove ? 'Ready for payroll' : record.schoolType === 'Unclassified' ? 'School classification required' : 'Requirements incomplete'
-                  : record.billed ? 'Certification listed' : record.processEligible ? 'Ready for certification' : canOverride ? 'Override available' : 'Requirements incomplete';
+                const statusLabel = record.schoolType === 'Unclassified'
+                  ? 'School classification required'
+                  : isPayroll
+                    ? record.inPayroll ? 'In payroll list' : canMove ? 'Ready for payroll' : 'Requirements incomplete'
+                    : record.billed ? 'Certification listed' : record.processEligible ? 'Ready for certification' : canOverride ? 'Override available' : 'Requirements incomplete';
                 const unavailableReason = record.billingEligibilityReasons?.[0]?.message;
                 return <div className={`billing-queue-row ${isSelected ? 'selected' : ''} ${canMove || canOverride ? '' : 'archived'} ${canOverride ? 'override-available' : ''}`} key={record.id}>
                   <code>{record.controlNumber || '—'}</code>
