@@ -23,7 +23,7 @@ const requirementItems = [
   { key: 'tuition_receipt', label: 'Official Receipt of Tuition Fee', note: 'Required only for Private-school scholars' },
 ];
 
-const formatPortalDate = (value, fallback = 'Not available') => {
+const formatPortalDate = (value, fallback = 'Not available', timeZone) => {
   if (!value) return fallback;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return fallback;
@@ -31,6 +31,7 @@ const formatPortalDate = (value, fallback = 'Not available') => {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    timeZone,
   });
 };
 
@@ -211,6 +212,7 @@ function ScholarDashboard({ token, user, onLogout }) {
   const requirementsSubmissionClosed = portalData.activePeriod?.requirementsSubmission?.isOpen === false;
   const allowance = portalData.allowance;
   const allowanceStatus = formatAllowanceStatus(allowance);
+  const certificationDate = formatPortalDate(allowance?.certificationCreatedAt, 'Not generated', 'Asia/Manila');
   const allowanceAmount = allowance
     ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(allowance.amount)
     : 'Not scheduled';
@@ -368,7 +370,7 @@ function ScholarDashboard({ token, user, onLogout }) {
 
         <section className="scholar-stat-grid">
           <article className="scholar-stat-card"><div className="scholar-stat-icon green"><CheckCircle2 size={21} /></div><div><span>Scholarship status</span><strong>{portalData.scholar?.isActive ? 'Active Scholar' : 'Scholar record unavailable'}</strong><small>{portalData.scholar?.issuedAt ? `Approved ${formatPortalDate(portalData.scholar.issuedAt)}` : 'Approval date unavailable'}</small></div></article>
-          <article className="scholar-stat-card"><div className="scholar-stat-icon gold"><CircleDollarSign size={21} /></div><div><span>Allowance</span><strong>{allowanceAmount}</strong><small>{allowanceStatus}</small></div></article>
+          <article className="scholar-stat-card"><div className="scholar-stat-icon gold"><CircleDollarSign size={21} /></div><div><span>Allowance</span><strong>{isPrivateScholar ? certificationDate : allowanceAmount}</strong>{!isPrivateScholar && <small>{allowanceStatus}</small>}</div></article>
           <article className="scholar-stat-card">
             <div className="scholar-stat-icon blue"><FileCheck2 size={21} /></div>
             <div>

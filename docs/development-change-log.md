@@ -5,6 +5,61 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-15 - Private Scholar Allowance Card Shows Certification Date Only
+
+### TL;DR
+
+- Private Scholars now see only the certification-list generation date in the Allowance card, instead of an amount and status.
+- The date comes from the existing certification batch generation timestamp and displays as a Philippine calendar date without a time.
+- Public Scholar allowance displays, certification generation, Billing/Payroll processing, and all stored records remain unchanged.
+- All 113 backend tests passed, including four new date-resolution tests; Philippine-midnight formatting, frontend lint/build, and whitespace checks passed before the authorized Hostinger auto-deployment push.
+
+### Objective and previous/new behavior
+
+The user requested a date-only Private Scholar Allowance display. Previously
+the card showed PHP 5,000 and the legacy batch status. It now displays the date
+CAO generated the current-period certification list, such as `Sep 15, 2026`,
+without an amount, status subtitle, or time. Before generation, or if the date
+is unavailable, it displays `Not generated`; it never invents a date.
+
+### Roles, implementation, and data flow
+
+Only the Private Scholar card changes. The authenticated application response
+adds nullable `allowance.certificationCreatedAt`, resolved from the existing
+Private certification batch's `prepared_at`. Batch number `BILL-` or status
+`billed` identifies the certification route; Public and non-certification
+records resolve to null. The frontend formats that timestamp in Asia/Manila
+and replaces only the Private card value/subtitle. No new query is needed.
+
+Files: `backend/services/certificationDate.js`, its unit tests,
+`backend/controllers/applicationController.js`, `frontend/src/ScholarDashboard.jsx`,
+and both development change logs.
+
+### Impact assessment
+
+- **API:** one additive nullable timestamp in the existing authenticated response; existing fields remain compatible.
+- **Database:** no migration, write, seed, data correction, or schema change.
+- **Configuration/deployment:** no settings or environment changes; the user authorized pushing this change to the existing Hostinger auto-deploy branch.
+- **Security/privacy:** existing authentication/authorization is retained; only the signed-in record's existing generation timestamp is exposed, with no new private document or credential access.
+- **Accessibility/UX:** existing card structure is retained; Private users receive date-only text and a clear unavailable state. Public users retain their existing amount/status display.
+- **Scope/legacy:** certification remains list generation, not fund release or receipt confirmation. Existing payment-oriented response fields/status formatting are retained legacy functionality and are not used to calculate this date.
+
+### Validation, limitations, rollback, and next work
+
+The helper tests cover generation versus update/release timestamps, legacy
+billed batch recognition, Public/non-certification exclusion, and missing or
+invalid dates. A date-format smoke check confirms a UTC timestamp after 16:00
+displays the next calendar day in the Philippines, without a time. All 113
+backend tests, changed-backend syntax checks, frontend lint/build, and whitespace
+checks passed. The build reported only non-blocking size/plugin-timing warnings.
+Hosted deployment completion must still be confirmed in Hostinger.
+
+The display follows the existing current-period claim/batch lookup; historical
+lists remain in administrative history rather than this card. No fallback to
+modification or release dates is used. Rollback is an ordinary code revert;
+there is no database rollback. Other previously documented partials are not
+changed by this narrowly scoped revision.
+
 ## 2026-09-15 - Tested Revisions Prepared for Hostinger Auto-Deployment
 
 ### TL;DR
