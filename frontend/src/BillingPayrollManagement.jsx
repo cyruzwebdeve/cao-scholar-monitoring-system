@@ -22,6 +22,7 @@ import CsvExportModal from './components/CsvExportModal';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
 import { clearProcessingHandoff, readProcessingHandoff } from './utils/processingHandoff';
 import { canQueueForProcessing, isVisibleInProcessingMode } from './utils/processingVisibility';
+import { billingSchoolSelection, resolveBillingSchoolId, SAVED_SCHOOL_VALUE } from './utils/billingSchoolSelection';
 
 const formatDate = (value) => {
   if (!value) return 'Not processed';
@@ -171,7 +172,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const [overrideError, setOverrideError] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
   const [billingEditor, setBillingEditor] = useState(null);
-  const [billingForm, setBillingForm] = useState({ schoolId: '', yearLevel: '', course: '', major: '', billingAmount: '0', billingNotes: '' });
+  const [billingForm, setBillingForm] = useState({ schoolId: '', schoolClassification: '', yearLevel: '', course: '', major: '', billingAmount: '0', billingNotes: '' });
   const [billingEditError, setBillingEditError] = useState('');
   const [billingSaving, setBillingSaving] = useState(false);
   const [query, setQuery] = useState('');
@@ -185,7 +186,10 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const [schoolType, setSchoolType] = useState('All School Types');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const selectedBillingSchool = availableSchools.find((item) => String(item.id) === String(billingForm.schoolId));
+  const isSavedBillingSchool = billingForm.schoolId === SAVED_SCHOOL_VALUE;
+  const selectedBillingSchool = isSavedBillingSchool
+    ? { schoolType: billingForm.schoolClassification }
+    : availableSchools.find((item) => String(item.id) === String(billingForm.schoolId));
   const isPrivateBillingSchool = selectedBillingSchool?.schoolType === 'Private';
 
   const loadRecords = useCallback(async ({ showLoader = false } = {}) => {
@@ -370,7 +374,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const openBillingEditor = (record) => {
     setBillingEditor(record);
     setBillingForm({
-      schoolId: String(record.schoolId || ''),
+      ...billingSchoolSelection(record, availableSchools),
       yearLevel: record.yearLevel || '',
       course: record.course || '',
       major: record.major || '',
@@ -386,10 +390,22 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
     setBillingSaving(true);
     setBillingEditError('');
     try {
+      const details = { ...billingForm };
+      delete details.schoolClassification;
+      const schoolId = await resolveBillingSchoolId(billingForm, billingEditor, async (savedSchool) => {
+        const classificationResponse = await fetch(`${API_BASE}/schools/classification`, {
+          method: 'PUT',
+          headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+          body: JSON.stringify(savedSchool),
+        });
+        const classificationBody = await classificationResponse.json().catch(() => ({}));
+        if (!classificationResponse.ok) throw new Error(classificationBody.message || 'Unable to link the saved school to the catalog.');
+        return classificationBody;
+      });
       const response = await fetch(`${API_BASE}/scholars/${billingEditor.applicantId}/billing-details`, {
         method: 'PUT',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...billingForm, academicPeriodId: Number(selectedPeriodId), schoolId: Number(billingForm.schoolId), billingAmount: Number(billingForm.billingAmount) }),
+        body: JSON.stringify({ ...details, academicPeriodId: Number(selectedPeriodId), schoolId, billingAmount: Number(billingForm.billingAmount) }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.message || 'Unable to update billing details.');
@@ -590,7 +606,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
                   <div className="billing-source-status">
                     <span className={`billing-queue-ready ${canOverride ? 'override' : canMove ? '' : 'archived'}`}>{statusLabel}</span>
                     {!isPayroll && !record.isArchivedPeriod && !record.billed && <button type="button" onClick={() => openBillingEditor(record)} aria-label={`Edit billing details for ${record.name}`}><Pencil size={12} />Edit</button>}
-                    {isPayroll && userRole === 'SuperAdmin' && record.schoolType === 'Unclassified' && !record.isArchivedPeriod && !record.inPayroll && <button type="button" onClick={() => openBillingEditor(record)} aria-label={`Select school for ${record.name}`}><Pencil size={12} />Select school</button>}
+                    {isPayroll && userRole === 'SuperAdmin' && record.schoolType === 'Unclassified' && !record.isArchivedPeriod && !record.inPayroll && <button type="button" onClick={() => openBillingEditor(record)} aria-label={`Use saved school details for ${record.name}`}><Pencil size={12} />{billingSchoolSelection(record, availableSchools).schoolId === SAVED_SCHOOL_VALUE ? 'Use saved school' : 'Select school'}</button>}
                   </div>
                 </div>;
               })}
@@ -658,7 +674,8 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
           </header>
           <form className="billing-details-form" onSubmit={saveBillingDetails}>
             <div className="billing-details-grid">
-              <label><span>School</span><select required value={billingForm.schoolId} onChange={(event) => { const selected = availableSchools.find((school) => String(school.id) === event.target.value); setBillingForm((current) => ({ ...current, schoolId: event.target.value, billingAmount: selected?.schoolType === 'Private' ? '5000' : current.billingAmount })); }}><option value="">Select school</option>{availableSchools.map((school) => <option key={school.id} value={school.id}>{school.name} ({school.schoolType})</option>)}</select></label>
+              <label><span>School</span><select required value={billingForm.schoolId} onChange={(event) => { const selected = availableSchools.find((school) => String(school.id) === event.target.value); setBillingForm((current) => ({ ...current, schoolId: event.target.value, billingAmount: selected?.schoolType === 'Private' ? '5000' : current.billingAmount })); }}><option value="">Select school</option>{billingSchoolSelection(billingEditor, availableSchools).schoolId === SAVED_SCHOOL_VALUE && <option value={SAVED_SCHOOL_VALUE}>{billingEditor.school} (saved scholar record)</option>}{availableSchools.map((school) => <option key={school.id} value={school.id}>{school.name} ({school.schoolType})</option>)}</select>{isSavedBillingSchool && <small>Using the school already saved in the scholar record.</small>}</label>
+              {isSavedBillingSchool && <label><span>Saved school classification</span><select required value={billingForm.schoolClassification} onChange={(event) => setBillingForm((current) => ({ ...current, schoolClassification: event.target.value, billingAmount: event.target.value === 'Private' ? '5000' : '3000' }))}><option value="">Confirm Public or Private</option><option value="Public">Public</option><option value="Private">Private</option></select><small>Confirm the classification once; the existing school name is retained.</small></label>}
               <label><span>Year level</span><input maxLength={20} value={billingForm.yearLevel} onChange={(event) => setBillingForm((current) => ({ ...current, yearLevel: event.target.value }))} /></label>
               <label><span>Course</span><input maxLength={150} value={billingForm.course} onChange={(event) => setBillingForm((current) => ({ ...current, course: event.target.value }))} /></label>
               <label><span>Major</span><input maxLength={150} value={billingForm.major} onChange={(event) => setBillingForm((current) => ({ ...current, major: event.target.value }))} /></label>

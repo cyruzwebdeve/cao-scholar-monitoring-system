@@ -6,9 +6,9 @@ const test = require('node:test');
 const prisma = {};
 const prismaPath = require.resolve('../config/prisma');
 require.cache[prismaPath] = { id: prismaPath, filename: prismaPath, loaded: true, exports: prisma };
-const { getScholarManagement, processPayrollSelection, processBillingSelection } = require('../controllers/applicationController');
+const { getScholarManagement, getMyApplication, processPayrollSelection, processBillingSelection } = require('../controllers/applicationController');
 
-const setup = ({ schoolType = 'public', applicantSchoolId = 1, periodSchoolId = 999, plannedSchool = '  TEST   PUBLIC SCHOOL  ', alreadyProcessed = false, gradeStatus = 'approved', tuitionReceipt = false } = {}) => {
+const setup = ({ schoolType = 'public', applicantSchoolId = 1, periodSchoolId = 999, plannedSchool = '  TEST   PUBLIC SCHOOL  ', alreadyProcessed = false, gradeStatus = 'approved', tuitionReceipt = false, schoolHistory = [] } = {}) => {
   const period = { id: 10, school_year: '2027-2028', semester: '1st Semester', is_active: true };
   const school = { id: 1, name: 'TEST PUBLIC SCHOOL', school_type: schoolType, is_active: true };
   const applicant = { id: 1, school_id: applicantSchoolId, first_name: 'TEST', last_name: 'SCHOLAR', email: 'scholar@example.com' };
@@ -21,13 +21,23 @@ const setup = ({ schoolType = 'public', applicantSchoolId = 1, periodSchoolId = 
   const writes = [];
   Object.assign(prisma, {
     academic_periods: { findFirst: async () => period, findMany: async () => [period] },
-    scholar_accounts: { findMany: async () => [{ id: 1, applicant_id: 1, scholar_id: 'TEST-001', is_active: true }] },
-    applicants: { findMany: async () => [applicant] },
+    scholar_accounts: {
+      findMany: async () => [{ id: 1, applicant_id: 1, scholar_id: 'TEST-001', is_active: true }],
+      findFirst: async () => ({ id: 1, applicant_id: 1, scholar_id: 'TEST-001', is_active: true }),
+    },
+    applicants: { findMany: async () => [applicant], findUnique: async () => applicant },
     control_accounts: { findMany: async () => [{ applicant_id: 1, control_number: 'TEST-001' }] },
-    application_submissions: { findMany: async () => [application] },
-    scholar_requirements: { findMany: async () => [requirement] },
+    application_submissions: { findMany: async () => [application], findFirst: async () => application },
+    scholar_requirements: {
+      findMany: async ({ where }) => where.billing_period_id ? [requirement] : schoolHistory,
+      findFirst: async () => requirement,
+    },
+    results: { findFirst: async () => null },
+    eligibility_assessments: { findFirst: async () => null },
+    exam_slots: { findMany: async () => [] },
+    application_settings: { findUnique: async () => null },
     schools: { findMany: async () => [school] },
-    payroll_claims: { findMany: async () => claims },
+    payroll_claims: { findMany: async () => claims, findFirst: async () => null },
     payroll_batches: { findMany: async () => batches },
     $transaction: async (callback) => callback({
       payroll_batches: { create: async ({ data }) => { writes.push({ type: 'batch', data }); return { id: 51, ...data }; } },
@@ -138,4 +148,29 @@ test('actual Billing controller refuses missing school classification even with 
   assert.equal(res.statusCode, 409);
   assert.equal(res.body.ineligible[0].reasons[0].code, 'SCHOOL_CLASSIFICATION_MISSING');
   assert.equal(writes.length, 0);
+});
+
+test('actual listing and Payroll generation automatically reuse a Public school from existing scholar history', async () => {
+  setup({ applicantSchoolId: null, periodSchoolId: null, plannedSchool: '', schoolHistory: [{ applicant_id: 1, school_id: 1 }] });
+  const record = await list();
+  assert.equal(record.schoolId, 1);
+  assert.equal(record.schoolType, 'Public');
+  assert.equal(record.processEligible, true);
+  assert.equal((await generate()).statusCode, 201);
+});
+
+test('Scholar Portal uses the same existing historical Public school without requiring re-entry', async () => {
+  setup({ applicantSchoolId: null, periodSchoolId: null, plannedSchool: '', schoolHistory: [{ applicant_id: 1, school_id: 1 }] });
+  const res = response();
+  await getMyApplication({ user: { id: 1, email: 'scholar@example.com' } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body.school, { name: 'TEST PUBLIC SCHOOL', schoolType: 'Public' });
+});
+
+test('Scholar Portal retains a valid current-period Private school instead of older Public history', async () => {
+  setup({ schoolType: 'private', periodSchoolId: 1, applicantSchoolId: null, schoolHistory: [{ applicant_id: 1, school_id: 999 }] });
+  const res = response();
+  await getMyApplication({ user: { id: 1, email: 'scholar@example.com' } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.school.schoolType, 'Private');
 });

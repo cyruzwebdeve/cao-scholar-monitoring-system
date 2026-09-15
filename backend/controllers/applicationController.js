@@ -36,7 +36,7 @@ const { publicExamQuestions, scoreExamAnswers } = require('../services/examQuest
 const { ADMIN_INITIAL_REQUIREMENT_KEYS, SCHOLAR_SEMESTER_REQUIREMENT_KEYS } = require('../services/documentReview');
 const { resolveRequirementSubmission } = require('../services/requirementSubmission');
 const { latestCertificationCreatedAt } = require('../services/certificationDate');
-const { normalizeSchoolName, resolveScholarSchool } = require('../services/scholarSchool');
+const { loadSchoolHistory, normalizeSchoolName, resolveScholarSchool } = require('../services/scholarSchool');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -918,6 +918,7 @@ const getScholarManagement = async (req, res) => {
       prisma.payroll_claims.findMany({ where: { applicant_id: { in: applicantIds } }, orderBy: { updated_at: 'desc' } }),
       prisma.academic_periods.findMany(),
     ]);
+    const schoolHistoryByApplicant = await loadSchoolHistory(prisma, applicantIds);
     const payrollBatchIds = [...new Set(payrollClaims.map((claim) => claim.payroll_batch_id).filter(Boolean))];
     const payrollBatches = payrollBatchIds.length
       ? await prisma.payroll_batches.findMany({ where: { id: { in: payrollBatchIds } } })
@@ -966,7 +967,7 @@ const getScholarManagement = async (req, res) => {
       const application = applicationByApplicant.get(applicant.id);
       const applicationPlan = application?.school_plan || {};
       const applicationRequirements = application?.initial_docs?.requirements || {};
-      const school = resolveScholarSchool({ applicant, requirement, application, schoolById, schoolByName });
+      const school = resolveScholarSchool({ applicant, requirement, application, schoolById, schoolByName, schoolHistory: schoolHistoryByApplicant.get(applicant.id) });
       const resolvedSchoolType = String(school?.school_type || '').trim().toLowerCase();
       const schoolType = resolvedSchoolType === 'private' ? 'Private' : resolvedSchoolType === 'public' ? 'Public' : 'Unclassified';
       const configuredBillingAmount = requirement?.billing_amount === null || requirement?.billing_amount === undefined
@@ -1113,7 +1114,7 @@ const getScholarManagement = async (req, res) => {
       schools: schools.filter((school) => school.is_active !== false).map((school) => ({
         id: school.id,
         name: school.name,
-        schoolType: String(school.school_type || 'public').toLowerCase() === 'private' ? 'Private' : 'Public',
+        schoolType: String(school.school_type || '').trim().toLowerCase() === 'private' ? 'Private' : String(school.school_type || '').trim().toLowerCase() === 'public' ? 'Public' : 'Unclassified',
       })),
       activePeriod: serializeAcademicPeriod(activePeriod),
       activePeriods: sortedAcademicPeriods.filter((period) => period.is_active).map(serializeAcademicPeriod),
@@ -1309,6 +1310,7 @@ const processBillingSelection = async (req, res) => {
         select: { applicant_id: true },
       })
       : [];
+    const schoolHistoryByApplicant = await loadSchoolHistory(prisma, applicantIds);
     const billedIds = new Set(existingClaims.map(({ applicant_id }) => applicant_id));
     const scholarByApplicant = new Map(scholarAccounts.map((scholar) => [scholar.applicant_id, scholar]));
     const applicantById = new Map(applicants.map((applicant) => [applicant.id, applicant]));
@@ -1328,6 +1330,7 @@ const processBillingSelection = async (req, res) => {
         application,
         schoolById,
         schoolByName,
+        schoolHistory: schoolHistoryByApplicant.get(applicantId),
       });
       let result = evaluateBillingEligibility({
         isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
@@ -1464,6 +1467,7 @@ const processPayrollSelection = async (req, res) => {
         select: { applicant_id: true },
       }),
     ]);
+    const schoolHistoryByApplicant = await loadSchoolHistory(prisma, applicantIds);
     const processedIds = new Set(existingClaims.map(({ applicant_id }) => applicant_id));
     const scholarByApplicant = new Map(scholarAccounts.map((scholar) => [scholar.applicant_id, scholar]));
     const applicantById = new Map(applicants.map((applicant) => [applicant.id, applicant]));
@@ -1477,7 +1481,7 @@ const processPayrollSelection = async (req, res) => {
     const eligibility = applicantIds.map((applicantId) => {
       const application = applicationByApplicant.get(applicantId);
       const requirement = requirementByApplicant.get(applicantId);
-      const school = resolveScholarSchool({ applicant: applicantById.get(applicantId), requirement, application, schoolById, schoolByName });
+      const school = resolveScholarSchool({ applicant: applicantById.get(applicantId), requirement, application, schoolById, schoolByName, schoolHistory: schoolHistoryByApplicant.get(applicantId) });
       const readiness = evaluateBillingEligibility({
         isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
         alreadyBilled: false,
@@ -1699,12 +1703,16 @@ const getMyApplication = async (req, res) => {
       ? await prisma.exams.findUnique({ where: { id: result.exam_id }, select: { title: true, exam_date: true, academic_year: true } })
       : null;
     const examSlot = examSlots?.find((slot) => slot.exam_id === (scheduledExam?.id || result?.exam_id)) || null;
-    const selectedSchool = applicant?.school_id
-      ? await prisma.schools.findUnique({ where: { id: applicant.school_id }, select: { name: true, school_type: true } })
-      : await prisma.schools.findFirst({
-        where: { name: { equals: String(application.school_plan?.school || '').trim(), mode: 'insensitive' } },
-        select: { name: true, school_type: true },
-      });
+    const [schoolCatalog, schoolHistory] = await Promise.all([
+      prisma.schools.findMany({ select: { id: true, name: true, school_type: true } }),
+      loadSchoolHistory(prisma, applicantId ? [applicantId] : []),
+    ]);
+    const selectedSchool = resolveScholarSchool({
+      applicant, requirement: scholarRequirement, application,
+      schoolById: new Map(schoolCatalog.map((school) => [school.id, school])),
+      schoolByName: new Map(schoolCatalog.map((school) => [normalizeSchoolName(school.name), school])),
+      schoolHistory: schoolHistory.get(applicantId),
+    });
     const payrollBatch = payrollClaim
       ? await prisma.payroll_batches.findUnique({ where: { id: payrollClaim.payroll_batch_id } })
       : null;

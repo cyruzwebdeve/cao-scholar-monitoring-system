@@ -5,6 +5,85 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-15 - Reuse Existing Scholar School Details for Processing
+
+### TL;DR
+
+- Billing/Payroll now reuse the saved scholar school automatically rather than presenting an empty school dropdown when the catalog link is absent.
+- School resolution also reads existing scholar school references from prior periods; valid current-period selections and school transfers retain precedence.
+- When a saved school name has no classified catalog entry, the editor preserves that name and requests only explicit Public/Private confirmation before linking it through existing protected APIs.
+- All 142 backend tests, 16 frontend utility tests, frontend lint/build, and syntax/whitespace checks passed before the Hostinger deployment push.
+
+### Objective and previous/new behavior
+
+The user showed a Scholar drawer with an existing saved school while the Billing
+editor displayed `Select school`. The drawer could display application text
+without a corresponding catalog school ID. The previous correction blocked
+unknown classification correctly, but still required unnecessary school re-entry.
+
+The editor now automatically selects the existing catalog ID or normalized saved
+name match. If neither exists, the saved school remains preselected as
+`saved scholar record`. The user does not select or type the institution again.
+Public/Private confirmation is requested only when a usable classification is
+missing, rather than guessing it from the institution name. An already classified
+school retains the ordinary existing save flow without a new catalog write.
+
+### Roles, implementation, files, and data flow
+
+Authorized CAO editors use the existing Billing dialog; the Payroll Super
+Administrator correction action now reads `Use saved school` for an unmapped
+saved institution. `billingSchoolSelection.js` resolves editor defaults and the
+numeric ID used for saving. For an unmapped saved name, it calls the existing
+school-classification API with that exact name and the confirmed type, then
+passes the returned catalog ID to the existing period-details API. No permission
+or endpoint is added. Private amounts remain fixed at PHP 5,000 and Public payroll
+at PHP 3,000; all requirement and duplicate-list guards remain intact.
+
+The backend shared school resolver now has a scoped metadata-only history read.
+It prefers the current-period school, valid applicant school, and current planned
+catalog school, then a matching historical reference or an existing historical
+school when no planned name exists. A different unmatched new planned name is
+not replaced by an older school. Management listing, both generation endpoints,
+and the Scholar Portal use the shared resolution path. Unknown catalog types
+remain `Unclassified` rather than being displayed as Public.
+
+Files: application controller, school resolver/tests, actual processing/portal
+controller tests, Billing/Payroll component, new billing-school-selection
+utility/tests, and both development change logs.
+
+### Impact assessment
+
+- **API:** no new endpoint or authorization scope; existing classification and academic-details responses/writes are reused. Response shapes remain compatible.
+- **Database:** adds narrow school-reference history reads; no migration, schema reset, seed, automatic load-time backfill, or workstation production write. Confirming and saving an unmapped name creates/updates its catalog classification and links the chosen period through existing APIs.
+- **Configuration/deployment:** no environment, DNS, hosting-setting, storage, or mail changes; deployed through the existing authorized Hostinger auto-deployment workflow.
+- **Security/privacy:** history reads select only applicant IDs and school IDs scoped to the requested scholars, not historical document data. Explicit classification is required before registering a missing link; no Public default is invented.
+- **Accessibility/UX:** saved school text is visible and selected by default; a labelled classification control explains the one-time confirmation. Other academic fields and established dialog interactions are retained.
+- **Scope/legacy:** list preparation only; existing legacy monetary fields/routes remain retained unchanged, with no fund release or receipt-confirmation workflow.
+
+### Validation, limitations, rollback, and next work
+
+All 142 backend tests passed, including actual-controller tests for historical
+Public school reuse, Scholar Portal parity, current Private school precedence,
+Public no-receipt generation, and Private certification behavior. All 16 frontend
+tests passed, covering ID/name preselection, saved-name retention without a
+catalog entry, no registration for existing links, exact-name registration after
+confirmation, invalid-ID refusal, and preserved visibility/queue guards.
+Frontend lint/build and changed-backend syntax/whitespace checks passed; the
+production build reported only the existing non-blocking bundle-size warning.
+The tests use synthetic records and mock APIs, not the hosted database, so the
+saved-school display and any necessary classification confirmation still need
+the hosted smoke check after deployment.
+
+Saved text cannot prove a missing Public/Private classification. Historical
+references are reused only when compatible with the current planned school,
+and school rename/alias conflicts still require human confirmation. Registration
+and period-linking reuse two existing API operations: if linking fails after
+catalog registration, the classified catalog entry remains and can be reused on
+retry. Existing records are not deleted or renamed. Rollback is a code revert;
+retain legitimately confirmed catalog/period links rather than deleting data.
+After Hostinger completion, open the correction dialog and confirm the saved
+school is already selected, then confirm a missing classification only if needed.
+
 ## 2026-09-15 - Restore Unclassified Scholar Visibility in Processing Lists
 
 ### TL;DR
