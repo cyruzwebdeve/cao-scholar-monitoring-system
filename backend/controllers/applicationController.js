@@ -35,7 +35,7 @@ const { resolveBillingAmount } = require('../services/billingGrant');
 const { publicExamQuestions, scoreExamAnswers } = require('../services/examQuestions');
 const { ADMIN_INITIAL_REQUIREMENT_KEYS, SCHOLAR_SEMESTER_REQUIREMENT_KEYS } = require('../services/documentReview');
 const { resolveRequirementSubmission } = require('../services/requirementSubmission');
-const { certificationCreatedAt } = require('../services/certificationDate');
+const { latestCertificationCreatedAt } = require('../services/certificationDate');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -1711,6 +1711,7 @@ const getMyApplication = async (req, res) => {
     const payrollBatch = payrollClaim
       ? await prisma.payroll_batches.findUnique({ where: { id: payrollClaim.payroll_batch_id } })
       : null;
+    const certificationDate = await latestCertificationCreatedAt(prisma, applicantId, selectedSchool?.school_type);
     const guidance = buildApplicantGuidance({
       application,
       result,
@@ -1732,6 +1733,7 @@ const getMyApplication = async (req, res) => {
         schoolType: String(selectedSchool.school_type || 'public').toLowerCase() === 'private' ? 'Private' : 'Public',
       } : null,
       guidance,
+      certificationCreatedAt: certificationDate,
       eligibilityAssessment: scholar ? serializeAssessment(eligibilityAssessment) : null,
       scholar: scholar ? {
         id: scholar.id,
@@ -1742,7 +1744,7 @@ const getMyApplication = async (req, res) => {
       } : null,
       allowance: payrollClaim ? {
         amount: Number(payrollClaim.claim_amount),
-        certificationCreatedAt: certificationCreatedAt(selectedSchool?.school_type, payrollBatch),
+        certificationCreatedAt: certificationDate,
         status: payrollClaim.claim_status,
         claimedDate: payrollClaim.claimed_date,
         payReference: payrollClaim.claimed_notes,

@@ -212,7 +212,7 @@ function ScholarDashboard({ token, user, onLogout }) {
   const requirementsSubmissionClosed = portalData.activePeriod?.requirementsSubmission?.isOpen === false;
   const allowance = portalData.allowance;
   const allowanceStatus = formatAllowanceStatus(allowance);
-  const certificationDate = formatPortalDate(allowance?.certificationCreatedAt, 'Not generated', 'Asia/Manila');
+  const certificationDate = formatPortalDate(portalData.certificationCreatedAt || allowance?.certificationCreatedAt, 'Not generated', 'Asia/Manila');
   const allowanceAmount = allowance
     ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(allowance.amount)
     : 'Not scheduled';

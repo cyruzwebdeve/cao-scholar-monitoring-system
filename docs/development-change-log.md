@@ -5,6 +5,64 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-15 - Private Dashboard Includes Historical Certification Dates
+
+### TL;DR
+
+- Corrected the Private Scholar date lookup to include past generated certification lists across academic periods.
+- The Allowance card still shows only the latest generation date in Philippine time; Public payroll displays and list-generation processes remain unchanged.
+- Reads only batches linked to the signed-in applicant's existing list memberships; no historical data is edited or backfilled.
+- All 117 backend tests passed, including four historical-lookup tests; frontend lint/build, syntax, and whitespace checks also passed.
+
+### Objective and previous/new behavior
+
+The user clarified that already generated certification history must reflect
+in the Private Scholar Dashboard. Investigation found the existing application
+lookup explicitly excludes `BILL-`/`billed` batches for Public payroll handling.
+Consequently the earlier nested certification timestamp could not reach a
+Private Scholar without a Public payroll claim. A separate certification
+history lookup now finds the latest generation timestamp across all periods,
+including past lists when no current-period list exists.
+
+### Roles, implementation, files, and data flow
+
+For Private schools only, the helper reads the current applicant's
+`payroll_claims` membership batch IDs, then reads only matching certification
+batches identified by `BILL-` or legacy `billed` status. It selects the latest
+valid `prepared_at`, not claim modification or release dates. The authenticated
+response exposes top-level nullable `certificationCreatedAt`, so the frontend
+can render it independently of the Public-only allowance lookup. The previously
+added nested timestamp remains compatible if an allowance object exists.
+
+Files: the certification-date service/tests, application controller,
+Scholar Dashboard, and both development change logs. The existing Public
+payroll lookup, admin certification history, and generation writes are unchanged.
+
+### Impact assessment
+
+- **API:** adds one nullable top-level timestamp to the existing authenticated application response.
+- **Database:** two narrow history reads for Private applicants only; no migrations, writes, seeds, backfills, or record deletion.
+- **Configuration/deployment:** no environment or hosting-setting changes; follows the existing authorized Hostinger auto-deployment push workflow.
+- **Security/privacy:** queries remain scoped to the resolved authenticated applicant; other scholars' list memberships and documents are not exposed.
+- **Accessibility/UX:** no new tab, list, amount, or time is displayed. The existing date-only card and `Not generated` fallback are retained.
+- **Scope/legacy:** historical legacy-named claims are used only as list memberships. Existing release/claim fields remain retained legacy functionality and are excluded from date selection; no payment confirmation is introduced.
+
+### Validation, limitations, rollback, and next work
+
+All 117 backend tests passed. Four added tests cover historical membership
+without current-period payroll, latest generation ordering independent of
+updates/query order, no Private-history queries for Public/missing identities,
+and no-history fallback. Corrected-root controller/service syntax checks pass.
+Frontend lint/build and whitespace checks passed; the build reported only the
+non-blocking bundle-size warning. Staged files are checked again before push.
+Hostinger deployment completion still requires confirmation in its dashboard.
+
+Only lists with an existing applicant-to-batch membership can be reflected;
+missing or invalid historical timestamps are not invented. The single card
+shows the most recent date across periods, not a full history table. Rollback
+is an ordinary revert commit, with no database rollback. Other documented
+partials remain unchanged.
+
 ## 2026-09-15 - Private Scholar Allowance Card Shows Certification Date Only
 
 ### TL;DR
