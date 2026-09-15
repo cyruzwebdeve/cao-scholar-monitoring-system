@@ -4836,7 +4836,7 @@
 }
 .dashboard-school-type.public { color: #17884d; }
 .dashboard-school-type.private { color: #a46609; }
-.dashboard-school-type.not-classified { color: #89948d; }
+.dashboard-school-type.not-classified, .dashboard-school-type.unclassified { color: #626f66; }
 .dashboard-school-edit { flex: 0 0 auto; color: #8a9990; opacity: 0; transition: opacity 160ms ease; }
 .dashboard-school-grid button:hover .dashboard-school-edit,
 .dashboard-school-grid button:focus-visible .dashboard-school-edit { opacity: 1; }

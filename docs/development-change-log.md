@@ -5,6 +5,40 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-15 - Persist School Catalog as the Classification Source
+
+### TL;DR
+- Removed fabricated Public defaults from School Catalog and automatic school registration/classification from the per-scholar Billing editor.
+- A committed additive migration persists the 24 configured institution names, supplies Public classification for missing/unclassified verified UCN campus entries, and preserves existing saved Public/Private classifications and school IDs.
+- Existing scholar school IDs, saved names, and matching history now resolve against the same persisted catalog for listing, Portal, processing, and tuition-upload applicability. Unknown institutions stay visible but cannot generate lists until classified in Catalog.
+- Verified 150 backend tests, 20 frontend tests, the migration against isolated local PostgreSQL temporary tables, frontend lint/build, backend build, and whitespace checks. Hosted deployment and affected production records still require confirmation after auto-deployment.
+
+### Objective and previous/new behavior
+The Catalog UI merged configured form names into database rows and silently labeled every missing row Public. The backend could not use a classification that existed only on screen. The previous workaround therefore asked administrators to confirm a saved scholar's classification individually. The new Catalog renders only saved server rows, with missing/invalid types explicitly Unclassified. Billing shows a read-only classification from that same Catalog, automatically selects a matching saved school, and no longer writes institution classifications as part of a billing-details save.
+
+### Implementation, roles, and data flow
+The migration imports the configured names into the existing schools table. Exact NFC/case/trim/whitespace-normalized matching reuses existing IDs and names. Only configured UCN campuses have a verified Public default; other previously absent names are inserted Unclassified, rather than guessing their type. Existing valid Public/Private values are not overwritten, including explicitly saved UCN values. The default for future unspecified school_type values changes from public to unclassified. UCN state-university status is supported by [Republic Act No. 11399](https://ldr.senate.gov.ph/legislative-issuance/republic-act-no-11399).
+
+Management, Scholar Portal, Billing and Payroll use the existing shared resolver: current-period school, applicant school, normalized application school name, then compatible scholar-school history. Tuition-upload checks now use this resolver too, so current-period school transfers have the same applicability as the Portal and generation endpoints. Classification updates match normalized saved names, avoiding duplicate catalog rows when whitespace differs. An unclassified catalog entry cannot be accepted as Public by spoofing the billing-details request. Catalog maintenance remains under existing role/section authorization; Scholar uploads and other billing details retain their existing permissions.
+
+### Changed areas and impact
+- Backend: applicationController, scholarSchool, lifecycleIntegrity, application Prisma schema, additive persist_school_catalog migration, and controller/service/migration tests.
+- Frontend: SchoolCatalogManagement, BillingPayrollManagement, billingSchoolSelection, shared schoolCatalog formatter, badge styling, and tests.
+- API: no new routes; existing response fields remain compatible, with invalid Portal school types now explicitly Unclassified. Billing refuses unclassified catalog choices and provides a Catalog correction message. Catalog updates retain existing protected routes.
+- Database: adds missing school-directory rows and verifies only missing/unclassified UCN defaults; changes the school_type column default. No student records, scholar links, documents, existing classifications, payroll batches, or historical certification lists are deleted or rewritten.
+- Configuration/dependencies: no new environment variables or dependencies. Existing production build applies the committed migration before startup. Local build generates Prisma without deploying production migrations.
+- Security/privacy/accessibility: existing authorization, private document storage and upload validation remain intact; normalized name validation caps school names at 255 characters. No new student disclosures. Read-only classification remains labeled, with explicit Unclassified text instead of relying on badge color.
+- Scope: Public payroll remains PHP 3,000 and Private certification remains PHP 5,000 with its tuition receipt. Requirements approval, duplicate-period membership and archive guards remain. Legacy payment-oriented functionality is retained unchanged outside the approved workflow; no release, claiming, disbursement confirmation, reconciliation or monetary audit is added.
+
+### Validation and results
+- Backend npm test: 150 passed, zero failed; the database migration test is opt-in and skipped by default to prevent implicit database access.
+- Explicit migration test: passed on local PostgreSQL against shadowing TEMP tables inside a rolled-back transaction. Verified 24 directory entries, Public UCN recovery, preservation of existing Private classifications and IDs, normalized-name reuse, repeat execution, and the Unclassified insertion default. No persistent local or hosted records were modified during validation.
+- Actual-controller regressions: UCN saved-name parity across Catalog, listing, Portal and successful Public payroll generation without a tuition receipt; Unclassified refusal; normalized Catalog update without duplicate insertion; billing classification spoof refusal; and Public tuition-upload refusal. Existing Private and duplicate/approval guards pass.
+- Frontend utility tests: 20 passed. Lint and production build passed; existing large-chunk advisory remains. Backend build and whitespace checks passed.
+
+### Limitations, deployment, rollback, and next work
+Prepared for the user's established authorized main-branch Hostinger auto-deployment workflow. The production migration is not executed directly from this workstation. Confirm the backend migration/build and frontend deployment complete, refresh the session, and retry affected Public scholars. Any institution without a verified saved classification needs one Catalog update, not repeated per-scholar confirmation. Explicit existing classifications are preserved deliberately; genuinely incorrect saved values require an authorized Catalog correction, not a silent overwrite. Unmatched legacy aliases and conflicting duplicate institutional records are not fuzzy-classified. Rolling back application code should retain catalog rows and IDs; do not delete entries that scholars may have linked after deployment. No assertion is made that unrelated previously documented partials are fixed.
+
 ## 2026-09-15 - Reuse Existing Scholar School Details for Processing
 
 ### TL;DR

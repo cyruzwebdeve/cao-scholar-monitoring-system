@@ -392,16 +392,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
     try {
       const details = { ...billingForm };
       delete details.schoolClassification;
-      const schoolId = await resolveBillingSchoolId(billingForm, billingEditor, async (savedSchool) => {
-        const classificationResponse = await fetch(`${API_BASE}/schools/classification`, {
-          method: 'PUT',
-          headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-          body: JSON.stringify(savedSchool),
-        });
-        const classificationBody = await classificationResponse.json().catch(() => ({}));
-        if (!classificationResponse.ok) throw new Error(classificationBody.message || 'Unable to link the saved school to the catalog.');
-        return classificationBody;
-      });
+      const schoolId = await resolveBillingSchoolId(billingForm);
       const response = await fetch(`${API_BASE}/scholars/${billingEditor.applicantId}/billing-details`, {
         method: 'PUT',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -674,8 +665,8 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
           </header>
           <form className="billing-details-form" onSubmit={saveBillingDetails}>
             <div className="billing-details-grid">
-              <label><span>School</span><select required value={billingForm.schoolId} onChange={(event) => { const selected = availableSchools.find((school) => String(school.id) === event.target.value); setBillingForm((current) => ({ ...current, schoolId: event.target.value, billingAmount: selected?.schoolType === 'Private' ? '5000' : current.billingAmount })); }}><option value="">Select school</option>{billingSchoolSelection(billingEditor, availableSchools).schoolId === SAVED_SCHOOL_VALUE && <option value={SAVED_SCHOOL_VALUE}>{billingEditor.school} (saved scholar record)</option>}{availableSchools.map((school) => <option key={school.id} value={school.id}>{school.name} ({school.schoolType})</option>)}</select>{isSavedBillingSchool && <small>Using the school already saved in the scholar record.</small>}</label>
-              {isSavedBillingSchool && <label><span>Saved school classification</span><select required value={billingForm.schoolClassification} onChange={(event) => setBillingForm((current) => ({ ...current, schoolClassification: event.target.value, billingAmount: event.target.value === 'Private' ? '5000' : '3000' }))}><option value="">Confirm Public or Private</option><option value="Public">Public</option><option value="Private">Private</option></select><small>Confirm the classification once; the existing school name is retained.</small></label>}
+              <label><span>School</span><select required value={billingForm.schoolId} onChange={(event) => { const selected = availableSchools.find((school) => String(school.id) === event.target.value); setBillingForm((current) => ({ ...current, schoolId: event.target.value, schoolClassification: selected?.schoolType || 'Unclassified', billingAmount: selected?.schoolType === 'Private' ? '5000' : selected?.schoolType === 'Public' ? '3000' : current.billingAmount })); }}><option value="">Select school</option>{billingSchoolSelection(billingEditor, availableSchools).schoolId === SAVED_SCHOOL_VALUE && <option value={SAVED_SCHOOL_VALUE}>{billingEditor.school} (saved scholar record)</option>}{availableSchools.map((school) => <option key={school.id} value={school.id}>{school.name} ({school.schoolType})</option>)}</select>{isSavedBillingSchool && <small>Using the school already saved in the scholar record.</small>}</label>
+              <label><span>School classification</span><input readOnly value={selectedBillingSchool?.schoolType || 'Unclassified'} /><small>Automatically taken from School Catalog. Missing classifications must be saved there once, not per scholar.</small></label>
               <label><span>Year level</span><input maxLength={20} value={billingForm.yearLevel} onChange={(event) => setBillingForm((current) => ({ ...current, yearLevel: event.target.value }))} /></label>
               <label><span>Course</span><input maxLength={150} value={billingForm.course} onChange={(event) => setBillingForm((current) => ({ ...current, course: event.target.value }))} /></label>
               <label><span>Major</span><input maxLength={150} value={billingForm.major} onChange={(event) => setBillingForm((current) => ({ ...current, major: event.target.value }))} /></label>

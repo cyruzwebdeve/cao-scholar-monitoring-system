@@ -6,11 +6,11 @@ const test = require('node:test');
 const prisma = {};
 const prismaPath = require.resolve('../config/prisma');
 require.cache[prismaPath] = { id: prismaPath, filename: prismaPath, loaded: true, exports: prisma };
-const { getScholarManagement, getMyApplication, processPayrollSelection, processBillingSelection } = require('../controllers/applicationController');
+const { getSchoolCatalog, updateSchoolClassification, updateScholarBillingDetails, uploadMyRequirement, getScholarManagement, getMyApplication, processPayrollSelection, processBillingSelection } = require('../controllers/applicationController');
 
-const setup = ({ schoolType = 'public', applicantSchoolId = 1, periodSchoolId = 999, plannedSchool = '  TEST   PUBLIC SCHOOL  ', alreadyProcessed = false, gradeStatus = 'approved', tuitionReceipt = false, schoolHistory = [] } = {}) => {
+const setup = ({ schoolType = 'public', schoolName = 'TEST PUBLIC SCHOOL', applicantSchoolId = 1, periodSchoolId = 999, plannedSchool = '  TEST   PUBLIC SCHOOL  ', alreadyProcessed = false, gradeStatus = 'approved', tuitionReceipt = false, schoolHistory = [] } = {}) => {
   const period = { id: 10, school_year: '2027-2028', semester: '1st Semester', is_active: true };
-  const school = { id: 1, name: 'TEST PUBLIC SCHOOL', school_type: schoolType, is_active: true };
+  const school = { id: 1, name: schoolName, school_type: schoolType, is_active: true };
   const applicant = { id: 1, school_id: applicantSchoolId, first_name: 'TEST', last_name: 'SCHOLAR', email: 'scholar@example.com' };
   const initialDocs = { requirements: Object.fromEntries(['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form'].map((key) => [key, { fileName: `${key}.pdf`, status: key === 'grades' ? gradeStatus : 'approved' }])) };
   if (tuitionReceipt) initialDocs.requirements.tuition_receipt = { fileName: 'tuition_receipt.pdf', status: 'approved' };
@@ -31,12 +31,13 @@ const setup = ({ schoolType = 'public', applicantSchoolId = 1, periodSchoolId = 
     scholar_requirements: {
       findMany: async ({ where }) => where.billing_period_id ? [requirement] : schoolHistory,
       findFirst: async () => requirement,
+      findUnique: async () => requirement,
     },
     results: { findFirst: async () => null },
     eligibility_assessments: { findFirst: async () => null },
     exam_slots: { findMany: async () => [] },
     application_settings: { findUnique: async () => null },
-    schools: { findMany: async () => [school] },
+    schools: { findMany: async () => [school], findFirst: async () => school, update: async ({ where, data }) => { writes.push({ type: 'school', id: where.id, data }); return { ...school, ...data }; } },
     payroll_claims: { findMany: async () => claims, findFirst: async () => null },
     payroll_batches: { findMany: async () => batches },
     $transaction: async (callback) => callback({
@@ -173,4 +174,60 @@ test('Scholar Portal retains a valid current-period Private school instead of ol
   await getMyApplication({ user: { id: 1, email: 'scholar@example.com' } }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.school.schoolType, 'Private');
+});
+
+test('UCN saved school name uses the same persisted Public classification in Catalog, listing, Portal and Payroll', async () => {
+  const { writes } = setup({ schoolName: 'University of Camarines Norte, Main Campus', plannedSchool: '  university of camarines norte, main campus ', applicantSchoolId: null, periodSchoolId: null });
+  const catalog = response();
+  await getSchoolCatalog({}, catalog);
+  assert.equal(catalog.body.schools[0].classification, 'public');
+  const record = await list();
+  assert.equal(record.schoolType, 'Public');
+  assert.equal(record.processEligible, true);
+  assert.equal(record.documentsTotal, 5);
+  const portal = response();
+  await getMyApplication({ user: { id: 1, email: 'scholar@example.com' } }, portal);
+  assert.equal(portal.body.school.schoolType, 'Public');
+  assert.equal((await generate()).statusCode, 201);
+  assert.equal(writes[0].data.total_amount, 3000);
+});
+
+test('an actual unclassified catalog row remains Unclassified in listing and Portal, and blocks generation', async () => {
+  const { writes } = setup({ schoolType: 'unclassified', periodSchoolId: 1 });
+  assert.equal((await list()).schoolType, 'Unclassified');
+  const portal = response();
+  await getMyApplication({ user: { id: 1, email: 'scholar@example.com' } }, portal);
+  assert.equal(portal.body.school.schoolType, 'Unclassified');
+  const generated = await generate();
+  assert.equal(generated.statusCode, 409);
+  assert.equal(generated.body.ineligible[0].reasons[0].code, 'SCHOOL_CLASSIFICATION_MISSING');
+  assert.equal(writes.length, 0);
+});
+
+test('catalog classification update matches normalized saved names without creating a duplicate school', async () => {
+  const { writes } = setup({ schoolName: '  TEST   PUBLIC SCHOOL  ' });
+  const res = response();
+  await updateSchoolClassification({ body: { name: 'test public school', classification: 'public' } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].id, 1);
+  assert.equal(writes[0].type, 'school');
+});
+
+test('billing editor cannot bypass an unclassified saved catalog entry by spoofing Public classification', async () => {
+  const { writes } = setup({ schoolType: 'unclassified' });
+  const res = response();
+  await updateScholarBillingDetails({ params: { applicantId: '1' }, body: { academicPeriodId: 10, schoolId: 1, schoolClassification: 'Public', yearLevel: '1st Year', course: 'TEST COURSE', major: '', billingNotes: '', billingAmount: 3000 }, user: { id: 99 } }, res);
+  assert.equal(res.statusCode, 400);
+  assert.match(res.body.message, /School Catalog/);
+  assert.equal(writes.length, 0);
+});
+
+test('actual Scholar tuition upload rejects Public current-period catalog classification', async () => {
+  const { writes } = setup({ periodSchoolId: 1 });
+  const res = response();
+  await uploadMyRequirement({ body: { requirement: 'tuition_receipt', fileName: 'test.pdf', fileData: 'data:application/pdf;base64,JVBERi0xLjQK' }, user: { id: 1, email: 'scholar@example.com' } }, res);
+  assert.equal(res.statusCode, 400);
+  assert.match(res.body.message, /Only Private/);
+  assert.equal(writes.length, 0);
 });

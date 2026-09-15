@@ -36,7 +36,7 @@ const { publicExamQuestions, scoreExamAnswers } = require('../services/examQuest
 const { ADMIN_INITIAL_REQUIREMENT_KEYS, SCHOLAR_SEMESTER_REQUIREMENT_KEYS } = require('../services/documentReview');
 const { resolveRequirementSubmission } = require('../services/requirementSubmission');
 const { latestCertificationCreatedAt } = require('../services/certificationDate');
-const { loadSchoolHistory, normalizeSchoolName, resolveScholarSchool } = require('../services/scholarSchool');
+const { loadSchoolHistory, loadResolvedScholarSchool, normalizeSchoolName, resolveScholarSchool, schoolClassification } = require('../services/scholarSchool');
 
 const APPLICATION_STATUSES = {
   APPLIED: 'Applied',
@@ -1114,7 +1114,7 @@ const getScholarManagement = async (req, res) => {
       schools: schools.filter((school) => school.is_active !== false).map((school) => ({
         id: school.id,
         name: school.name,
-        schoolType: String(school.school_type || '').trim().toLowerCase() === 'private' ? 'Private' : String(school.school_type || '').trim().toLowerCase() === 'public' ? 'Public' : 'Unclassified',
+        schoolType: schoolClassification(school.school_type),
       })),
       activePeriod: serializeAcademicPeriod(activePeriod),
       activePeriods: sortedAcademicPeriods.filter((period) => period.is_active).map(serializeAcademicPeriod),
@@ -1143,6 +1143,7 @@ const updateScholarBillingDetails = async (req, res) => {
     ]);
     if (!scholar) return res.status(404).json({ message: 'Active scholar account not found.' });
     if (!school) return res.status(400).json({ message: 'Select an active school from the catalog.' });
+    if (schoolClassification(school.school_type) === 'Unclassified') return res.status(400).json({ message: 'Save the Public or Private classification for this school in School Catalog first.' });
     if (processedClaim) return res.status(409).json({ message: 'Billing details are locked after the scholar is processed for the active period.' });
 
     const billingAmount = resolveBillingAmount(school.school_type, req.body.billingAmount);
@@ -1175,7 +1176,7 @@ const updateScholarBillingDetails = async (req, res) => {
       billingDetails: {
         schoolId: school.id,
         school: school.name,
-        schoolType: String(school.school_type).toLowerCase() === 'private' ? 'Private' : 'Public',
+        schoolType: schoolClassification(school.school_type),
         yearLevel: details.year_level,
         course: details.course,
         major: details.major,
@@ -1727,7 +1728,7 @@ const getMyApplication = async (req, res) => {
       scheduledExam,
       examinationSettings,
       examSlot,
-      schoolType: String(selectedSchool?.school_type || 'public').toLowerCase() === 'private' ? 'Private' : 'Public',
+      schoolType: schoolClassification(selectedSchool?.school_type),
       requirementSubmission: resolveRequirementSubmission(activePeriod),
     });
     return res.json({
@@ -1735,7 +1736,7 @@ const getMyApplication = async (req, res) => {
       applicant,
       school: selectedSchool ? {
         name: selectedSchool.name,
-        schoolType: String(selectedSchool.school_type || 'public').toLowerCase() === 'private' ? 'Private' : 'Public',
+        schoolType: schoolClassification(selectedSchool.school_type),
       } : null,
       guidance,
       certificationCreatedAt: certificationDate,
@@ -1835,14 +1836,12 @@ const uploadMyRequirement = async (req, res) => {
     });
     if (!application) return res.status(404).json({ message: 'Application not found.' });
     if (requirement === 'tuition_receipt') {
-      const applicant = await prisma.applicants.findUnique({ where: { id: application.applicant_id }, select: { school_id: true } });
-      const plannedSchool = String(application.school_plan?.school || '').trim();
-      const school = applicant?.school_id
-        ? await prisma.schools.findUnique({ where: { id: applicant.school_id }, select: { school_type: true } })
-        : plannedSchool
-          ? await prisma.schools.findFirst({ where: { name: { equals: plannedSchool, mode: 'insensitive' } }, select: { school_type: true } })
-          : null;
-      if (String(school?.school_type || 'public').toLowerCase() !== 'private') {
+      const [applicant, requirementRecord] = await Promise.all([
+        prisma.applicants.findUnique({ where: { id: application.applicant_id }, select: { school_id: true } }),
+        activePeriod ? prisma.scholar_requirements.findUnique({ where: { applicant_id_billing_period_id: { applicant_id: application.applicant_id, billing_period_id: activePeriod.id } } }) : null,
+      ]);
+      const school = await loadResolvedScholarSchool(prisma, { applicantId: application.applicant_id, applicant, requirement: requirementRecord, application });
+      if (schoolClassification(school?.school_type) !== 'Private') {
         return res.status(400).json({ message: 'Only Private-school scholars can upload an Official Receipt of Tuition Fee.' });
       }
     }
@@ -1929,14 +1928,8 @@ const uploadScholarRequirementByAdmin = async (req, res) => {
     if (!application) return res.status(404).json({ message: 'Scholar application record not found.' });
 
     if (requirementKey === 'tuition_receipt') {
-      const schoolId = scholarRequirement?.school_id || applicant?.school_id;
-      const plannedSchool = String(application.school_plan?.school || '').trim();
-      const school = schoolId
-        ? await prisma.schools.findUnique({ where: { id: schoolId }, select: { school_type: true } })
-        : plannedSchool
-          ? await prisma.schools.findFirst({ where: { name: { equals: plannedSchool, mode: 'insensitive' } }, select: { school_type: true } })
-          : null;
-      if (String(school?.school_type || 'public').toLowerCase() !== 'private') {
+      const school = await loadResolvedScholarSchool(prisma, { applicantId, applicant, requirement: scholarRequirement, application });
+      if (schoolClassification(school?.school_type) !== 'Private') {
         return res.status(400).json({ message: 'A tuition receipt applies only to private-school scholars.' });
       }
     }
@@ -2037,14 +2030,13 @@ const updateSchoolClassification = async (req, res) => {
   try {
     const name = String(req.body.name || '').trim();
     const classification = String(req.body.classification || '').trim().toLowerCase();
-    if (!name) return res.status(400).json({ message: 'A school name is required.' });
+    if (!name || name.length > 255) return res.status(400).json({ message: 'A school name of at most 255 characters is required.' });
     if (!['public', 'private'].includes(classification)) {
       return res.status(400).json({ message: 'School classification must be Public or Private.' });
     }
 
-    const existing = await prisma.schools.findFirst({
-      where: { name: { equals: name, mode: 'insensitive' } },
-    });
+    const catalog = await prisma.schools.findMany({ select: { id: true, name: true } });
+    const existing = catalog.find((school) => normalizeSchoolName(school.name) === normalizeSchoolName(name));
     let school;
     if (existing) {
       school = await prisma.schools.update({

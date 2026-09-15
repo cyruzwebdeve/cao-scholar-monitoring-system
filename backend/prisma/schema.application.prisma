@@ -304,7 +304,7 @@ model scholar_requirements {
 model schools {
   id          Int      @id @default(autoincrement())
   name        String   @unique @db.VarChar(255)
-  school_type String   @default("public") @db.VarChar(20)
+  school_type String   @default("unclassified") @db.VarChar(20)
   is_active   Boolean  @default(true)
   created_at  DateTime @default(now()) @db.Timestamp(6)
   updated_at  DateTime @updatedAt @db.Timestamp(6)

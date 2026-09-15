@@ -8,31 +8,9 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import schoolsListData from '../../schools_list.json';
+import { formatSchoolClassification as formatClassification, savedSchoolCatalog as mergeCatalog } from './utils/schoolCatalog';
 import { API_BASE, authHeaders } from './services/api';
 import './styles/school-catalog.css';
-
-const baseCatalog = schoolsListData.schools.map((name) => ({ name, classification: 'Public' }));
-
-const formatClassification = (value) => {
-  const normalized = String(value || '').trim().toLowerCase();
-  return normalized === 'private' ? 'Private' : 'Public';
-};
-
-const mergeCatalog = (savedSchools = []) => {
-  const savedByName = new Map(savedSchools.map((school) => [String(school.name).trim().toLowerCase(), school]));
-  const baseNames = new Set(baseCatalog.map((school) => school.name.trim().toLowerCase()));
-  const schools = baseCatalog.map((school) => {
-    const saved = savedByName.get(school.name.trim().toLowerCase());
-    return { ...school, ...(saved || {}), classification: formatClassification(saved?.classification) };
-  });
-  savedSchools.forEach((school) => {
-    if (!baseNames.has(String(school.name).trim().toLowerCase())) {
-      schools.push({ ...school, classification: formatClassification(school.classification) });
-    }
-  });
-  return schools.sort((left, right) => left.name.localeCompare(right.name));
-};
 
 function SchoolCatalogManagement({ token, embedded = false }) {
   const [schools, setSchools] = useState([]);
@@ -42,7 +20,7 @@ function SchoolCatalogManagement({ token, embedded = false }) {
   const [loadError, setLoadError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [selectedSchool, setSelectedSchool] = useState(null);
-  const [classification, setClassification] = useState('public');
+  const [classification, setClassification] = useState('');
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
@@ -86,6 +64,7 @@ function SchoolCatalogManagement({ token, embedded = false }) {
     total: schools.length,
     public: schools.filter((school) => school.classification === 'Public').length,
     private: schools.filter((school) => school.classification === 'Private').length,
+    unclassified: schools.filter((school) => school.classification === 'Unclassified').length,
   }), [schools]);
 
   const visibleSchools = useMemo(() => {
@@ -98,7 +77,7 @@ function SchoolCatalogManagement({ token, embedded = false }) {
 
   const openClassification = (school) => {
     setSelectedSchool(school);
-    setClassification(school.classification.toLowerCase());
+    setClassification(school.classification === 'Unclassified' ? '' : school.classification.toLowerCase());
     setSaveError('');
   };
 
@@ -109,7 +88,7 @@ function SchoolCatalogManagement({ token, embedded = false }) {
   };
 
   const saveClassification = async () => {
-    if (!selectedSchool || saving) return;
+    if (!selectedSchool || saving || !['public', 'private'].includes(classification)) return;
     setSaving(true);
     setSaveError('');
     try {
@@ -141,7 +120,7 @@ function SchoolCatalogManagement({ token, embedded = false }) {
       </header>
 
       <div className="school-catalog-stats">
-        <article><span>All schools</span><strong>{counts.total}</strong><small>Institutions available in forms</small></article>
+        <article><span>All schools</span><strong>{counts.total}</strong><small>Saved server catalog entries</small></article>
         <article className="public"><span>Public</span><strong>{counts.public}</strong><small>Government-funded institutions</small></article>
         <article className="private"><span>Private</span><strong>{counts.private}</strong><small>Privately operated institutions</small></article>
       </div>
@@ -153,7 +132,7 @@ function SchoolCatalogManagement({ token, embedded = false }) {
         <div className="dashboard-surface-header"><div><span className="dashboard-panel-icon gold"><School size={16} /></span><div><h3>School Directory</h3><p>Click a school to change its classification.</p></div></div><span className="dashboard-record-count">{visibleSchools.length} of {schools.length} schools</span></div>
         <div className="school-catalog-toolbar">
           <label><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search school name" aria-label="Search schools" /></label>
-          <select value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="Filter school classification"><option value="all">All classifications</option><option value="public">Public schools</option><option value="private">Private schools</option></select>
+          <select value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="Filter school classification"><option value="all">All classifications</option><option value="public">Public schools</option><option value="private">Private schools</option><option value="unclassified">Unclassified schools ({counts.unclassified})</option></select>
         </div>
         <div className="dashboard-school-grid school-catalog-grid">
           {loading && !schools.length && <div className="school-catalog-empty"><span className="school-catalog-loader" /><strong>Loading school catalog</strong><span>Retrieving the latest classifications…</span></div>}
@@ -167,12 +146,12 @@ function SchoolCatalogManagement({ token, embedded = false }) {
           <button type="button" className="school-classification-close" onClick={closeClassification} disabled={saving} aria-label="Close classification window"><X size={18} /></button>
           <div className="school-classification-heading"><span><School size={18} /></span><div><small>SCHOOL CATALOG</small><h3 id="school-classification-title">Classify school</h3></div></div>
           <p className="school-classification-name">{selectedSchool.name}</p>
-          <p className="school-classification-help">Choose how this institution should be categorized in Billing and Payroll records.</p>
+          <p className="school-classification-help">Save the classification once here. Existing scholars linked by school ID or saved school name automatically use this catalog classification in Billing and Payroll.</p>
           <div className="school-classification-options">
             {['public', 'private'].map((option) => <button type="button" className={classification === option ? 'selected' : ''} key={option} onClick={() => setClassification(option)}><span>{option === 'public' ? 'Public' : 'Private'}</span><small>{option === 'public' ? 'Government-funded institution' : 'Privately operated institution'}</small><i>{classification === option ? '✓' : ''}</i></button>)}
           </div>
           {saveError && <div className="school-classification-error"><TriangleAlert size={15} />{saveError}</div>}
-          <footer><button type="button" className="secondary" onClick={closeClassification} disabled={saving}>Cancel</button><button type="button" className="primary" onClick={saveClassification} disabled={saving}>{saving ? 'Saving…' : 'Save classification'}</button></footer>
+          <footer><button type="button" className="secondary" onClick={closeClassification} disabled={saving}>Cancel</button><button type="button" className="primary" onClick={saveClassification} disabled={saving || !['public', 'private'].includes(classification)}>{saving ? 'Saving…' : 'Save classification'}</button></footer>
         </section>
       </div>}
     </div>

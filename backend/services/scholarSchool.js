@@ -2,6 +2,11 @@ const normalizeSchoolName = (name) => typeof name === 'string'
   ? name.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase()
   : '';
 
+const schoolClassification = (value) => {
+  const type = String(value || '').trim().toLowerCase();
+  return type === 'public' ? 'Public' : type === 'private' ? 'Private' : 'Unclassified';
+};
+
 const loadSchoolHistory = async (client, applicantIds) => {
   if (!applicantIds.length) return new Map();
   const records = await client.scholar_requirements.findMany({
@@ -35,4 +40,17 @@ const resolveScholarSchool = ({ applicant, requirement, application, schoolById,
   return null;
 };
 
-module.exports = { loadSchoolHistory, normalizeSchoolName, resolveScholarSchool };
+const loadResolvedScholarSchool = async (client, { applicantId, applicant, requirement, application }) => {
+  const [schools, history] = await Promise.all([
+    client.schools.findMany({ select: { id: true, name: true, school_type: true } }),
+    loadSchoolHistory(client, [applicantId]),
+  ]);
+  return resolveScholarSchool({
+    applicant, requirement, application,
+    schoolById: new Map(schools.map((school) => [school.id, school])),
+    schoolByName: new Map(schools.map((school) => [normalizeSchoolName(school.name), school])),
+    schoolHistory: history.get(applicantId),
+  });
+};
+
+module.exports = { loadSchoolHistory, loadResolvedScholarSchool, normalizeSchoolName, resolveScholarSchool, schoolClassification };

@@ -49,7 +49,7 @@ const evaluateBillingEligibility = ({ isActive, alreadyBilled, alreadyProcessedF
   const reasons = [];
 
   if (requireSchoolClassification && !['public', 'private'].includes(normalizeStatus(schoolType))) {
-    reasons.push({ code: 'SCHOOL_CLASSIFICATION_MISSING', message: 'Select a valid school with a Public or Private classification in this academic period before generating a list.' });
+    reasons.push({ code: 'SCHOOL_CLASSIFICATION_MISSING', message: 'The saved school has no Public or Private classification in School Catalog. Save its classification there once, then refresh before generating a list.' });
   }
 
   if (!isActive) reasons.push({ code: 'SCHOLAR_INACTIVE', message: 'Scholar account is not active.' });

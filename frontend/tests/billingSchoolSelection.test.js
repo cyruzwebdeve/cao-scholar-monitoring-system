@@ -14,12 +14,12 @@ test('a saved school name automatically selects its catalog match when the ID is
 });
 
 test('a saved school absent from the catalog remains preselected rather than showing Select school', () => {
-  assert.deepEqual(billingSchoolSelection({ school: name, schoolType: 'Unclassified' }, []), { schoolId: SAVED_SCHOOL_VALUE, schoolClassification: '' });
+  assert.deepEqual(billingSchoolSelection({ school: name, schoolType: 'Unclassified' }, []), { schoolId: SAVED_SCHOOL_VALUE, schoolClassification: 'Unclassified' });
 });
 
-test('an explicitly stored classification is preserved but a missing one is not guessed', () => {
-  assert.equal(billingSchoolSelection({ school: name, schoolType: 'Public' }, []).schoolClassification, 'Public');
-  assert.equal(billingSchoolSelection({ school: name }, []).schoolClassification, '');
+test('a stale row classification without a saved catalog match is not authoritative', () => {
+  assert.equal(billingSchoolSelection({ school: name, schoolType: 'Public' }, []).schoolClassification, 'Unclassified');
+  assert.equal(billingSchoolSelection({ school: name }, []).schoolClassification, 'Unclassified');
 });
 
 test('a placeholder without a real school name does not become a saved-school option', () => {
@@ -30,18 +30,24 @@ test('saving a known catalog school does not register or reclassify any school',
   assert.equal(await resolveBillingSchoolId({ schoolId: '1' }, {}, () => { throw new Error('Unexpected catalog write'); }), 1);
 });
 
-test('saving a missing catalog link reuses the exact stored school name and confirmed classification', async () => {
-  const id = await resolveBillingSchoolId({ schoolId: SAVED_SCHOOL_VALUE, schoolClassification: 'Public' }, { school: name }, async (body) => {
-    assert.deepEqual(body, { name, classification: 'public' });
-    return { school: { id: 3 } };
-  });
-  assert.equal(id, 3);
+test('an unclassified saved catalog entry keeps its ID but cannot silently become Public', async () => {
+  const selection = billingSchoolSelection({ school: name }, [{ id: 3, name, schoolType: 'Unclassified' }]);
+  assert.deepEqual(selection, { schoolId: '3', schoolClassification: 'Unclassified' });
+  await assert.rejects(resolveBillingSchoolId(selection), /School Catalog/);
 });
 
-test('unconfirmed classification cannot create a Public default or call the registration API', async () => {
-  await assert.rejects(resolveBillingSchoolId({ schoolId: SAVED_SCHOOL_VALUE, schoolClassification: '' }, { school: name }, () => { throw new Error('Unexpected catalog write'); }), /Confirm whether/);
+test('missing catalog entries cannot register or reclassify schools from the billing editor', async () => {
+  let calls = 0;
+  await assert.rejects(resolveBillingSchoolId({ schoolId: SAVED_SCHOOL_VALUE, schoolClassification: 'Public' }, { school: name }, async () => { calls++; }), /School Catalog/);
+  assert.equal(calls, 0);
 });
 
-test('failed catalog linking cannot submit an invalid school ID to the existing billing write', async () => {
-  await assert.rejects(resolveBillingSchoolId({ schoolId: SAVED_SCHOOL_VALUE, schoolClassification: 'Private' }, { school: 'TEST PRIVATE SCHOOL' }, async () => ({})), /could not be linked/);
+test('UCN saved-name selection uses the saved Public catalog classification automatically', async () => {
+  const selection = billingSchoolSelection({ school: '  University of Camarines Norte, Main Campus ' }, [{ id: 20, name: 'University of Camarines Norte, Main Campus', schoolType: 'Public' }]);
+  assert.deepEqual(selection, { schoolId: '20', schoolClassification: 'Public' });
+  assert.equal(await resolveBillingSchoolId(selection), 20);
+});
+
+test('known Private catalog classification wins over stale Public display data', () => {
+  assert.equal(billingSchoolSelection({ schoolId: 2, schoolType: 'Public' }, catalog).schoolClassification, 'Private');
 });

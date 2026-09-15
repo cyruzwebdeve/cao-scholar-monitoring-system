@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { loadSchoolHistory, normalizeSchoolName, resolveScholarSchool } = require('../services/scholarSchool');
+const { loadSchoolHistory, loadResolvedScholarSchool, normalizeSchoolName, resolveScholarSchool, schoolClassification } = require('../services/scholarSchool');
 
 const publicSchool = { id: 1, name: 'TEST PUBLIC SCHOOL', school_type: 'public' };
 const privateSchool = { id: 2, name: 'TEST PRIVATE SCHOOL', school_type: 'private' };
@@ -54,4 +54,26 @@ test('school history reads only scoped school references rather than documents o
   } } }, [42]);
   assert.deepEqual(history.get(42), [{ applicant_id: 42, school_id: 1 }]);
   assert.equal((await loadSchoolHistory({}, [])).size, 0);
+});
+
+test('shared classification labels never pretend missing or invalid saved types are Public', () => {
+  for (const value of [null, undefined, '', 'unclassified', 'invalid']) assert.equal(schoolClassification(value), 'Unclassified');
+  assert.equal(schoolClassification(' PUBLIC '), 'Public');
+  assert.equal(schoolClassification('Private'), 'Private');
+});
+
+test('tuition-upload resolver uses the current-period catalog school rather than an older Public applicant school', async () => {
+  const client = {
+    schools: { findMany: async () => [publicSchool, privateSchool] },
+    scholar_requirements: { findMany: async () => [{ applicant_id: 42, school_id: 1 }] },
+  };
+  assert.equal(await loadResolvedScholarSchool(client, { applicantId: 42, applicant: { school_id: 1 }, requirement: { school_id: 2 }, application: { school_plan: { school: publicSchool.name } } }), privateSchool);
+});
+
+test('tuition-upload resolver recovers a missing school ID through the saved catalog name', async () => {
+  const client = {
+    schools: { findMany: async () => [publicSchool, privateSchool] },
+    scholar_requirements: { findMany: async () => [] },
+  };
+  assert.equal(await loadResolvedScholarSchool(client, { applicantId: 42, applicant: { school_id: 999 }, application: { school_plan: { school: '  TEST   PRIVATE SCHOOL  ' } } }), privateSchool);
 });
