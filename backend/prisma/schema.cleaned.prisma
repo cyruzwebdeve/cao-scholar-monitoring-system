@@ -17,6 +17,7 @@ model academic_periods {
   semester    String    @db.VarChar(30)
   start_date  DateTime? @db.Date
   end_date    DateTime? @db.Date
+  requirements_deadline DateTime? @db.Timestamp(6)
   status      String    @default("upcoming") @db.VarChar(20)
   is_active   Boolean   @default(false)
   created_by  Int?

@@ -363,7 +363,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
                     <h3>Family information</h3>
                     <div><span>Father</span><strong>{[application.family?.fatherName, application.family?.fatherOccupation].filter(Boolean).join(" · ") || "Not provided"}</strong></div>
                     <div><span>Mother</span><strong>{[application.family?.motherName, application.family?.motherOccupation].filter(Boolean).join(" · ") || "Not provided"}</strong></div>
-                    <div><span>Guardian</span><strong>{[application.family?.guardianName, application.family?.guardianOccupation].filter(Boolean).join(" · ") || "Not provided"}</strong></div>
+                    <div><span>Guardian</span><strong>{[application.family?.guardianName, application.family?.guardianRelationship || (application.family?.guardianSameAsParent ? application.family?.guardianParentRole === 'father' ? 'Father' : application.family?.guardianParentRole === 'mother' ? 'Mother' : 'Parent' : null)].filter(Boolean).join(" · ") || "Not provided"}</strong></div>
                     <div><span>Family income</span><strong>{application.family?.familyIncome || "Not specified"}</strong></div>
                     <div><span>Brothers</span><strong>{application.family?.brothersCount ?? "Not specified"}</strong></div>
                     <div><span>Sisters</span><strong>{application.family?.sistersCount ?? "Not specified"}</strong></div>

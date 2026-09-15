@@ -5,6 +5,135 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-15 - Tested Revisions Prepared for Hostinger Auto-Deployment
+
+### TL;DR
+
+- Prepared the locally tested Applicant, Scholar, administrator, certification, and payroll-list revisions for the authorized push to `main`.
+- Included the additive academic-period requirements-deadline migration and the public certificate-header asset; excluded the original certificate PDF and unrelated untracked capstone documentation.
+- Preserved the CAO payroll-list scope boundary, existing hosted mail/storage configuration, and all existing records.
+- Backend verification passed all 109 tests and changed-service syntax checks; frontend lint/build and staged whitespace checks also passed.
+
+### Objective and reason
+
+The user completed local feature testing and authorized a Git push with
+Hostinger auto-deployment enabled for both frontend and backend. This entry
+records the promotion of the existing local revisions, not additional feature
+implementation or a claim that Hostinger deployment has completed.
+
+### Previous and new behavior
+
+The deployed revision predates the local changes documented in the September
+12-13 entries. The release includes guardian relationships, uppercase catalog
+labels, secured server-side examination questions/scoring, attendance-card
+layout, administrator-owned initial scholar documents, school-type-specific
+semester uploads and progress, per-period deadlines, individual private-school
+certificate downloads, certification history, and spreadsheet reference columns.
+Private certification remains PHP 5,000 and Public payroll-list inclusion
+remains PHP 3,000. No new fund-release or receipt-confirmation workflow is added.
+
+### Roles, implementation, and files
+
+Applicant and Scholar portals and authorized CAO administration workspaces use
+the existing React-to-Express API flow. The release includes the modified
+frontend sources/styles/package lock, backend controller/routes/validation/
+services/tests, matching Prisma schemas, the additive deadline migration, the
+guardian-compatible local fixture script, and both development change logs.
+The fixture script is committed for compatibility but is not run for deployment.
+No original private document, credentials, generated client, local environment,
+or unrelated untracked diagram files are staged.
+
+### Impact assessment
+
+- **API:** promotes secured exam-question retrieval, server-side answer scoring, administrator initial-document uploads, and academic-period deadline updates already tested locally.
+- **Database:** adds nullable `academic_periods.requirements_deadline` using the committed migration. No schema reset, data deletion, broad schema synchronization, or seed execution is performed. The existing production build generates Prisma and deploys committed migrations before startup.
+- **Configuration/deployment:** the user reports both Hostinger services auto-deploy from the repository; pushing `main` initiates that configured workflow. No environment values, build commands, DNS, hosting settings, or mail/storage tokens are changed.
+- **Security/privacy:** preserves authenticated role checks and private-file streaming; exam answer keys remain server-side. Only the non-personal official certificate header is included as a public asset.
+- **Accessibility/UX:** promotes the previously tested responsive cards, tab controls, upload controls, notices, and deadline directory; no additional interface changes are made for this release.
+- **Legacy monetary functionality:** existing payment-oriented fields/routes remain retained legacy code outside approved scope. Generation is not redefined as payment release.
+
+### Validation and results
+
+The release check passed 109 of 109 backend tests and syntax checks for the
+changed controller, validators, examination-question service, and deadline
+service. Frontend ESLint and the production build passed with only non-blocking
+bundle-size/plugin-timing warnings. The staged whitespace check passed, and
+the staged file list contains only the intended release files. The user
+separately reports completing local feature testing. Remote
+branch state is fetched before committing; production migrations are left to
+the configured Hostinger build rather than executed from the workstation.
+
+### Known limitations, rollback, and next work
+
+The previously identified partials remain unchanged: examination guidance can
+offer a start message outside the schedule date window while actual access is
+correctly denied; Public Scholar payroll inclusion/amount are visible, but the
+current generation flow does not supply a new personal notification containing
+the payroll reference and generated date. Existing privacy-page wording about
+browser-only examination scoring also needs separate correction. These are not
+silently marked complete by this push.
+
+Confirm both Hostinger deployments reach Completed for the new commit, confirm
+the deadline migration succeeds, then perform brief hosted smoke tests. A code
+rollback should use an ordinary revert commit; retain the additive nullable
+database column to avoid destroying saved deadlines. Do not remove that column
+or restore older production data as part of a routine code rollback.
+
+## 2026-09-14 - Capstone UML Diagram Set
+
+### TL;DR
+
+- Added six submission-ready UML diagrams plus a Crow's Foot ERD covering system functions, workflow, online-examination interactions, domain and database structure, lifecycle behavior, and deployment.
+- Provided editable PlantUML sources together with rendered SVG and PNG files and a brief explanation beneath every diagram.
+- Kept the diagrams aligned with the implemented Applicant, Scholar, CAO administration, document-review, certification-list, and payroll-list workflows.
+- PlantUML rendered every source without syntax errors, and all rendered images received a visual readability review.
+
+### Objective and reason
+
+The capstone documentation required properly labeled UML diagrams that explain
+the proposed system from functional, process, interaction, structural,
+behavioral, and technical perspectives. The repository previously contained an
+Entity Relationship Diagram but did not contain a coordinated UML set that
+group members could divide for individual presentation or submission.
+
+### Previous and new behavior
+
+No application behavior changed. The documentation now provides Use Case,
+Activity, Sequence, Class, State Machine, and Deployment diagrams plus an
+Entity Relationship Diagram. Each diagram
+has an editable `.puml` source, scalable SVG rendering, PNG rendering, and a
+brief explanation in `docs/uml-diagrams.md`. Shared terminology and a common
+scope note prevent the diagrams from contradicting one another.
+
+### Affected users, implementation, and system areas
+
+The new material is intended for the capstone group, advisers, panel members,
+and technical reviewers. Sources are stored under `docs/uml`, rendered assets
+under `docs/uml/rendered`, and the ordered submission document at
+`docs/uml-diagrams.md`. The diagrams were derived from the current React routes,
+Express API routes and services, active Prisma application schema, documented
+deployment architecture, and verified workflow requirements.
+
+### Impact assessment
+
+- **API and database:** no endpoint, schema, migration, query, seed, or application-data impact.
+- **Configuration and deployment:** no runtime configuration or deployment change; the deployment diagram documents architecture only.
+- **Security and privacy:** no credentials, private file locations, or personal records are included; security boundaries and protected file/email integrations are represented conceptually.
+- **Accessibility and user experience:** no runtime impact; SVG output supports lossless enlargement for readable documents and presentations.
+- **Product scope:** both final-list branches terminate at CAO generation of the certification or official payroll list; no fund release, claiming, receipt confirmation, reconciliation, or monetary audit was introduced.
+
+### Validation, limitations, rollback, and next work
+
+PlantUML 1.2026.8 generated all seven SVG and PNG pairs without reported syntax
+errors. The rendered diagrams were inspected for labels, actor and system
+boundaries, control flow, multiplicities, alternate sequence paths, state
+transitions, and deployment connections. These diagrams intentionally present
+the principal domain rather than every implementation helper or legacy field;
+the Prisma-derived ERD remains the authoritative detailed database view.
+Rollback consists only of removing the new UML documentation files. Before
+formal submission, the group should add required school title-page details and
+assign one diagram to each participating member.
+
 ## 2026-09-11 - Rust-Free Prisma Client for Hostinger Backend Compatibility
 
 ### TL;DR
@@ -4393,3 +4522,634 @@ Git commit `011b8fa` delivered the feature release and deployment-aware migratio
 ## Known limitations, rollback, and recommended next work
 
 Hostinger auto-deployment was not active, so both initial releases required manual redeployment. The PostgreSQL driver emitted a future SSL-mode compatibility warning; current certificate verification remains the stronger behavior, and dependency upgrades should be handled separately rather than during this release. Keep the frontend/backend geographic datasets synchronized, enable reviewed auto-deployment only if desired, and perform a short authenticated production smoke test of login, settings, examination attendance, announcements, Billing certification export, and Payroll export.
+
+# 2026-09-12 - Hosted Gmail API delivery enabled
+
+## TL;DR
+
+- Configured the Hostinger backend to send transactional mail through the official CAO Gmail account using Gmail API OAuth.
+- Published the OAuth application after deploying public Privacy Policy and Terms of Service pages.
+- Stored OAuth credentials only in protected Hostinger environment variables; no secret entered source control or documentation.
+- Confirmed successful hosted delivery by receiving a live system-generated email.
+
+## Objective and reason
+
+Enable reliable hosted delivery of applicant account, password-recovery, examination, and lifecycle notifications that previously reported delivery as unavailable when Gmail credentials were absent.
+
+## Previous and new behavior
+
+The deployed mailer had implementation support but no complete hosted Gmail credential set, so email operations were skipped or returned delivery feedback. The Hostinger backend now obtains short-lived access tokens using a production OAuth refresh token and sends transactional messages through the Gmail API.
+
+## Affected users and workflows
+
+Applicants and scholars can receive supported account and program notifications. Administrators receive accurate delivery feedback while managing those workflows. The change does not add marketing email or alter scholarship eligibility, Billing, or Payroll decisions.
+
+## Implementation and data flow
+
+The existing mailer exchanges its protected refresh token for a Google access token, submits a narrowly scoped send request to Gmail, and logs only masked recipient/provider diagnostics on failure. Google OAuth is limited to `gmail.send`; the application does not request inbox-reading or message-management access.
+
+## Files and system areas changed
+
+- Google Cloud project OAuth audience, branding, scope, and Desktop client authorization
+- Hostinger backend environment-variable configuration
+- Hostinger backend deployment
+- Project change documentation only; application source behavior was already implemented
+
+## Impact
+
+- **API:** response contracts are unchanged; supported operations can now report successful email delivery.
+- **Database:** no schema, migration, or record change; deployment reported all 18 migrations applied and none pending.
+- **Configuration:** secret Gmail user, client ID, client secret, and refresh token values are present in Hostinger only, with public sender-name and application-URL settings.
+- **Security:** OAuth uses send-only permission. Secrets are excluded from Git and this log; local generated credentials should be removed or stored in an approved secret manager.
+- **Privacy:** transactional recipient addresses and message content are processed by Google solely for requested delivery under the published notice.
+- **Accessibility:** no interface change.
+- **Deployment:** backend build and deployment completed successfully with zero dependency vulnerabilities.
+- **Approved scope:** no fund-release, claiming, disbursement, reconciliation, or monetary-audit functionality was added.
+
+## Validation performed
+
+Hostinger generated Prisma Client 6.19.3, found all 18 migrations with none pending, and completed the deployment build. The user then triggered a system email and confirmed that it arrived successfully.
+
+## Known limitations, rollback, and recommended next work
+
+Google can revoke refresh tokens after account-security changes, explicit revocation, or OAuth-client rotation. If delivery stops, run the non-sending mailer verification and inspect masked runtime diagnostics before issuing a replacement token. Rollback consists of removing the four Gmail API credential variables, which safely returns mail delivery to the existing unavailable/skipped behavior without changing application records. Keep the Privacy Policy accurate and obtain CAO Data Protection Officer or legal approval for the published text.
+
+# 2026-09-12 - Hostinger cloud-file storage enabled
+
+## TL;DR
+
+- Configured Hostinger with the existing private-document and public-announcement Blob credentials.
+- Restarted the backend so the protected variables became available to the running process.
+- Successfully uploaded and published a live announcement image.
+- No application code, database schema, access model, or product-scope boundary changed.
+
+## Objective and reason
+
+Restore cloud-backed uploads after the Hostinger API safely rejected an announcement image because the storage credentials had not yet been applied to its running deployment.
+
+## Previous and new behavior
+
+Image publication returned `Cloud file storage is not configured for this deployment.` The existing Blob credentials were copied from the previous protected backend environment into Hostinger and the API was restarted. Public announcement-image uploads now succeed; the separate private credential remains configured for authenticated scholar-document storage.
+
+## Affected users and workflows
+
+- **Administrators:** can attach public images when publishing announcements.
+- **Applicants and scholars:** can view published announcement media, while sensitive requirement documents continue to use the private store.
+
+## Implementation and data flow
+
+The Hostinger process now receives `ANNOUNCEMENT_BLOB_READ_WRITE_TOKEN` and `DOCUMENT_BLOB_READ_WRITE_TOKEN` from secret deployment configuration. Announcement images are uploaded to the public store and the generated URL is saved with the announcement. Requirement files use the private store and remain retrievable only through authenticated backend routes.
+
+## Files and system areas changed
+
+- Hostinger backend secret environment configuration
+- Hostinger backend runtime restart/redeployment
+- Project change documentation; application source is unchanged
+
+## Impact
+
+- **API:** existing upload paths are now configured; contracts are unchanged.
+- **Database:** no schema or migration change; normal announcement publication stores its generated image URL.
+- **Configuration:** two existing Blob tokens are now available to Hostinger as protected variables.
+- **Security/privacy:** public and private stores remain deliberately separate; tokens were not exposed or committed.
+- **Accessibility:** no interface change; existing announcement alternative text remains in place.
+- **Deployment:** a backend restart was required; no frontend redeployment was required.
+- **Approved scope:** no fund-release, claiming, disbursement, reconciliation, or monetary-audit functionality was added.
+
+## Validation performed
+
+The administrator successfully published an announcement with an image after the backend restart, confirming the public-store credential is active in Hostinger.
+
+## Known limitations, rollback, and recommended next work
+
+The private-document credential is configured but should also be smoke-tested using a non-sensitive dummy requirement upload and authorized staff preview. Removing either credential safely disables its corresponding upload path. Rotate both tokens immediately if either is ever exposed, and continue monitoring storage usage.
+
+# 2026-09-12 - Private-scholar certificate moved to Scholar Record
+
+## TL;DR
+
+- Added an individual PDF certificate download to the Scholar Record Overview, visible only for Private scholars.
+- Preserved the existing Billing and Payroll workflows without changing their buttons, exports, API behavior, or database models.
+- The generated hard-copy document uses the supplied official header and the fixed PHP 5,000 private-school tuition ceiling.
+- All 97 backend tests, frontend ESLint, and the production build passed; this remains local and has not been deployed.
+
+## Objective and reason
+
+Place the legacy private-scholar certificate where CAO staff actually work with an individual scholar record. CAO can download and print the document, hand it to the scholar, and the scholar can present the hard copy to the private school. This avoids incorrectly coupling an individual hard-copy document to generation of the existing batch certification list.
+
+## Previous and new behavior
+
+Previously, the stable application had no official per-scholar PDF action in the Scholar Record drawer. A proposed implementation temporarily attached certificate creation and history to Private Billing; that proposed source change was reverted because it risked altering an already-correct Billing process.
+
+The Scholar Record Overview now shows an `Official school certificate` card only when the record's school type is Private. Its download action creates a 215.9 × 330.2 mm PDF locally in the browser, incorporating the official header, a deterministic reference derived from the scholar control number and school year, scholar and school information, academic period, issue date, fixed PHP 5,000 ceiling, and the legacy CAO signatory block. It does not update the scholar, create a batch, or mark anything billed.
+
+## Affected users and workflows
+
+- **CAO administrators and authorized Scholar Management staff:** can download and print an individual Private scholar certificate from the existing record drawer.
+- **Private scholars:** may receive the printed certificate from CAO for delivery to their school.
+- **Public scholars:** do not see the Private certificate action and remain on the public Payroll-list route.
+- **Billing and Payroll staff:** retain the existing certification-list and payroll-list processes without behavioral changes.
+
+## Implementation and data flow
+
+The frontend uses the school type already returned by the protected Scholar Management endpoint to conditionally render the card. On demand, a dynamically loaded PDF library combines the selected record's existing display data with the locally bundled official certificate header and downloads the result directly through the browser. No certificate data is posted to the API and no persistent status, history, receipt, acknowledgment, or payment record is created.
+
+## Files and system areas changed
+
+- `frontend/src/ScholarsManagement.jsx`
+- `frontend/src/styles/admin.css`
+- `frontend/src/assets/certificate-header.png`
+- `frontend/package.json`
+- `frontend/package-lock.json`
+- project change documentation
+
+The supplied root `certificate.pdf` remains an untracked reference and was not modified. The earlier proposed backend service, test, migration, schema changes, Billing UI changes, and Scholar Portal changes were removed from source.
+
+## Impact
+
+- **API:** no impact; the existing protected Scholar Management response is read without contract changes.
+- **Database:** no source schema or migration impact. An unused additive table created during the reverted local experiment may remain in a developer database, but no runtime code references it and no hosted database received it.
+- **Configuration:** no environment-variable impact.
+- **Security:** the action remains inside the authenticated administrative Scholar Record interface and performs no privileged network mutation.
+- **Privacy:** the downloaded PDF contains the selected scholar's name, control number, school, course, and academic information for the stated school-submission purpose; staff must handle the hard copy appropriately.
+- **Accessibility:** the card has descriptive text, a labelled keyboard-operable button, visible focus treatment, disabled progress state, and a status message.
+- **Deployment:** local only; a future frontend deployment is sufficient because no backend or migration change is required.
+- **Product scope:** the feature produces an enrollment-related certificate only. It does not represent fund release, school receipt, payment claiming, disbursement confirmation, reconciliation, or monetary auditing.
+
+## Validation performed
+
+All 97 backend tests passed, including the existing Private PHP 5,000, Public PHP 3,000, Billing eligibility, and payroll-list boundary checks. Frontend ESLint completed without errors. The production Vite build completed successfully and emitted the certificate header and dynamically separated PDF library bundle. `git diff --check` reported no whitespace errors, and content diffs confirmed that Billing, Scholar Portal, backend controller, and Prisma schema files are unchanged from the current committed version.
+
+## Known limitations, rollback, and recommended next work
+
+The certificate is generated from current Scholar Record data and is not stored as an immutable historical artifact; downloading it after a profile correction reflects the corrected data. The deterministic reference identifies the scholar and academic year but is not a server-issued serial number. CAO should confirm the exact wording, current signatory, paper size, and visual output against a printed copy before deployment. Rollback requires removing only the Scholar Record certificate card, helper code, header asset, and PDF dependency; Billing and Payroll require no rollback.
+
+# 2026-09-13 - Prioritized revision completion for local testing
+
+## TL;DR
+
+- Completed all eight previously prioritized partial workflows locally, including guardian UX, uppercase Section 2 choices, protected examination delivery, admin Initial Requirements scans, and a consolidated Applicant drawer.
+- Added dedicated Private certification history with workbook re-download and explicit Reference Number columns in both official Excel formats.
+- Removed the duplicate Scholar Portal certificate while preserving the official per-Private-scholar PDF in Scholar Management.
+- No database migration or deployment was required; all 100 backend tests, frontend ESLint, production build, syntax checks, and whitespace checks passed.
+
+## Objective and reason
+
+Resolve the partial items identified by the September 12 verification report so CAO can test a coherent local workflow before deciding on deployment. The changes improve form clarity, examination confidentiality, document responsibility, historical list access, and administrator visibility without redefining Billing as payment or extending Payroll beyond official-list generation.
+
+## Previous and new behavior
+
+Previously, the parent/guardian form always displayed separate guardian fields, several Section 2 catalog choices used title case, and the online examination question bank and scoring logic were shipped in the frontend. The Scholar Portal duplicated the newer official certificate, administrators could review but could not attach a combined Initial Requirements scan, eligibility and document details were split across screens, certification history had no dedicated list/re-download section, and batch references appeared in workbook headings but not row columns.
+
+The application form now defaults to using the father as guardian, permits selection of either parent, and reveals separate required guardian fields only when the parent option is cleared. Section 2 municipality, barangay, school, and year-level labels display in uppercase while canonical values remain unchanged for validation and storage. A protected backend endpoint now releases answer-free questions only when Online Examination is enabled, the applicant's municipality schedule is active and open, attendance is Present, and no result exists; submitted answers are scored against backend-only keys.
+
+Authorized Super and Regular administrators can upload or replace one combined PDF/JPG/PNG Initial Requirements scan from the Applicant drawer. The file is stored using the existing private-document mechanism, marked as staff supplied, logged, and available through a protected preview. Scholars continue uploading recurring semester requirements. The same drawer now displays eligibility declarations and submitted supporting-document links.
+
+Billing now derives a read-only Certification History from existing Private certification claims and references, groups records by batch, and can regenerate the corresponding XLSX without creating another database batch. Both Payroll and certification workbooks include the batch reference in a dedicated Reference Number column. The existing official Private-scholar certificate remains in Scholar Management, while the inaccurate duplicate Scholar Portal template has been removed.
+
+## Affected roles and workflows
+
+- **Applicants:** receive a clearer parent/guardian form and stronger confidentiality for online questions.
+- **Super Administrators and Regular Administrators:** can attach and preview combined Initial Requirements scans and view consolidated applicant eligibility and document metadata.
+- **Billing staff:** retain semester-document review and Private certification-list generation, with added history and safe workbook re-download.
+- **Payroll staff:** retain Public payroll-list generation; exported rows now include the list reference explicitly.
+- **Scholars:** continue uploading semester requirements. Private scholars no longer see the duplicate generic certificate template.
+
+## Implementation and data flow
+
+Canonical municipality, barangay, school, and year-level values are still submitted unchanged; only option presentation is uppercase. Guardian data continues using the established `guardianSameAsParent` and `guardianParentRole` fields, keeping existing records compatible.
+
+The examination frontend first requests the protected question endpoint. The backend evaluates current settings, academic period, municipality schedule, attendance slot, schedule window, and prior result before returning sanitized questions. Correct answers never enter the response. The browser submits structured answer groups, and backend scoring produces the stored zero-to-twenty score. Existing result-email behavior remains unchanged and still omits scores.
+
+The Initial Requirements upload uses the existing application JSON document container under a dedicated `initial_requirement_scan` key. Production uses the configured private Blob store; local development without a storage credential uses the existing database-backed data URL fallback. Responses and Applicant Management payloads expose metadata only—not private URLs or encoded file content. Protected preview streams content with private no-store headers.
+
+Certification history is reconstructed from existing claims and batch references returned by Scholar Management. Re-download is a read-only browser operation and does not call either processing endpoint. Workbook rows receive the batch number already returned by the successful list-generation API.
+
+## Files and system areas changed
+
+- `frontend/src/components/ApplicationForm.jsx`
+- `frontend/src/ExamPage.jsx`
+- `frontend/src/ScholarDashboard.jsx`
+- `frontend/src/Dashboard.jsx`
+- `frontend/src/BillingPayrollManagement.jsx`
+- `frontend/src/styles/admin.css`
+- `backend/controllers/applicationController.js`
+- `backend/controllers/documentReviewController.js`
+- `backend/routes/applicationRoutes.js`
+- `backend/services/documentReview.js`
+- `backend/services/examQuestions.js`
+- `backend/tests/examQuestions.test.js`
+- `backend/tests/documentReview.test.js`
+- verification and change documentation
+
+## Impact
+
+- **API:** adds authenticated `GET /applications/me/examination/questions` for authorized question delivery and `PUT /applicants/:applicantId/initial-requirement` for CAO scans. Applicant Management now includes sanitized eligibility and document metadata. Online submission now accepts structured `answers` and calculates the score server-side instead of accepting a client-calculated score.
+- **Database:** no schema or migration change. Initial scan metadata uses the existing `application_submissions.initial_docs` JSON field; certification history uses existing batches and claims.
+- **Configuration:** no new environment variable. Hosted Initial Requirements uploads require the already configured private document Blob credential.
+- **Security:** answer keys and scoring leave the frontend bundle; question responses are private/no-store and attendance gated. Initial scans use authenticated role/section checks, file type/size validation, private storage, sanitized metadata, and protected streaming.
+- **Privacy:** authorized Applicant-section administrators gain access to applicant eligibility and submitted-document metadata plus protected file preview, consistent with the requested consolidated record. No private storage URL or encoded content is returned in list responses.
+- **Accessibility:** conditional guardian controls remain labelled; upload and history actions use native controls, progress/notice text, keyboard focus behavior, and descriptive labels. Uppercase option presentation does not change stored screen-reader values.
+- **Deployment:** local only. A backend restart and frontend rebuild will be necessary for local testing; no migration is needed. Nothing was pushed or deployed.
+- **Approved scope:** Private Billing still ends at the PHP 5,000 certification list and Public Payroll still ends at the PHP 3,000 official payroll list. No school receipt confirmation, fund release, claiming, disbursement, reconciliation, or monetary audit was added.
+
+## Validation performed
+
+- Passed all 100 backend Node tests, including new checks that public question payloads exclude answer keys, backend scoring returns the expected maximum, and Initial Requirements scans are excluded from bulk scholar-document review.
+- Passed backend syntax checks for the controller, routes, examination service, and document service.
+- Passed frontend ESLint without errors.
+- Passed the production Vite build. The existing large ExcelJS chunk advisory remains non-blocking; examination and Scholar Portal bundle sizes decreased after removing embedded answer data and the duplicate certificate template.
+- Passed `git diff --check` with no whitespace errors.
+- Confirmed by source inspection that re-downloading certification history does not call Billing processing and that fixed PHP 5,000 Private and PHP 3,000 Public amount tests remain green.
+
+## Known limitations, rollback, and recommended next work
+
+Identification and essay scoring intentionally preserves the previous behavior: non-empty identification responses receive one point and a non-empty essay receives five points. CAO should define authoritative identification answers and a manual essay-review policy before treating the score as a rigorous assessment. The combined Initial Requirements upload stores one packet rather than separate named initial-document categories because no authoritative initial-requirement list was supplied; CAO can later define that catalog without a schema change.
+
+Historical certification workbooks use existing current scholar academic/profile fields where older claims did not store immutable snapshots. The history download does not mutate records. Rollback can remove the two new routes/services and their UI sections without reverting the database. Before deployment, test one same-parent guardian submission, one different-guardian submission, blocked and Present online-exam sessions, one dummy Initial Requirements upload/preview, one historical certification re-download, and both generated Excel workbooks.
+# 2026-09-13 - Applicant dashboard summary-card alignment
+
+## TL;DR
+- Aligned the three applicant summary cards in a single desktop row.
+- Applicant users receive a more balanced dashboard overview; mobile cards continue to stack vertically.
+- No API, database, security, privacy, or deployment behavior changed.
+- Frontend lint and production build passed.
+
+## Objective and reason
+Correct the uneven two-column layout that left the submitted-date card alone on a second row at desktop widths.
+
+## Previous and new behavior
+Previously, the applicant dashboard summary grid always used two columns until the mobile breakpoint. It now uses three equal desktop columns, while the existing mobile media rule continues to switch the grid to one column at widths of 760px and below.
+
+## Affected roles and workflows
+Applicant dashboard users only. Application, examination, attendance, and submission workflows are unchanged.
+
+## Implementation and data flow
+Updated the CSS grid column definition for `.applicant-stat-grid`. No component structure or application data flow changed.
+
+## Files or system areas changed
+- `frontend/src/styles/applicant-portal.css`
+
+## Impact assessment
+- API: No impact.
+- Database: No impact; no migration.
+- Configuration: No impact.
+- Security and privacy: No impact.
+- Accessibility: Card reading order remains application status, examination attendance, then submitted date.
+- Deployment: Local change only; not deployed.
+
+## Validation
+- Frontend ESLint: passed.
+- Frontend production build: passed.
+
+## Limitations, rollback, and recommended next work
+At narrow mobile widths the cards intentionally remain stacked. Rollback requires restoring the desktop grid to two columns. Visual testing at desktop, tablet, and mobile widths is recommended before deployment.
+
+# 2026-09-13 - Move administrator requirement scans to Scholar records
+
+## TL;DR
+- Removed the inaccurate combined Initial Requirements upload and document links from Applicant records.
+- Authorized CAO administrators now upload or replace each named file in the Scholar Record's existing Document checklist.
+- Uploads are privately stored and approved for the selected active academic period; Public scholars continue to exclude the Private tuition-receipt requirement.
+- No database migration or deployment was performed; backend tests, syntax checks, frontend lint/build, and whitespace checks passed.
+
+## Objective and reason
+Correct requirement ownership after workflow review established that scanned initial documents belong to an accepted scholar's existing requirement checklist, not to the pre-acceptance Applicant record. This prevents duplicate document concepts and keeps document operations in the established Scholar workflow.
+
+## Previous and new behavior
+The prior local implementation added one combined `initial_requirement_scan` upload to the Applicant drawer. That UI, API route, payload metadata, and requirement definition have been removed. The Scholar drawer now provides an Upload or Replace control beside each applicable checklist item. A staff upload is immediately recorded as approved because authorized CAO staff are scanning the received hard copy. Existing protected View/Review behavior remains available. Public scholars do not receive an Official Receipt of Tuition Fee row; Private scholars retain it.
+
+## Affected roles and workflows
+- **Super Administrators and Regular Administrators with Scholar access:** can upload or replace Scholar checklist documents.
+- **Billing/Super Administrator document reviewers:** retain protected viewing and review controls for submitted documents.
+- **Applicants:** no longer display requirement-upload or document-link sections in their management drawer.
+- **Scholars:** retain the existing Scholar Portal workflow for recurring semester-document uploads.
+
+## Implementation and data flow
+The browser validates PDF, JPG, or PNG files up to 6 MB, reads the selected file, and sends it with the selected active-period identifier and named requirement key to an authenticated Scholar endpoint. The backend independently validates the scholar, active period, requirement key, file type, and decoded size. Production files use the configured private Blob store; local development keeps the established database data-URL fallback. Metadata is written to the latest application document container under the existing named requirement key, while the matching `scholar_requirements` file and review-status fields are updated to approved for the selected period. Replacement removes the superseded private Blob after the database transaction succeeds.
+
+## Files and system areas changed
+- `frontend/src/ScholarsManagement.jsx`
+- `frontend/src/Dashboard.jsx`
+- `frontend/src/styles/admin.css`
+- `backend/controllers/applicationController.js`
+- `backend/controllers/documentReviewController.js`
+- `backend/routes/applicationRoutes.js`
+- `backend/services/documentReview.js`
+- `backend/tests/documentReview.test.js`
+- revision and change documentation
+
+## Impact assessment
+- **API:** removed the local-only `PUT /applicants/:applicantId/initial-requirement`; added authenticated `PUT /scholars/:applicantId/requirements/:requirementKey` for authorized administrators with Scholar section access.
+- **Database:** no schema or migration change. Existing `application_submissions.initial_docs` metadata and `scholar_requirements` fields are reused.
+- **Configuration:** no new configuration. Production upload still requires the existing private document Blob token.
+- **Security:** role and Scholar-section authorization, upload rate limiting, requirement allowlisting, MIME/size validation, active-scholar validation, protected no-store streaming, and private storage remain enforced. Tuition receipts are rejected for non-Private schools.
+- **Privacy:** Applicant Management no longer returns or displays document metadata. Scholar documents remain visible only through authorized Scholar/Document Review workflows.
+- **Accessibility:** each checklist action has a visible label, file input, focus treatment, upload progress state, and success/error announcement.
+- **Deployment:** local only. Backend and frontend restarts are required for testing; no migration is required.
+- **Approved scope:** no fund-release, payment, receipt-confirmation, reconciliation, or monetary-audit behavior was introduced.
+
+## Validation performed
+- Backend Node test suite passed all 100 tests, including confirmation that the combined applicant scan definition is absent and all six named Scholar requirements remain registered.
+- Backend controller, route, and document-controller syntax checks passed.
+- Frontend ESLint passed.
+- Frontend production build passed; the existing large ExcelJS bundle advisory remains non-blocking.
+- `git diff --check` passed with no whitespace errors.
+
+## Known limitations, rollback, and recommended next work
+Staff uploads are marked approved immediately because they represent CAO-scanned hard copies; scholar-uploaded recurring documents retain their existing review path. Existing local data created under the abandoned `initial_requirement_scan` JSON key is inert and no longer returned or displayed; no destructive cleanup was performed. Rollback can restore the removed Applicant route/UI and remove the Scholar upload route/UI without a database migration. Before deployment, test one missing and one replacement document for both Public and Private dummy scholars, confirm the Public checklist excludes the tuition receipt, and confirm protected View opens the stored file.
+
+# 2026-09-13 - Scholar drawer Certification History tab
+
+## TL;DR
+- Added Certification History as the third tab in every Scholar record drawer.
+- Private scholars show their generated Billing certification-list records; Public scholars see an explicit explanation that their route is Payroll.
+- Existing Billing/Payroll processing, amounts, references, and stored data are unchanged.
+- Frontend lint/build and whitespace validation passed; no deployment occurred.
+
+## Objective and reason
+Make an individual Private scholar's certification-list history available directly from the Scholar record without requiring staff to search the global Billing history.
+
+## Previous and new behavior
+The Scholar drawer previously had Overview and Billing & Payroll tabs, with a compact mixed previous-period summary inside the finance view. It now has a dedicated Certification History tab beside Billing & Payroll. Private history entries display school year, semester, certification status, Billing reference number, amount, processing date, and whether the record belongs to the current period. Public scholars do not receive misleading certification records; the tab explains that they follow the official Payroll-list route. An empty Private history receives an explicit no-records state.
+
+## Affected roles and workflows
+All administrators authorized to open Scholar Management can view the tab. The view is read-only and does not create, modify, regenerate, or download certification lists.
+
+## Implementation and data flow
+The tab filters the Scholar Management response's existing `financialHistory` collection to records whose `processRoute` is `billing`. It reads the existing `billingReference`, academic-period, amount, status, date, and active-period fields. No additional request or mutation occurs when the tab opens.
+
+## Files and system areas changed
+- `frontend/src/ScholarsManagement.jsx`
+- `frontend/src/styles/admin.css`
+- change documentation
+
+## Impact assessment
+- **API:** No change; the existing Scholar Management payload is reused.
+- **Database:** No change and no migration.
+- **Configuration:** No impact.
+- **Security and privacy:** No new access or data exposure; the history is available only inside the already-authorized Scholar Management view.
+- **Accessibility:** The new control uses tab semantics, preserves DOM reading order, exposes selected state, and provides explicit empty-state text.
+- **Deployment:** Local only; a frontend restart or rebuild is required for testing.
+- **Approved scope:** Read-only certification-list history only. No payment release, claiming, receipt confirmation, reconciliation, or monetary auditing was added.
+
+## Validation performed
+- Frontend ESLint passed.
+- Frontend production build passed; the existing large ExcelJS chunk advisory remains non-blocking.
+- `git diff --check` passed without whitespace errors.
+
+## Known limitations, rollback, and recommended next work
+History reflects the existing batch and claim records; it does not construct immutable historical profile snapshots or recreate an old workbook. Rollback requires removing the third tab, its read-only panel, and associated styles. Before deployment, verify a Private scholar with history, a Private scholar without history, and a Public scholar.
+
+# 2026-09-13 - Enforce Initial versus Semester requirement ownership
+
+## TL;DR
+- CAO administrators can upload only Tax Exemption, Barangay Indigency, and Valid ID as Initial Requirements.
+- Public scholars upload exactly two Semester Requirements: previous-semester COG and current-semester Registration Form.
+- Private scholars upload those two plus the Official Receipt of Tuition Fee; Public receipt uploads are rejected by the backend.
+- No migration or deployment was performed; 101 backend tests, syntax checks, frontend lint/build, and whitespace validation passed.
+
+## Objective and reason
+Implement the clarified document-responsibility policy so Initial Requirements are scanned by CAO staff while recurring Semester Requirements are supplied by scholars. Private scholars additionally supply their tuition receipt, whereas Public scholars have no tuition-receipt requirement.
+
+## Previous and new behavior
+Previously, the corrected Scholar checklist location still allowed administrators to upload any listed requirement, and the Scholar Portal exposed all applicable requirements for scholar upload. Administrator upload controls now appear only for the three Initial Requirements. The Scholar Portal now contains only COG and Registration Form for Public scholars, with Official Receipt of Tuition Fee added only for Private scholars. Server allowlists independently enforce both role boundaries, so hiding a button is not the security control.
+
+## Affected roles and workflows
+- **Super/Regular Administrators with Scholar access:** upload or replace the three Initial Requirements and can securely view actual stored Scholar files.
+- **Public scholars:** upload COG and Registration Form only.
+- **Private scholars:** upload COG, Registration Form, and Official Receipt of Tuition Fee.
+- **Billing/Super Administrator reviewers:** continue reviewing scholar-uploaded Semester Requirements.
+
+## Implementation and data flow
+Shared backend ownership constants define the three administrator keys and three possible scholar keys. The administrator endpoint rejects any requirement outside the Initial set. The authenticated Scholar endpoint rejects Initial Requirement keys and validates Private school classification before accepting a tuition receipt. The Scholar Portal calculates progress only from scholar-managed documents, while Billing eligibility continues checking both staff-managed Initial Requirements and scholar-managed Semester Requirements through the established consolidated requirement snapshot.
+
+## Files and system areas changed
+- `backend/services/documentReview.js`
+- `backend/controllers/applicationController.js`
+- `backend/tests/documentReview.test.js`
+- `frontend/src/ScholarDashboard.jsx`
+- `frontend/src/ScholarsManagement.jsx`
+- revision and change documentation
+
+## Impact assessment
+- **API:** Existing upload endpoints now enforce narrower requirement allowlists. No new endpoint.
+- **Database:** No schema or migration change; existing named document metadata and review-status fields remain in use.
+- **Configuration:** No impact.
+- **Security:** Role ownership is enforced server-side. File type/size, private storage, authenticated access, and upload-rate limits remain unchanged. Public tuition-receipt attempts are explicitly rejected.
+- **Privacy:** No new data is collected or exposed. Authorized administrators can view actual stored documents from the Scholar record.
+- **Accessibility:** Ownership descriptions are visible beside missing documents; Scholar progress and instructions reflect the correct number of uploads.
+- **Deployment:** Local only. Backend and frontend restarts are required before testing.
+- **Approved scope:** This changes document intake only and does not add payment release, claiming, receipt confirmation, reconciliation, or monetary auditing.
+
+## Validation performed
+- Backend Node suite passed all 101 tests, including an exact ownership-partition test.
+- Backend controller and document-service syntax checks passed.
+- Frontend ESLint passed.
+- Frontend production build passed; the existing large ExcelJS bundle advisory remains non-blocking.
+- `git diff --check` passed without whitespace errors.
+
+## Known limitations, rollback, and recommended next work
+The Official Receipt of Tuition Fee is treated as a scholar-uploaded Semester Requirement only for Private scholars; it is not proof of school receipt confirmation or payment release. Dummy fixtures with completion markers but no stored file remain non-viewable until a real file is uploaded. Rollback requires restoring the broader endpoint allowlists and the previous Scholar Portal list. Before deployment, test all three administrator Initial uploads, a two-file Public Scholar submission, a three-file Private Scholar submission, and a deliberately forged Public tuition-receipt API request.
+
+# 2026-09-13 - Academic-period semester-requirements deadline
+
+## TL;DR
+- Super and Regular Administrators can set or clear one scholar-upload deadline for each academic period from Settings.
+- Scholars see the deadline in Philippine Standard Time, and upload or replacement controls close after it passes.
+- The backend independently enforces the deadline; CAO-uploaded Initial Requirements are deliberately unaffected.
+- One nullable academic-period column and an additive migration were added; the local database was synchronized without deleting the unrelated legacy certificate table.
+- All 104 backend tests, Prisma generation, backend syntax, frontend lint/build, and whitespace validation passed; nothing was deployed.
+
+## Objective and reason
+Give CAO an enforceable way to decide the final date and time for scholars to submit recurring semester requirements. The deadline belongs to an academic period because COG, Registration Form, and the Private-school tuition receipt recur by semester, while administrator-scanned Initial Requirements do not.
+
+## Previous and new behavior
+Previously, Scholar Portal semester uploads remained available indefinitely and administrators could only communicate a date through an announcement. Settings now contains a Semester Requirements card where an authorized administrator selects an academic period and saves or clears a Philippine-time deadline. A period with no deadline retains the previous always-open behavior. The Scholar Portal displays the configured deadline and disables pending, replacement, or correction uploads after it passes. The server repeats the check before accepting file data, preventing a forged client request from bypassing the closure.
+
+## Affected roles and workflows
+- **Super Administrators and Regular Administrators with Settings access:** can set or clear deadlines for any academic period.
+- **Billing / Payroll Administrators with Settings access:** can see the deadline but cannot change it.
+- **Public scholars:** deadline applies to COG and Registration Form uploads.
+- **Private scholars:** deadline applies to COG, Registration Form, and Official Receipt of Tuition Fee uploads.
+- **CAO staff scanning Initial Requirements:** their Tax Exemption, Barangay Indigency, and Valid ID upload workflow remains available after the scholar deadline.
+
+## Implementation and data flow
+The academic-period record stores a nullable `requirements_deadline` timestamp. The period serializer returns the deadline plus a server-derived open, closed, or unscheduled state. Settings converts Philippine local date/time input to an ISO instant and sends it through a role- and section-protected period endpoint. Scholar Portal formats that instant in Asia/Manila and disables its file controls when the server state is closed. On every Scholar upload request, the backend resolves the Primary System Period and refuses the upload when the current server time is later than the configured deadline. Deadline changes are recorded through the existing successful-mutation Activity Log middleware.
+
+## Files and system areas changed
+- `backend/prisma/schema.application.prisma`
+- `backend/prisma/schema.cleaned.prisma`
+- `backend/prisma/migrations/20260913000000_add_requirements_deadline/migration.sql`
+- `backend/services/requirementSubmission.js`
+- `backend/controllers/applicationController.js`
+- `backend/routes/applicationRoutes.js`
+- `backend/middleware/activityAudit.js`
+- `backend/tests/requirementSubmission.test.js`
+- `frontend/src/SettingsManagement.jsx`
+- `frontend/src/ScholarDashboard.jsx`
+- `frontend/src/styles/admin.css`
+- `frontend/src/styles/scholar-portal.css`
+- change documentation
+
+## Impact assessment
+- **API:** added authenticated `PUT /academic-periods/:id/requirements-deadline`; active and managed academic-period responses now include deadline and submission-state metadata. Existing Scholar upload requests may now receive HTTP 403 after the deadline.
+- **Database:** added nullable `academic_periods.requirements_deadline`; the committed migration is additive and does not rewrite existing rows. The local `_v2` database received only `ADD COLUMN IF NOT EXISTS` after the broad schema synchronizer correctly refused an unrelated destructive table drop.
+- **Configuration:** no environment variable or secret was added.
+- **Security:** the mutation is restricted to Super/Regular Administrators with Settings access. Scholar upload closure is authoritative on the server and retains authentication, role checks, upload rate limiting, MIME validation, size validation, and Private-school receipt validation.
+- **Privacy:** no new scholar personal information is collected. The deadline and administrator Activity Log entry are operational metadata.
+- **Accessibility:** the Settings form uses labelled native select/date-time controls and status/error messages; Scholar Portal exposes the deadline as text and marks the status region for assistive technology.
+- **Deployment:** not deployed. Production requires the committed additive migration and normal frontend/backend deployment. Existing periods default to no deadline.
+- **Approved scope:** document-intake scheduling only. Billing and Payroll list generation are unchanged, and no release, claiming, receipt confirmation, reconciliation, or monetary-audit behavior was added.
+
+## Validation performed
+- Prisma Client generation completed successfully from the application schema.
+- Backend Node suite passed all 104 tests, including no-deadline, inclusive-deadline, and post-deadline cases.
+- Backend controller, route, and deadline-service syntax checks passed.
+- Frontend ESLint passed after using derived deadline form state rather than effect-driven synchronization.
+- Frontend production build passed; the existing large ExcelJS chunk advisory remains non-blocking.
+- `git diff --check` passed with only existing line-ending normalization notices.
+- A Prisma query confirmed that the local application database can read the new nullable deadline field. No deadline was set automatically.
+
+## Known limitations, rollback, and recommended next work
+Deadline enforcement uses the Primary System Period for Scholar uploads, matching the existing semester-document flow. Administrators may deliberately save a past deadline to close uploads immediately. The UI does not provide scholar-specific extensions; CAO must either clear/change the period deadline or handle an exception outside the Scholar upload path. Rollback requires removing the Settings and Scholar UI, route/controller/service check, and code-level schema field; leaving the nullable database column in place is the safest data-preserving rollback. Before deployment, test one future deadline, one expired deadline, clearing a deadline, both Public and Private Scholar accounts, and an administrator Initial Requirement upload after Scholar submissions have closed.
+
+# 2026-09-13 - Align Scholar guidance with requirement ownership
+
+## TL;DR
+- Public Scholar guidance now counts the same two semester requirements displayed in the upload panel; Private guidance counts three.
+- CAO-owned Initial Requirements no longer appear as missing Scholar upload actions.
+- When only Initial Requirements remain, scholars receive a wait-for-CAO message; expired deadlines no longer recommend uploading.
+- Billing readiness continues checking all applicable administrator- and scholar-owned requirements.
+- All 107 backend tests, backend syntax, frontend lint, and the production build passed; nothing was deployed.
+
+## Objective and reason
+Correct an inconsistent Scholar Portal state where the visible Public Scholar checklist contained two files but personalized guidance counted the older combined requirement set and displayed four missing items, including files the scholar could not upload.
+
+## Previous and new behavior
+Personalized guidance previously treated every applicable Billing requirement as a Scholar action and defaulted to Private-school applicability when no school type was supplied. The authenticated application controller now provides the actual school classification. Guidance separates scholar-owned semester files from administrator-owned Initial Requirements: Public scholars act on COG and Registration Form, while Private scholars additionally act on the tuition receipt. Initial Requirement gaps produce a CAO waiting state rather than an impossible upload instruction. Overall Billing/list readiness still requires the complete applicable set.
+
+## Affected roles and workflows
+- **Public scholars:** see action counts of zero through two matching their visible files.
+- **Private scholars:** see action counts of zero through three matching their visible files.
+- **CAO administrators:** retain responsibility for Tax Exemption, Barangay Indigency, and Valid ID scans.
+- **Billing staff:** existing review and eligibility rules remain unchanged.
+
+## Implementation and data flow
+The guidance builder now receives the resolved school type, obtains the existing classification-aware requirement snapshot, and partitions it using the shared administrator and scholar ownership allowlists. Only scholar-owned missing, rejected, or pending items generate Scholar actions. The Scholar Requirements timeline reports scholar-owned approval progress, while the Payroll-list readiness stage continues using the complete requirement snapshot. The current deadline state is also passed into guidance so closed uploads lead to CAO contact instructions rather than an Upload action.
+
+## Files and system areas changed
+- `backend/services/applicantGuidance.js`
+- `backend/controllers/applicationController.js`
+- `backend/tests/applicantGuidance.test.js`
+- change documentation
+
+## Impact assessment
+- **API:** the existing authenticated application response contains corrected guidance text and counts; no endpoint or request shape changed.
+- **Database and migration:** no additional database change.
+- **Configuration:** no impact.
+- **Security:** no authorization change. Shared server allowlists remain authoritative, and deadline enforcement remains server-side.
+- **Privacy:** no new data is collected or exposed.
+- **Accessibility:** visible guidance and checklist counts now agree, reducing contradictory instructions for screen-reader and visual users.
+- **Deployment:** local only; backend restart is required for testing.
+- **Approved scope:** list-preparation guidance only; no release, payment confirmation, reconciliation, or monetary-audit function was added.
+
+## Validation performed
+- Added tests proving a Public scholar receives exactly two missing actions and never receives a tuition-receipt action.
+- Added coverage proving CAO Initial Requirement gaps produce a waiting state rather than a Scholar upload action.
+- Added coverage proving expired deadlines do not recommend closed uploads.
+- Backend suite passed all 107 tests; controller/service syntax, frontend ESLint, and production build passed.
+
+## Known limitations, rollback, and recommended next work
+Guidance intentionally distinguishes Scholar action completion from overall Billing readiness, so a scholar may finish all visible uploads and then wait while CAO completes Initial Requirements. Rollback would restore the combined snapshot actions but would reintroduce the contradictory count. Before deployment, visually verify one Public scholar with two missing files, one Private scholar with three missing files, one scholar awaiting CAO Initial Requirements, and one scholar after an expired deadline.
+
+# 2026-09-13 - Multi-period requirements deadline directory
+
+## TL;DR
+- Confirmed the reported deadline was stored under 2026-2027 2nd Semester, while the screenshot showed 1st Semester with no deadline.
+- Added one visible directory listing the deadline and status for every academic period.
+- Administrators can select Configure on any row and maintain multiple period-specific deadlines without losing sight of saved values.
+- No API, schema, stored deadline, or enforcement behavior changed.
+- Backend tests, frontend lint/build, and whitespace validation passed; nothing was deployed.
+
+## Objective and reason
+Remove ambiguity from the single-period editor. Switching the academic-period selection correctly changed the displayed value, but it made a deadline saved under another period appear to have disappeared.
+
+## Previous and new behavior
+Previously, Settings displayed only the selected period's deadline. It now retains that editor and adds a Deadline Directory containing every configured academic period, the saved deadline or explicit no-deadline state, its current open/closed status, and a Configure action. Multiple deadlines are supported as one persistent deadline per academic period.
+
+## Affected roles and workflows
+Super and Regular Administrators receive the clearer configuration workflow. Billing / Payroll Administrators with Settings access can view the directory without receiving mutation permission. Scholars and document reviewers are unaffected.
+
+## Implementation and data flow
+The directory renders the already-loaded academic-period response. Selecting Configure changes the editor's period and displays that row's persisted timestamp. The saved-count indicator is derived from periods containing `requirementsDeadline`; no additional request, duplicate storage, or client-only persistence is used.
+
+## Files and system areas changed
+- `frontend/src/SettingsManagement.jsx`
+- `frontend/src/styles/admin.css`
+- change documentation
+
+## Impact assessment
+- **API, database, migration, and configuration:** no change beyond the existing deadline feature.
+- **Security and privacy:** no new access or personal data; existing role restrictions remain in force.
+- **Accessibility:** the directory uses text labels, native buttons, explicit deadline states, and responsive reading order.
+- **Deployment:** local only; frontend restart or rebuild is required.
+- **Approved scope:** document-intake scheduling only; no payment or release workflow was added.
+
+## Validation performed
+The local database was queried through the generated Prisma client and confirmed a persisted 2nd Semester deadline of September 14, 2026 at 5:30 PM Philippine time, with no deadline on 1st Semester. All 107 backend tests passed; frontend ESLint, production build, and `git diff --check` passed.
+
+## Known limitations, rollback, and recommended next work
+The feature supports multiple deadlines across academic periods, with one authoritative deadline per period. It does not create several competing deadlines within the same period. Rollback only requires removing the directory markup and styles; stored deadlines and enforcement remain intact. Test by setting different deadlines for two periods, refreshing Settings, and selecting each directory row.
+
+# 2026-09-13 - Other Guardian relationship workflow
+
+## TL;DR
+- Retained the parent-as-guardian checkbox and Father/Mother selector.
+- Unchecking it now opens an explicit Other Guardian section with name and relationship fields.
+- Replaced Guardian Occupation with Relationship with the Scholar throughout new submissions and administrative/portal views.
+- Existing JSON records remain compatible; no schema migration or deployment occurred.
+- All 109 backend tests, syntax checks, frontend lint/build, and whitespace validation passed.
+
+## Objective and reason
+Complete the previously deferred guardian change so applicants identify how a non-parent guardian is related to the scholar rather than entering that guardian's occupation. Preserve the already-approved compact parent-selection experience.
+
+## Previous and new behavior
+Previously, checking the control copied a selected parent's name and occupation; unchecking it displayed Guardian Full Name and Guardian Occupation. The parent path now records the relationship as Father or Mother automatically. The unchecked path is visibly labelled Other Guardian Details and requires the guardian's full name plus relationship, such as Aunt, Uncle, or Grandparent. New records no longer write a guardian occupation.
+
+## Affected roles and workflows
+- **Applicants:** select a parent or enter an Other Guardian and relationship in Section 3.
+- **Administrators:** see Guardian and Relationship with Scholar in the Applicant drawer.
+- **Applicants viewing their portal profile data:** see guardian name and relationship without occupation.
+
+## Implementation and data flow
+Application form state and payloads now use `guardianRelationship`. For a selected parent, the frontend derives Father or Mother; for an Other Guardian, the applicant enters a required relationship limited to 80 characters. Backend validation independently checks the selected parent's name and optional relationship consistency or requires the Other Guardian relationship. New application JSON stores the normalized relationship and removes the obsolete occupation property. Read paths derive parent relationships for older records and use a generic Guardian fallback for legacy non-parent records that have no relationship.
+
+## Files and system areas changed
+- `frontend/src/components/ApplicationForm.jsx`
+- `frontend/src/ApplicantDashboard.jsx`
+- `frontend/src/Dashboard.jsx`
+- `backend/middleware/validators.js`
+- `backend/controllers/applicationController.js`
+- `backend/tests/applicationGuardian.test.js`
+- `backend/scripts/seed-complete-applicants.js`
+- change documentation
+
+## Impact assessment
+- **API:** new application submissions use `family.guardianRelationship`; same-parent requests from an older client remain accepted when the relationship is omitted, while new Other Guardian submissions require it.
+- **Database:** no schema migration; guardian data remains in existing JSON fields.
+- **Configuration:** no impact.
+- **Security:** server validation prevents client-side bypass, mismatched parent names, invalid parent roles, missing relationships, and excessively long relationship values.
+- **Privacy:** guardian occupation is no longer collected for new applications, reducing unnecessary personal-data collection.
+- **Accessibility:** the checkbox, parent selector, Other Guardian heading, labelled inputs, validation errors, and focus-on-error behavior remain keyboard and assistive-technology compatible.
+- **Deployment:** local only; coordinated frontend/backend deployment is recommended because the payload field changed.
+- **Approved scope:** application identity data only; Billing, Payroll, and payment-related behavior are unaffected.
+
+## Validation performed
+- Added successful Other Guardian validation coverage.
+- Added rejection coverage for a missing Other Guardian relationship.
+- Existing selected-parent and mismatched-parent tests continue to pass.
+- Backend suite passed all 109 tests; backend syntax, frontend ESLint, production build, and `git diff --check` passed.
+
+## Known limitations, rollback, and recommended next work
+Legacy non-parent applications cannot be assigned an accurate relationship automatically because only occupation was previously collected; these display the neutral value Guardian. No destructive backfill was attempted. Rollback can restore the old form/property while leaving new JSON relationship values intact. Before deployment, submit one Father, one Mother, and one Other Guardian application and confirm both Applicant Portal and Admin drawer displays.

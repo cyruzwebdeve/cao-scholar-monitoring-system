@@ -1,11 +1,14 @@
 const { PRIORITY_PROOFS } = require('./priorityEligibility');
 
+const ADMIN_INITIAL_REQUIREMENT_KEYS = Object.freeze(['tax_exemption', 'indigency', 'valid_id']);
+const SCHOLAR_SEMESTER_REQUIREMENT_KEYS = Object.freeze(['grades', 'registration_form', 'tuition_receipt']);
+
 const REQUIREMENT_DEFINITIONS = Object.freeze({
   tax_exemption: Object.freeze({ label: 'Certificate of Tax Exemption', statusField: 'cert_tax_exemption_review_status' }),
   indigency: Object.freeze({ label: 'Barangay Indigency', statusField: 'barangay_indigency_review_status' }),
   valid_id: Object.freeze({ label: 'Photocopy of ID (any valid ID)', statusField: 'valid_id_photocopy_review_status' }),
   grades: Object.freeze({ label: 'Certificate of Grades (previous semester attended)', statusField: 'grade_report_review_status' }),
-  registration_form: Object.freeze({ label: 'Registration Form (current school year)', statusField: 'registration_form_review_status' }),
+  registration_form: Object.freeze({ label: 'Registration Form (currently enrolled semester)', statusField: 'registration_form_review_status' }),
   tuition_receipt: Object.freeze({ label: 'Official Receipt of Tuition Fee', statusField: 'tuition_fee_receipt_review_status' }),
   ...PRIORITY_PROOFS,
 });
@@ -105,7 +108,9 @@ const applyPendingApprovals = ({ initialDocs, reviewerId, notes = '', reviewedAt
 };
 
 module.exports = {
+  ADMIN_INITIAL_REQUIREMENT_KEYS,
   REQUIREMENT_DEFINITIONS,
+  SCHOLAR_SEMESTER_REQUIREMENT_KEYS,
   applyPendingApprovals,
   applyReviewDecision,
   buildReviewRecords,

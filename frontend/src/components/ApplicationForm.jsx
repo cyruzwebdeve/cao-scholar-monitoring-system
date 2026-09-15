@@ -44,8 +44,8 @@ const priorityCriteria = [
 const createEmptyFormState = () => ({
   firstName: '', middleName: '', familyName: '', nameExtension: '', email: '', mobile: '', birthday: '', birthplace: '', sex: '', civilStatus: '',
   houseNumber: '', municipality: '', barangay: '', school: '', course: '', incomingYearLevel: '',
-  fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardianName: '', guardianOccupation: '',
-  guardianSameAsParent: false, guardianParentRole: '',
+  fatherName: '', fatherOccupation: '', motherName: '', motherOccupation: '', guardianName: '', guardianRelationship: '',
+  guardianSameAsParent: true, guardianParentRole: 'father',
   familyIncome: '', gwa: '', brothersCount: '0', sistersCount: '0', graduatedHonors: 'No', championContest: 'No', alsPasser: 'No', pwd: 'No', childOfPwd: 'No', soloParent: 'No', indigenousGroup: 'No', siblingRuleAccepted: false,
 });
 
@@ -99,6 +99,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
           setFormState((previous) => ({
             ...previous,
             ...savedFormState,
+            guardianRelationship: savedFormState.guardianRelationship || '',
             graduatedHonors: savedFormState.graduatedHonors || 'No',
             championContest: savedFormState.championContest || 'No',
             alsPasser: savedFormState.alsPasser || 'No',
@@ -149,17 +150,17 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
     [formState.municipality],
   );
   const selectedParent = formState.guardianParentRole === 'father'
-    ? { name: formState.fatherName, occupation: formState.fatherOccupation }
+    ? { name: formState.fatherName, relationship: 'Father' }
     : formState.guardianParentRole === 'mother'
-      ? { name: formState.motherName, occupation: formState.motherOccupation }
-      : { name: '', occupation: '' };
+      ? { name: formState.motherName, relationship: 'Mother' }
+      : { name: '', relationship: '' };
   const displayedGuardianName = formState.guardianSameAsParent ? selectedParent.name : formState.guardianName;
-  const displayedGuardianOccupation = formState.guardianSameAsParent ? selectedParent.occupation : formState.guardianOccupation;
+  const displayedGuardianRelationship = formState.guardianSameAsParent ? selectedParent.relationship : formState.guardianRelationship;
 
   const handleChange = (key, value) => {
     let parsedValue = value;
 
-    if (['firstName', 'middleName', 'familyName', 'nameExtension', 'birthplace', 'houseNumber', 'course', 'fatherName', 'fatherOccupation', 'motherName', 'motherOccupation', 'guardianName', 'guardianOccupation'].includes(key)) {
+    if (['firstName', 'middleName', 'familyName', 'nameExtension', 'birthplace', 'houseNumber', 'course', 'fatherName', 'fatherOccupation', 'motherName', 'motherOccupation', 'guardianName'].includes(key)) {
       parsedValue = value.toUpperCase();
     }
 
@@ -177,11 +178,11 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
       setFormState((prev) => ({
         ...prev,
         guardianSameAsParent: Boolean(parsedValue),
-        guardianParentRole: '',
+        guardianParentRole: parsedValue ? (prev.guardianParentRole || 'father') : '',
         guardianName: '',
-        guardianOccupation: '',
+        guardianRelationship: '',
       }));
-      setFieldErrors((prev) => ({ ...prev, guardianName: '', guardianOccupation: '', guardianParentRole: '' }));
+      setFieldErrors((prev) => ({ ...prev, guardianName: '', guardianRelationship: '', guardianParentRole: '' }));
       return;
     }
 
@@ -240,7 +241,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
         }
       } else {
         if (!formState.guardianName.trim()) errors.guardianName = 'This field is required.';
-        if (!formState.guardianOccupation.trim()) errors.guardianOccupation = 'This field is required.';
+        if (!formState.guardianRelationship.trim()) errors.guardianRelationship = 'This field is required.';
       }
     }
 
@@ -342,7 +343,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
         motherName: formState.motherName,
         motherOccupation: formState.motherOccupation,
         guardianName: displayedGuardianName,
-        guardianOccupation: displayedGuardianOccupation,
+        guardianRelationship: displayedGuardianRelationship,
         guardianSameAsParent: formState.guardianSameAsParent,
         guardianParentRole: formState.guardianSameAsParent ? formState.guardianParentRole : null,
         familyIncome: formState.familyIncome,
@@ -488,7 +489,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
             <div className="form-row form-row-full">
               <label className="form-group">
                 <FieldLabel required>HOUSE NUMBER / STREET / PUROK</FieldLabel>
-                <input type="text" value={formState.houseNumber} onChange={(e) => handleChange('houseNumber', e.target.value)} placeholder="e.g. 123 Mabini St., Purok 4" />
+                <input type="text" value={formState.houseNumber} onChange={(e) => handleChange('houseNumber', e.target.value)} placeholder="E.G. 123 MABINI ST., PUROK 4" />
               </label>
             </div>
 
@@ -496,9 +497,9 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
               <label className="form-group">
                 <FieldLabel required>MUNICIPALITY / CITY</FieldLabel>
                 <select name="municipality" value={formState.municipality} onChange={(e) => handleChange('municipality', e.target.value)}>
-                  <option value="">Select municipality</option>
+                  <option value="">SELECT MUNICIPALITY</option>
                   {municipalityOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>{option.label.toUpperCase()}</option>
                   ))}
                 </select>
                 {fieldErrors.municipality && <span className="error">{fieldErrors.municipality}</span>}
@@ -511,9 +512,9 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
                   onChange={(e) => handleChange('barangay', e.target.value)}
                   disabled={!formState.municipality}
                 >
-                  <option value="">{formState.municipality ? 'Select barangay' : 'Select municipality first'}</option>
+                  <option value="">{formState.municipality ? 'SELECT BARANGAY' : 'SELECT MUNICIPALITY FIRST'}</option>
                   {barangayOptions.map((option) => (
-                    <option key={option.code} value={option.code}>{option.name}</option>
+                    <option key={option.code} value={option.code}>{option.name.toUpperCase()}</option>
                   ))}
                 </select>
                 {fieldErrors.barangay && <span className="error">{fieldErrors.barangay}</span>}
@@ -526,16 +527,16 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
               <label className="form-group">
                 <FieldLabel required>INCOMING YEAR LEVEL</FieldLabel>
                 <select value={formState.incomingYearLevel} onChange={(e) => handleChange('incomingYearLevel', e.target.value)}>
-                  <option value="">Select year level</option>
-                  {yearLevels.map((option) => <option key={option} value={option}>{option}</option>)}
+                  <option value="">SELECT YEAR LEVEL</option>
+                  {yearLevels.map((option) => <option key={option} value={option}>{option.toUpperCase()}</option>)}
                 </select>
               </label>
               <label className="form-group">
                 <FieldLabel required>SCHOOL</FieldLabel>
                 <select value={formState.school} onChange={(e) => handleChange('school', e.target.value)}>
-                  <option value="">Select school</option>
+                  <option value="">SELECT SCHOOL</option>
                   {schoolOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>{option.label.toUpperCase()}</option>
                   ))}
                 </select>
               </label>
@@ -544,7 +545,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
             <div className="form-row form-row-full">
               <label className="form-group">
                 <FieldLabel required>COURSE / PROGRAM</FieldLabel>
-                <input type="text" value={formState.course} onChange={(e) => handleChange('course', e.target.value)} placeholder="e.g. Bachelor of Science in Nursing" />
+                <input type="text" value={formState.course} onChange={(e) => handleChange('course', e.target.value)} placeholder="E.G. BACHELOR OF SCIENCE IN NURSING" />
               </label>
             </div>
           </div>
@@ -586,7 +587,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
                 checked={formState.guardianSameAsParent}
                 onChange={(event) => handleChange('guardianSameAsParent', event.target.checked)}
               />
-              <span>Guardian is the same as one of the parents listed above</span>
+              <span>Use one of the parents listed above as the guardian (uncheck for Other guardian)</span>
             </label>
 
             {formState.guardianSameAsParent && (
@@ -601,7 +602,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
               </label>
             )}
 
-            <div className="form-row">
+            {!formState.guardianSameAsParent && <><div className="section-title section-title-spaced">OTHER GUARDIAN DETAILS</div><div className="form-row">
               <label className="form-group">
                 <FieldLabel required>GUARDIAN'S FULL NAME</FieldLabel>
                 <input
@@ -615,18 +616,19 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
                 {fieldErrors.guardianName && <span className="error">{fieldErrors.guardianName}</span>}
               </label>
               <label className="form-group">
-                <FieldLabel required>GUARDIAN'S OCCUPATION</FieldLabel>
+                <FieldLabel required>RELATIONSHIP WITH THE SCHOLAR</FieldLabel>
                 <input
-                  name="guardianOccupation"
+                  name="guardianRelationship"
                   type="text"
-                  value={displayedGuardianOccupation}
-                  onChange={(event) => handleChange('guardianOccupation', event.target.value)}
+                  value={displayedGuardianRelationship}
+                  onChange={(event) => handleChange('guardianRelationship', event.target.value)}
                   disabled={formState.guardianSameAsParent}
-                  placeholder="e.g. Vendor"
+                  maxLength={80}
+                  placeholder="e.g. Aunt, Uncle, Grandparent"
                 />
-                {fieldErrors.guardianOccupation && <span className="error">{fieldErrors.guardianOccupation}</span>}
+                {fieldErrors.guardianRelationship && <span className="error">{fieldErrors.guardianRelationship}</span>}
               </label>
-            </div>
+            </div></>}
 
             <div className="section-title section-title-spaced">FINANCIAL & ACADEMIC STANDING</div>
 
@@ -712,7 +714,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
       default:
         return null;
     }
-  }, [step, formState, fieldErrors, user, barangayOptions, displayedGuardianName, displayedGuardianOccupation, priorityProof.fileName, priorityProof.proofKey]);
+  }, [step, formState, fieldErrors, user, barangayOptions, displayedGuardianName, displayedGuardianRelationship, priorityProof.fileName, priorityProof.proofKey]);
 
   if (submitted) {
     return (

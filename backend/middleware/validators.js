@@ -223,10 +223,6 @@ const validateCreateApplication = (req, res, next) => {
     return res.status(400).json({ message: 'Guardian name must be provided in uppercase letters.' });
   }
 
-  if (!isNonEmptyString(family.guardianOccupation)) {
-    return res.status(400).json({ message: 'Guardian occupation is required.' });
-  }
-
   if (typeof family.guardianSameAsParent !== 'boolean') {
     return res.status(400).json({ message: 'Specify whether the guardian is one of the applicant parents.' });
   }
@@ -237,12 +233,23 @@ const validateCreateApplication = (req, res, next) => {
     }
 
     const selectedParentName = family.guardianParentRole === 'father' ? family.fatherName : family.motherName;
-    const selectedParentOccupation = family.guardianParentRole === 'father' ? family.fatherOccupation : family.motherOccupation;
-    if (family.guardianName !== selectedParentName || family.guardianOccupation !== selectedParentOccupation) {
+    const selectedParentRelationship = family.guardianParentRole === 'father' ? 'Father' : 'Mother';
+    if (family.guardianName !== selectedParentName) {
       return res.status(400).json({ message: 'Guardian details must match the selected parent.' });
     }
-  } else if (family.guardianParentRole !== null && family.guardianParentRole !== undefined && family.guardianParentRole !== '') {
-    return res.status(400).json({ message: 'A parent role can only be selected when the guardian is a parent.' });
+    if (family.guardianRelationship && String(family.guardianRelationship).trim().toLowerCase() !== selectedParentRelationship.toLowerCase()) {
+      return res.status(400).json({ message: 'Guardian relationship must match the selected parent.' });
+    }
+  } else {
+    if (family.guardianParentRole !== null && family.guardianParentRole !== undefined && family.guardianParentRole !== '') {
+      return res.status(400).json({ message: 'A parent role can only be selected when the guardian is a parent.' });
+    }
+    if (!isNonEmptyString(family.guardianRelationship)) {
+      return res.status(400).json({ message: 'Guardian relationship with the scholar is required.' });
+    }
+    if (String(family.guardianRelationship).trim().length > 80) {
+      return res.status(400).json({ message: 'Guardian relationship must not exceed 80 characters.' });
+    }
   }
 
   if (!allowedIncomeOptions.includes(family.familyIncome)) {

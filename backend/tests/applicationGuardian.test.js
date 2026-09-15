@@ -37,7 +37,7 @@ const buildBody = (familyOverrides = {}) => ({
       motherName: 'MARIA DELA CRUZ',
       motherOccupation: 'TEACHER',
       guardianName: 'MARIA DELA CRUZ',
-      guardianOccupation: 'TEACHER',
+      guardianRelationship: 'Mother',
       guardianSameAsParent: true,
       guardianParentRole: 'mother',
       familyIncome: 'Below \u20B150,000',
@@ -86,4 +86,27 @@ test('rejects guardian details that do not match the selected parent', () => {
   assert.equal(result.nextCalled, false);
   assert.equal(result.response.statusCode, 400);
   assert.equal(result.response.payload.message, 'Guardian details must match the selected parent.');
+});
+
+test('accepts an Other guardian with a declared relationship to the scholar', () => {
+  const result = runValidation(buildBody({
+    guardianName: 'ANA SANTOS',
+    guardianRelationship: 'Aunt',
+    guardianSameAsParent: false,
+    guardianParentRole: null,
+  }));
+  assert.equal(result.nextCalled, true);
+  assert.equal(result.response, undefined);
+});
+
+test('requires the relationship when an Other guardian is used', () => {
+  const result = runValidation(buildBody({
+    guardianName: 'ANA SANTOS',
+    guardianRelationship: '',
+    guardianSameAsParent: false,
+    guardianParentRole: null,
+  }));
+  assert.equal(result.nextCalled, false);
+  assert.equal(result.response.statusCode, 400);
+  assert.match(result.response.payload.message, /relationship/i);
 });

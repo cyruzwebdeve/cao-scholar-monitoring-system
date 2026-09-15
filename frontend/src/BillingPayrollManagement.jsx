@@ -58,25 +58,25 @@ const downloadPayrollWorkbook = async ({ records, batch, activePeriod }) => {
   const sheet = workbook.addWorksheet('Official Payroll List', {
     pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
-  sheet.mergeCells('A1:H1');
+  sheet.mergeCells('A1:I1');
   sheet.getCell('A1').value = 'PGCEAP OFFICIAL PAYROLL LIST';
   sheet.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FF176B3A' } };
   sheet.getCell('A1').alignment = { horizontal: 'center' };
-  sheet.mergeCells('A2:H2');
+  sheet.mergeCells('A2:I2');
   sheet.getCell('A2').value = `${activePeriod?.schoolYear || ''} · ${activePeriod?.semester || ''} · ${batch?.batchNumber || ''}`;
   sheet.getCell('A2').alignment = { horizontal: 'center' };
   sheet.addRow([]);
-  const header = sheet.addRow(['No.', 'Control Number', 'Scholar Name', 'School', 'School Type', 'Municipality', 'Amount (PHP)', 'Signature']);
+  const header = sheet.addRow(['No.', 'Control Number', 'Scholar Name', 'School', 'School Type', 'Municipality', 'Amount (PHP)', 'Reference Number', 'Signature']);
   header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF176B3A' } };
   header.alignment = { horizontal: 'center', vertical: 'middle' };
   records.forEach((record, index) => {
-    sheet.addRow([index + 1, record.controlNumber || '', record.name, record.school, record.schoolType, record.municipality, Number(record.claimAmount || 0), '']);
+    sheet.addRow([index + 1, record.controlNumber || '', record.name, record.school, record.schoolType, record.municipality, Number(record.claimAmount || 0), batch?.batchNumber || '', '']);
   });
-  const totalRow = sheet.addRow(['', '', '', '', '', 'TOTAL', records.reduce((total, record) => total + Number(record.claimAmount || 0), 0), '']);
+  const totalRow = sheet.addRow(['', '', '', '', '', 'TOTAL', records.reduce((total, record) => total + Number(record.claimAmount || 0), 0), '', '']);
   totalRow.font = { bold: true };
   sheet.getColumn(7).numFmt = '₱#,##0.00';
-  [7, 18, 32, 36, 14, 18, 16, 28].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
+  [7, 18, 32, 36, 14, 18, 16, 25, 28].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
   sheet.views = [{ state: 'frozen', ySplit: 4 }];
   const buffer = await workbook.xlsx.writeBuffer();
   const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
@@ -99,15 +99,15 @@ const downloadCertificationWorkbook = async ({ records, batch, activePeriod }) =
   const sheet = workbook.addWorksheet('Tuition Certification List', {
     pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
-  sheet.mergeCells('A1:I1');
+  sheet.mergeCells('A1:J1');
   sheet.getCell('A1').value = 'PGCEAP PRIVATE-SCHOLAR TUITION CERTIFICATION LIST';
   sheet.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FF176B3A' } };
   sheet.getCell('A1').alignment = { horizontal: 'center' };
-  sheet.mergeCells('A2:I2');
+  sheet.mergeCells('A2:J2');
   sheet.getCell('A2').value = `${activePeriod?.schoolYear || ''} · ${activePeriod?.semester || ''} · ${batch?.batchNumber || batch?.billingReference || ''}`;
   sheet.getCell('A2').alignment = { horizontal: 'center' };
   sheet.addRow([]);
-  const header = sheet.addRow(['No.', 'Control Number', 'Private Scholar Name', 'School', 'Municipality', 'Course / Program', 'Year Level', 'Grant Amount (PHP)', 'Certification / Signature']);
+  const header = sheet.addRow(['No.', 'Control Number', 'Private Scholar Name', 'School', 'Municipality', 'Course / Program', 'Year Level', 'Grant Amount (PHP)', 'Reference Number', 'Certification / Signature']);
   header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF176B3A' } };
   header.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -115,14 +115,14 @@ const downloadCertificationWorkbook = async ({ records, batch, activePeriod }) =
     sheet.addRow([
       index + 1, record.controlNumber || '', record.name, record.school,
       record.municipality, record.course || '', record.yearLevel || '',
-      Number(record.claimAmount || record.billingAmount || 5000), '',
+      Number(record.claimAmount || record.billingAmount || 5000), batch?.batchNumber || batch?.billingReference || '', '',
     ]);
   });
   const total = records.reduce((sum, record) => sum + Number(record.claimAmount || record.billingAmount || 5000), 0);
-  const totalRow = sheet.addRow(['', '', '', '', '', '', 'TOTAL', total, '']);
+  const totalRow = sheet.addRow(['', '', '', '', '', '', 'TOTAL', total, '', '']);
   totalRow.font = { bold: true };
   sheet.getColumn(8).numFmt = '₱#,##0.00';
-  [7, 18, 32, 36, 18, 28, 14, 20, 28].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
+  [7, 18, 32, 36, 18, 28, 14, 20, 25, 28].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
   sheet.views = [{ state: 'frozen', ySplit: 4 }];
   const buffer = await workbook.xlsx.writeBuffer();
   const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
@@ -325,6 +325,23 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
         { label: 'Certification Listed', value: billedCount, detail: 'Included in certification records', tone: 'blue', Icon: ReceiptText },
         { label: 'Grant (PHP)', value: 5000, detail: 'Fixed private tuition support', tone: 'violet', Icon: Banknote },
       ];
+  const certificationHistory = useMemo(() => {
+    if (isPayroll) return [];
+    const batches = new Map();
+    records.filter((record) => record.processRoute === 'billing' && record.billed && record.billingReference).forEach((record) => {
+      if (!batches.has(record.billingReference)) {
+        batches.set(record.billingReference, {
+          reference: record.billingReference,
+          schoolYear: record.schoolYear,
+          semester: record.semester,
+          dateProcessed: record.dateProcessed,
+          records: [],
+        });
+      }
+      batches.get(record.billingReference).records.push(record);
+    });
+    return [...batches.values()].sort((left, right) => new Date(right.dateProcessed || 0) - new Date(left.dateProcessed || 0));
+  }, [isPayroll, records]);
 
   const toggleSelection = (setter, id) => setter((current) => current.includes(id)
     ? current.filter((item) => item !== id)
@@ -464,6 +481,19 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
     }
   };
 
+  const downloadHistoricalCertification = async (batch) => {
+    try {
+      await downloadCertificationWorkbook({
+        records: batch.records,
+        batch: { batchNumber: batch.reference, billingReference: batch.reference },
+        activePeriod: { schoolYear: batch.schoolYear, semester: batch.semester },
+      });
+      setOperationNotice({ tone: 'success', text: `${batch.reference} downloaded successfully.` });
+    } catch (error) {
+      setOperationNotice({ tone: 'error', text: `Unable to download ${batch.reference}: ${error.message}` });
+    }
+  };
+
   return <>
     <div className="billing-management">
       <header className="billing-heading">
@@ -574,7 +604,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
 
         <article className="billing-transfer-panel billing-target-panel">
           <header className="billing-transfer-header">
-            <div><strong>{isPayroll ? 'For Payroll' : 'For Certification'}</strong><small>Review the current processing queue.</small></div>
+            <div><strong>{isPayroll ? 'For Payroll' : 'For Billing'}</strong><small>Review the current processing queue.</small></div>
             <button type="button" className="billing-queue-export" onClick={() => setExportOpen(true)} disabled={!queuedRecords.length}><Download size={14} />Export CSV</button>
           </header>
           <div className="billing-queue-table billing-target-table">
@@ -593,6 +623,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
           <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Total payroll amount' : 'Total certification amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing}>{processing ? 'Processing…' : isPayroll ? 'Generate payroll list' : 'Generate certification list'}</button></footer>
         </article>
       </section>
+      {!isPayroll && <section className="billing-certification-history"><header><div><span>CERTIFICATION RECORDS</span><h3>Certification history</h3><p>Review generated Private-scholar lists and download a previous workbook again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount || 5000), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download XLSX</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>No certification history yet</strong><span>Generated Private-scholar certification lists will appear here.</span></div>}</section>}
       {exportOpen && <CsvExportModal title={`Export ${isPayroll ? 'payroll' : 'billing'} queue`} description="Choose which scholar, academic, and processing fields to include in this CSV file." columns={billingExportColumns} rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `${mode}-records-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(queuedRecords, columns) })} />}
       {overrideCandidate && <div className="billing-override-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeBillingOverride()}>
         <section className="billing-override-modal" role="dialog" aria-modal="true" aria-labelledby="billing-override-title" aria-describedby="billing-override-description">

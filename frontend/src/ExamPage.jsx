@@ -3,115 +3,7 @@ import './exam-source.css'
 import './styles/exam-responsive.css'
 import { API_BASE, authHeaders } from './services/api'
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const questions = [
-  // PART I — Multiple Choice
-  {
-    id: 1, part: 'I', partLabel: 'PART I: Multiple Choice',
-    type: 'multiple-choice',
-    text: 'What is the capital municipality of Camarines Norte?',
-    options: ['Labo', 'Daet', 'Vinzons', 'Paracale'], correctAnswer: 1,
-  },
-  {
-    id: 2, part: 'I', partLabel: 'PART I: Multiple Choice',
-    type: 'multiple-choice',
-    text: 'Camarines Norte holds the distinction of erecting the very first monument honoring Dr. Jose Rizal in 1898. In which municipality is this monument located?',
-    options: ['Jose Panganiban', 'Vinzons', 'Daet', 'Basud'], correctAnswer: 2,
-  },
-  {
-    id: 3, part: 'I', partLabel: 'PART I: Multiple Choice',
-    type: 'multiple-choice',
-    text: 'Which municipality is famous for its world-class Calaguas Islands featuring powdery white sand beaches?',
-    options: ['Mercedes', 'Vinzons', 'Talisay', 'Capalonga'], correctAnswer: 1,
-  },
-  {
-    id: 4, part: 'I', partLabel: 'PART I: Multiple Choice',
-    text: 'Known as the "Gold Country of Camarines Norte," which town has been historical for gold mining and traditional jewelry making since the pre-Spanish period?',
-    type: 'multiple-choice',
-    options: ['Paracale', 'Santa Elena', 'San Vicente', 'Basud'], correctAnswer: 0,
-  },
-  {
-    id: 5, part: 'I', partLabel: 'PART I: Multiple Choice',
-    type: 'multiple-choice',
-    text: 'Which municipality in Camarines Norte is the largest in terms of total land area and most populous?',
-    options: ['Daet', 'Labo', 'Jose Panganiban', 'Basud'], correctAnswer: 1,
-  },
-  {
-    id: 6, part: 'I', partLabel: 'PART I: Multiple Choice',
-    type: 'multiple-choice',
-    text: 'What major annual festival celebrated in Daet highlights the province\'s famous sweet Formosa pineapple?',
-    options: ['Palong Festival', 'Rahugan Festival', 'Pinyasan Festival', 'Busig-On Festival'], correctAnswer: 2,
-  },
-  {
-    id: 7, part: 'I', partLabel: 'PART I: Multiple Choice',
-    type: 'multiple-choice',
-    text: 'Wenceslao Q. Vinzons, a prominent native hero of Camarines Norte, was famous for leading which movement during World War II?',
-    options: [
-      'The Philippine Propaganda Movement',
-      'Local guerrilla resistance against Japanese forces',
-      'The Katipunan revolt against Spanish rule',
-      'The Peace Commission during the American era',
-    ], correctAnswer: 1,
-  },
-  {
-    id: 8, part: 'I', partLabel: 'PART I: Multiple Choice',
-    type: 'multiple-choice',
-    text: 'Which island group located in the municipality of Mercedes is known for its major commercial fishing hub and cluster of seven islands?',
-    options: [
-      'Calaguas Group of Islands',
-      'Mercedes Group of Islands',
-      'Maculabo Islands',
-      'Quinapaguian Islands',
-    ], correctAnswer: 1,
-  },
-  // PART II — Identification
-  {
-    id: 9, part: 'II', partLabel: 'PART II: Identification',
-    type: 'identification',
-    text: 'The highest peak in Camarines Norte, standing at 1,544 meters above sea level.',
-  },
-  {
-    id: 10, part: 'II', partLabel: 'PART II: Identification',
-    type: 'identification',
-    text: 'The historic Spanish-era province that merged both Camarines Norte and Camarines Sur before their final legislative division in March 1919.',
-  },
-  {
-    id: 11, part: 'II', partLabel: 'PART II: Identification',
-    type: 'identification',
-    text: 'The municipality known for attracting thousands of pilgrims and tourists every May for the feast day of the Black Nazarene.',
-  },
-  {
-    id: 12, part: 'II', partLabel: 'PART II: Identification',
-    type: 'identification',
-    text: 'The municipality formerly named Mambulao, which was renamed in honor of a Bicolano hero and patriot who contributed to the Propaganda Movement.',
-  },
-  // PART III — True or False
-  {
-    id: 13, part: 'III', partLabel: 'PART III: True or False',
-    type: 'true-false',
-    text: 'Camarines Norte is geographically bounded by Quezon Province to the west and Camarines Sur to the south.',
-  },
-  {
-    id: 14, part: 'III', partLabel: 'PART III: True or False',
-    type: 'true-false',
-    text: 'The coastal town of Bagasbas in Daet is widely recognized as a popular destination for surfing.',
-  },
-  {
-    id: 15, part: 'III', partLabel: 'PART III: True or False',
-    type: 'true-false',
-    text: 'There are a total of 16 municipalities in the province of Camarines Norte.',
-  },
-  // PART IV — Essay
-  {
-    id: 16, part: 'IV', partLabel: 'PART IV: Essay',
-    type: 'essay',
-    text: 'Essay Question (5 Points)',
-    essayPrompt: 'Explain why Camarines Norte is called the "Gateway to Bicolandia." Discuss how its geographic location, history, and cultural influences shape its unique identity compared to other provinces in the Bicol Region.',
-  },
-]
-
-const TOTAL = questions.length
+// Questions are loaded only after the backend authorizes this applicant session.
 
 // ─── Timer hook ───────────────────────────────────────────────────────────────
 
@@ -266,6 +158,7 @@ function AccessBlockedScreen({ message }) {
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App({ token }) {
+  const [questions, setQuestions] = useState([])
   const [activeIndex, setActiveIndex] = useState(0)
   const [mcAnswers, setMcAnswers] = useState({})
   const [idAnswers, setIdAnswers] = useState({})
@@ -282,23 +175,21 @@ export default function App({ token }) {
   useEffect(() => {
     let active = true
     if (!token) return () => { active = false }
-    fetch(`${API_BASE}/applications/me`, { headers: authHeaders(token), cache: 'no-store' })
+    fetch(`${API_BASE}/applications/me/examination/questions`, { headers: authHeaders(token), cache: 'no-store' })
       .then(async response => {
         const body = await response.json().catch(() => null)
-        if (!response.ok) throw new Error(body?.message || 'Unable to verify examination access.')
+        if (!response.ok) {
+          if (response.status === 409 && String(body?.message || '').includes('already been submitted')) {
+            setAlreadySubmitted(true)
+            return null
+          }
+          throw new Error(body?.message || 'Unable to load the secured examination.')
+        }
         return body
       })
       .then(body => {
-        if (!active) return
-        if (body?.examination?.completed) setAlreadySubmitted(true)
-        else if (!body?.examination?.access?.allowed) {
-          const attendanceStatus = body?.examination?.attendance?.status;
-          setAccessDeniedMessage(
-            body?.examination?.access?.deliveryMode === 'online' && attendanceStatus !== 'Present'
-              ? 'The question view is locked until CAO marks your examination attendance as Present.'
-              : 'The question view is locked until CAO activates Online Examination during your municipality schedule.',
-          )
-        }
+        if (!active || !body) return
+        setQuestions(Array.isArray(body.questions) ? body.questions : [])
       })
       .catch(error => { if (active) setAccessDeniedMessage(error.message) })
       .finally(() => { if (active) setCheckingSubmission(false) })
@@ -313,9 +204,10 @@ export default function App({ token }) {
     return false
   }, [mcAnswers, idAnswers, tfAnswers, essayAnswer])
 
+  const TOTAL = questions.length
   const answeredCount = questions.filter(q => isAnswered(q)).length
 
-  const current = questions[activeIndex]
+  const current = questions[activeIndex] || { id: 0, partLabel: '', type: '', text: '' }
   const partLabel = current.partLabel
 
   const letterOf = (i) => ['A', 'B', 'C', 'D'][i]
@@ -328,13 +220,8 @@ export default function App({ token }) {
   }
 
   const handleSubmit = async () => {
-    const score = questions.reduce((total, question) => {
-      if (question.type === 'multiple-choice') return total + (mcAnswers[question.id] === question.correctAnswer ? 1 : 0)
-      if (question.type === 'true-false') return total + (tfAnswers[question.id] === (question.id === 15 ? 'FALSE' : 'TRUE') ? 1 : 0)
-      if (question.type === 'identification') return total + ((idAnswers[question.id] || '').trim() ? 1 : 0)
-      return total + (essayAnswer.trim() ? 5 : 0)
-    }, 0)
-    const response = await fetch(`${API_BASE}/applications/me/exam-result`, { method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, body: JSON.stringify({ score }) })
+    const answers = { multipleChoice: mcAnswers, identification: idAnswers, trueFalse: tfAnswers, essay: essayAnswer }
+    const response = await fetch(`${API_BASE}/applications/me/exam-result`, { method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, body: JSON.stringify({ answers }) })
     if (!response.ok) {
       const body = await response.json().catch(() => ({}))
       setShowModal(false)
@@ -349,6 +236,7 @@ export default function App({ token }) {
   if (checkingSubmission) return <div className="fixed inset-0 flex items-center justify-center text-sm font-semibold" style={{ backgroundColor: '#F3F8F5', color: '#008B47', fontFamily: 'Outfit, sans-serif' }}>Checking examination status…</div>
   if (submitted || alreadySubmitted) return <SuccessScreen alreadySubmitted={alreadySubmitted} />
   if (accessDeniedMessage) return <AccessBlockedScreen message={accessDeniedMessage} />
+  if (!questions.length) return <AccessBlockedScreen message="No examination questions are available for this session." />
 
   return (
     <div className="exam-taking-page flex flex-col" style={{ height: '100vh', fontFamily: 'Inter, sans-serif', backgroundColor: '#F3F8F5' }}>

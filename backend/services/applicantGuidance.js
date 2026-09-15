@@ -1,4 +1,5 @@
 const { getRequirementSnapshot } = require('./lifecycleIntegrity');
+const { ADMIN_INITIAL_REQUIREMENT_KEYS, SCHOLAR_SEMESTER_REQUIREMENT_KEYS } = require('./documentReview');
 
 const REJECTED_STATUSES = new Set(['rejected', 'declined']);
 
@@ -33,6 +34,8 @@ const buildApplicantGuidance = ({
   scheduledExam,
   examinationSettings,
   examSlot,
+  schoolType = 'Public',
+  requirementSubmission,
 } = {}) => {
   if (!application) {
     return {
@@ -63,12 +66,18 @@ const buildApplicantGuidance = ({
   const requirementSnapshot = getRequirementSnapshot({
     initialDocs: application.initial_docs,
     requirement: scholarRequirement,
+    schoolType,
   });
-  const rejectedRequirements = requirementSnapshot.online.filter(({ status }) => REJECTED_STATUSES.has(status));
-  const missingRequirements = requirementSnapshot.online.filter(({ submitted }) => !submitted);
-  const pendingRequirements = requirementSnapshot.online.filter(({ submitted, approved, status }) => (
+  const scholarRequirements = requirementSnapshot.online.filter(({ key }) => SCHOLAR_SEMESTER_REQUIREMENT_KEYS.includes(key));
+  const administratorRequirements = requirementSnapshot.online.filter(({ key }) => ADMIN_INITIAL_REQUIREMENT_KEYS.includes(key));
+  const rejectedRequirements = scholarRequirements.filter(({ status }) => REJECTED_STATUSES.has(status));
+  const missingRequirements = scholarRequirements.filter(({ submitted }) => !submitted);
+  const pendingRequirements = scholarRequirements.filter(({ submitted, approved, status }) => (
     submitted && !approved && !REJECTED_STATUSES.has(status)
   ));
+  const scholarApproved = scholarRequirements.filter(({ approved }) => approved).length;
+  const scholarRequirementsComplete = scholarApproved === scholarRequirements.length;
+  const administratorRequirementsComplete = administratorRequirements.every(({ approved }) => approved);
   const requirementsComplete = requirementSnapshot.onlineApproved === requirementSnapshot.onlineTotal;
   const includedInPayrollList = Boolean(payrollClaim);
 
@@ -107,13 +116,13 @@ const buildApplicantGuidance = ({
     makeTimelineItem({
       id: 'requirements',
       label: 'Scholar requirements',
-      status: requirementsComplete ? 'completed' : isScholar ? 'current' : 'upcoming',
-      detail: requirementsComplete
-        ? 'All online requirements are approved and recorded.'
+      status: scholarRequirementsComplete ? 'completed' : isScholar ? 'current' : 'upcoming',
+      detail: scholarRequirementsComplete
+        ? 'All scholar-uploaded semester requirements are approved and recorded.'
         : isScholar
-          ? `${requirementSnapshot.onlineApproved} of ${requirementSnapshot.onlineTotal} online requirements are approved.`
+          ? `${scholarApproved} of ${scholarRequirements.length} scholar-uploaded semester requirements are approved.`
           : 'Requirements become available after scholar acceptance.',
-      completedAt: requirementsComplete ? scholarRequirement?.updated_at || null : null,
+      completedAt: scholarRequirementsComplete ? scholarRequirement?.updated_at || null : null,
     }),
     makeTimelineItem({
       id: 'payroll_list',
@@ -207,6 +216,21 @@ const buildApplicantGuidance = ({
     }));
   }
 
+  if (actions.length && requirementSubmission?.isOpen === false) {
+    return {
+      state: 'waiting',
+      headline: 'Requirements submission is closed',
+      description: 'The semester-requirements deadline has passed. Contact CAO if you need permission to submit a correction.',
+      actions: [makeAction({
+        id: 'contact-cao-after-deadline',
+        type: 'waiting',
+        title: 'Contact CAO for assistance',
+        description: 'The portal cannot accept new or replacement semester documents after the deadline.',
+      })],
+      timeline,
+    };
+  }
+
   if (actions.length) {
     return {
       state: 'action_required',
@@ -227,6 +251,21 @@ const buildApplicantGuidance = ({
         type: 'waiting',
         title: 'No upload is required right now',
         description: 'If Billing staff returns a file, its reason and replacement option will appear in your requirements list.',
+      })],
+      timeline,
+    };
+  }
+
+  if (!administratorRequirementsComplete) {
+    return {
+      state: 'waiting',
+      headline: 'Your semester requirements are complete',
+      description: 'No additional Scholar upload is required. CAO is completing or reviewing the Initial Requirements recorded from your submitted hard copies.',
+      actions: [makeAction({
+        id: 'wait-initial-requirements',
+        type: 'waiting',
+        title: 'Wait for CAO requirements processing',
+        description: 'Contact CAO if you need to confirm the status of an Initial Requirement.',
       })],
       timeline,
     };

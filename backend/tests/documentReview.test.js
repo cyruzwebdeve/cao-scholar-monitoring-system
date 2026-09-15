@@ -2,11 +2,26 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  ADMIN_INITIAL_REQUIREMENT_KEYS,
+  REQUIREMENT_DEFINITIONS,
+  SCHOLAR_SEMESTER_REQUIREMENT_KEYS,
   applyPendingApprovals,
   applyReviewDecision,
   buildReviewRecords,
   normalizeReviewStatus,
 } = require('../services/documentReview');
+
+test('scholar checklist uses individual requirement records instead of a combined applicant scan', () => {
+  assert.equal(REQUIREMENT_DEFINITIONS.initial_requirement_scan, undefined);
+  ['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form', 'tuition_receipt']
+    .forEach((key) => assert.ok(REQUIREMENT_DEFINITIONS[key]));
+});
+
+test('separates administrator initial requirements from scholar semester uploads', () => {
+  assert.deepEqual(ADMIN_INITIAL_REQUIREMENT_KEYS, ['tax_exemption', 'indigency', 'valid_id']);
+  assert.deepEqual(SCHOLAR_SEMESTER_REQUIREMENT_KEYS, ['grades', 'registration_form', 'tuition_receipt']);
+  assert.equal(ADMIN_INITIAL_REQUIREMENT_KEYS.some((key) => SCHOLAR_SEMESTER_REQUIREMENT_KEYS.includes(key)), false);
+});
 
 test('normalizes new, legacy, approved, and rejected document states', () => {
   assert.equal(normalizeReviewStatus('Submitted'), 'pending');

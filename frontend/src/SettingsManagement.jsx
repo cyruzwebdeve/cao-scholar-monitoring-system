@@ -77,12 +77,24 @@ export default function SettingsManagement({ token, user }) {
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [availabilityError, setAvailabilityError] = useState('');
   const [availabilityNotice, setAvailabilityNotice] = useState('');
+  const [requirementsPeriodId, setRequirementsPeriodId] = useState('');
+  const [requirementsDeadlineDrafts, setRequirementsDeadlineDrafts] = useState({});
+  const [requirementsDeadlineSaving, setRequirementsDeadlineSaving] = useState(false);
+  const [requirementsDeadlineError, setRequirementsDeadlineError] = useState('');
+  const [requirementsDeadlineNotice, setRequirementsDeadlineNotice] = useState('');
   const canManagePeriods = ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role);
   const canManageApplications = ['SuperAdmin', 'RegularAdmin'].includes(user?.role);
   const activePeriod = periods.find((period) => period.isPrimary)
     || periods.find((period) => period.isActive)
     || null;
   const activePeriodCount = periods.filter((period) => period.isActive).length;
+  const requirementsPeriod = periods.find((period) => String(period.id) === requirementsPeriodId)
+    || activePeriod
+    || periods[0]
+    || null;
+  const requirementsDeadline = requirementsPeriod
+    ? requirementsDeadlineDrafts[requirementsPeriod.id] ?? toPhilippineDateTimeInput(requirementsPeriod.requirementsDeadline)
+    : '';
 
   const loadPeriods = useCallback(async () => {
     if (!token) return;
@@ -318,6 +330,39 @@ export default function SettingsManagement({ token, user }) {
     setAvailabilityNotice('');
   };
 
+  const saveRequirementsDeadline = async (event) => {
+    event.preventDefault();
+    if (!canManageApplications || !requirementsPeriod || requirementsDeadlineSaving) return;
+    const deadline = requirementsDeadline ? philippineDateTimeToIso(requirementsDeadline) : null;
+    if (requirementsDeadline && !deadline) {
+      setRequirementsDeadlineError('Enter a valid deadline in Philippine Standard Time.');
+      return;
+    }
+    setRequirementsDeadlineSaving(true);
+    setRequirementsDeadlineError('');
+    setRequirementsDeadlineNotice('');
+    try {
+      const response = await fetch(`${API_BASE}/academic-periods/${requirementsPeriod.id}/requirements-deadline`, {
+        method: 'PUT',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deadline }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to update the requirements deadline.');
+      setRequirementsDeadlineNotice(body.message || 'Requirements submission deadline updated.');
+      await loadPeriods();
+      setRequirementsDeadlineDrafts((current) => {
+        const updated = { ...current };
+        delete updated[requirementsPeriod.id];
+        return updated;
+      });
+    } catch (error) {
+      setRequirementsDeadlineError(error.message || 'Unable to update the requirements deadline.');
+    } finally {
+      setRequirementsDeadlineSaving(false);
+    }
+  };
+
   return (
     <div className="settings-management">
       <div className="settings-heading">
@@ -409,6 +454,53 @@ export default function SettingsManagement({ token, user }) {
             </article>
           ))}
           {!periodsLoading && !periods.length && <div className="settings-period-empty">No academic periods have been created.</div>}
+        </div>
+      </section>
+
+      <section className="settings-card settings-requirements-card">
+        <div className="settings-card-heading">
+          <div><span className="settings-eyebrow">SEMESTER REQUIREMENTS</span><h3>Scholar submission deadline</h3><p>Choose the final date and time when scholars may upload semester requirements for each academic period.</p></div>
+          <CalendarClock size={24} />
+        </div>
+
+        {requirementsDeadlineError && <div className="settings-period-message error" role="alert"><TriangleAlert size={15} /><span>{requirementsDeadlineError}</span></div>}
+        {requirementsDeadlineNotice && <div className="settings-period-message success" role="status"><Check size={15} /><span>{requirementsDeadlineNotice}</span></div>}
+
+        <form className="settings-requirements-deadline-form" onSubmit={saveRequirementsDeadline}>
+          <div className={`settings-availability-status ${requirementsPeriod?.requirementsSubmission?.state === 'closed' ? 'disabled' : 'open'}`}>
+            <span className="settings-availability-status-icon"><CalendarClock size={18} /></span>
+            <div>
+              <small>CURRENT SUBMISSION STATUS</small>
+              <strong>{!requirementsPeriod ? 'No academic period selected' : requirementsPeriod.requirementsSubmission?.state === 'closed' ? 'Semester uploads are closed' : requirementsPeriod.requirementsDeadline ? 'Semester uploads are open' : 'No deadline set'}</strong>
+              <span>{requirementsPeriod?.requirementsDeadline ? `Deadline: ${formatApplicationDateTime(requirementsPeriod.requirementsDeadline)}` : 'Scholar uploads remain open until an administrator sets a deadline.'}</span>
+            </div>
+          </div>
+
+          <div className="settings-availability-window">
+            <div className="settings-availability-window-heading"><span><CalendarRange size={17} /></span><div><strong>Submission deadline</strong><small>Per academic period · Philippine Standard Time (UTC+8)</small></div></div>
+            <div className="settings-availability-fields">
+              <label><span>Academic period</span><select value={requirementsPeriod ? String(requirementsPeriod.id) : ''} disabled={!periods.length || requirementsDeadlineSaving} onChange={(event) => { setRequirementsPeriodId(event.target.value); setRequirementsDeadlineError(''); setRequirementsDeadlineNotice(''); }}><option value="">Select period</option>{periods.map((period) => <option value={period.id} key={period.id}>{period.schoolYear} · {period.semester}{period.isPrimary ? ' (Primary)' : ''}</option>)}</select></label>
+              <label><span>Passing of requirements until</span><input type="datetime-local" value={requirementsDeadline} disabled={!canManageApplications || !requirementsPeriod || requirementsDeadlineSaving} onChange={(event) => setRequirementsDeadlineDrafts((current) => ({ ...current, [requirementsPeriod.id]: event.target.value }))} /></label>
+            </div>
+            {requirementsDeadline && <p className="settings-availability-summary">Selected deadline: <strong>{formatApplicationDateTime(philippineDateTimeToIso(requirementsDeadline))}</strong></p>}
+          </div>
+
+          {canManageApplications ? <div className="settings-availability-actions"><button type="button" className="secondary" disabled={!requirementsDeadline || requirementsDeadlineSaving} onClick={() => setRequirementsDeadlineDrafts((current) => ({ ...current, [requirementsPeriod.id]: '' }))}><RotateCcw size={14} />Clear deadline</button><button type="submit" disabled={!requirementsPeriod || requirementsDeadlineSaving}><Save size={14} />{requirementsDeadlineSaving ? 'Saving…' : 'Save requirements deadline'}</button></div> : <p className="settings-availability-readonly">Only Super Administrators and Administrators can change the requirements deadline.</p>}
+        </form>
+
+        <div className="settings-deadline-directory">
+          <div className="settings-deadline-directory-heading"><div><strong>Deadline directory</strong><span>Each academic period keeps its own deadline. Select Configure to view or change one.</span></div><em>{periods.filter((period) => period.requirementsDeadline).length} saved</em></div>
+          <div className="settings-deadline-list">
+            {periods.map((period) => (
+              <article className={String(period.id) === String(requirementsPeriod?.id) ? 'selected' : ''} key={period.id}>
+                <div><strong>{period.schoolYear}</strong><span>{period.semester}{period.isPrimary ? ' · Primary' : period.isActive ? ' · Active' : ''}</span></div>
+                <div><small>{period.requirementsDeadline ? 'SUBMISSION DEADLINE' : 'NO DEADLINE'}</small><strong>{period.requirementsDeadline ? formatApplicationDateTime(period.requirementsDeadline) : 'Uploads remain open'}</strong></div>
+                <span className={`settings-deadline-state ${period.requirementsSubmission?.state === 'closed' ? 'closed' : period.requirementsDeadline ? 'scheduled' : 'open'}`}>{period.requirementsSubmission?.state === 'closed' ? 'Closed' : period.requirementsDeadline ? 'Open' : 'Unscheduled'}</span>
+                <button type="button" disabled={requirementsDeadlineSaving} onClick={() => { setRequirementsPeriodId(String(period.id)); setRequirementsDeadlineError(''); setRequirementsDeadlineNotice(''); }}>{String(period.id) === String(requirementsPeriod?.id) ? 'Selected' : 'Configure'}</button>
+              </article>
+            ))}
+            {!periodsLoading && !periods.length && <p className="settings-deadline-empty">Create an academic period before adding a submission deadline.</p>}
+          </div>
         </div>
       </section>
 

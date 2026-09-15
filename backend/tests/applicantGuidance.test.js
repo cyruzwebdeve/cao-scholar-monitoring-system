@@ -78,7 +78,7 @@ test('verified priority scholars show a completed examination-bypass stage', () 
   assert.match(examinationStage.detail, /bypassed/i);
 });
 
-test('active scholars receive only applicable online requirement actions', () => {
+test('active scholars receive actions only for scholar-owned requirements', () => {
   const documents = approvedDocuments();
   documents.grades.status = 'Rejected';
   delete documents.valid_id;
@@ -92,9 +92,61 @@ test('active scholars receive only applicable online requirement actions', () =>
   assert.equal(guidance.state, 'action_required');
   assert.deepEqual(
     guidance.actions.map(({ id }) => id),
-    ['replace-rejected-requirements', 'upload-missing-requirements'],
+    ['replace-rejected-requirements'],
   );
+  assert.doesNotMatch(JSON.stringify(guidance.actions), /Photocopy of ID/i);
   assert.equal(guidance.timeline.find(({ id }) => id === 'requirements').status, 'current');
+});
+
+test('public scholars are prompted for exactly two visible semester requirements', () => {
+  const documents = approvedDocuments();
+  delete documents.grades;
+  delete documents.registration_form;
+  delete documents.tuition_receipt;
+  const guidance = buildApplicantGuidance({
+    application: application(documents),
+    result: { created_at: new Date('2026-08-21T08:00:00Z') },
+    scholar: { is_active: true, issued_at: new Date('2026-08-22T08:00:00Z') },
+    scholarRequirement: {},
+    schoolType: 'Public',
+  });
+
+  assert.equal(guidance.actions[0].title, 'Upload 2 missing requirements');
+  assert.match(guidance.actions[0].description, /Certificate of Grades/i);
+  assert.match(guidance.actions[0].description, /Registration Form/i);
+  assert.doesNotMatch(JSON.stringify(guidance.actions), /Official Receipt of Tuition Fee/i);
+  assert.match(guidance.timeline.find(({ id }) => id === 'requirements').detail, /0 of 2/i);
+});
+
+test('scholars wait for CAO when only administrator Initial Requirements remain', () => {
+  const documents = approvedDocuments();
+  delete documents.valid_id;
+  const guidance = buildApplicantGuidance({
+    application: application(documents),
+    result: { created_at: new Date('2026-08-21T08:00:00Z') },
+    scholar: { is_active: true, issued_at: new Date('2026-08-22T08:00:00Z') },
+    scholarRequirement: {},
+    schoolType: 'Public',
+  });
+
+  assert.equal(guidance.state, 'waiting');
+  assert.equal(guidance.actions[0].id, 'wait-initial-requirements');
+  assert.match(guidance.description, /CAO/i);
+});
+
+test('expired deadlines do not tell scholars to use closed upload controls', () => {
+  const guidance = buildApplicantGuidance({
+    application: application(),
+    result: { created_at: new Date('2026-08-21T08:00:00Z') },
+    scholar: { is_active: true, issued_at: new Date('2026-08-22T08:00:00Z') },
+    scholarRequirement: {},
+    schoolType: 'Public',
+    requirementSubmission: { isOpen: false },
+  });
+
+  assert.equal(guidance.state, 'waiting');
+  assert.equal(guidance.actions[0].id, 'contact-cao-after-deadline');
+  assert.doesNotMatch(guidance.actions[0].title, /upload/i);
 });
 
 test('pending documents produce a waiting state when the applicant has nothing to replace', () => {

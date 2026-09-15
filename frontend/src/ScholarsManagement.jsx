@@ -9,10 +9,12 @@ import {
   FileCheck2,
   Filter,
   GraduationCap,
+  History,
   ReceiptText,
   Save,
   Search,
   TriangleAlert,
+  Upload,
   UsersRound,
   X,
 } from 'lucide-react';
@@ -21,12 +23,50 @@ import CsvExportModal from './components/CsvExportModal';
 import { DecisionModal, ReviewModal } from './DocumentReviewManagement';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
 import { saveProcessingHandoff } from './utils/processingHandoff';
+import certificateHeader from './assets/certificate-header.png';
 import './styles/document-reviews.css';
 
 const formatScholarDate = (value) => {
   if (!value) return 'Not available';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const formatCertificateDate = (value = new Date()) => value.toLocaleDateString('en-US', {
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric',
+});
+
+const formatScholarAmount = (value) => new Intl.NumberFormat('en-PH', {
+  style: 'currency',
+  currency: 'PHP',
+  minimumFractionDigits: 2,
+}).format(Number(value || 0));
+
+const certificateReferenceFor = (record) => {
+  const controlNumber = String(record.controlNumber || record.scholarId || 'SCHOLAR')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-');
+  const schoolYear = String(record.schoolYear || 'CURRENT')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '');
+  const semester = String(record.semester || 'CURRENT')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '');
+  return `PGCEAP-CERT-${controlNumber}-${schoolYear}-${semester}`;
+};
+
+const imageUrlToDataUrl = async (url) => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Unable to load the official certificate header.');
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Unable to prepare the official certificate header.'));
+    reader.readAsDataURL(blob);
+  });
 };
 
 const scholarExportColumns = [
@@ -40,6 +80,8 @@ const scholarExportColumns = [
   { key: 'status', label: 'Status', group: 'Record status' },
   { key: 'documentStatus', label: 'Documents', group: 'Record status' },
 ];
+
+const adminInitialRequirementKeys = new Set(['tax_exemption', 'indigency', 'valid_id']);
 
 function ScholarBadge({ value, type }) {
   return <span className={`scholar-admin-badge ${type} ${value.toLowerCase().replace(/\s+/g, '-')}`}>{type === 'status' ? <BadgeCheck size={13} /> : <FileCheck2 size={13} />}{value}</span>;
@@ -71,12 +113,20 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const [documentDecisionError, setDocumentDecisionError] = useState('');
   const [documentSaving, setDocumentSaving] = useState(false);
   const [documentNotice, setDocumentNotice] = useState('');
+  const [documentNoticeTone, setDocumentNoticeTone] = useState('success');
+  const [uploadingRequirement, setUploadingRequirement] = useState('');
+  const [openingRequirement, setOpeningRequirement] = useState('');
+  const [certificateDownloading, setCertificateDownloading] = useState(false);
+  const [certificateNotice, setCertificateNotice] = useState('');
   const pageSize = 10;
   const canEditBilling = user?.role === 'SuperAdmin'
     || !Array.isArray(user?.sectionAccess)
     || user.sectionAccess.includes('billing');
   const canReviewDocuments = ['SuperAdmin', 'BillingPayrollAdmin'].includes(user?.role)
     && (user?.role === 'SuperAdmin' || !Array.isArray(user?.sectionAccess) || user.sectionAccess.includes('documentReviews'));
+  const canUploadScholarRequirements = ['SuperAdmin', 'RegularAdmin'].includes(user?.role)
+    && (user?.role === 'SuperAdmin' || !Array.isArray(user?.sectionAccess) || user.sectionAccess.includes('scholars'));
+  const canViewScholarDocuments = canReviewDocuments || canUploadScholarRequirements;
   const canOpenSettings = user?.role === 'SuperAdmin'
     || !Array.isArray(user?.sectionAccess)
     || user.sectionAccess.includes('settings');
@@ -177,12 +227,79 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.message || 'Unable to save the review decision.');
       setDocumentNotice(body.message || 'Document review saved.');
+      setDocumentNoticeTone('success');
       closeDocumentReview();
       await loadScholars();
     } catch (error) {
       setDocumentDecisionError(error.message || 'Unable to save the review decision.');
     } finally {
       setDocumentSaving(false);
+    }
+  };
+
+  const uploadScholarRequirement = (document, file) => {
+    if (!file || !selected || uploadingRequirement) return;
+    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type) || file.size > 6 * 1024 * 1024) {
+      setDocumentNotice('Use a PDF, JPG, or PNG file smaller than 6 MB.');
+      setDocumentNoticeTone('error');
+      return;
+    }
+    setUploadingRequirement(document.requirementKey);
+    setDocumentNotice('');
+    const reader = new FileReader();
+    reader.onerror = () => {
+      setUploadingRequirement('');
+      setDocumentNotice('Unable to read the selected requirement file.');
+      setDocumentNoticeTone('error');
+    };
+    reader.onload = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/scholars/${selected.applicantId}/requirements/${document.requirementKey}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+          body: JSON.stringify({
+            academicPeriodId: selected.academicPeriodId,
+            fileName: file.name,
+            fileData: String(reader.result || ''),
+          }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.message || 'Unable to upload the scholar requirement.');
+        setDocumentNotice(body.message || 'Scholar requirement uploaded successfully.');
+        setDocumentNoticeTone('success');
+        await loadScholars();
+      } catch (error) {
+        setDocumentNotice(error.message || 'Unable to upload the scholar requirement.');
+        setDocumentNoticeTone('error');
+      } finally {
+        setUploadingRequirement('');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const openScholarDocument = async (document) => {
+    if (!document.applicationId || openingRequirement) return;
+    setOpeningRequirement(document.requirementKey);
+    setDocumentNotice('');
+    try {
+      const response = await fetch(`${API_BASE}/document-reviews/${document.applicationId}/${document.requirementKey}/file`, { headers: authHeaders(token) });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.message || 'Unable to open the scholar requirement.');
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      setDocumentNotice(error.message || 'Unable to open the scholar requirement.');
+      setDocumentNoticeTone('error');
+    } finally {
+      setOpeningRequirement('');
     }
   };
 
@@ -213,6 +330,9 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const completeCount = scholars.filter(({ documentStatus: value }) => value === 'Complete').length;
   const reviewCount = scholars.filter(({ documentStatus: value }) => value === 'Review').length;
   const hasFilters = query || municipality !== 'All Municipalities' || school !== 'All Schools' || barangay !== 'All Barangays' || documentStatus !== 'All Documents';
+  const certificationHistory = (selected?.financialHistory || [])
+    .filter((record) => record.processRoute === 'billing')
+    .sort((left, right) => new Date(right.dateProcessed || 0) - new Date(left.dateProcessed || 0));
 
   const clearFilters = () => {
     setQuery('');
@@ -302,6 +422,84 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     }
   };
 
+  const downloadPrivateCertificate = async () => {
+    if (!selected || String(selected.schoolType || '').toLowerCase() !== 'private' || certificateDownloading) return;
+    setCertificateDownloading(true);
+    setCertificateNotice('');
+    try {
+      const [{ jsPDF }, headerDataUrl] = await Promise.all([
+        import('jspdf'),
+        imageUrlToDataUrl(certificateHeader),
+      ]);
+      const document = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [215.9, 330.2] });
+      const pageWidth = document.internal.pageSize.getWidth();
+      const margin = 25;
+      const contentWidth = pageWidth - (margin * 2);
+      const reference = certificateReferenceFor(selected);
+      const scholarName = String(selected.name || 'Scholar').toUpperCase();
+      const course = selected.course || 'the declared program';
+      const yearLevel = selected.yearLevel || 'enrolled';
+      const school = selected.school || 'the declared private school';
+      const semester = selected.semester || 'current semester';
+      const schoolYear = selected.schoolYear || 'current school year';
+
+      document.addImage(headerDataUrl, 'PNG', 32, 12, pageWidth - 64, 29);
+      document.setDrawColor(35, 35, 35);
+      document.setLineWidth(0.35);
+      document.line(margin, 45, pageWidth - margin, 45);
+
+      document.setTextColor(31, 78, 121);
+      document.setFont('times', 'bold');
+      document.setFontSize(13);
+      document.text('PROVINCIAL GOVERNMENT COLLEGE', pageWidth / 2, 55, { align: 'center' });
+      document.text('EDUCATION ASSISTANCE PROGRAM (PGCEAP)', pageWidth / 2, 62, { align: 'center' });
+
+      document.setTextColor(20, 20, 20);
+      document.setFontSize(16);
+      document.text('CERTIFICATION', pageWidth / 2, 82, { align: 'center' });
+      document.setLineWidth(0.3);
+      document.line((pageWidth / 2) - 26, 84, (pageWidth / 2) + 26, 84);
+
+      document.setFont('times', 'normal');
+      document.setFontSize(10);
+      document.text(`Certification No.: ${reference}`, pageWidth - margin, 96, { align: 'right' });
+
+      document.setFont('times', 'bold');
+      document.setFontSize(12);
+      document.text('TO WHOM IT MAY CONCERN:', margin, 116);
+
+      document.setFont('times', 'normal');
+      document.setFontSize(12);
+      const firstParagraph = `This is to certify that ${scholarName}, a ${yearLevel} ${course} student of ${school}, is a SCHOLARSHIP GRANTEE under the Provincial Government College Education Assistance Program (PGCEAP) for the ${semester}, School Year ${schoolYear}.`;
+      const secondParagraph = 'As such, the Provincial Government assumes payment of the scholar\'s tuition and school fees in an amount not exceeding FIVE THOUSAND PESOS (PHP 5,000.00), subject to the applicable program requirements.';
+      const thirdParagraph = `Issued this ${formatCertificateDate()} for enrollment purposes.`;
+      const firstLines = document.splitTextToSize(firstParagraph, contentWidth);
+      document.text(firstLines, margin, 132, { align: 'justify', maxWidth: contentWidth, lineHeightFactor: 1.6 });
+      const secondY = 132 + (firstLines.length * 7.2) + 8;
+      const secondLines = document.splitTextToSize(secondParagraph, contentWidth);
+      document.text(secondLines, margin, secondY, { align: 'justify', maxWidth: contentWidth, lineHeightFactor: 1.6 });
+      const thirdY = secondY + (secondLines.length * 7.2) + 8;
+      document.text(document.splitTextToSize(thirdParagraph, contentWidth), margin, thirdY, { lineHeightFactor: 1.6 });
+
+      const signatureY = Math.max(thirdY + 45, 225);
+      document.setFont('times', 'bold');
+      document.text('CHRISTABELL ANGELICA R. ABAÑO, RN, MPA', pageWidth / 2, signatureY, { align: 'center' });
+      document.setFont('times', 'normal');
+      document.text('Community Affairs Officer IV', pageWidth / 2, signatureY + 7, { align: 'center' });
+
+      document.setFontSize(8);
+      document.setTextColor(90, 90, 90);
+      document.text(`Control No.: ${selected.controlNumber || selected.scholarId || 'Not available'}`, margin, 310);
+      document.text('Official PGCEAP private-scholar certification', pageWidth - margin, 310, { align: 'right' });
+      document.save(`${reference}.pdf`);
+      setCertificateNotice('Certificate downloaded. Print it for CAO issuance to the scholar.');
+    } catch (error) {
+      setCertificateNotice(error.message || 'Unable to download the certificate.');
+    } finally {
+      setCertificateDownloading(false);
+    }
+  };
+
   const paginationItems = [];
   let previousVisiblePage = 0;
   for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
@@ -353,7 +551,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
             <div data-label="Barangay"><span>{scholar.barangay}</span></div>
             <div data-label="Status"><ScholarBadge value={scholar.status} type="status" /></div>
             <div data-label="Documents"><ScholarBadge value={scholar.documentStatus} type="documents" /></div>
-            <div data-label="Action"><button type="button" className="scholars-view" aria-label={`View details for ${scholar.name}`} onClick={() => { setSelected(scholar); setDrawerTab('overview'); setDocumentNotice(''); }}><Eye size={13} />View details</button></div>
+            <div data-label="Action"><button type="button" className="scholars-view" aria-label={`View details for ${scholar.name}`} onClick={() => { setSelected(scholar); setDrawerTab('overview'); setDocumentNotice(''); setCertificateNotice(''); }}><Eye size={13} />View details</button></div>
           </article>)}
         </div>
         {!!filtered.length && <footer className="scholars-table-footer"><span>Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}</span><nav className="scholars-pagination" aria-label="Scholar pages"><button type="button" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" key={item} aria-label={`Page ${item}`} className={item === currentPage ? 'active' : ''} aria-current={item === currentPage ? 'page' : undefined} onClick={() => setPage(item)}>{item}</button> : <span key={item}>…</span>)}<button type="button" aria-label="Next page" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>›</button></nav></footer>}
@@ -371,22 +569,32 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
           <nav className="scholars-drawer-tabs" role="tablist" aria-label="Scholar record sections">
             <button type="button" role="tab" aria-selected={drawerTab === 'overview'} className={drawerTab === 'overview' ? 'active' : ''} onClick={() => setDrawerTab('overview')}><GraduationCap size={15} />Overview</button>
             <button type="button" role="tab" aria-selected={drawerTab === 'finance'} className={drawerTab === 'finance' ? 'active' : ''} onClick={openBillingTab}><CircleDollarSign size={15} />Billing &amp; Payroll</button>
+            <button type="button" role="tab" aria-selected={drawerTab === 'certification-history'} className={drawerTab === 'certification-history' ? 'active' : ''} onClick={() => setDrawerTab('certification-history')}><History size={15} />Certification History</button>
           </nav>
 
           {drawerTab === 'overview' ? (
             <div className="scholars-drawer-tab-panel" role="tabpanel">
               <section className="scholars-detail-section"><h4>Scholar information</h4><dl><div><dt>Email address</dt><dd>{selected.email || 'Not provided'}</dd></div><div><dt>School year</dt><dd>{selected.schoolYear || '2026-2027'}</dd></div><div><dt>Issued</dt><dd>{formatScholarDate(selected.issuedAt)}</dd></div></dl></section>
               <section className="scholars-detail-section"><h4>Education and location</h4><dl><div><dt>School</dt><dd>{selected.school}</dd></div><div><dt>Course</dt><dd>{selected.course || 'Not specified'}</dd></div><div><dt>Year level</dt><dd>{selected.yearLevel || 'Not specified'}</dd></div><div><dt>Municipality</dt><dd>{selected.municipality}</dd></div><div><dt>Barangay</dt><dd>{selected.barangay}</dd></div></dl></section>
-              <section className="scholars-detail-section"><h4>Document checklist</h4>{documentNotice && <p className="scholars-document-notice" role="status">{documentNotice}</p>}<div className="scholars-document-list">{selected.documents.map((document) => {
+              {String(selected.schoolType || '').toLowerCase() === 'private' && <section className="scholars-detail-section scholars-certificate-card"><div className="scholars-certificate-copy"><span className="scholars-admin-eyebrow">PRIVATE SCHOLAR</span><h4>Official school certificate</h4><p>Download the individual PGCEAP certificate for CAO to print and hand to the scholar for submission to the private school.</p><small>Fixed tuition coverage: PHP 5,000.00</small></div><button type="button" onClick={downloadPrivateCertificate} disabled={certificateDownloading}><Download size={15} />{certificateDownloading ? 'Preparing PDF…' : 'Download certificate'}</button>{certificateNotice && <p className="scholars-certificate-notice" role="status">{certificateNotice}</p>}</section>}
+              <section className="scholars-detail-section"><h4>Document checklist</h4>{documentNotice && <p className={`scholars-document-notice ${documentNoticeTone}`} role={documentNoticeTone === 'error' ? 'alert' : 'status'}>{documentNotice}</p>}<div className="scholars-document-list">{selected.documents.map((document) => {
                 const isReviewable = canReviewDocuments && document.submitted && document.fileName && document.applicationId && document.requirementKey;
-                const content = <><span>{document.label}{isReviewable && <small><Eye size={12} />View and review</small>}</span><strong className={document.submitted ? document.status.toLowerCase() : 'not-submitted'}>{document.submitted ? document.status : 'Not submitted'}</strong></>;
-                return isReviewable
-                  ? <button type="button" key={document.label} className="scholars-document-row" onClick={() => openDocumentReview(document)} aria-label={`View and review ${document.label}`}>{content}</button>
-                  : <div key={document.label}>{content}</div>;
+                const isUploading = uploadingRequirement === document.requirementKey;
+                const isAdminManaged = adminInitialRequirementKeys.has(document.requirementKey);
+                const canUploadThisRequirement = canUploadScholarRequirements && isAdminManaged;
+                return <div key={document.label} className="scholars-document-entry">
+                  <span>{document.label}<small>{document.submitted ? <><Eye size={12} />Document attached</> : isAdminManaged ? 'Initial requirement · CAO upload' : 'Semester requirement · Scholar upload'}</small></span>
+                  <div className="scholars-document-actions">
+                    <strong className={document.submitted ? document.status.toLowerCase() : 'not-submitted'}>{document.submitted ? document.status : 'Not submitted'}</strong>
+                    {isReviewable && <button type="button" className="scholars-document-view" onClick={() => openDocumentReview(document)} aria-label={`View and review ${document.label}`}><Eye size={12} />View</button>}
+                    {!isReviewable && canViewScholarDocuments && document.submitted && document.fileName && document.applicationId && <button type="button" className="scholars-document-view" onClick={() => openScholarDocument(document)} disabled={Boolean(openingRequirement)} aria-label={`View ${document.label}`}><Eye size={12} />{openingRequirement === document.requirementKey ? 'Opening…' : 'View'}</button>}
+                    {canUploadThisRequirement && <label className={`scholars-document-upload ${isUploading ? 'disabled' : ''}`}><Upload size={12} />{isUploading ? 'Uploading…' : document.fileName ? 'Replace' : 'Upload'}<input type="file" accept="application/pdf,image/jpeg,image/png" disabled={Boolean(uploadingRequirement)} onChange={(event) => { uploadScholarRequirement(document, event.target.files?.[0]); event.target.value = ''; }} /></label>}
+                  </div>
+                </div>;
               })}</div></section>
               {selected.notes && <section className="scholars-detail-section"><h4>Account notes</h4><p className="scholars-notes">{selected.notes}</p></section>}
             </div>
-          ) : (
+          ) : drawerTab === 'finance' ? (
             <div className="scholars-drawer-tab-panel" role="tabpanel">
               <section className="scholars-detail-section scholars-finance-details">
                 <header className="scholars-billing-form-heading">
@@ -411,6 +619,29 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
               {(selected.billed || selected.inPayroll) && <section className="scholars-new-cycle-guidance"><CalendarRange size={18} /><div><strong>Need another processing cycle?</strong><span>The completed {selected.billingSchoolYearSemester || selected.schoolYearSemester} session remains locked. Select another active School Year and Semester above to prepare a fresh session with no reference.</span>{activeBillingPeriods.length <= 1 && (canOpenSettings ? <button type="button" onClick={openNewCycleSetup}>Set up the next academic period</button> : <small>Ask an administrator with Settings access to activate the next academic period.</small>)}</div></section>}
               {!!selected.financialHistory?.filter((record) => !record.isActivePeriod).length && <section className="scholars-detail-section"><h4>Previous period history</h4><div className="scholars-finance-history">{selected.financialHistory.filter((record) => !record.isActivePeriod).map((record) => <article key={`${record.academicPeriodId}-${record.dateProcessed}`}><div><strong>{record.schoolYear} · {record.semester}</strong><span>{record.billingStatus} · {record.payrollStatus}</span></div><div><strong>{record.payReference || 'No pay reference'}</strong><span>{record.dateProcessed ? formatScholarDate(record.dateProcessed) : 'Not processed'}</span></div></article>)}</div></section>}
               <div className="scholars-finance-note"><CircleDollarSign size={17} /><div><strong>Live processing status</strong><span>This information follows the scholar’s current Billing and Payroll records and refreshes automatically.</span></div></div>
+            </div>
+          ) : (
+            <div className="scholars-drawer-tab-panel scholars-certification-history-panel" role="tabpanel">
+              <header className="scholars-certification-history-heading">
+                <i><History size={18} /></i>
+                <div><span>PRIVATE-SCHOOL RECORDS</span><h4>Certification History</h4><p>Generated tuition-certification list records associated with this scholar.</p></div>
+              </header>
+              {String(selected.schoolType || '').toLowerCase() !== 'private' ? (
+                <div className="scholars-certification-history-empty"><CircleDollarSign size={24} /><strong>No certification workflow</strong><p>Public-school scholars are recorded in the official Payroll list rather than a Private tuition-certification list.</p></div>
+              ) : certificationHistory.length ? (
+                <div className="scholars-certification-history-list">
+                  {certificationHistory.map((record, index) => <article key={`${record.billingReference || record.academicPeriodId || 'certification'}-${record.dateProcessed || index}`}>
+                    <header><div><span>{record.schoolYear} · {record.semester}</span><strong>{record.billingStatus || 'Certification listed'}</strong></div>{record.isActivePeriod && <em>Current period</em>}</header>
+                    <dl>
+                      <div><dt>Reference number</dt><dd>{record.billingReference || 'Not recorded'}</dd></div>
+                      <div><dt>Amount</dt><dd>{formatScholarAmount(record.claimAmount)}</dd></div>
+                      <div><dt>Processed</dt><dd>{record.dateProcessed ? formatScholarDate(record.dateProcessed) : 'Not recorded'}</dd></div>
+                    </dl>
+                  </article>)}
+                </div>
+              ) : (
+                <div className="scholars-certification-history-empty"><History size={24} /><strong>No certification records yet</strong><p>This Private scholar will appear here after inclusion in a generated Billing certification list.</p></div>
+              )}
             </div>
           )}
         </aside>

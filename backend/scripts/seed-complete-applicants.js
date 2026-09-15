@@ -72,7 +72,7 @@ async function main() {
       motherName,
       motherOccupation: index % 2 ? 'Vendor' : 'Homemaker',
       guardianName,
-      guardianOccupation: 'Government Employee',
+      guardianRelationship: 'Mother',
       familyIncome: index % 2 ? 'Below ₱50,000' : '₱50,000 - ₱100,000',
       gwa: (1.25 + position * 0.05).toFixed(2),
       brothersCount: String(position % 3),

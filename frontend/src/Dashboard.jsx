@@ -708,10 +708,18 @@ const applicantDetailValue = (value, fallback = 'Not provided') => (
   value === null || value === undefined || String(value).trim() === '' ? fallback : value
 );
 
+const eligibilityLabels = {
+  graduatedHonors: 'Graduated with highest honors',
+  championContest: 'Academic contest champion',
+  alsPasser: 'ALS passer',
+  pwd: 'Person with disability',
+  childOfPwd: 'Child of a person with disability',
+  soloParent: 'Solo parent',
+  indigenousGroup: 'Member of an indigenous group',
+  siblingRuleAccepted: 'One-scholar-per-family acknowledgment',
+};
+
 function ApplicantDetailDrawer({ applicant, onClose }) {
-  const guardianLabel = applicant.guardianRelationship
-    ? `Guardian (${applicant.guardianRelationship})`
-    : 'Guardian';
   return (
     <div className="applicant-drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <aside className="applicant-detail-drawer" role="dialog" aria-modal="true" aria-labelledby="applicant-detail-title">
@@ -751,11 +759,15 @@ function ApplicantDetailDrawer({ applicant, onClose }) {
           <div><dt>Father&apos;s occupation</dt><dd>{applicantDetailValue(applicant.fatherOccupation)}</dd></div>
           <div><dt>Mother</dt><dd>{applicantDetailValue(applicant.motherName)}</dd></div>
           <div><dt>Mother&apos;s occupation</dt><dd>{applicantDetailValue(applicant.motherOccupation)}</dd></div>
-          <div><dt>{guardianLabel}</dt><dd>{applicantDetailValue(applicant.guardianName)}</dd></div>
-          <div><dt>Guardian occupation</dt><dd>{applicantDetailValue(applicant.guardianOccupation)}</dd></div>
+          <div><dt>Guardian</dt><dd>{applicantDetailValue(applicant.guardianName)}</dd></div>
+          <div><dt>Relationship with scholar</dt><dd>{applicantDetailValue(applicant.guardianRelationship)}</dd></div>
           <div><dt>Family income</dt><dd>{applicantDetailValue(applicant.familyIncome)}</dd></div>
           <div><dt>Brothers</dt><dd>{applicantDetailValue(applicant.brothersCount, '0')}</dd></div>
           <div><dt>Sisters</dt><dd>{applicantDetailValue(applicant.sistersCount, '0')}</dd></div>
+        </dl></div>
+
+        <div className="applicant-detail-section"><h4>Eligibility information</h4><dl>
+          {Object.entries(eligibilityLabels).map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{applicant.eligibility?.[key] === true ? 'Confirmed' : applicantDetailValue(applicant.eligibility?.[key], 'No')}</dd></div>)}
         </dl></div>
 
         <div className="applicant-detail-section"><h4>Examination information</h4><dl>

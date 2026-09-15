@@ -8,7 +8,6 @@ import {
   ExternalLink,
   GraduationCap,
   LogOut,
-  Printer,
   UserRound,
   X,
 } from 'lucide-react';
@@ -19,15 +18,10 @@ import './styles/scholar-portal.css';
 import './styles/portal-responsive.css';
 
 const requirementItems = [
-  { key: 'tax_exemption', label: 'Certificate of Tax Exemption' },
-  { key: 'indigency', label: 'Barangay Indigency' },
-  { key: 'valid_id', label: 'Photocopy of ID (any valid ID)' },
   { key: 'grades', label: 'Certificate of Grades (previous semester attended)' },
-  { key: 'registration_form', label: 'Registration Form (1st semester of current school year)' },
-  { key: 'tuition_receipt', label: 'Official Receipt of Tuition Fee', note: 'For scholars enrolled in a private school' },
+  { key: 'registration_form', label: 'Registration Form (currently enrolled semester)' },
+  { key: 'tuition_receipt', label: 'Official Receipt of Tuition Fee', note: 'Required only for Private-school scholars' },
 ];
-
-const escapeTemplateText = (value) => String(value || '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
 
 const formatPortalDate = (value, fallback = 'Not available') => {
   if (!value) return fallback;
@@ -38,6 +32,15 @@ const formatPortalDate = (value, fallback = 'Not available') => {
     day: 'numeric',
     year: 'numeric',
   });
+};
+
+const formatPortalDateTime = (value, fallback = 'No deadline set') => {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return new Intl.DateTimeFormat('en-PH', {
+    timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short',
+  }).format(date);
 };
 
 const formatAllowanceStatus = (allowance) => {
@@ -204,6 +207,8 @@ function ScholarDashboard({ token, user, onLogout }) {
   const attentionCount = missingCount + rejectedCount;
   const onlineRequirementsComplete = approvedCount === uploadableRequirements.length;
   const requirementsComplete = onlineRequirementsComplete;
+  const requirementsDeadline = portalData.activePeriod?.requirementsDeadline || null;
+  const requirementsSubmissionClosed = portalData.activePeriod?.requirementsSubmission?.isOpen === false;
   const allowance = portalData.allowance;
   const allowanceStatus = formatAllowanceStatus(allowance);
   const allowanceAmount = allowance
@@ -213,10 +218,10 @@ function ScholarDashboard({ token, user, onLogout }) {
     rejectedCount > 0
       ? `${rejectedCount} requirement${rejectedCount === 1 ? ' was' : 's were'} returned for correction.`
       : attentionCount > 0
-        ? `${attentionCount} online requirement${attentionCount === 1 ? '' : 's'} still need your attention.`
+        ? `${attentionCount} scholar-managed requirement${attentionCount === 1 ? '' : 's'} still need your attention.`
         : pendingReviewCount > 0
           ? `${pendingReviewCount} uploaded document${pendingReviewCount === 1 ? ' is' : 's are'} awaiting Billing staff review.`
-          : 'All online requirements are approved.',
+          : 'All scholar-managed requirements are approved.',
     allowance ? `Allowance status: ${allowanceStatus}.` : 'No allowance release has been scheduled yet.',
   ];
   const unreadScholarNotifications = scholarNotifications.filter(({ isRead }) => !isRead);
@@ -224,6 +229,10 @@ function ScholarDashboard({ token, user, onLogout }) {
   const hasActionNotifications = unreadScholarNotifications.length > 0 || attentionCount > 0 || pendingReviewCount > 0 || !allowance;
   const uploadRequirement = (requirement, file) => {
     if (!file) return;
+    if (requirementsSubmissionClosed) {
+      setNotice({ tone: 'error', message: 'The semester-requirements submission deadline has passed. Contact CAO if a correction is required.' });
+      return;
+    }
     if (file.size > 6 * 1024 * 1024) {
       setNotice({ tone: 'error', message: 'The selected file is too large. Please choose a file smaller than 6 MB.' });
       return;
@@ -276,20 +285,6 @@ function ScholarDashboard({ token, user, onLogout }) {
     } catch (error) {
       setNotice({ tone: 'error', message: error.message || 'Unable to update the notification.' });
     }
-  };
-
-  const printCertificationTemplate = () => {
-    const certificationWindow = window.open('', '_blank', 'noopener,noreferrer');
-    if (!certificationWindow) {
-      setNotice({ tone: 'error', message: 'Allow pop-ups to open the printable certification template.' });
-      return;
-    }
-    const scholarName = escapeTemplateText(displayName.toUpperCase());
-    const schoolName = escapeTemplateText(portalData.school?.name || application?.school_plan?.school || '____________________________');
-    const schoolYear = escapeTemplateText(portalData.activePeriod?.schoolYear || '____________');
-    certificationWindow.document.write(`<!doctype html><html><head><title>Private Scholar Certification Template</title><style>body{font-family:Arial,sans-serif;color:#111;margin:60px;line-height:1.7}.header{text-align:center;margin-bottom:60px}.header h1{font-size:22px;margin:0}.header p{margin:4px}.content{font-size:16px;text-align:justify}.signature{margin-top:90px;display:flex;justify-content:space-between;gap:60px}.line{border-top:1px solid #111;padding-top:8px;text-align:center;min-width:240px}.actions{position:fixed;top:16px;right:16px}@media print{.actions{display:none}}</style></head><body><button class="actions" onclick="window.print()">Print / Save as PDF</button><div class="header"><h1>COMMUNITY AFFAIRS OFFICE</h1><p>Province of Camarines Norte</p><p>PGCEAP Scholarship Program</p></div><h2 style="text-align:center">CERTIFICATION TEMPLATE</h2><div class="content"><p>This is to certify that <strong>${scholarName}</strong> is enrolled at <strong>${schoolName}</strong> for School Year <strong>${schoolYear}</strong> and is an active private-school scholar under the PGCEAP Scholarship Program.</p><p>This certification is issued upon request for scholarship documentation purposes.</p><p>Issued this ______ day of __________________, 20____ at Camarines Norte.</p></div><div class="signature"><div class="line">School Registrar / Authorized Representative</div><div class="line">Community Affairs Office</div></div></body></html>`);
-    certificationWindow.document.close();
-    certificationWindow.focus();
   };
 
   return (
@@ -391,13 +386,16 @@ function ScholarDashboard({ token, user, onLogout }) {
               resolveRoute={(route) => route === 'requirements' ? '#requirements' : null}
             />
             <article className={`scholar-panel scholar-announcement-panel ${latestScholarNotification ? 'personal-notice' : ''}`}><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{latestScholarNotification ? 'PERSONAL PAYROLL UPDATE' : 'FROM CAO'}</p><h2>{latestScholarNotification ? 'Your latest update' : 'Latest announcement'}</h2></div><Bell size={20} className="scholar-heading-icon" /></div><h3>{latestScholarNotification?.title || latestAnnouncement?.title || (requirementsComplete ? 'Requirements submitted' : 'Complete your scholar requirements')}</h3><p>{latestScholarNotification?.message || latestAnnouncement?.content || (requirementsComplete ? 'Your required documents are approved and recorded. Watch this portal for allowance updates.' : 'Submit the remaining requirements so your scholar record can proceed to allowance processing.')}</p>{latestScholarNotification && <div className="scholar-payroll-notice-details"><span><small>Payment reference</small><strong>{latestScholarNotification.reference || 'Not assigned'}</strong></span><span><small>Amount</small><strong>{new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(latestScholarNotification.amount || 0)}</strong></span><span><small>Processed</small><strong>{formatPortalDate(latestScholarNotification.createdAt)}</strong></span></div>}{latestScholarNotification && !latestScholarNotification.isRead && <button type="button" className="scholar-text-button" onClick={() => markNotificationRead(latestScholarNotification.id)}>Mark as read <ChevronRight size={15} /></button>}{!latestScholarNotification && latestAnnouncement?.imageData && <img className="portal-announcement-image" src={latestAnnouncement.imageData} alt={latestAnnouncement.imageName || latestAnnouncement.title} />}{!latestScholarNotification && latestAnnouncement?.externalUrl ? <a href={latestAnnouncement.externalUrl} target="_blank" rel="noopener noreferrer" className="scholar-text-button">View official Facebook post <ExternalLink size={15} /></a> : !latestScholarNotification && <a href="#requirements">View requirements <ChevronRight size={15} /></a>}</article>
-            {isPrivateScholar && <article className="scholar-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">PRIVATE SCHOLAR DOCUMENT</p><h2>Certification template</h2></div><Printer size={20} className="scholar-heading-icon" /></div><p className="scholar-panel-copy">Open a pre-filled template that can be printed or saved as PDF.</p><button type="button" className="scholar-text-button" onClick={printCertificationTemplate}>Print certification template <Printer size={15} /></button></article>}
           </div>
 
           <div className="scholar-portal-column">
             <section className="scholar-panel scholar-action-panel" id="requirements">
             <div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{requirementsComplete ? 'REQUIREMENTS COMPLETE' : rejectedCount > 0 ? 'CORRECTION REQUIRED' : 'ACTION NEEDED'}</p><h2>{requirementsComplete ? 'Requirements approved' : rejectedCount > 0 ? 'Review returned documents' : 'Complete your requirements'}</h2></div><FileCheck2 size={21} className="scholar-heading-icon" /></div>
-            <p className="scholar-panel-copy">{requirementsComplete ? 'All required online files have been approved and recorded.' : 'Uploaded files are checked by Billing staff before they count as completed requirements.'}</p>
+            <div className={`scholar-requirements-deadline ${requirementsSubmissionClosed ? 'closed' : requirementsDeadline ? 'scheduled' : 'open'}`} role="status">
+              <CalendarDays size={17} />
+              <div><strong>{requirementsSubmissionClosed ? 'Submission deadline has passed' : requirementsDeadline ? 'Submission deadline' : 'Submissions are open'}</strong><span>{requirementsDeadline ? formatPortalDateTime(requirementsDeadline) : 'CAO has not set a deadline for this academic period.'}</span></div>
+            </div>
+            <p className="scholar-panel-copy">{requirementsComplete ? 'All scholar-managed semester files have been approved and recorded.' : `Upload your ${isPrivateScholar ? 'semester requirements and Private-school tuition receipt' : 'two semester requirements'}. Initial requirements are recorded by CAO staff.`}</p>
             {requirementsError && <div className="scholar-requirements-error"><span>{requirementsError}</span><button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry now</button></div>}
             <div className="scholar-requirements-list" aria-busy={loadingRequirements}>
               {visibleRequirementItems.map(({ key, label, note }) => {
@@ -422,13 +420,13 @@ function ScholarDashboard({ token, user, onLogout }) {
                     </span>
                     <span className="scholar-requirement-actions">
                       {reviewStatus !== 'missing' && <span className={`scholar-review-badge ${reviewStatus}`}>{reviewStatus === 'approved' ? 'Approved' : reviewStatus === 'rejected' ? 'Rejected' : 'Pending'}</span>}
-                      {reviewStatus !== 'approved' && <label className={`scholar-upload-button ${item?.fileName ? 'submitted' : ''}`}>
-                        {isUploading ? 'Uploading…' : reviewStatus === 'rejected' ? 'Upload again' : item?.fileName ? 'Replace' : 'Upload'}
+                      {reviewStatus !== 'approved' && <label className={`scholar-upload-button ${item?.fileName ? 'submitted' : ''} ${requirementsSubmissionClosed ? 'closed' : ''}`}>
+                        {requirementsSubmissionClosed ? 'Closed' : isUploading ? 'Uploading…' : reviewStatus === 'rejected' ? 'Upload again' : item?.fileName ? 'Replace' : 'Upload'}
                         <input
                           type="file"
                           accept=".pdf,.jpg,.jpeg,.png"
                           onChange={(event) => uploadRequirement(key, event.target.files?.[0])}
-                          disabled={loadingRequirements || Boolean(uploadingRequirement)}
+                          disabled={requirementsSubmissionClosed || loadingRequirements || Boolean(uploadingRequirement)}
                         />
                       </label>}
                     </span>
