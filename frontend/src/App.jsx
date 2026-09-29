@@ -1,7 +1,8 @@
 // App.jsx
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
+import { API_BASE, authHeaders } from './services/api';
 
 const ApplicantDashboard = lazy(() => import('./ApplicantDashboard'));
 const ApplicationPage = lazy(() => import('./ApplicationPage'));
@@ -63,10 +64,53 @@ function App() {
   const initialAuthState = getInitialAuthState();
   const [authToken, setAuthToken] = useState(initialAuthState.token);
   const [user, setUser] = useState(initialAuthState.user);
+  const [authChecking, setAuthChecking] = useState(Boolean(initialAuthState.token && initialAuthState.user));
   const [activeSection, setActiveSection] = useState(
     getDefaultSectionForRole(initialAuthState.user?.role, initialAuthState.user?.sectionAccess),
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!authToken || !user) return undefined;
+
+    let active = true;
+    const validateStoredSession = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/auth/me`, {
+          headers: authHeaders(authToken),
+          cache: 'no-store',
+        });
+        const body = await response.json().catch(() => null);
+
+        if (response.status === 401) {
+          if (!active) return;
+          localStorage.removeItem('authState');
+          setAuthToken('');
+          setUser(null);
+          setActiveSection('Dashboard');
+          return;
+        }
+        if (!response.ok || !body?.user) return;
+
+        if (active) {
+          setUser(body.user);
+          setActiveSection(getDefaultSectionForRole(body.user.role, body.user.sectionAccess));
+          localStorage.setItem('authState', JSON.stringify({ token: authToken, user: body.user }));
+        }
+      } catch (error) {
+        console.warn('Unable to validate the saved session:', error);
+      } finally {
+        if (active) setAuthChecking(false);
+      }
+    };
+
+    validateStoredSession();
+    return () => {
+      active = false;
+    };
+  // A stored user's details are refreshed by this effect; rerunning for that update would duplicate the request.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken]);
 
   useEffect(() => {
     if (!sidebarOpen) return undefined;
@@ -89,24 +133,22 @@ function App() {
     localStorage.setItem('authState', JSON.stringify({ token, user: loggedUser }));
   };
 
-  const clearAuthState = () => {
-    localStorage.removeItem('authState');
-  };
-
   const handleLogin = (token, loggedUser) => {
     setAuthToken(token);
     setUser(loggedUser);
     setActiveSection(getDefaultSectionForRole(loggedUser?.role, loggedUser?.sectionAccess));
     persistAuthState(token, loggedUser);
+    setAuthChecking(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     setAuthToken('');
     setUser(null);
     setActiveSection('Dashboard');
     setSidebarOpen(false);
-    clearAuthState();
-  };
+    localStorage.removeItem('authState');
+    setAuthChecking(false);
+  }, [setActiveSection, setAuthChecking, setAuthToken, setSidebarOpen, setUser]);
 
   const handleSectionChange = (section) => {
     setActiveSection(section);
@@ -128,7 +170,9 @@ function App() {
   return (
     <BrowserRouter>
       <Suspense fallback={<div className="route-loading"><span className="route-loading-mark" />Loading PGCEAP...</div>}>
-        <Routes>
+        {authChecking ? (
+          <div className="route-loading" role="status" aria-live="polite"><span className="route-loading-mark" />Checking your session...</div>
+        ) : <Routes>
         <Route path="/examination" element={authToken && user?.role === 'Applicant' ? <ExamPage token={authToken} /> : <Navigate to={getHomeRedirect()} replace />} />
         <Route path="/exam" element={authToken && user?.role === 'Applicant' ? <ExamPage token={authToken} /> : <Navigate to={getHomeRedirect()} replace />} />
         <Route path="/forgot-password" element={<PasswordRecoveryPage mode="forgot" />} />
@@ -230,7 +274,8 @@ function App() {
           path="/"
           element={<LandingPage portalPath={authToken && user ? getHomeRedirect() : '/login'} isAuthenticated={Boolean(authToken && user)} />}
         />
-        </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>}
       </Suspense>
     </BrowserRouter>
   );

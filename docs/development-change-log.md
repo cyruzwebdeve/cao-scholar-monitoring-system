@@ -5,6 +5,57 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-30 - Stale Session Recovery and Hostinger Route Fallbacks
+
+### TL;DR
+- Existing browser sessions are verified against the API before a protected portal is displayed; expired or invalidated sessions now return to sign-in rather than showing failed dashboard data.
+- The administrator overview also signs out immediately if its live request reports an expired session.
+- Vite builds now create static entry files for all known client routes alongside the existing `.htaccess` rewrite, so Hostinger can serve `/dashboard` and other direct refreshes even when rewrite handling is absent.
+- No API, database, role permission, or scholarship workflow changed; frontend lint, production build, generated-route inspection, and whitespace validation passed.
+
+### Objective and reason
+Correct two related hosted symptoms reported after an administrator account-access change: selecting **Open your portal** with an older saved session opened the administrator shell but its summary request failed, while refreshing `/dashboard` returned Hostinger's server-level 404 page. The first symptom was caused by trusting local browser storage before confirming that the server still accepted the token. The second occurred before React could start because the hosting server did not apply the existing SPA rewrite to the direct URL.
+
+### Previous and new behavior
+Previously, any syntactically valid saved `authState` immediately marked the visitor authenticated. A token invalidated by an access change, password change, account update, backend secret rotation, or expiry therefore reached the protected UI until its data requests returned 401. The application now calls the existing authenticated `/auth/me` endpoint before rendering routes from a saved session, refreshes the stored user role and section access from the authoritative response, and clears rejected credentials. If the overview's periodic request later returns 401, it performs the same safe logout. Network or server failures do not erase a potentially valid session.
+
+The existing Apache/LiteSpeed `.htaccess` fallback remains the preferred catch-all. The build now additionally copies the generated `index.html` into a directory for every declared public or protected route. A host that performs ordinary directory-index resolution can therefore serve `/dashboard`, `/login`, `/applicant-dashboard`, and the other known paths without depending solely on rewrite processing. Once React loads, an unmatched client route returns to the landing page.
+
+### Affected roles and workflows
+- **Super, Regular, and Billing/Payroll Administrators:** stale administrator sessions now lead to sign-in instead of an empty/error dashboard.
+- **Applicants and Scholars:** receive the same startup session validation and direct-route refresh protection for their portals.
+- **Public visitors:** public, legal, application, login, and recovery routes retain their existing content and now receive physical build fallbacks.
+
+### Implementation and data flow
+`App.jsx` initializes a session-checking state only when complete stored credentials exist. It sends the bearer token to `/auth/me` with caching disabled. A valid response replaces locally cached user metadata; HTTP 401 removes only the local authentication record and resets protected state. Other failures are logged without destroying credentials. `DashboardOverview` forwards a 401 to the existing logout handler. The frontend build then runs a dependency-free Node script after Vite, creating route directories and copying the final entry document into each directory.
+
+### Files and system areas changed
+- `frontend/src/App.jsx`
+- `frontend/src/Dashboard.jsx`
+- `frontend/package.json`
+- `frontend/scripts/generate-spa-route-fallbacks.mjs`
+- `change_log.txt`
+- `docs/development-change-log.md`
+
+### Impact assessment
+- **API:** no route or response contract changed; the existing `GET /api/auth/me` endpoint is now used during stored-session startup.
+- **Database:** no schema, migration, query-write, or production-record impact.
+- **Configuration/deployment:** no new variable or dependency. Hostinger must rebuild/redeploy the frontend and publish `frontend/dist`; CDN/browser caches may then need clearing. The existing `.htaccess` remains included.
+- **Security:** server authorization remains authoritative. Invalidated sessions no longer retain a misleading authenticated UI, and fresh server-side role/section permissions replace stale browser metadata.
+- **Privacy:** no new personal data is collected, transmitted, or logged.
+- **Accessibility:** the short validation state uses a polite status announcement; existing navigation remains unchanged.
+- **Approved scope:** no Billing/Payroll generation rule, payment release, claiming, reconciliation, or monetary-audit behavior changed.
+
+### Validation performed and results
+- Frontend ESLint passed.
+- The production build passed and reported 11 generated client-route fallbacks.
+- Confirmed `dist/.htaccess`, `dist/dashboard/index.html`, and `dist/applicant-dashboard/index.html` exist after the build.
+- `git diff --check` passed apart from Git's informational line-ending notices.
+- Live pre-change diagnosis confirmed the landing page and API health returned HTTP 200, the API accepted CORS preflight from the production frontend, and a direct `/dashboard` request returned Hostinger HTTP 404.
+
+### Known limitations, rollback considerations, and recommended next work
+The hosted correction is not active until the frontend deployment completes. After deployment, clear Hostinger CDN cache if the prior 404 remains, then test a hard refresh on `/dashboard`, `/applicant-dashboard`, and `/scholar-dashboard`; also test one deliberately expired session and one valid account whose section visibility changed. Static fallback files cover declared routes, while `.htaccess` continues to cover arbitrary client paths. Rollback can remove the post-build script and session-validation effect without changing data, although doing so restores both failure modes. If the hosted dashboard still reports a non-401 summary error after fresh sign-in, inspect the backend request log because that would be a separate API/database fault rather than stale browser authentication.
+
 ## 2026-09-15 - Persist School Catalog as the Classification Source
 
 ### TL;DR

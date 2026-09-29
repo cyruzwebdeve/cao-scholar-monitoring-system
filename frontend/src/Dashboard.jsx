@@ -607,7 +607,7 @@ const formatDashboardTime = (value) => {
   return parsed.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
-function DashboardOverview({ token, onSectionChange }) {
+function DashboardOverview({ token, onSectionChange, onSessionExpired }) {
   const [overview, setOverview] = useState({
     stats: { activeScholars: 0, forfeitedAccounts: 0 },
     recentApplications: [],
@@ -623,6 +623,10 @@ function DashboardOverview({ token, onSectionChange }) {
     const loadOverview = async () => {
       try {
         const response = await fetch(`${API_BASE}/dashboard/summary`, { headers: authHeaders(token) });
+        if (response.status === 401) {
+          onSessionExpired?.();
+          return;
+        }
         if (!response.ok) throw new Error('Unable to load the latest dashboard summary.');
         const data = await response.json();
         if (active) {
@@ -644,7 +648,7 @@ function DashboardOverview({ token, onSectionChange }) {
     loadOverview();
     const refreshTimer = window.setInterval(loadOverview, 30000);
     return () => { active = false; window.clearInterval(refreshTimer); };
-  }, [token, reloadKey]);
+  }, [token, reloadKey, onSessionExpired]);
 
   const metrics = [
     { ...superAdminOverview.stats[0], value: String(overview.stats.activeScholars), detail: 'Currently active scholarship accounts' },
@@ -1364,7 +1368,7 @@ function ApplicantWorkspace({ token, user, initialView }) {
 
 function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange, onLogout }) {
   if (activeSection === 'Dashboard' && ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role)) {
-    return <DashboardOverview token={token} onSectionChange={onSectionChange} />;
+    return <DashboardOverview token={token} onSectionChange={onSectionChange} onSessionExpired={onLogout} />;
   }
   if (activeSection === 'Applicants' && ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role)) return <ApplicantWorkspace token={token} user={user} />;
   if (activeSection === 'Examination Management' || activeSection === 'Results Management') return <ApplicantWorkspace token={token} user={user} initialView={activeSection === 'Results Management' ? 'results' : 'schedules'} />;
