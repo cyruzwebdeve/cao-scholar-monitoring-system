@@ -43,6 +43,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { API_BASE, authHeaders } from './services/api';
 import CsvExportModal from './components/CsvExportModal';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
+import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 import ResultsManagement from './ResultsManagement';
 import ScholarsManagement from './ScholarsManagement';
 import SettingsManagement from './SettingsManagement';
@@ -646,8 +647,8 @@ function DashboardOverview({ token, onSectionChange, onSessionExpired }) {
       }
     };
     loadOverview();
-    const refreshTimer = window.setInterval(loadOverview, 30000);
-    return () => { active = false; window.clearInterval(refreshTimer); };
+    const stopRefreshing = subscribeToVisibleRefresh(loadOverview, { intervalMs: ROUTINE_DATA_REFRESH_MS });
+    return () => { active = false; stopRefreshing(); };
   }, [token, reloadKey, onSessionExpired]);
 
   const metrics = [
@@ -822,8 +823,8 @@ function ApplicantsManagement({ token }) {
       }
     };
     load();
-    const timer = window.setInterval(load, 30000);
-    return () => { active = false; window.clearInterval(timer); };
+    const stopRefreshing = subscribeToVisibleRefresh(load, { intervalMs: ROUTINE_DATA_REFRESH_MS });
+    return () => { active = false; stopRefreshing(); };
   }, [token, reloadKey]);
 
   useEffect(() => {

@@ -14,6 +14,7 @@ import {
 import { API_BASE, authHeaders } from './services/api';
 import CsvExportModal from './components/CsvExportModal';
 import { downloadCsv } from './utils/csvExport';
+import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 import municipalitiesData from '../../municipality.json';
 import barangaysData from '../../brgy.json';
 
@@ -83,10 +84,10 @@ export default function ReportsManagement({ token }) {
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => loadReports({ showLoader: true }), 0);
-    const refreshTimer = window.setInterval(loadReports, 30000);
+    const stopRefreshing = subscribeToVisibleRefresh(loadReports, { intervalMs: ROUTINE_DATA_REFRESH_MS });
     return () => {
       window.clearTimeout(initialLoad);
-      window.clearInterval(refreshTimer);
+      stopRefreshing();
     };
   }, [loadReports]);
 

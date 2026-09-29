@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import PortalGuidance from './components/PortalGuidance';
 import EligibilityAssessmentCard from './components/EligibilityAssessmentCard';
 import { API_BASE, authHeaders } from "./services/api";
+import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh, TIME_SENSITIVE_DATA_REFRESH_MS } from './utils/dataRefresh';
 import './styles/applicant-prelude.css';
 import './styles/scholar-portal.css';
 import './styles/applicant-portal.css';
@@ -138,25 +139,18 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
 
   useEffect(() => {
     const refreshDashboard = () => setDashboardReloadKey((key) => key + 1);
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') refreshDashboard();
-    };
     const refreshFromStorage = (event) => {
       if (['examinationSettingsRevision', 'examinationScheduleRevision'].includes(event.key)) refreshDashboard();
     };
-    const timer = window.setInterval(refreshWhenVisible, 15000);
-    window.addEventListener('focus', refreshDashboard);
+    const stopRefreshing = subscribeToVisibleRefresh(refreshDashboard, { intervalMs: TIME_SENSITIVE_DATA_REFRESH_MS });
     window.addEventListener('storage', refreshFromStorage);
     window.addEventListener('exam-mode-changed', refreshDashboard);
     window.addEventListener('exam-schedule-persisted', refreshDashboard);
-    document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
-      window.clearInterval(timer);
-      window.removeEventListener('focus', refreshDashboard);
+      stopRefreshing();
       window.removeEventListener('storage', refreshFromStorage);
       window.removeEventListener('exam-mode-changed', refreshDashboard);
       window.removeEventListener('exam-schedule-persisted', refreshDashboard);
-      document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
   }, []);
 
@@ -172,8 +166,8 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
       })
       .catch(() => {});
     loadAnnouncement();
-    const timer = window.setInterval(loadAnnouncement, 30000);
-    return () => { active = false; window.clearInterval(timer); };
+    const stopRefreshing = subscribeToVisibleRefresh(loadAnnouncement, { intervalMs: ROUTINE_DATA_REFRESH_MS });
+    return () => { active = false; stopRefreshing(); };
   }, [token]);
 
   useEffect(() => {

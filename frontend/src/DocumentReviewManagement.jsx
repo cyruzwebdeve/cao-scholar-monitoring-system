@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_BASE, authHeaders } from './services/api';
+import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 import './styles/document-reviews.css';
 
 const emptyData = { stats: { total: 0, pending: 0, approved: 0, rejected: 0 }, reviews: [] };
@@ -156,8 +157,8 @@ function DocumentReviewManagement({ token }) {
       .catch((loadError) => { if (active) setError(loadError.message || 'Document reviews could not be loaded.'); })
       .finally(() => { if (active) setLoading(false); });
     refresh();
-    const timer = window.setInterval(refresh, 30000);
-    return () => { active = false; window.clearInterval(timer); };
+    const stopRefreshing = subscribeToVisibleRefresh(refresh, { intervalMs: ROUTINE_DATA_REFRESH_MS });
+    return () => { active = false; stopRefreshing(); };
   }, [fetchReviews]);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);

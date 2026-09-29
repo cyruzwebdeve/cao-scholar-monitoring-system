@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
+import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 
 const audienceLabels = {
   all: 'Everyone',
@@ -84,10 +85,8 @@ export default function AnnouncementsManagement({ token }) {
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => loadAnnouncements({ showLoader: true }), 0);
-    const timer = window.setInterval(loadAnnouncements, 30000);
-    const refresh = () => loadAnnouncements();
-    window.addEventListener('focus', refresh);
-    return () => { window.clearTimeout(initialLoad); window.clearInterval(timer); window.removeEventListener('focus', refresh); };
+    const stopRefreshing = subscribeToVisibleRefresh(loadAnnouncements, { intervalMs: ROUTINE_DATA_REFRESH_MS });
+    return () => { window.clearTimeout(initialLoad); stopRefreshing(); };
   }, [loadAnnouncements]);
 
   useEffect(() => {

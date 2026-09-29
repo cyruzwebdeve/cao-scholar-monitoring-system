@@ -23,6 +23,7 @@ import { buildRecordRows, downloadCsv } from './utils/csvExport';
 import { clearProcessingHandoff, readProcessingHandoff } from './utils/processingHandoff';
 import { canQueueForProcessing, isVisibleInProcessingMode } from './utils/processingVisibility';
 import { billingSchoolSelection, resolveBillingSchoolId, SAVED_SCHOOL_VALUE } from './utils/billingSchoolSelection';
+import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 
 const formatDate = (value) => {
   if (!value) return 'Not processed';
@@ -236,10 +237,8 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => loadRecords({ showLoader: true }), 0);
-    const timer = window.setInterval(loadRecords, 30000);
-    const refresh = () => loadRecords();
-    window.addEventListener('focus', refresh);
-    return () => { window.clearTimeout(initialLoad); window.clearInterval(timer); window.removeEventListener('focus', refresh); };
+    const stopRefreshing = subscribeToVisibleRefresh(loadRecords, { intervalMs: ROUTINE_DATA_REFRESH_MS });
+    return () => { window.clearTimeout(initialLoad); stopRefreshing(); };
   }, [loadRecords]);
 
   useEffect(() => {

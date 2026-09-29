@@ -14,6 +14,7 @@ import {
 import { useEffect, useState } from 'react';
 import PortalGuidance from './components/PortalGuidance';
 import { API_BASE, authHeaders } from './services/api';
+import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh, TIME_SENSITIVE_DATA_REFRESH_MS } from './utils/dataRefresh';
 import './styles/scholar-portal.css';
 import './styles/portal-responsive.css';
 
@@ -108,13 +109,11 @@ function ScholarDashboard({ token, user, onLogout }) {
 
     loadApplication(true);
     const refreshPortal = () => loadApplication(false);
-    const refreshInterval = window.setInterval(refreshPortal, 15000);
-    window.addEventListener('focus', refreshPortal);
+    const stopRefreshing = subscribeToVisibleRefresh(refreshPortal, { intervalMs: TIME_SENSITIVE_DATA_REFRESH_MS });
     window.addEventListener('online', refreshPortal);
     return () => {
       active = false;
-      window.clearInterval(refreshInterval);
-      window.removeEventListener('focus', refreshPortal);
+      stopRefreshing();
       window.removeEventListener('online', refreshPortal);
     };
   }, [refreshRequest, token]);
@@ -135,8 +134,8 @@ function ScholarDashboard({ token, user, onLogout }) {
       }
     };
     loadAnnouncement();
-    const timer = window.setInterval(loadAnnouncement, 30000);
-    return () => { active = false; window.clearInterval(timer); };
+    const stopRefreshing = subscribeToVisibleRefresh(loadAnnouncement, { intervalMs: ROUTINE_DATA_REFRESH_MS });
+    return () => { active = false; stopRefreshing(); };
   }, [token]);
 
   useEffect(() => {
@@ -151,8 +150,8 @@ function ScholarDashboard({ token, user, onLogout }) {
       }
     };
     loadNotifications();
-    const timer = window.setInterval(loadNotifications, 30000);
-    return () => { active = false; window.clearInterval(timer); };
+    const stopRefreshing = subscribeToVisibleRefresh(loadNotifications, { intervalMs: ROUTINE_DATA_REFRESH_MS });
+    return () => { active = false; stopRefreshing(); };
   }, [token]);
 
   useEffect(() => {

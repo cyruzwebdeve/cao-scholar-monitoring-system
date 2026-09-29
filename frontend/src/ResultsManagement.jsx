@@ -18,6 +18,7 @@ import {
 import { API_BASE, authHeaders } from './services/api';
 import CsvExportModal from './components/CsvExportModal';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
+import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 
 const formatResultDate = (value) => {
   if (!value) return 'Not scheduled';
@@ -115,8 +116,8 @@ export default function ResultsManagement({ token }) {
 
   useEffect(() => {
     const initialLoad = window.setTimeout(loadResults, 0);
-    const timer = window.setInterval(loadResults, 30000);
-    return () => { window.clearTimeout(initialLoad); window.clearInterval(timer); };
+    const stopRefreshing = subscribeToVisibleRefresh(loadResults, { intervalMs: ROUTINE_DATA_REFRESH_MS });
+    return () => { window.clearTimeout(initialLoad); stopRefreshing(); };
   }, [loadResults]);
 
   useEffect(() => {

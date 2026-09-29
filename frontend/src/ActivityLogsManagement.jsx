@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { API_BASE, authHeaders } from './services/api';
+import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 
 const initialData = {
   stats: { today: 0, week: 0, signIns: 0, adminActions: 0 },
@@ -68,10 +69,10 @@ function ActivityLogsManagement({ token }) {
       }
     };
     load();
-    const timer = window.setInterval(load, 30000);
+    const stopRefreshing = subscribeToVisibleRefresh(load, { intervalMs: ROUTINE_DATA_REFRESH_MS });
     return () => {
       active = false;
-      window.clearInterval(timer);
+      stopRefreshing();
     };
   }, [actorType, page, reloadKey, search, token]);
 

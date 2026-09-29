@@ -5,6 +5,57 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-09-30 - Visibility-Aware Database Polling Reduction
+
+### TL;DR
+- Replaced 15-30 second background data polling with shared visibility-aware refresh behavior across administrator, Applicant, Scholar, application, and health views.
+- Routine data now refreshes every five minutes and time-sensitive portal/application state every two minutes; hidden tabs issue no scheduled refresh requests.
+- Returning to a stale visible tab refreshes promptly, while mutation, manual retry, online, storage, and same-tab event refreshes remain immediate.
+- No API, database, permissions, records, or scholarship workflow changed. Frontend lint/build, all 21 frontend tests, and whitespace validation passed.
+
+### Objective and reason
+Reduce avoidable Prisma Postgres operations after the monthly usage view reached 185,358 operations against the Free workspace allowance. The interface used independent 15- or 30-second timers on many pages. Every protected API request also performs server-side account validation before its endpoint queries, so an idle open browser tab could consume many database operations without user activity.
+
+### Previous and new behavior
+Previously, administrator summary, applicant list, Billing/Payroll, Scholars, Results, Reports, Announcements, Activity Logs, Document Reviews, and System Health views refreshed every 30 seconds. Applicant and Scholar primary portal data refreshed every 15 seconds, while their announcements and notifications refreshed separately every 30 seconds. Most timers continued when their browser tab was hidden, and several focus handlers could trigger an additional request immediately after a scheduled one.
+
+Routine datasets now use a five-minute visible-tab interval. Applicant/Scholar primary data and public application availability use a two-minute visible-tab interval because examination, deadline, and availability changes are more time-sensitive. Scheduled refreshes pause entirely while `document.visibilityState` is hidden. Focus and visibility restoration refresh only when the displayed data is at least one minute old, preventing duplicate focus-plus-visibility requests. Existing explicit refresh buttons, successful mutation reloads, cross-tab storage events, same-tab examination/application events, and network-recovery refreshes retain their immediate behavior.
+
+### Affected roles and workflows
+- **Super, Regular, and Billing/Payroll Administrators:** all polling administrative workspaces consume substantially fewer idle queries; active saves and manual actions still refresh immediately.
+- **Applicants:** dashboard and examination guidance remain event-responsive and refresh within two minutes while continuously visible.
+- **Scholars:** requirements and portal status refresh within two minutes; announcements and notifications refresh within five minutes or after returning to a stale tab.
+- **Public applicants:** application availability refreshes every two minutes and still responds immediately to a same-tab Settings change.
+
+### Implementation and data flow
+A shared `subscribeToVisibleRefresh` utility owns the interval, focus, and visibility listeners. It records the latest scheduled/return refresh time, suppresses return refreshes younger than one minute, never calls the supplied loader while hidden, and returns one cleanup function that removes both listeners and its timer. Components continue performing their initial request on mount and retain their existing request, error, loading, authorization, and mutation logic; only automatic scheduling changed. System Health now uses the same scheduler rather than recursive 30-second timeouts, so its database `SELECT 1` health sampling follows the five-minute visible cadence.
+
+### Files and system areas changed
+- Shared behavior and tests: `frontend/src/utils/dataRefresh.js`, `frontend/tests/dataRefresh.test.js`
+- Administrator views: Dashboard, Billing/Payroll, Scholars, Results, Reports, Announcements, Activity Logs, Document Reviews, and System Health
+- Public/portal views: Application Page, Applicant Dashboard, and Scholar Dashboard
+- Change documentation
+
+### Impact assessment
+- **API:** no endpoint, authorization, payload, or response change. The same endpoints are called less frequently.
+- **Database:** no schema, migration, data-write, seed, or connection change. Reduced request frequency lowers read and authentication-query operations.
+- **Configuration/dependencies:** no environment variable or package dependency added.
+- **Security:** server-side authentication and role/section authorization remain unchanged; pausing hidden-tab polling does not cache or expose protected responses.
+- **Privacy:** no new information is collected, retained, or logged.
+- **Accessibility/UX:** initial loads and user-requested refreshes remain immediate. Visible continuously open views may be up to two or five minutes behind external changes, depending on data sensitivity, but returning after at least one minute refreshes automatically.
+- **Deployment:** frontend rebuild/redeployment is required; the backend and database do not require redeployment or migration.
+- **Approved scope:** Billing and official payroll-list generation logic is unchanged; no payment release, claim, disbursement, reconciliation, or monetary-audit behavior was added.
+
+### Validation performed and results
+- Frontend ESLint passed.
+- Production build passed and retained all 11 Hostinger direct-route fallback outputs; the existing large ExcelJS chunk advisory remains non-blocking.
+- All 21 frontend Node tests passed, including a scheduler regression proving that a hidden interval does nothing, a stale visibility return refreshes once despite subsequent focus, a visible interval refreshes, and cleanup removes listeners.
+- Source inspection confirmed that remaining one-second intervals are UI-only examination/submission countdowns; all recurring network-data timers now use the shared visibility-aware scheduler.
+- `git diff --check` passed with only informational line-ending notices.
+
+### Known limitations, rollback considerations, and recommended next work
+Operation totals already recorded by Prisma will not decrease; the benefit appears in the slope after this frontend is deployed and users load the new assets. Multiple simultaneously visible browser windows still refresh independently, and each API request continues performing authoritative database-backed authentication. Monitor daily operations for several days after deployment. If usage remains excessive, the next safe optimization is backend response consolidation or short-lived server caching for non-personal shared settings—not weakening authentication. Rollback can restore the component-specific timers and remove the shared utility without changing data, but would restore the high idle-query rate.
+
 ## 2026-09-30 - Stale Session Recovery and Hostinger Route Fallbacks
 
 ### TL;DR

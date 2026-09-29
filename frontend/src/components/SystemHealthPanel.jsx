@@ -1,8 +1,8 @@
 import { Activity, MonitorSmartphone, RefreshCw, Server, WifiOff } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { API_BASE } from '../services/api';
+import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from '../utils/dataRefresh';
 
-const SAMPLE_INTERVAL_MS = 30_000;
 const REQUEST_TIMEOUT_MS = 75_000;
 const MAX_SAMPLES = 20;
 
@@ -112,7 +112,6 @@ function SystemHealthPanel() {
 
   useEffect(() => {
     let active = true;
-    let nextCheckTimer;
     let activeController;
 
     const collectSample = async () => {
@@ -152,16 +151,16 @@ function SystemHealthPanel() {
         }].slice(-MAX_SAMPLES));
         setChecking(false);
         checkingRef.current = false;
-        nextCheckTimer = window.setTimeout(collectSample, SAMPLE_INTERVAL_MS);
       }
     };
 
     collectSample();
+    const stopRefreshing = subscribeToVisibleRefresh(collectSample, { intervalMs: ROUTINE_DATA_REFRESH_MS });
     return () => {
       active = false;
       checkingRef.current = false;
       activeController?.abort();
-      window.clearTimeout(nextCheckTimer);
+      stopRefreshing();
     };
   }, [refreshKey]);
 
@@ -178,7 +177,7 @@ function SystemHealthPanel() {
         <HealthCard type="frontend" samples={samples} checking={checking} />
         <HealthCard type="backend" samples={samples} checking={checking} />
       </div>
-      <p className="system-health-note">Samples refresh every 30 seconds while this dashboard is open. A long first backend response can indicate a Render cold start.</p>
+      <p className="system-health-note">Samples refresh every 5 minutes while this tab is visible, or on request. A long first backend response can indicate a hosting cold start.</p>
     </section>
   );
 }

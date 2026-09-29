@@ -23,6 +23,7 @@ import CsvExportModal from './components/CsvExportModal';
 import { DecisionModal, ReviewModal } from './DocumentReviewManagement';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
 import { saveProcessingHandoff } from './utils/processingHandoff';
+import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 import certificateHeader from './assets/certificate-header.png';
 import './styles/document-reviews.css';
 
@@ -160,8 +161,8 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
 
   useEffect(() => {
     const initialLoad = window.setTimeout(loadScholars, 0);
-    const timer = window.setInterval(loadScholars, 30000);
-    return () => { window.clearTimeout(initialLoad); window.clearInterval(timer); };
+    const stopRefreshing = subscribeToVisibleRefresh(loadScholars, { intervalMs: ROUTINE_DATA_REFRESH_MS });
+    return () => { window.clearTimeout(initialLoad); stopRefreshing(); };
   }, [loadScholars]);
 
   useEffect(() => {

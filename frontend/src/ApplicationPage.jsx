@@ -3,6 +3,7 @@ import { CalendarClock, CircleOff, GraduationCap, RefreshCw } from 'lucide-react
 import { useNavigate } from 'react-router-dom';
 import ApplicationForm from './components/ApplicationForm';
 import { API_BASE } from './services/api';
+import { subscribeToVisibleRefresh, TIME_SENSITIVE_DATA_REFRESH_MS } from './utils/dataRefresh';
 import './styles/application.css';
 import './styles/application-responsive.css';
 
@@ -40,12 +41,12 @@ function ApplicationPage({ token, user }) {
 
   useEffect(() => {
     const initialLoad = window.setTimeout(loadAvailability, 0);
-    const interval = window.setInterval(loadAvailability, 30000);
+    const stopRefreshing = subscribeToVisibleRefresh(loadAvailability, { intervalMs: TIME_SENSITIVE_DATA_REFRESH_MS });
     const refreshFromSettings = () => loadAvailability();
     window.addEventListener('application-availability-changed', refreshFromSettings);
     return () => {
       window.clearTimeout(initialLoad);
-      window.clearInterval(interval);
+      stopRefreshing();
       window.removeEventListener('application-availability-changed', refreshFromSettings);
     };
   }, [loadAvailability]);
