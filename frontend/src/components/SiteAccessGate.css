@@ -34,6 +34,8 @@
 .site-access-kicker { margin: 0 0 8px; color: #238653; font-size: 12px; font-weight: 800; letter-spacing: .13em; }
 .site-access-card h1 { margin: 0; color: #102d20; font-size: clamp(24px, 5vw, 32px); line-height: 1.15; }
 .site-access-description { margin: 15px auto 24px; max-width: 360px; color: #64766d; line-height: 1.6; }
+.site-access-warning { margin: -9px 0 23px; padding: 13px 14px; border: 1px solid #e8c985; border-radius: 10px; background: #fff8e8; color: #6f541c; font-size: 13px; line-height: 1.5; text-align: left; }
+.site-access-warning strong { display: block; margin-bottom: 3px; color: #65450a; }
 .site-access-form { display: grid; gap: 11px; margin-top: 24px; text-align: left; }
 .site-access-form label { color: #334c40; font-size: 13px; font-weight: 700; }
 .site-access-input { display: flex; align-items: center; gap: 10px; padding: 0 14px; border: 1px solid #cbd9d1; border-radius: 11px; background: #fff; color: #638072; }

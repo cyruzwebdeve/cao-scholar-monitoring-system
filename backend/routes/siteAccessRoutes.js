@@ -28,7 +28,7 @@ router.post('/unlock', siteAccessRateLimiter, (req, res) => {
   const password = req.body?.password;
   if (typeof password !== 'string' || password.length > 256
     || !passwordsMatch(password, process.env.SITE_ACCESS_PASSWORD)) {
-    return res.status(401).json({ message: 'The shared access password is incorrect.' });
+    return res.status(401).json({ message: 'The tester access code is incorrect.' });
   }
 
   const token = issueSiteAccessToken({ secret: process.env.JWT_SECRET });

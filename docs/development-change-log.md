@@ -5,6 +5,54 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-01 - Distinguish Tester Access Code from Account Passwords
+
+### TL;DR
+- Renamed the shared-password prompt to **Tester access code** and identified it as an invitation-only preliminary checkpoint.
+- Added a prominent instruction never to enter an applicant, scholar, or administrator account password on this screen.
+- Changed the action to **Continue to account sign-in**, making clear that ordinary individual authentication comes afterward.
+- Removed automatic focus and account-password autocomplete semantics to reduce accidental credential entry; access enforcement and the configured secret are unchanged.
+- Frontend lint/build, targeted backend tests, syntax, and whitespace validation passed; deployment remains required.
+
+### Objective and reason
+Prevent public visitors from mistaking the outer private-testing gate for the system's ordinary account login. Although the original screen said shared access password and private testing, a visitor unfamiliar with the deployment could still enter a personal PGCEAP credential.
+
+### Previous and new behavior
+Previously, the gate used the label **Shared access password** and the button **Enter private system**. It now calls the value a **Tester access code**, describes the page as a preliminary invitation-only testing checkpoint, and states prominently that applicant, scholar, and administrator passwords must not be entered. The continuation button explains that the account sign-in comes next. Visitors without a separately issued tester code are told to close the page and contact the project administrator.
+
+The secret input remains masked, but it no longer requests `current-password` autocomplete and no longer receives automatic focus. These measures reduce password-manager suggestions and accidental typing, although browsers retain final control over autofill behavior.
+
+### Affected roles and workflows
+Authorized testers receive clearer instructions before using their existing individual accounts. Applicants, Scholars, administrators, and unintended public visitors are explicitly protected from confusing the testing checkpoint with account authentication. System roles and post-gate workflows are unchanged.
+
+### Implementation and data flow
+Only gate terminology, field metadata, focus behavior, supporting warning presentation, and matching safe backend error messages changed. The frontend still sends the entered tester code only to the existing unlock endpoint over HTTPS. Server validation, rate limiting, signed-token issuance, API middleware, expiry, and subsequent individual authentication are unchanged.
+
+### Files and system areas changed
+- `frontend/src/components/SiteAccessGate.jsx`
+- `frontend/src/components/SiteAccessGate.css`
+- `backend/middleware/siteAccess.js`
+- `backend/routes/siteAccessRoutes.js`
+- `backend/middleware/rateLimits.js`
+- Change documentation
+
+### Impact assessment
+- **API:** no route, status, header, request shape, or authorization behavior changed; safe error wording now says tester access code.
+- **Database/configuration:** no schema, record, query, environment-variable name, or secret-value change.
+- **Security/privacy:** reduces the risk of users submitting personal account passwords into the deployment gate. Entered codes retain the same server-only validation and are not logged or persisted.
+- **Accessibility/UX:** adds explicit visible guidance connected to the masked field with `aria-describedby`; existing labels, alerts, keyboard controls, responsiveness, and reduced-motion behavior remain.
+- **Deployment:** requires frontend and backend redeployment for consistent terminology.
+- **Approved scope:** no application processing, Billing, payroll-list generation, or legacy payment functionality changed.
+
+### Validation performed and results
+- Frontend ESLint passed.
+- Production Vite build passed and generated all 11 Hostinger route fallbacks; the existing large ExcelJS chunk advisory remains non-blocking.
+- All four targeted backend site-access tests passed, and changed backend files passed Node syntax checks.
+- `git diff --check` passed with informational Windows line-ending notices only.
+
+### Known limitations, rollback considerations, and recommended next work
+Browsers may ignore `autocomplete="off"` according to their own credential-management policies, so the textual warning remains the primary protection against confusion. Provide the tester code only through a controlled channel and tell testers that their personal account login appears after this checkpoint. Rollback restores the shorter wording but would reintroduce ambiguity; no data rollback is required.
+
 ## 2026-10-01 - Shared-Password Gate for Private Hostinger Testing
 
 ### TL;DR

@@ -21,7 +21,7 @@ const createRateLimiters = ({ isProduction = process.env.NODE_ENV === 'productio
     windowMs: 15 * MINUTE,
     limit: isProduction ? 10 : 500,
     skipSuccessfulRequests: true,
-    message: rateLimitMessage('Too many incorrect shared access attempts. Please wait 15 minutes and try again.'),
+    message: rateLimitMessage('Too many incorrect tester access attempts. Please wait 15 minutes and try again.'),
   }),
   loginRateLimiter: rateLimit({
     ...commonOptions,

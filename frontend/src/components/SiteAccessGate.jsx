@@ -48,7 +48,7 @@ export default function SiteAccessGate({ children }) {
 
   const unlock = async (event) => {
     event.preventDefault();
-    if (!password) return setError('Enter the shared access password.');
+    if (!password) return setError('Enter the tester access code provided by the project administrator.');
     setSubmitting(true);
     setError('');
     try {
@@ -75,8 +75,8 @@ export default function SiteAccessGate({ children }) {
     <main className="site-access-shell">
       <section className="site-access-card" aria-labelledby="site-access-title">
         <div className="site-access-mark" aria-hidden="true"><ShieldCheck /></div>
-        <p className="site-access-kicker">PRIVATE TESTING DEPLOYMENT</p>
-        <h1 id="site-access-title">PGCEAP access is restricted</h1>
+        <p className="site-access-kicker">INVITATION-ONLY TESTING</p>
+        <h1 id="site-access-title">Authorized tester access</h1>
         {state === 'checking' ? (
           <div className="site-access-status" role="status" aria-live="polite">
             <span className="site-access-spinner" /> Verifying access&hellip;
@@ -84,7 +84,11 @@ export default function SiteAccessGate({ children }) {
         ) : (
           <>
             <p className="site-access-description">
-              This system is available only to authorized reviewers during controlled testing.
+              This page is a preliminary testing checkpoint, not the PGCEAP account sign-in.
+            </p>
+            <p className="site-access-warning" id="site-access-warning">
+              <strong>Do not enter your applicant, scholar, or administrator password.</strong>
+              Enter only the separate tester access code sent directly by the project administrator.
             </p>
             {state === 'unavailable' ? (
               <button type="button" className="site-access-retry" onClick={checkAccess}>
@@ -92,29 +96,30 @@ export default function SiteAccessGate({ children }) {
               </button>
             ) : (
               <form onSubmit={unlock} className="site-access-form">
-                <label htmlFor="shared-access-password">Shared access password</label>
+                <label htmlFor="tester-access-code">Tester access code</label>
                 <div className="site-access-input">
                   <LockKeyhole size={18} aria-hidden="true" />
                   <input
-                    id="shared-access-password"
+                    id="tester-access-code"
+                    name="deployment-tester-access-code"
                     type="password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    autoComplete="current-password"
+                    autoComplete="off"
+                    aria-describedby="site-access-warning"
                     maxLength={256}
-                    autoFocus
                   />
                 </div>
                 <button type="submit" disabled={submitting}>
                   <KeyRound size={17} aria-hidden="true" />
-                  {submitting ? 'Verifying…' : 'Enter private system'}
+                  {submitting ? 'Verifying…' : 'Continue to account sign-in'}
                 </button>
               </form>
             )}
             {error && <p className="site-access-error" role="alert">{error}</p>}
           </>
         )}
-        <small>Access attempts are rate-limited. Do not share the password publicly.</small>
+        <small>No tester access code? Close this page and contact the project administrator.</small>
       </section>
     </main>
   );
