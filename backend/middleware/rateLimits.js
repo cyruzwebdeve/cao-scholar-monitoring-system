@@ -16,6 +16,13 @@ const commonOptions = {
 };
 
 const createRateLimiters = ({ isProduction = process.env.NODE_ENV === 'production' } = {}) => ({
+  siteAccessRateLimiter: rateLimit({
+    ...commonOptions,
+    windowMs: 15 * MINUTE,
+    limit: isProduction ? 10 : 500,
+    skipSuccessfulRequests: true,
+    message: rateLimitMessage('Too many incorrect shared access attempts. Please wait 15 minutes and try again.'),
+  }),
   loginRateLimiter: rateLimit({
     ...commonOptions,
     windowMs: 15 * MINUTE,

@@ -10,6 +10,7 @@ const PORT = Number(process.env.PORT) || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
 const requiredProductionVariables = ['DATABASE_URL', 'JWT_SECRET', 'CORS_ORIGINS'];
 const missingProductionVariables = requiredProductionVariables.filter((name) => !process.env[name]?.trim());
+const siteAccessEnabled = String(process.env.SITE_ACCESS_ENABLED || '').trim().toLowerCase() === 'true';
 
 if (isProduction && missingProductionVariables.length) {
   throw new Error(`Missing required production environment variables: ${missingProductionVariables.join(', ')}`);
@@ -17,10 +18,18 @@ if (isProduction && missingProductionVariables.length) {
 if (isProduction && process.env.JWT_SECRET.length < 32) {
   throw new Error('JWT_SECRET must contain at least 32 characters in production.');
 }
+if (siteAccessEnabled && (process.env.SITE_ACCESS_PASSWORD?.length < 12 || process.env.SITE_ACCESS_PASSWORD?.length > 256)) {
+  throw new Error('SITE_ACCESS_PASSWORD must contain 12-256 characters when SITE_ACCESS_ENABLED is true.');
+}
+if (siteAccessEnabled && !process.env.JWT_SECRET?.trim()) {
+  throw new Error('JWT_SECRET is required when SITE_ACCESS_ENABLED is true.');
+}
 
 const prisma = require('./config/prisma');
 const applicationRoutes = require('./routes/applicationRoutes');
 const authRoutes = require('./routes/authRoutes');
+const siteAccessRoutes = require('./routes/siteAccessRoutes');
+const { requireSiteAccess } = require('./middleware/siteAccess');
 
 const developmentOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
 const allowedOrigins = (process.env.CORS_ORIGINS || developmentOrigins.join(','))
@@ -37,7 +46,8 @@ app.use(cors({
     return callback(new Error('This origin is not allowed by CORS.'));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Site-Access-Token'],
+  exposedHeaders: ['X-Site-Access-Required'],
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use('/api', rateLimit({
@@ -47,14 +57,6 @@ app.use('/api', rateLimit({
   legacyHeaders: false,
   message: { message: 'Too many requests. Please wait a moment and try again.' },
 }));
-app.use('/api/auth', rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: isProduction ? 50 : 500,
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
-  message: { message: 'Too many sign-in attempts. Please wait and try again.' },
-}));
-
 app.get('/', (req, res) => {
   res.json({ service: 'PGCEAP Scholarship Management API', status: 'online' });
 });
@@ -71,6 +73,15 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+app.use('/api/site-access', siteAccessRoutes);
+app.use('/api', requireSiteAccess);
+app.use('/api/auth', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: isProduction ? 50 : 500,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { message: 'Too many sign-in attempts. Please wait and try again.' },
+}));
 app.use('/api/auth', authRoutes);
 app.use('/api', applicationRoutes);
 

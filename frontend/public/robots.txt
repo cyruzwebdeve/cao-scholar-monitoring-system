@@ -1,4 +1,2 @@
 User-agent: *
-Allow: /
-
-Sitemap: https://cao-scholar-monitoring-system.vercel.app/sitemap.xml
+Disallow: /

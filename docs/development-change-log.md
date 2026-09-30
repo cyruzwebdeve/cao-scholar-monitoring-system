@@ -5,6 +5,117 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-01 - Shared-Password Gate for Private Hostinger Testing
+
+### TL;DR
+- Added a fail-closed private-testing screen that keeps the Hostinger frontend hidden until an authorized tester enters the shared password.
+- Enforced the same gate on the Hostinger backend, so bypassing the static React screen cannot expose application, authentication, administrative, or scholar API operations.
+- The shared password exists only in the backend environment; successful entry produces a purpose-limited 12-hour token stored for the browser tab and attached automatically to API requests.
+- Added failed-attempt rate limiting and search-engine no-index/disallow controls; no database schema, record, role permission, or scholarship workflow changed.
+- All 154 runnable backend tests and 23 frontend tests, frontend lint/build, backend syntax, and whitespace validation passed; hosted deployment and environment configuration remain required.
+
+### Objective and reason
+Restrict the publicly addressable Hostinger deployment to authorized testers using one shared access password without embedding that password in the downloadable Vite bundle. The existing user login continues to provide individual application roles after the shared deployment gate is passed; the new gate is an outer testing boundary, not a replacement for account authentication or authorization.
+
+### Previous and new behavior
+Previously, any visitor could load the landing page, application form, sign-in and recovery screens, and public application-setting endpoints. Protected dashboards still required individual credentials, but the overall project remained publicly discoverable and public submission endpoints remained reachable.
+
+The frontend now verifies shared deployment access before mounting the router. An unauthorized visitor sees only the private-testing access form. A correct password produces a signed token valid for 12 hours and scoped specifically to the site-access purpose, issuer, and audience. The token is kept in session storage, automatically attached only to requests whose URL belongs to the configured API base, and removed when the backend reports that access is missing or expired. Closing the browser tab/session requires the shared password again.
+
+The backend permits the status and unlock endpoints before the outer gate, then enforces shared access across all existing `/api/auth` and application routes. Existing JWT login, account activity, role checks, section checks, validation, mutation auditing, and endpoint-specific rate limits continue after that outer gate. The root service-identification response and database health diagnostic remain outside the gate to support hosting diagnosis; they expose service state but no applicant, scholar, document, or account data.
+
+### Affected roles and workflows
+- **Authorized testers:** enter the shared deployment password once per browser session, then use their existing individual account credentials and permissions normally.
+- **Applicants, Scholars, and CAO staff:** all existing workflows remain unchanged after the outer gate is passed.
+- **Unauthorized visitors and crawlers:** cannot call application/authentication APIs and receive only the private-testing screen from the frontend.
+- **Operators:** configure and rotate the shared password only through the Hostinger backend environment; no password is committed or placed in frontend variables.
+
+### Implementation and data flow
+`SITE_ACCESS_ENABLED=true` activates the backend middleware. Startup fails rather than silently exposing the application if the enabled password is absent or outside the required 12-256 character range. `POST /api/site-access/unlock` compares password digests using constant-time comparison, is limited to ten failed attempts per source address per 15 minutes in production, and signs a site-purpose token using the existing production JWT secret. `GET /api/site-access/status` reports whether the gate is enabled and whether the supplied outer token is valid without querying the database.
+
+The frontend installs one API-scoped fetch interceptor before React mounts. It never sends the site token to unrelated origins. `SiteAccessGate` checks status, accepts the shared password over HTTPS, stores only the resulting token, and mounts the existing application after authorization. A dedicated response header distinguishes an expired outer gate from ordinary individual-account HTTP 401 responses and returns the interface to the shared-password screen.
+
+Search metadata now uses `noindex`, `nofollow`, and `noarchive`; `robots.txt` disallows crawling, and the obsolete sitemap referencing the former Vercel deployment was removed. These directives discourage future indexing but are not access controls and do not immediately remove already indexed results.
+
+### Files and system areas changed
+- Backend access control: `backend/services/siteAccess.js`, `backend/middleware/siteAccess.js`, `backend/routes/siteAccessRoutes.js`, `backend/server.js`
+- Rate limiting and configuration: `backend/middleware/rateLimits.js`, `backend/.env.example`
+- Backend regression coverage: `backend/tests/siteAccess.test.js`
+- Frontend gate and request enforcement: `frontend/src/components/SiteAccessGate.jsx`, `frontend/src/components/SiteAccessGate.css`, `frontend/src/services/api.js`, `frontend/src/main.jsx`
+- Frontend regression coverage: `frontend/tests/siteAccessFetch.test.js`
+- Crawler controls: `frontend/index.html`, `frontend/public/robots.txt`; removed `frontend/public/sitemap.xml`
+- Change documentation
+
+### Impact assessment
+- **API:** adds `GET /api/site-access/status` and `POST /api/site-access/unlock`; all existing application and authentication routes require the new `X-Site-Access-Token` header only while the gate is enabled. The health and service-root endpoints remain compatible.
+- **Database:** no schema, migration, seed, record, or query-model change. Gate status, unlock, and token verification do not access Prisma.
+- **Configuration:** the Hostinger backend receives `SITE_ACCESS_ENABLED=true` and a strong `SITE_ACCESS_PASSWORD`; the existing `JWT_SECRET` signs the short-lived outer token. No password belongs in the frontend configuration or repository.
+- **Security:** password validation is server-side, comparisons are constant-time, failed attempts are rate-limited, tokens have constrained claims and expiry, and API enforcement prevents a visitor from bypassing the React screen to access protected operations. Existing account authentication remains mandatory afterward.
+- **Privacy:** no tester password or new personal information is stored in the database, browser bundle, application logs, or change documentation. The browser retains only a short-lived signed access token for its session.
+- **Accessibility/UX:** the gate has a labelled password field, visible loading and error states, keyboard-operable controls, alert/status announcements, responsive layout, and reduced-motion accommodation.
+- **Deployment:** both the Hostinger backend and frontend must redeploy. Configure the backend variables before setting the enable flag and test the backend first; the frontend deliberately fails closed when access verification is unavailable.
+- **Approved scope:** the change only restricts deployment access. Billing and official payroll-list generation behavior is unchanged; no payment release, claiming, disbursement confirmation, reconciliation, or monetary-audit functionality was added.
+
+### Validation performed and results
+- Backend suite: 155 discovered, 154 passed, zero failed, one intentionally skipped opt-in database migration test.
+- New backend tests cover opt-in behavior, constant-time-compatible password matching, signed-token constraints, disabled-gate pass-through, missing-token rejection, and valid-token acceptance.
+- Frontend suite: all 23 tests passed, including API-only token attachment, unrelated-origin exclusion, expired-token removal, and gate-required event delivery.
+- Frontend ESLint passed.
+- Production Vite build passed and generated all 11 Hostinger client-route fallback documents; the existing large ExcelJS chunk advisory remains non-blocking.
+- New backend files and `server.js` passed Node syntax checks.
+- `git diff --check` passed with only informational Windows line-ending notices.
+- No hosted environment, database, DNS record, or secret was changed during local validation.
+
+### Known limitations, rollback considerations, and recommended next work
+The frontend remains a static download, so determined visitors can still retrieve non-secret HTML, JavaScript, styles, and public images; authoritative API enforcement is what protects system functions and data. The root API identity and `/api/health` status remain public for operations, while all business/authentication routes are gated. Search directives do not erase old search caches, and any surviving Vercel deployment must still be disconnected or deleted separately.
+
+Deploy the backend first with `SITE_ACCESS_ENABLED=true` and a unique 12-256 character shared password, then deploy the frontend and test an incognito browser: the gate should appear, a wrong password should fail, the correct password should reveal the ordinary portal, and individual account login should still be required. Do not reuse any administrator, database, email, or hosting password. Rotate the shared value in Hostinger and restart the backend if it becomes exposed; already issued outer tokens remain valid for at most 12 hours unless `JWT_SECRET` is rotated, which would also invalidate individual account sessions. To disable the gate, set `SITE_ACCESS_ENABLED=false` and restart the backend; restoring public indexing additionally requires reverting the no-index/robots changes and regenerating a sitemap. Rollback can remove the gate components, middleware, routes, tests, and configuration without changing stored application data.
+
+## 2026-09-30 - Remove Render's Database-Backed HTTP Health Probe
+
+### TL;DR
+- Removed `healthCheckPath: /api/health` from the Render Blueprint so routine platform probes no longer execute the endpoint's Prisma `SELECT 1` query every few seconds.
+- Render can fall back to its default TCP service probe, retaining process/port availability monitoring without a database operation per probe.
+- The existing `/api/health` diagnostic endpoint remains available to the administrator System Health view on its visibility-aware five-minute interval and for manual checks.
+- No API contract, schema, records, permissions, privacy controls, or scholarship workflow changed; configuration inspection and whitespace validation passed.
+
+### Objective and reason
+Reduce avoidable Prisma Postgres operation consumption. Render's configured HTTP health check called `/api/health` every few seconds, and that endpoint deliberately runs `SELECT 1` to report database connectivity. Prisma Postgres counts even `SELECT 1` as an operation, so platform monitoring could consume thousands of operations per day without user traffic.
+
+### Previous and new behavior
+Previously, `render.yaml` instructed Render to use `/api/health` for recurring HTTP health checks. Every probe therefore exercised the database. The Blueprint no longer selects an HTTP health-check path. Render's default behavior is a TCP probe against the service port, which verifies that the web process accepts connections without calling the application endpoint or database.
+
+The `/api/health` route itself is intentionally retained. The authenticated administrator interface's System Health panel can still request it initially, every five minutes while visible, or manually, preserving database-aware diagnostics at a controlled frequency.
+
+### Affected roles and workflows
+There is no user-facing workflow change. Administrators retain the System Health diagnostic. Applicants, Scholars, public visitors, and CAO processing roles are unaffected. Billing and official payroll-list generation are unchanged; no payment release, claiming, disbursement, reconciliation, or monetary-audit functionality is involved.
+
+### Implementation and data flow
+The single `healthCheckPath` property was removed from the Render web-service definition. No server route was removed and no client request contract changed. After the Blueprint is synchronized, Render should probe the listening TCP port instead of making recurring `GET /api/health` requests; administrator-initiated health requests continue to reach Express and perform the existing database check.
+
+### Files and system areas changed
+- `render.yaml`
+- `change_log.txt`
+- `docs/development-change-log.md`
+
+### Impact assessment
+- **API:** no endpoint, response, authorization, or payload change; `/api/health` remains public and operational.
+- **Database:** no schema, migration, seed, write, or record change. Expected read-operation volume decreases after Render stops calling the database-backed endpoint.
+- **Configuration/deployment:** Render Blueprint configuration changed. A Blueprint sync/deployment and verification of the service's Health Check setting are required.
+- **Security:** TCP monitoring is less comprehensive than a database-aware readiness probe, but application authorization, CORS, rate limits, and data access controls are unchanged. Database health remains observable through the existing controlled diagnostic.
+- **Privacy:** no personal information is added, removed, transmitted, or logged.
+- **Accessibility and UX:** no interface change.
+- **Approved scope:** no scholarship processing boundary or legacy payment-oriented behavior changed.
+
+### Validation performed and results
+- Inspected `render.yaml` and confirmed no `healthCheckPath` remains.
+- Confirmed the existing Express `/api/health` endpoint and administrator diagnostic remain unchanged.
+- `git diff --check` passed.
+- No database or hosted service was contacted or modified during local validation.
+
+### Known limitations, rollback considerations, and recommended next work
+Removing the Blueprint property does not itself prove that an already-running Render service has applied the new setting. Synchronize the Blueprint, then open the Render service's **Settings > Health Check** area and confirm no HTTP path remains; clear it manually if the dashboard retained the prior value. Monitor Prisma Query Insights after deployment: the recurring `SELECT 1` slope should fall substantially, while occasional administrator diagnostic queries remain expected. Rollback is a one-line restoration of `healthCheckPath: /api/health`, but doing so restores the frequent database operations. If database-aware automated readiness is later required, use a deliberately lower-frequency external monitor rather than Render's every-few-seconds probe.
+
 ## 2026-09-30 - Visibility-Aware Database Polling Reduction
 
 ### TL;DR
