@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
 import CsvExportModal from './components/CsvExportModal';
+import PayrollSchoolIdentity from './components/PayrollSchoolIdentity';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
 import { clearProcessingHandoff, readProcessingHandoff } from './utils/processingHandoff';
 import { canQueueForProcessing, isVisibleInProcessingMode } from './utils/processingVisibility';
@@ -371,6 +372,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   };
 
   const openBillingEditor = (record) => {
+    if (isPayroll) return;
     setBillingEditor(record);
     setBillingForm({
       ...billingSchoolSelection(record, availableSchools),
@@ -385,7 +387,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
 
   const saveBillingDetails = async (event) => {
     event.preventDefault();
-    if (!billingEditor || billingSaving) return;
+    if (isPayroll || !billingEditor || billingSaving) return;
     setBillingSaving(true);
     setBillingEditError('');
     try {
@@ -596,8 +598,8 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
                   <div className="billing-source-status">
                     <span className={`billing-queue-ready ${canOverride ? 'override' : canMove ? '' : 'archived'}`}>{statusLabel}</span>
                     {!isPayroll && !record.isArchivedPeriod && !record.billed && <button type="button" onClick={() => openBillingEditor(record)} aria-label={`Edit billing details for ${record.name}`}><Pencil size={12} />Edit</button>}
-                    {isPayroll && userRole === 'SuperAdmin' && record.schoolType === 'Unclassified' && !record.isArchivedPeriod && !record.inPayroll && <button type="button" onClick={() => openBillingEditor(record)} aria-label={`Use saved school details for ${record.name}`}><Pencil size={12} />{billingSchoolSelection(record, availableSchools).schoolId === SAVED_SCHOOL_VALUE ? 'Use saved school' : 'Select school'}</button>}
                   </div>
+                  {isPayroll && <PayrollSchoolIdentity record={record} />}
                 </div>;
               })}
             </div>
@@ -655,7 +657,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
           <footer><button type="button" className="secondary" onClick={closeBillingOverride}>Cancel</button><button type="button" className="primary" onClick={confirmBillingOverride} disabled={overrideReason.trim().length < 10}>Authorize override</button></footer>
         </section>
       </div>}
-      {billingEditor && <div className="billing-override-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !billingSaving && setBillingEditor(null)}>
+      {!isPayroll && billingEditor && <div className="billing-override-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !billingSaving && setBillingEditor(null)}>
         <section className="billing-override-modal billing-details-modal" role="dialog" aria-modal="true" aria-labelledby="billing-details-title">
           <header>
             <i><Pencil size={20} /></i>

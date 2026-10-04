@@ -88,6 +88,32 @@ test('listing and generation both resolve a Public planned school when direct ID
   assert.equal((await generate()).statusCode, 201);
 });
 
+test('Payroll ignores client-supplied school overrides and uses the specific scholar database record', async () => {
+  const { writes } = setup({ schoolType: 'private', periodSchoolId: 1, tuitionReceipt: true });
+  const res = response();
+  await processPayrollSelection({
+    body: { academicPeriodId: 10, applicantIds: [1], schoolId: 999, schoolType: 'Public' },
+    user: { id: 99, role: 'SuperAdmin' },
+  }, res);
+  assert.equal(res.statusCode, 409);
+  assert.ok(res.body.ineligible[0].reasons.some(({ code }) => code === 'PRIVATE_SCHOOL_BILLING_ROUTE'));
+  assert.equal(writes.length, 0);
+});
+
+test('automatic Payroll identification does not borrow another selected scholar school', async () => {
+  const { writes } = setup();
+  prisma.scholar_accounts.findMany = async () => [1, 2].map((applicant_id) => ({ applicant_id, is_active: true }));
+  prisma.applicants.findMany = async () => [{ id: 1, school_id: 1 }, { id: 2, school_id: null }];
+  const firstApplication = (await prisma.application_submissions.findMany())[0];
+  prisma.application_submissions.findMany = async () => [firstApplication, { ...firstApplication, id: 2, applicant_id: 2, school_plan: {} }];
+  const res = response();
+  await processPayrollSelection({ body: { academicPeriodId: 10, applicantIds: [1, 2] }, user: { id: 99, role: 'SuperAdmin' } }, res);
+  assert.equal(res.statusCode, 409);
+  assert.deepEqual(res.body.ineligible.map(({ applicantId }) => applicantId), [2]);
+  assert.ok(res.body.ineligible[0].reasons.some(({ code }) => code === 'SCHOOL_CLASSIFICATION_MISSING'));
+  assert.equal(writes.length, 0);
+});
+
 test('the exact missing-classification failure returns school correction, never a tuition receipt request', async () => {
   const { writes } = setup({ applicantSchoolId: null, periodSchoolId: null, plannedSchool: 'UNKNOWN SCHOOL' });
   const record = await list();

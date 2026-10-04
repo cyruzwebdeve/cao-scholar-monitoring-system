@@ -5,6 +5,51 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-05 - Automatic Recorded School Identification in Payroll
+
+### TL;DR
+- Replaced Payroll's manual school-selection action with a read-only, per-scholar school identity resolved from existing database records.
+- Payroll staff see the school and classification automatically; unresolved records show correction guidance and remain ineligible. Billing's editor and search filters are unchanged.
+- No database writes, migrations, API changes, or post-payroll-list workflows were introduced; the existing server-side school resolver remains authoritative.
+- All 28 frontend tests, 46 targeted backend tests, frontend lint and production build passed. No live database or browser verification, push, or deployment was performed.
+
+### Objective and reason
+Remove school re-entry from Payroll so staff rely on each scholar's recorded academic information rather than assigning schools while preparing the official list.
+
+### Previous and new behavior; affected roles and workflows
+Previously, SuperAdmin could open the shared Billing editor from an unclassified Payroll row using `Select school` or `Use saved school`. Payroll now has no school-assignment action for any role. Its rows display the recorded school and an automatic-identification/classification label, or a visible explanation to correct the scholar record or School Catalog. Missing data is not guessed or silently classified as Public.
+
+SuperAdmin, RegularAdmin and Billing/Payroll Admin users with Payroll access receive the read-only display. Existing eligibility, document approval, Public-only routing, duplicate-list protections, transfer queue and official workbook generation remain unchanged. Billing retains its school editor. The School quick filter is retained solely to filter displayed records, not assign a scholar's school. Scholar and applicant portals are unchanged.
+
+### Implementation and data flow
+The existing authenticated scholar-management response supplies each row's `schoolId`, `school` and `schoolType`. The existing shared backend resolver prioritizes the selected-period school link, applicant school link, normalized saved application school name, then compatible scholar-specific history. Payroll processing independently resolves each selected scholar from the database; it does not accept a client-selected school. No resolver rewrite or new catalog-write request is needed.
+
+`PayrollSchoolIdentity` renders escaped text, checks for a resolved ID/name/classification before describing identification as complete, and presents unresolved-record guidance outside the disabled scholar-selection button. The editor's open/save handlers and modal are explicitly gated out of Payroll mode. Existing visible refresh behavior picks up saved record/catalog corrections.
+
+### Files and system areas changed
+- `frontend/src/BillingPayrollManagement.jsx`: remove Payroll school assignment, render identity, guard shared editor.
+- `frontend/src/components/PayrollSchoolIdentity.jsx`: read-only school presentation and missing-data guidance.
+- `frontend/src/styles/admin.css`: wrapped school information below the scholar name/status row.
+- `frontend/tests/payrollSchoolIdentity.test.js`: rendered-component tests and editor-isolation source assertions.
+- `backend/tests/payrollProcessing.test.js`: client-override rejection and cross-scholar isolation regressions against the existing controller using an in-memory database facade.
+- `change_log.txt` and this detailed log: matching dated documentation.
+
+### Impact assessment
+- **API/database:** no contract, endpoint, schema, migration, stored school assignment, or classification changes. No live database operation was performed.
+- **Configuration/deployment:** no dependency or application configuration changes. Uses existing React/Vite test/build dependencies; normal frontend deployment is required to publish the change. No push/deployment performed.
+- **Security/privacy:** existing authorization and server eligibility enforcement retained. School identity uses existing authorized data and React escaping; no new personal fields or external transmissions. Read-only presentation is not treated as a substitute for backend enforcement.
+- **Accessibility/UX:** school information is ordinary readable text with a scholar-specific accessible label, wrapping long names; correction guidance is visible without hovering or opening a modal. Manual school assignment is removed only from Payroll.
+- **Approved scope/legacy:** workflow still ends at official payroll-list generation. Existing payment-oriented filters/export metadata and legacy structures/functions are retained unchanged outside approved scope; no release, claiming, disbursement, reconciliation or monetary auditing is enabled.
+
+### Validation and results
+- Frontend `node --test tests/*.test.js`: **28/28 passed**, including five new rendered-display/editor-isolation checks, missing schools, unknown classifications, escaped names and separate scholar identities.
+- Backend `node --test tests/payrollProcessing.test.js tests/scholarSchool.test.js tests/lifecycleIntegrity.test.js`: **46/46 passed**, including saved ID/name/history resolution, period precedence, unknown schools, Private-school rejection, duplicate prevention, injected school overrides and per-scholar isolation.
+- Frontend `npm.cmd run lint` and `npm.cmd run build`: passed. Build retains the existing large-chunk warning for the ExcelJS bundle. `npm.cmd` was used because PowerShell blocks the `npm.ps1` wrapper; no execution policy was changed.
+- No live database, browser interaction, or visual viewport testing was performed; component markup was exercised with Vite SSR and React server rendering.
+
+### Limitations, rollback and recommended next work
+Automatic identification cannot repair absent or inconsistent saved records/catalog classifications; administrators must correct those source records through existing management workflows. Existing historical-resolution/export behavior is unchanged; this is not a school-history migration or historical snapshot backfill. Verify desktop/mobile Payroll rows and a normal official-list download in a test environment before publishing. Rollback consists of reverting this change's frontend component, integration and CSS plus associated tests/docs; no database rollback is required. Preserve unrelated working-tree changes.
+
 ## 2026-10-01 - Distinguish Tester Access Code from Account Passwords
 
 ### TL;DR

@@ -6984,6 +6984,8 @@
 .billing-queue-ready.archived { background: #eef1ef; color: #6f7b73; }
 .billing-queue-ready.override { background: #fff0d9; color: #a45f0b; }
 .billing-source-status { display: grid; justify-items: start; gap: 4px; }
+.payroll-school-identity { grid-column: 2 / -1; display: grid; gap: 3px; min-width: 0; padding: 0 8px 8px 0; color: #485b4f; font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
+.payroll-school-identity strong { font-weight: 700; }
 .billing-source-status > button { display: inline-flex; align-items: center; gap: 3px; padding: 0; border: 0; background: transparent; color: #25764b; font: inherit; font-size: 7px; font-weight: 900; cursor: pointer; }
 .billing-queue-empty { min-height: 190px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; padding: 20px; color: #8c9890; font-size: 8px; text-align: center; }
 .billing-queue-empty strong { color: #485b4f; font-size: 10px; }
