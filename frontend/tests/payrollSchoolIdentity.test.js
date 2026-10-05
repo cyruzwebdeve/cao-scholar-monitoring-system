@@ -21,21 +21,18 @@ after(async () => { await server?.close(); });
 
 const render = (record) => renderToStaticMarkup(createElement(PayrollSchoolIdentity, { record: { name: 'TEST SCHOLAR', ...record } }));
 
-test('Payroll shows the saved school and classification as read-only text', () => {
+test('Payroll shows only the saved school as read-only text without a classification subtitle', () => {
   const html = render({ schoolId: 1, school: 'TEST PUBLIC SCHOOL', schoolType: 'Public' });
   assert.match(html, /TEST PUBLIC SCHOOL/);
-  assert.match(html, /Auto-identified · Public/);
   assert.match(html, /Recorded school for TEST SCHOLAR/);
-  assert.doesNotMatch(html, /<select|<button|<input|Select school|identification incomplete/);
+  assert.doesNotMatch(html, /<select|<button|<input|<span|Select school|Auto-identified|identification incomplete/);
 });
 
-test('unmatched and unclassified saved schools show correction guidance, never a manual selector', () => {
+test('unmatched and unclassified saved schools retain their name without extra subtitles', () => {
   for (const schoolId of [null, 1]) {
     const html = render({ schoolId, school: 'TEST UNKNOWN SCHOOL', schoolType: 'Unclassified' });
     assert.match(html, /TEST UNKNOWN SCHOOL/);
-    assert.match(html, /School identification incomplete/);
-    assert.match(html, /correct the scholar record or School Catalog/);
-    assert.doesNotMatch(html, /Auto-identified|<select|<button|<input/);
+    assert.doesNotMatch(html, /Auto-identified|School identification incomplete|School Catalog|<select|<button|<input|<span/);
   }
 });
 
@@ -53,8 +50,15 @@ test('school display is record-specific and safely escapes database text', () =>
   const second = render({ schoolId: 2, school: '<SECOND SCHOOL>', schoolType: 'Private' });
   assert.doesNotMatch(first, /SECOND SCHOOL/);
   assert.match(second, /&lt;SECOND SCHOOL&gt;/);
-  assert.match(second, /Auto-identified · Private/);
+  assert.doesNotMatch(second, /Auto-identified|Private/);
   assert.doesNotMatch(second, /FIRST SCHOOL/);
+});
+
+test('Payroll name rows hide the email subtitle while Billing keeps its existing subtitle', async () => {
+  const source = await readFile(new URL('../src/BillingPayrollManagement.jsx', import.meta.url), 'utf8');
+  assert.match(source, /<strong>\{record.name\}<\/strong>\{!isPayroll && <small>\{isSelected \? 'Selected' : canOverride \? 'Click to authorize override' : record.email\}<\/small>\}/);
+  assert.match(source, /aria-pressed=\{isSelected\}/);
+  assert.match(source, /\{statusLabel\}<\/span>/);
 });
 
 test('Payroll cannot open, save, or render the shared Billing school editor', async () => {

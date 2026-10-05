@@ -5,6 +5,46 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-05 - Simplify Payroll Scholar Identity to Name and School
+
+### TL;DR
+- Payroll's scholar identity now displays only the name and recorded school, removing the email and automatic-identification/classification subtitle.
+- Staff retain the control number, readiness badge, selection state and existing eligibility checks; Billing's subtitles are unchanged.
+- No API, database, school-resolution or workflow change. Missing schools retain a concise placeholder; no payment-oriented functionality is changed or enabled.
+- All 29 frontend tests, lint, production build and whitespace validation passed. This refinement is local and has not been deployed.
+
+### Objective and reason
+Reduce crowding in the Payroll list in response to the user's screenshot and request for name-and-school-only identity information.
+
+### Previous and new behavior; affected users and workflows
+Previously each source row displayed the scholar name, email, school and an automatic-identification/classification subtitle; unresolved schools also had an additional guidance paragraph. Payroll now suppresses the name's secondary email/selection caption and renders only the recorded school beneath the name. Missing data displays `No school recorded`; the existing status badge and readiness tooltip still explain eligibility blockers. All email providers are treated alike, not only Gmail addresses.
+
+Staff using Payroll see the simplified identity. Control numbers, status badges, selectable-row styling, accessible pressed state, filters, queue processing and official-list exports remain intact. Billing keeps its existing email/override/selection captions. Applicant and scholar portals are unaffected.
+
+### Implementation and data flow
+`BillingPayrollManagement` renders the name's secondary caption only outside Payroll mode. `PayrollSchoolIdentity` retains the saved school name and accessible scholar-specific label, but removes classification presentation and expanded guidance. The backend still resolves and validates each scholar's school from recorded data; hiding display subtitles does not change processing eligibility or introduce manual assignment.
+
+### Files and system areas changed
+- `frontend/src/BillingPayrollManagement.jsx`: scope the secondary name caption to Billing.
+- `frontend/src/components/PayrollSchoolIdentity.jsx`: render school text only.
+- `frontend/tests/payrollSchoolIdentity.test.js`: update rendered-component assertions and add Payroll-only email-caption isolation coverage.
+- `change_log.txt` and this detailed log: matching dated summaries.
+
+### Impact assessment
+- **API/database:** no impact; no requests, contracts, schema, data, classifications or stored email values changed.
+- **Configuration/deployment:** no impact to dependencies, configuration or hosting. Local frontend output rebuilt; no commit, push or deployment performed for this refinement.
+- **Security/privacy:** existing authorization and fail-closed eligibility retained. Email is removed only from Payroll's row display, not deleted or removed from existing authorized API responses/search/export capabilities. No new personal data exposed.
+- **Accessibility/UX:** fewer visible lines; school label, readable missing-school placeholder, keyboard selection and `aria-pressed` retained. Existing status badge/tooltip remains; expanded inline school-correction guidance is intentionally removed.
+- **Scope/legacy:** official payroll-list generation remains the endpoint. Legacy payment-oriented code, filters and export metadata are retained unchanged outside approved scope; no disbursement, claiming, release, reconciliation or monetary auditing introduced.
+
+### Validation and results
+- Frontend `node --test tests/*.test.js`: **29/29 passed**, including school-only rendering, unknown/missing-school cases, escaped names, Payroll-only email-caption suppression, retained Billing caption and school-editor guards.
+- `npm.cmd run lint`, `npm.cmd run build` and `git diff --check`: passed. Build retains the existing large ExcelJS chunk warning.
+- No live browser, authenticated interaction, database testing or production deployment performed for this presentation-only refinement.
+
+### Limitations, rollback and recommended next work
+The live deployment remains at the previous release until this refinement is published. Review the compact rows after deployment, including unresolved schools. Revert only this refinement's component/integration/test edits to restore the previous subtitles; no database rollback required. Preserve unrelated working-tree changes.
+
 ## 2026-10-05 - Automatic Recorded School Identification in Payroll
 
 ### TL;DR
