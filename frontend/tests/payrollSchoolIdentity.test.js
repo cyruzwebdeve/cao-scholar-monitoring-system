@@ -61,6 +61,14 @@ test('Payroll name rows hide the email subtitle while Billing keeps its existing
   assert.match(source, /\{statusLabel\}<\/span>/);
 });
 
+test('tighter name spacing is scoped to the Payroll source table', async () => {
+  const source = await readFile(new URL('../src/BillingPayrollManagement.jsx', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../src/styles/admin.css', import.meta.url), 'utf8');
+  assert.match(source, /isPayroll \? ' payroll-source-table' : ''/);
+  assert.match(css, /\.payroll-source-table \.billing-queue-name \{ min-height: 32px; \}/);
+  assert.match(css, /\.billing-queue-row > button \{ min-height: 40px;/);
+});
+
 test('Payroll cannot open, save, or render the shared Billing school editor', async () => {
   const source = await readFile(new URL('../src/BillingPayrollManagement.jsx', import.meta.url), 'utf8');
   assert.match(source, /const openBillingEditor = \(record\) => \{\s+if \(isPayroll\) return;/);

@@ -5,6 +5,35 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-05 - Tighten Payroll Name-to-School Spacing
+
+### TL;DR
+- Reduced the vertical space between scholar names and schools in Payroll's source list.
+- Only Payroll's source name button changes from a 40px to a 32px minimum height; Billing and the target queue retain their existing spacing.
+- No data, school resolution, eligibility or workflow changes. Selection semantics and focus styling remain intact.
+- All 30 frontend tests, lint, production build and whitespace checks passed. This refinement has not been deployed.
+
+### Objective and previous/new behavior
+The user requested a slightly smaller name-to-school gap. The shared 40px name-button minimum left extra space above the separate school line. A Payroll-only 32px minimum modestly reduces that gap without negative margins or overlapping content. Names, schools, status badges and control numbers are unchanged.
+
+### Roles, workflows, implementation and files
+Staff with Payroll access see the tighter source rows. `frontend/src/BillingPayrollManagement.jsx` adds `payroll-source-table` only in Payroll mode; `frontend/src/styles/admin.css` scopes the smaller button height to that table. Billing and target-queue styling are unaffected. `frontend/tests/payrollSchoolIdentity.test.js` adds a scoping regression check. Both change logs document this refinement. No data flow or processing logic changed.
+
+### Impact assessment
+- **API/database:** no impact; no API, schema, stored record, school classification or database operation changes.
+- **Configuration/deployment:** no impact to dependencies, environment or hosting settings; no commit, push or deployment performed.
+- **Security/privacy:** no impact; authorization, eligibility and visible fields remain unchanged. No personal information added to documentation.
+- **Accessibility/UX:** slightly closer name/school text; 32px minimum name-button height retains focus styling, keyboard operation and accessible pressed state. No negative margins or overlapping controls introduced.
+- **Scope/legacy:** official payroll-list generation remains the endpoint. Legacy payment-oriented functionality remains unchanged outside approved scope; no release, claiming, disbursement, reconciliation or monetary auditing added.
+
+### Validation and results
+- All 30 frontend tests passed, including the new Payroll-only spacing check and existing display/eligibility tests.
+- Frontend `npm.cmd run lint`, `npm.cmd run build` and `git diff --check` passed; the existing large ExcelJS chunk warning remains.
+- No live browser or production visual verification performed.
+
+### Limitations, rollback and next work
+Local refinement only; the live site remains unchanged until deployment. Check the reduced spacing in the browser when publishing, including long school names. Revert the Payroll-specific class and CSS rule plus its regression check to restore the previous spacing; no database rollback is required. Preserve unrelated local work.
+
 ## 2026-10-05 - Simplify Payroll Scholar Identity to Name and School
 
 ### TL;DR

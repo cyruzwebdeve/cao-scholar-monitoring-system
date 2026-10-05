@@ -575,7 +575,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
             <div><strong>List of Scholars</strong><small>{sourceRecords.length} filtered record{sourceRecords.length === 1 ? '' : 's'}</small></div>
             <span><button type="button" onClick={() => setSourceSelection(movableSourceRecords.map(({ applicantId }) => applicantId))} disabled={!movableSourceRecords.length}>Select movable</button><button type="button" onClick={() => setSourceSelection([])} disabled={!sourceSelection.length}>Clear</button></span>
           </header>
-          <div className="billing-queue-table billing-source-table">
+          <div className={`billing-queue-table billing-source-table${isPayroll ? ' payroll-source-table' : ''}`}>
             <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>Status</span></div>
             <div className="billing-queue-table-body">
               {loading && !records.length && <div className="billing-queue-empty"><span className="scholars-spinner" />Loading scholars…</div>}
