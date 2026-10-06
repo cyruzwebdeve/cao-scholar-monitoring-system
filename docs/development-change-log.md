@@ -5,6 +5,34 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-06 - Shared Billing and Payroll Name-and-School Layout
+
+### TL;DR
+- Billing now uses Payroll's compact source-row identity: scholar name and recorded school, without email or classification subtitles.
+- Both source lists share the 32px name-button spacing; Billing Edit, requirement overrides, status badges and accessible selection remain intact.
+- No API, database, eligibility, grant or school-assignment changes. Workflow remains limited to certification/payroll-list generation.
+- All 34 frontend tests, lint, production build and whitespace checks passed. Deployment outcome will be recorded after publication; unrelated local work is excluded.
+
+### Objective and previous/new behavior
+Apply the existing Payroll identity layout to Billing and publish it for user testing. Previously Billing displayed the name plus an email/selection/override caption, while only Payroll displayed the recorded school underneath with tighter spacing. Both source lists now show name and school only in the identity area. Missing schools retain `No school recorded`; control numbers, readiness badges and Edit/Override behavior are unchanged. The target queues retain their existing layout and selection/override captions.
+
+### Roles, implementation, data flow and changed files
+Staff with Billing access receive the new layout; Payroll staff retain their existing compact display. `BillingPayrollManagement.jsx` renders the school component unconditionally in shared source rows and removes the email caption. The renamed `ScholarSchoolIdentity.jsx` reuses the authorized API record's school text without extra requests or writes. `admin.css` applies the existing 32px minimum to both source lists and renames the shared school style; the 40px target-queue baseline remains unchanged. `scholarSchoolIdentity.test.js` replaces the Payroll-named test file and covers both modes, school placeholders, escaping, editor isolation and retained controls. Both change logs document the release.
+
+### Impact assessment
+- **API/database:** no impact to endpoints, payloads, schema, stored school/email values or queries; no migration or manual data operation.
+- **Configuration/deployment:** no dependency, environment or hosting-setting changes. Publish through the existing main-branch pipeline; release status will be recorded after verification.
+- **Security/privacy:** authorization and eligibility/override checks unchanged. Email is hidden in Billing source rows only, not removed from authorized API responses, search or exports. No credentials or personal data added to documentation.
+- **Accessibility/UX:** shared readable school text, wrapping, school-specific accessible label, keyboard focus and `aria-pressed` retained. Status, click-to-override behavior and Billing Edit remain available; only redundant identity captions are removed.
+- **Scope/legacy:** official list generation remains the endpoint. Legacy payment-oriented code/labels remain retained unchanged outside scope; no release, claiming, disbursement, reconciliation or monetary auditing introduced.
+
+### Validation and results
+- All 34 frontend tests passed, including the new Private-school display case, shared source-row integration, spacing scoping, preserved Billing editor and existing requirement-override eligibility checks.
+- Frontend lint, production build and whitespace validation passed; the existing large ExcelJS chunk warning remains. No live authenticated test performed.
+
+### Limitations, rollback and next work
+Visual rendering with real authenticated Billing rows is left for the user's requested testing; no live scholar records are accessed or edited by verification. Check normal, long-school-name and incomplete-requirement rows after deployment. Revert only this layout release to restore Billing's prior captions and spacing, including the component/test rename; no database rollback required. Preserve unrelated local changes.
+
 ## 2026-10-06 - Authorized Payroll Requirement Override
 
 ### TL;DR

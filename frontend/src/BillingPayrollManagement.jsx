@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
 import CsvExportModal from './components/CsvExportModal';
-import PayrollSchoolIdentity from './components/PayrollSchoolIdentity';
+import ScholarSchoolIdentity from './components/ScholarSchoolIdentity';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
 import { clearProcessingHandoff, readProcessingHandoff } from './utils/processingHandoff';
 import { canOverrideForProcessing, canQueueForProcessing, isVisibleInProcessingMode } from './utils/processingVisibility';
@@ -572,7 +572,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
             <div><strong>List of Scholars</strong><small>{sourceRecords.length} filtered record{sourceRecords.length === 1 ? '' : 's'}</small></div>
             <span><button type="button" onClick={() => setSourceSelection(movableSourceRecords.map(({ applicantId }) => applicantId))} disabled={!movableSourceRecords.length}>Select movable</button><button type="button" onClick={() => setSourceSelection([])} disabled={!sourceSelection.length}>Clear</button></span>
           </header>
-          <div className={`billing-queue-table billing-source-table${isPayroll ? ' payroll-source-table' : ''}`}>
+          <div className="billing-queue-table billing-source-table">
             <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>Status</span></div>
             <div className="billing-queue-table-body">
               {loading && !records.length && <div className="billing-queue-empty"><span className="scholars-spinner" />Loading scholars…</div>}
@@ -589,13 +589,13 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
                 const unavailableReason = record.billingEligibilityReasons?.[0]?.message;
                 return <div className={`billing-queue-row ${isSelected ? 'selected' : ''} ${canMove || canOverride ? '' : 'archived'} ${canOverride ? 'override-available' : ''}`} key={record.id}>
                   <code>{record.controlNumber || '—'}</code>
-                  <button type="button" className="billing-queue-name" aria-pressed={isSelected} disabled={!canMove && !canOverride} title={canMove ? `Select ${record.name}` : canOverride ? `Override ${mode} eligibility for ${record.name}` : unavailableReason || `${record.name} cannot be moved again.`} onClick={() => canMove ? toggleSelection(setSourceSelection, record.applicantId) : openProcessingOverride(record)}><strong>{record.name}</strong>{!isPayroll && <small>{isSelected ? 'Selected' : canOverride ? 'Click to authorize override' : record.email}</small>}</button>
+                  <button type="button" className="billing-queue-name" aria-pressed={isSelected} disabled={!canMove && !canOverride} title={canMove ? `Select ${record.name}` : canOverride ? `Override ${mode} eligibility for ${record.name}` : unavailableReason || `${record.name} cannot be moved again.`} onClick={() => canMove ? toggleSelection(setSourceSelection, record.applicantId) : openProcessingOverride(record)}><strong>{record.name}</strong></button>
                   <div className="billing-source-status">
                     <span className={`billing-queue-ready ${canOverride ? 'override' : canMove ? '' : 'archived'}`}>{statusLabel}</span>
                     {isPayroll && canOverride && <button type="button" onClick={() => openProcessingOverride(record)} aria-label={`Override payroll eligibility for ${record.name}`}><ShieldAlert size={12} />Override</button>}
                     {!isPayroll && !record.isArchivedPeriod && !record.billed && <button type="button" onClick={() => openBillingEditor(record)} aria-label={`Edit billing details for ${record.name}`}><Pencil size={12} />Edit</button>}
                   </div>
-                  {isPayroll && <PayrollSchoolIdentity record={record} />}
+                  <ScholarSchoolIdentity record={record} />
                 </div>;
               })}
             </div>
