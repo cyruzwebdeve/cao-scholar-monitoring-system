@@ -5,6 +5,50 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-06 - Authorized Payroll Requirement Override
+
+### TL;DR
+- Super Administrators and Billing/Payroll Administrators can use a row-level Override action to move incomplete Public-school scholars into For Payroll after supplying a reason.
+- Only missing or unapproved requirements may be overridden; inactive/unavailable scholars, unknown or Private schools, and existing period membership remain blocked by the server.
+- Reasons are saved with generated list records; document approvals and payment states are not changed. No schema migration, live data operation, or deployment was performed.
+- Validation: 178 backend tests passed (one skipped), all 33 frontend tests passed, backend syntax and production build passed; lint verification is recorded below.
+
+### Objective and previous/new behavior
+The Payroll source list previously disabled incomplete scholars with no exception path, although Billing already supported reasoned overrides. Authorized staff now see Override available and an explicit Override button on eligible exception candidates. The dialog lists the failed checks and requires a normalized 10–500-character reason. Authorizing moves the scholar directly to For Payroll, marked Eligibility override. Normal Select movable and bulk-transfer controls still select only normally eligible scholars; they do not silently authorize exceptions.
+
+### Roles, workflows, implementation and data flow
+Only SuperAdmin and BillingPayrollAdmin may authorize exceptions; RegularAdmin retains normal list generation where existing section permissions allow it. Existing authentication and Payroll section-access middleware remain in force. Shared frontend eligibility checks require an active, current-period scholar on the correct school route with exclusively requirement-readiness blockers. Removing a queued scholar, clearing the queue, completing generation, or changing periods clears the corresponding local reasons; changing periods also closes the dialog.
+
+The existing POST /payroll/process endpoint now accepts optional payrollOverrides entries containing a selected numeric applicantId and string reason. The server validates role, array shape, membership, uniqueness and reason length, then independently reloads school, scholar and period eligibility. It refuses the entire batch if any hard blocker remains. The shared exception evaluator still permits only REQUIREMENT_MISSING and REQUIREMENT_NOT_APPROVED. A stale reason for a now-eligible scholar is not persisted as an applied override.
+
+List membership and its reason are written together using the existing transaction and payroll_claims.notes column; the batch retains prepared_by and prepared_at. The response adds overrideCount. The existing PAYROLL_LIST_GENERATED operational activity entry reports the applied count without including the free-text reason. Public list amounts remain PHP 3,000, batch status remains generated, and membership status remains listed. Billing retains its existing request field and reasoned exception behavior, with the UI now also screening hard blockers before offering an exception.
+
+### Files and system areas changed
+- frontend/src/BillingPayrollManagement.jsx: shared mode-aware dialog, Payroll row action, queue reasons and request payload.
+- frontend/src/utils/processingVisibility.js: role-aware, requirement-only override visibility.
+- backend/controllers/applicationController.js: Payroll request validation, independent eligibility enforcement, unavailable-applicant guard, reason persistence and operational activity description.
+- backend/services/lifecycleIntegrity.js: mode-aware shared override message; allowed reason codes are unchanged.
+- backend/tests/payrollProcessing.test.js and frontend/tests/processingVisibility.test.js: positive and negative regression coverage.
+- change_log.txt and this document: matching dated records. Unrelated existing local work is retained.
+
+### Impact assessment
+- **API:** optional payrollOverrides request field, overrideCount response field, and overrideErrors on blocked candidates. Existing requests without overrides retain normal readiness checks.
+- **Database:** no schema/migration/backfill change. Future generated exception memberships store the reason in existing notes; no document review record is modified. No live database writes were made during implementation.
+- **Configuration/deployment:** no dependency, environment, hosting or permission-configuration change. Deploy frontend and backend together; this work is local and unpublished.
+- **Security/privacy:** the server rejects forged role bypasses and non-requirement blockers. Free-text reasons remain in internal list records, not exported spreadsheets or Activity Log descriptions. Staff should avoid unnecessary personal information in reasons; no new external service or document access is introduced.
+- **Accessibility/UX:** explicit labelled button, existing labelled dialog and textarea, autofocus, Escape/cancel dismissal, error alerts and queue marker are reused. School identity and compact Payroll spacing remain unchanged. No new CSS or modal focus-management mechanism was added.
+- **Scope/legacy:** the workflow ends at official payroll-list generation. Legacy Paid filters/export labels, payment-oriented identifiers and existing out-of-scope helpers/endpoints are retained unchanged, not repurposed or extended. No fund release, claiming, disbursement confirmation, reconciliation or monetary auditing is added.
+
+### Validation performed and results
+- Full backend suite: 179 tests, 178 passed and one existing catalog-migration test skipped. In-memory controller tests cover both authorized roles, missing and pending files, unauthorized callers, malformed payloads/reasons, hard blockers, persisted list status/reason/actor and stale exceptions. These tests do not write a live database.
+- Frontend suite: all 33 tests passed, including new role/route/readiness guards and retained Billing exceptions.
+- Backend JavaScript syntax checks and frontend production build passed. Build reported bundle-size and plugin-timing advisories; no build failure.
+- Full frontend ESLint and whitespace validation passed.
+- PowerShell blocked npm.ps1 under its existing execution policy; commands were rerun with npm.cmd without changing that policy.
+
+### Known limitations, rollback and recommended next work
+No authenticated browser walkthrough or deployed database verification was performed. Queue authorization is local until generation and is discarded on a page reload. Eligibility is checked again at generation; later changes can still block the batch. Existing activity logging is best-effort after a successful response; the reason itself is persisted transactionally with membership. Existing modal focus behavior is retained. Roll back these scoped source changes together without deleting historical reasons or list records; no schema rollback is needed. Before publishing, perform an authenticated smoke test covering Override, cancel, queue removal, period switching, list generation and unauthorized visibility using synthetic data.
+
 ## 2026-10-05 - Tighten Payroll Name-to-School Spacing
 
 ### TL;DR

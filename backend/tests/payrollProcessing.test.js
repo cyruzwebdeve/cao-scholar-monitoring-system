@@ -61,6 +61,80 @@ const generate = async () => {
   return res;
 };
 
+const generateWithOverride = async ({ role = 'SuperAdmin', overrides = [{ applicantId: 1, reason: 'Approved exception for pending requirements.' }] } = {}) => {
+  const res = response();
+  await processPayrollSelection({ body: { academicPeriodId: 10, applicantIds: [1], payrollOverrides: overrides }, user: { id: 99, role } }, res);
+  return res;
+};
+
+test('authorized Payroll override persists its reason without changing document approvals or releasing money', async () => {
+  for (const role of ['SuperAdmin', 'BillingPayrollAdmin']) {
+    const { writes } = setup({ gradeStatus: 'pending' });
+    const res = await generateWithOverride({ role });
+    assert.equal(res.statusCode, 201);
+    assert.equal(res.body.overrideCount, 1);
+    assert.equal(writes[0].data.status, 'generated');
+    assert.equal(writes[0].data.prepared_by, 99);
+    assert.equal(writes[1].data[0].claim_status, 'listed');
+    assert.equal(writes[1].data[0].claim_amount, 3000);
+    assert.match(writes[1].data[0].notes, /^Payroll eligibility override: Approved exception/);
+    assert.match(res.locals.auditDescription, /1 requirement-readiness overrides/);
+    assert.equal((await prisma.application_submissions.findMany())[0].initial_docs.requirements.grades.status, 'pending');
+  }
+});
+
+test('Payroll override also permits a missing requirement while retaining the normal eligibility gate', async () => {
+  setup();
+  const [application] = await prisma.application_submissions.findMany();
+  delete application.initial_docs.requirements.grades;
+  assert.equal((await generate()).statusCode, 409);
+  assert.equal((await generateWithOverride()).statusCode, 201);
+});
+
+test('RegularAdmin cannot authorize Payroll overrides, including by direct API request', async () => {
+  const { writes } = setup({ gradeStatus: 'pending' });
+  assert.equal((await generateWithOverride({ role: 'RegularAdmin' })).statusCode, 403);
+  assert.equal(writes.length, 0);
+});
+
+test('Payroll rejects malformed, duplicate, unselected, and invalid-reason overrides without writes', async () => {
+  for (const overrides of [
+    {}, [null], [{ applicantId: 2, reason: 'A documented exception.' }],
+    [{ applicantId: '1', reason: 'A documented exception.' }],
+    [{ applicantId: 1, reason: 'short' }], [{ applicantId: 1, reason: ' '.repeat(20) }],
+    [{ applicantId: 1, reason: 'x'.repeat(501) }], [{ applicantId: 1, reason: {} }],
+    [{ applicantId: 1, reason: 'A documented exception.' }, { applicantId: 1, reason: 'A documented exception.' }],
+  ]) {
+    const { writes } = setup({ gradeStatus: 'pending' });
+    assert.equal((await generateWithOverride({ overrides })).statusCode, 400);
+    assert.equal(writes.length, 0);
+  }
+});
+
+test('Payroll overrides never bypass hard blockers, even alongside incomplete requirements', async () => {
+  for (const options of [
+    { schoolType: 'private', periodSchoolId: 1 },
+    { schoolType: 'unclassified', periodSchoolId: 1 },
+    { alreadyProcessed: true }, { inactive: true }, { unavailable: true },
+  ]) {
+    const { writes } = setup({ gradeStatus: 'pending', ...options });
+    if (options.inactive) prisma.scholar_accounts.findMany = async () => [{ applicant_id: 1, is_active: false }];
+    if (options.unavailable) prisma.applicants.findMany = async () => [];
+    const res = await generateWithOverride();
+    assert.equal(res.statusCode, 409);
+    assert.ok(res.body.ineligible[0].overrideErrors.length);
+    assert.equal(writes.length, 0);
+  }
+});
+
+test('a now-eligible scholar does not persist a stale Payroll override', async () => {
+  const { writes } = setup();
+  const res = await generateWithOverride();
+  assert.equal(res.statusCode, 201);
+  assert.equal(res.body.overrideCount, 0);
+  assert.equal(writes[1].data[0].notes, 'Included in the official public-scholar payroll list');
+});
+
 const list = async () => {
   const res = response();
   await getScholarManagement({ query: { academicPeriodId: 10 } }, res);

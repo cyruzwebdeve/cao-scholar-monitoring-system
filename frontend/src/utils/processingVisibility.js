@@ -14,3 +14,16 @@ export const canQueueForProcessing = (record, mode) => (
   && record.processEligible === true
   && (mode === 'payroll' ? !record.inPayroll : !record.billed)
 );
+
+export const canOverrideForProcessing = (record, mode, userRole) => {
+  const reasons = record.billingEligibilityReasons;
+  return ['SuperAdmin', 'BillingPayrollAdmin'].includes(userRole)
+    && !record.isArchivedPeriod
+    && record.status === 'Active'
+    && classificationOf(record) === (mode === 'payroll' ? 'public' : 'private')
+    && record.processRoute === mode
+    && !record.processEligible
+    && !record.inPayroll && !record.billed
+    && Array.isArray(reasons) && reasons.length > 0
+    && reasons.every(({ code }) => ['REQUIREMENT_MISSING', 'REQUIREMENT_NOT_APPROVED'].includes(code));
+};
