@@ -5,6 +5,56 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-09 - Deploy Two-Tab Settings Layout
+
+### TL;DR
+- Authorized deployment of General and Examination tabs through the existing main-branch Hostinger pipeline.
+- Examination combines delivery controls and the authorized question editor; paper remains primary and online optional.
+- Frontend-only delta; no new API, database, configuration or permission changes, and no manual database operations.
+- All 41 frontend tests, lint and production build passed; live asset verification follows the push.
+
+### Objective, previous/new behavior and affected roles
+Publish the requested two-tab layout for staff testing, replacing the three-tab navigation. Authorized administrators retain question editing; Billing retains disabled delivery controls without answer-key access. Applicant workflows are unchanged.
+
+### Implementation, data flow and files
+Deploy only SettingsManagement.jsx, SettingsTabs.jsx, examinationSettings.test.js and matching entries in both change logs. Existing requests and independent save operations remain unchanged. Unrelated working-tree changes are excluded.
+
+### Impact assessment
+API, database, environment configuration, security and privacy: no new changes. Accessibility retains keyboard tab navigation and panel relationships. Deployment uses the existing branch and hosting pipeline without provider configuration changes. No manual migrations or data operations are performed. The earlier release's backend revision and migration remain unverified. Payroll-list generation remains the scope endpoint; legacy payment functionality is retained unchanged outside scope.
+
+### Validation and results
+All 41 frontend tests, ESLint and production build passed; the existing large-chunk warning remains. Remote main matched cee4b25 before release. Commit, push and public served-asset checks are pending at preparation time; no authenticated browser or database testing is claimed.
+
+### Limitations, rollback and next work
+Verify live assets after publication and refresh existing browser sessions. Hosting build logs and authenticated visual testing are unavailable in this session. Revert this isolated frontend release if necessary; no database rollback is needed. Preserve unrelated local work.
+
+## 2026-10-09 - Two-Tab Settings Layout
+
+### TL;DR
+- Settings now has exactly General and Examination tabs, following the supplied layout example.
+- Examination stacks delivery/activation controls above the authorized Online Questions editor; paper remains primary and online optional.
+- No API, database, grading, attendance or permission changes. Unsaved question drafts remain mounted when switching tabs.
+- All 41 frontend tests, lint, production build and whitespace checks passed. This refinement is local only and has not been deployed.
+
+### Objective and previous/new behavior
+Simplify navigation to match the user's example rather than splitting one examination workflow across three tabs. Previously Settings offered General & Face-to-face, Online Examination and an authorized Online Questions tab. It now offers General and Examination, with the two examination cards stacked in the latter. The redundant face-to-face explanation card was removed from General; the existing primary-paper/optional-online explanation remains in the delivery card.
+
+### Roles, implementation, data flow and changed files
+Staff retain the same Settings access. SuperAdmin and authorized RegularAdmin see the question editor below the delivery card; Billing staff retain disabled delivery controls without question-editor access. `SettingsTabs.jsx` defines the two labels and matching accessible panel IDs. `SettingsManagement.jsx` puts both cards inside the Examination panel and triggers lazy question loading when that panel is first selected. Hidden panels stay mounted, preserving question drafts across tab switches. Existing independent save operations, API requests and authorization are unchanged. `examinationSettings.test.js` now checks the two-tab render, stacked panel content, Billing restrictions and keyboard navigation. Both change logs record the change.
+
+### Impact assessment
+- **API/database/configuration:** no endpoint, contract, schema, migration, environment, dependency, stored setting or record change.
+- **Security/privacy:** no permission expansion or new data collection; answer-key role/section checks and client visibility guards remain intact.
+- **Accessibility/UX:** exactly two tabs with selected state, panel relationships, arrow/Home/End focus navigation and existing responsive card spacing. Controls and questions are visible together in Examination.
+- **Deployment:** local implementation only; no commit, push or hosting change in this refinement. The preceding release's unverified Hostinger backend/migration status is not changed by this frontend layout work.
+- **Scope/legacy:** system endpoint remains official payroll-list generation; legacy payment-oriented functionality is retained unchanged outside scope.
+
+### Validation and results
+All 41 frontend tests passed, including rendered Settings panel and Billing-role checks. ESLint, production build and whitespace checks passed. The existing large ExcelJS bundle warning remains. No authenticated browser session or live deployment verification was performed for this refinement; backend tests were not rerun because backend code did not change.
+
+### Limitations, rollback and next work
+Existing examination behavior and grading limitations remain unchanged. Publish the frontend refinement when authorized and visually test desktop/mobile card stacking. Rollback only the two frontend components and matching tests to restore three tabs; no database rollback is needed. Preserve unrelated local work and the earlier release records.
+
 ## 2026-10-09 - Deploy Examination Attendance and Online Configuration
 
 ### TL;DR

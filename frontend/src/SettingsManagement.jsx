@@ -372,11 +372,8 @@ export default function SettingsManagement({ token, user }) {
         <div><span className="settings-page-eyebrow">SYSTEM CONFIGURATION</span><h2>Settings</h2><p>Configure academic periods, examinations, and scholarship portal preferences.</p></div>
       </div>
 
-      <SettingsTabs activeTab={activeTab} onChange={setActiveTab} canManageQuestions={canManageApplications} />
+      <SettingsTabs activeTab={activeTab} onChange={setActiveTab} />
       <div className="settings-tab-panel" id="settings-panel-general" role="tabpanel" aria-labelledby="settings-tab-general" hidden={activeTab !== 'general'}>
-      <section className="settings-card">
-        <div className="settings-card-heading"><div><span className="settings-eyebrow">PRIMARY EXAMINATION</span><h3>Face-to-face / Paper and Pen</h3><p>Paper is the primary delivery method. Manage municipality schedules and shared attendance in Examination Management. Present means For review, not completed or passed.</p><p>Use the Online Examination tab to choose the delivery method and save activation settings. Online delivery is optional.</p></div><UsersRound size={24} /></div>
-      </section>
       <section className="settings-card settings-application-card">
         <div className="settings-card-heading">
           <div><span className="settings-eyebrow">APPLICATION AVAILABILITY</span><h3>Application form access</h3><p>Open or close new submissions immediately, or limit them to a scheduled window.</p></div>
@@ -516,7 +513,7 @@ export default function SettingsManagement({ token, user }) {
       {user?.role === 'SuperAdmin' && <SystemHealthPanel />}
       </div>
 
-      <div className="settings-tab-panel" id="settings-panel-online" role="tabpanel" aria-labelledby="settings-tab-online" hidden={activeTab !== 'online'}>
+      <div className="settings-tab-panel" id="settings-panel-examination" role="tabpanel" aria-labelledby="settings-tab-examination" hidden={activeTab !== 'examination'}>
       <section className="settings-card settings-examination-card">
         <div className="settings-card-heading"><div><span className="settings-eyebrow">OPTIONAL ONLINE DELIVERY</span><h3>Online Examination</h3><p>Paper and Pen remains primary. Select Online only when CAO intends applicants to answer through the portal. Access also requires an active municipality schedule, its permitted dates, and Present attendance.</p></div><Monitor size={24} /></div>
         {examinationError && <div className="settings-period-message error" role="status"><TriangleAlert size={15} /><span>{examinationError}</span><button type="button" onClick={loadExaminationSettings}>Retry</button></div>}
@@ -531,8 +528,8 @@ export default function SettingsManagement({ token, user }) {
           <button className="settings-save" disabled={!canManageApplications || examinationLoading || examinationSaving} onClick={saveExamMode}><Save size={15} />{examinationSaving ? ' Saving…' : ' Save examination setting'}</button>
         </div>
       </section>
+      {canManageApplications && <OnlineQuestionsSettings token={token} active={activeTab === 'examination'} />}
       </div>
-      {canManageApplications && <div className="settings-tab-panel" id="settings-panel-questions" role="tabpanel" aria-labelledby="settings-tab-questions" hidden={activeTab !== 'questions'}><OnlineQuestionsSettings token={token} active={activeTab === 'questions'} /></div>}
 
       {examinationSaveNotice && (
         <div className="admin-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExaminationSaveNotice(null); }}>

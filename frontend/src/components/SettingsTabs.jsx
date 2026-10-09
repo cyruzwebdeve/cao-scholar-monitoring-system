@@ -1,5 +1,5 @@
-export default function SettingsTabs({ activeTab, onChange, canManageQuestions }) {
-  const tabs = [['general', 'General & Face-to-face'], ['online', 'Online Examination'], ...(canManageQuestions ? [['questions', 'Online Questions']] : [])];
+export default function SettingsTabs({ activeTab, onChange }) {
+  const tabs = [['general', 'General'], ['examination', 'Examination']];
   const navigate = (event) => {
     const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
     if (!keys.includes(event.key)) return;
