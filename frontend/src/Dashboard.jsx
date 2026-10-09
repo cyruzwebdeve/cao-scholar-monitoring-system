@@ -1247,6 +1247,12 @@ function ExaminationManagement({ token }) {
         attendanceStatus: body.attendance?.status || status,
         appearedAt: body.attendance?.appearedAt || null,
       } : record));
+      const refreshed = await fetch(`${API_BASE}/applicants/management`, { headers: authHeaders(token), cache: 'no-store' });
+      if (!refreshed.ok) throw new Error('Attendance saved, but review statuses could not refresh. Reopen this view to reload them.');
+      const records = await refreshed.json();
+      setApplicants(records.applicants || []);
+      try { localStorage.setItem('examinationAttendanceRevision', String(Number(localStorage.getItem('examinationAttendanceRevision') || 0) + 1)); } catch { /* Polling remains available. */ }
+      window.dispatchEvent(new Event('exam-attendance-persisted'));
     } catch (error) {
       setAttendanceSaveError(error.message || 'Unable to update attendance.');
     } finally {
@@ -1318,8 +1324,8 @@ function ExaminationManagement({ token }) {
               </div>
             </div>
             {attendanceSaveError && <div className="exam-attendance-error" role="alert">{attendanceSaveError}</div>}
-            <div className="exam-attendance-heading"><div><strong>Examination Attendance</strong><span>Mark an applicant Present to unlock their online examination.</span></div><small>Changes save automatically</small></div>
-            <div className="exam-applicant-list">{applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).length ? applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).map((applicant) => <div className="exam-applicant-row" key={applicant.id}><span className="exam-applicant-avatar">{applicant.initials || applicant.name?.slice(0, 2).toUpperCase() || 'AP'}</span><div><strong>{applicant.name || 'Unnamed applicant'}</strong><small>{applicant.email || applicant.controlNo || 'No contact information'}</small></div><label className="exam-attendance-control"><span>Attendance</span><select value={applicant.attendanceStatus === 'Present' ? 'Present' : 'Pending'} disabled={attendanceSavingId === applicant.id || Number.isFinite(applicant.examScore)} onChange={(event) => updateAttendance(applicant, event.target.value)} aria-label={`Attendance for ${applicant.name || 'applicant'}`}><option value="Pending">Pending</option><option value="Present">Present</option></select></label></div>) : <p className="exam-empty-state">No applicants are currently assigned to this venue.</p>}</div>
+            <div className="exam-attendance-heading"><div><strong>Examination Attendance</strong><span>Present moves an applicant to For review unless a later outcome exists. It does not record completion or a passing result. Paper is primary; online access is optional.</span></div><small>Changes save automatically</small></div>
+            <div className="exam-applicant-list">{applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).length ? applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).map((applicant) => <div className="exam-applicant-row" key={applicant.id}><span className="exam-applicant-avatar">{applicant.initials || applicant.name?.slice(0, 2).toUpperCase() || 'AP'}</span><div><strong>{applicant.name || 'Unnamed applicant'}</strong><small>{applicant.email || applicant.controlNo || 'No contact information'}</small><small>Application/review status: {applicant.status || 'Pending'}</small></div><label className="exam-attendance-control"><span>Attendance</span><select value={applicant.attendanceStatus === 'Present' ? 'Present' : 'Pending'} disabled={attendanceSavingId === applicant.id || Number.isFinite(applicant.examScore)} onChange={(event) => updateAttendance(applicant, event.target.value)} aria-label={`Attendance for ${applicant.name || 'applicant'}`}><option value="Pending">Pending</option><option value="Present">Present</option></select></label></div>) : <p className="exam-empty-state">No applicants are currently assigned to this venue.</p>}</div>
           </section>
         </div>
       )}

@@ -132,6 +132,17 @@ model application_submissions {
   @@index([email])
 }
 
+model online_exam_configurations {
+  id            Int      @id @default(autoincrement())
+  previous_id   Int      @unique
+  title         String   @db.VarChar(150)
+  instructions  String   @db.Text
+  passing_score Int
+  questions     Json     @db.JsonB
+  created_by    Int?
+  created_at    DateTime @default(now()) @db.Timestamp(6)
+}
+
 model application_settings {
   id                    Int       @id @default(1)
   is_enabled            Boolean   @default(true)
@@ -213,6 +224,7 @@ model results {
   passed        Boolean
   remarks       String?
   recorded_by   Int?
+  online_configuration_id Int?
   created_at    DateTime @default(now()) @db.Timestamp(6)
   updated_at    DateTime @updatedAt @db.Timestamp(6)
 

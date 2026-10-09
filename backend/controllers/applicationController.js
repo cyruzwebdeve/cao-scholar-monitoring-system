@@ -28,11 +28,12 @@ const { recordActivitySafely } = require('../services/activityLog');
 const { getApplicationAvailability } = require('../services/applicationAvailability');
 const { canAccessOnlineExamination, getExaminationSettings, isExaminationScheduleOpen } = require('../services/examinationAccess');
 const { buildApplicantGuidance } = require('../services/applicantGuidance');
+const { resolveExaminationProgress } = require('../services/examinationProgress');
 const { evaluateEligibility, serializeAssessment } = require('../services/eligibilityRecommendation');
 const { PRIORITY_PROOFS, selectedPriorityCriteria } = require('../services/priorityEligibility');
 const { createBillingReference } = require('../services/billingReference');
 const { resolveBillingAmount } = require('../services/billingGrant');
-const { publicExamQuestions, scoreExamAnswers } = require('../services/examQuestions');
+const { loadConfiguration, publicConfiguration, scoreConfiguredAnswers, createExamTicket, verifyExamTicket } = require('../services/onlineExamConfiguration');
 const { ADMIN_INITIAL_REQUIREMENT_KEYS, SCHOLAR_SEMESTER_REQUIREMENT_KEYS } = require('../services/documentReview');
 const { resolveRequirementSubmission } = require('../services/requirementSubmission');
 const { latestCertificationCreatedAt } = require('../services/certificationDate');
@@ -1612,9 +1613,11 @@ const getOnlineExamQuestions = async (req, res) => {
       return res.status(403).json({ message: 'The secured question view is unavailable until Online Examination is active and CAO marks your attendance as Present.' });
     }
     res.set('Cache-Control', 'no-store, private');
+    const configuration = await loadConfiguration(prisma);
     return res.json({
       examination: { id: exam.id, title: exam.title, academicYear: exam.academic_year },
-      questions: publicExamQuestions(),
+      ...publicConfiguration(configuration),
+      examTicket: createExamTicket({ applicantId, examId: exam.id, configurationId: configuration.id }),
     });
   } catch (error) {
     console.error(error);
@@ -1632,13 +1635,6 @@ const submitOnlineExam = async (req, res) => {
     if (!examinationSettings.isEnabled || examinationSettings.deliveryMode !== 'online') {
       return res.status(403).json({ message: 'The online examination is not currently available.' });
     }
-    let score;
-    try {
-      score = scoreExamAnswers(req.body?.answers);
-    } catch (error) {
-      return res.status(400).json({ message: error.message || 'Invalid examination answers.' });
-    }
-    const passingScore = 14;
     const applicant = await prisma.applicants.findUnique({
       where: { id: applicantId },
       select: { email: true, first_name: true, municipality: true },
@@ -1662,7 +1658,18 @@ const submitOnlineExam = async (req, res) => {
     }
     const existing = await prisma.results.findFirst({ where: { applicant_id: applicantId, exam_id: exam.id } });
     if (existing) return res.status(409).json({ message: 'This examination has already been submitted. Please wait for the Scholarship Office to release the result.' });
-    const data = { score, passing_score: passingScore, passed: score >= passingScore, updated_at: new Date() };
+    let configurationId;
+    try {
+      configurationId = verifyExamTicket(req.body?.examTicket, { applicantId, examId: exam.id });
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
+    }
+    const configuration = await loadConfiguration(prisma, configurationId);
+    let score;
+    try { score = scoreConfiguredAnswers(req.body?.answers, configuration); }
+    catch (error) { return res.status(400).json({ message: error.message }); }
+    const passingScore = configuration.passingScore;
+    const data = { score, passing_score: passingScore, passed: score >= passingScore, online_configuration_id: configurationId, updated_at: new Date() };
     const result = await prisma.results.create({ data: { exam_slot_id: slot.id, applicant_id: applicantId, exam_id: exam.id, ...data } });
     await prisma.application_submissions.updateMany({
       where: { applicant_id: applicantId, status: { not: 'Withdrawn' } },
@@ -1791,8 +1798,7 @@ const getMyApplication = async (req, res) => {
         releasedAt: payrollBatch?.released_at || null,
       } : null,
       examination: {
-        completed: Boolean(result),
-        status: scholar ? 'Accepted as scholar' : result ? 'Waiting for results' : 'Not completed',
+        ...resolveExaminationProgress({ result, scholar, examSlot, fallbackStatus: application.status, applicantFacing: true }),
         submittedAt: result?.created_at || null,
         examTitle: exam?.title || 'PGCEAP Qualifying Examination',
         examDate: exam?.exam_date || null,
@@ -2110,7 +2116,7 @@ const getApplicantManagement = async (req, res) => {
         select: { id: true, title: true, exam_date: true, exam_end_date: true, venue: true, municipality: true, academic_year: true, is_active: true, updated_at: true },
       }),
       prisma.scholar_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, scholar_id: true, is_active: true } }),
-      prisma.application_submissions.findMany({ where: { applicant_id: { in: applicantIds }, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' }, select: { id: true, applicant_id: true, identity: true, address: true, school_plan: true, family: true, eligibility: true, submitted_at: true } }),
+      prisma.application_submissions.findMany({ where: { applicant_id: { in: applicantIds }, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' }, select: { id: true, applicant_id: true, status: true, identity: true, address: true, school_plan: true, family: true, eligibility: true, submitted_at: true } }),
     ]);
     const accountByApplicant = new Map(accounts.map((account) => [account.applicant_id, account]));
     const slotByAssignment = new Map(slots.map((slot) => [`${slot.applicant_id}:${slot.exam_id}`, slot]));
@@ -2183,9 +2189,7 @@ const getApplicantManagement = async (req, res) => {
             : applicant.school_year,
           registered: applicant.created_at,
           lastLogin: account?.last_login_at || null,
-          status: result?.passed ? 'Passed' : result ? 'Exam Completed' : applicant.status === 'pending' ? 'Pending' : applicant.status,
-          resultStatus: result ? (result.passed ? 'Passed' : 'Failed') : slot?.appeared ? 'For review' : 'Pending',
-          attendanceStatus: slot?.appeared ? 'Present' : slot?.forfeited_at ? 'Absent' : 'Pending',
+          ...resolveExaminationProgress({ result, scholar, examSlot: slot, fallbackStatus: applicant.status, applicationStatus: application?.status }),
           appearedAt: slot?.appeared_at || null,
           examId: exam?.id || null,
           examScore: result?.score === null || result?.score === undefined ? null : Number(result.score),

@@ -6,6 +6,8 @@ const ACTIONS = {
   'PUT /academic-periods/:id/activate': ['ACADEMIC_PERIOD_ACTIVATED', 'academic_periods', 'Activated an academic period.'],
   'PUT /academic-periods/:id/requirements-deadline': ['REQUIREMENTS_DEADLINE_UPDATED', 'academic_periods', 'Updated a semester-requirements deadline.'],
   'PUT /application-settings': ['APPLICATION_AVAILABILITY_UPDATED', 'application_settings', 'Updated application availability.'],
+  'PUT /examination-settings': ['EXAMINATION_SETTINGS_UPDATED', 'application_settings', 'Updated examination delivery settings.'],
+  'PUT /online-examination/configuration': ['ONLINE_QUESTIONS_VERSION_CREATED', 'online_exam_configurations', 'Saved a new online question configuration version.'],
   'PUT /schools/classification': ['SCHOOL_CLASSIFICATION_UPDATED', 'schools', 'Updated a school classification.'],
   'PUT /examinations/management': ['EXAMINATION_SCHEDULES_UPDATED', 'exams', 'Saved examination schedules and assignments.'],
   'PUT /examinations/:examId/attendance/:applicantId': ['EXAMINATION_ATTENDANCE_UPDATED', 'exam_slots', 'Updated examination attendance.'],

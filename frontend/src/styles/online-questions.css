@@ -1,0 +1,18 @@
+.online-questions-settings form { margin-top: 20px; }
+.online-questions-settings fieldset { min-width: 0; border: 0; margin: 0; padding: 0; }
+.online-questions-settings legend { color: #176344; font-weight: 700; margin-bottom: 14px; }
+.online-questions-settings label { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; font-size: 13px; font-weight: 600; color: #304b40; }
+.online-questions-settings input, .online-questions-settings select, .online-questions-settings textarea { box-sizing: border-box; width: 100%; border: 1px solid #b9cec3; border-radius: 8px; padding: 10px; background: white; color: #233e32; font: inherit; }
+.online-questions-settings textarea { resize: vertical; }
+.online-questions-settings :focus-visible { outline: 3px solid #008b47; outline-offset: 3px; }
+.online-questions-settings button:disabled, .online-questions-settings fieldset:disabled { opacity: .65; }
+.online-question-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+.online-questions-settings .online-question-card { margin: 22px 0; border: 1px solid #d3e3da; border-radius: 12px; padding: 18px; background: #f8fbf9; }
+.online-questions-settings .online-question-card legend { padding: 0 8px; margin: 0; }
+.online-questions-warning { border-left: 4px solid #b77a18; background: #fff7e9; padding: 14px; line-height: 1.6; color: #714f1e; font-size: 13px; }
+.online-question-remove { display: inline-flex; gap: 6px; align-items: center; color: #a12626; background: white; border: 1px solid #d7a5a5; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+.online-question-actions { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.settings-tab-panel[hidden] { display: none; }
+.settings-management .examination-workspace-tabs { display: flex; flex-wrap: wrap; width: fit-content; max-width: 100%; }
+.settings-management .examination-workspace-tabs button:focus-visible { outline: 3px solid #008b47; outline-offset: 2px; }
+@media (max-width: 640px) { .online-question-fields { grid-template-columns: 1fr; } .online-questions-settings .online-question-card { padding: 12px; } }

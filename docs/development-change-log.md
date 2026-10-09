@@ -5,6 +5,81 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-09 - Deploy Examination Attendance and Online Configuration
+
+### TL;DR
+- Preparing the user-requested examination release for the existing main-branch hosting pipeline; publication and migration completion are not yet confirmed.
+- Applicants and CAO receive consistent Present/For review presentation; authorized settings staff receive separate Online Examination and editable Online Questions tabs.
+- Includes only the examination implementation, regression tests, matching documentation and the additive question-version/result-provenance migration. Unrelated local work and standalone maintenance/reset scripts are excluded.
+- Release checks passed: 198 backend tests, one existing database-dependent skip, 40 frontend tests, production build and lint. Live verification follows the push.
+
+### Objective, previous/new behavior, roles and workflows
+Deploy the preceding implementation for user testing on the existing website. Previously deployed applicant status did not reflect attendance review and questions were code-defined; the release promotes the shared display resolver, protected question editor and version-bound server-side scoring documented below. Applicant, scholarship acceptance and CAO workflows retain their existing authorization and scope limits.
+
+### Implementation, data flow and changed areas
+Remote main was verified against baseline `5e5095f`. Stage only the examination controllers, services, application routes, operational activity middleware, application Prisma schema/migration, applicant/admin/exam/settings/privacy frontend changes and their new tests. Include only the matching October 9 implementation and deployment entries from the shared change logs. Existing cleanup/reset SQL, their tests/runbooks, diagrams, other documentation and ignore-file edits remain local and unpublished. The normal GitHub-to-Hostinger pipeline is used; no new hosting service or duplicate manual build is requested.
+
+### Impact assessment
+- **API/database:** deploys the protected configuration endpoints, version ticket contract and derived status payloads described below. The committed migration creates question-version storage and adds a nullable result version reference without deleting/backfilling applicant or examination data. The existing production build runs Prisma generation and committed migrations before API startup; no workstation database connection or manual migration is used.
+- **Configuration/deployment:** existing branch, domain, audience, environment values and hosting/build settings are retained. Frontend/backend must both finish before testing; pages opened before this release must be refreshed before answering an exam.
+- **Security/privacy:** existing tester access code and individual role/section authorization remain mandatory. Public verification will not sign in, inspect personal records, change attendance, publish questions or submit an examination. No secrets are stored in release documentation.
+- **Accessibility/UX:** inherits the labeled fields, tab keyboard navigation, review guidance and submission feedback already tested; no deployment-only UX change.
+- **Scope/legacy:** payroll-list generation remains the system endpoint. Legacy payment functionality remains retained unchanged outside scope. Excluded maintenance scripts are not executed by this deployment.
+
+### Validation performed and results
+Full working-tree regression checks passed: 198 backend tests (one existing opt-in database-dependent skip) and 40 frontend tests. Frontend production build and lint passed with the existing large-chunk warning. Prior Prisma client generation/schema validation and whitespace checks passed. Remote main matches the expected baseline. Commit, push, public-asset, API and hosted migration outcomes will be recorded after deployment; no successful hosted outcome is claimed yet.
+
+### Limitations, rollback and next work
+Hosting-provider build/log access is not connected in this session, so provider-only migration evidence may require user confirmation. Verify the served frontend and API after the push. Do not test an examination until both deployments finish; refresh any old browser session. The known paper first-result entry, final unsuccessful-decision publication, legacy completion-credit grading and advisory timer limitations remain as documented below. If rollback is needed, revert the isolated release with matched frontend/backend versions and retain the additive schema/history; do not reset or delete data. Preserve all unrelated local changes.
+
+## 2026-10-09 - Shared Examination Attendance Status and Online Settings Tabs
+
+### TL;DR
+- CAO marking Present now derives For review consistently in applicant administration and the Applicant Dashboard; attendance does not create a result, imply passing, or supersede a recorded result/acceptance.
+- Settings now separates General & Face-to-face, Online Examination, and authorized Online Questions editing. Paper remains primary; existing online activation and access gates remain required.
+- Authorized settings staff can configure questions, answer keys, points, title, instructions and passing threshold. Immutable versions and applicant/exam-bound tickets preserve the marking key of an already-open examination page.
+- Added an additive migration for question versions and result provenance; no migration, database cleanup, production write or deployment was performed. Existing maintenance artifacts were updated only to recognize the new table.
+- Validation: 198 backend tests passed, one existing database-dependent test skipped; all 40 frontend tests passed, plus lint, build, Prisma generation/validation and whitespace checks. Authenticated browser and real-database migration testing remain pending.
+
+### Objective and previous/new behavior
+Resolve the confusing separation between Present attendance, administrative result status and the applicant's displayed status, while providing the requested editable online examination configuration in Settings. Previously only Results Management derived For review from attendance; the main applicant status remained unchanged. The new shared resolver prioritizes an active scholarship acceptance, recorded examination result, and applicable later persisted status before considering attendance. For review is a derived display state, not a new stored application status. Correcting attendance to Pending removes the attendance-derived state without rewriting later outcomes.
+
+Previously the question bank and passing threshold were code-defined. Settings now has distinct keyboard-accessible sections, with paper described as primary and online as optional. Online Questions supports adding, editing and removing draft questions, four-option multiple choice, true/false, accepted-answer identification, and the existing single completion-credit essay. Draft changes are retained when switching Settings tabs; a reload prompts before discarding edits. Saving creates a new version rather than changing historical keys. Title/instructions and question point values are rendered by the examination page, and navigation no longer assumes contiguous question IDs.
+
+### Affected roles and workflows
+- Applicants see Attendance: Present independently of Application status: For review. Paper examinees are told to follow CAO instructions and await result recording; online examinees are explicitly told they still need to complete and submit the exam. A verified priority scholar is not sent back into the exam-attendance branch.
+- Administrative applicant lists, details, results and the attendance drawer use the shared status. The drawer reloads authoritative records after a successful attendance mutation. Same-browser events/storage revision signals refresh the applicant portal; other devices retain existing visible-page polling.
+- SuperAdmin and RegularAdmin with Settings access can read/edit answer keys. Billing staff and applicant/scholar accounts cannot access the question-configuration API; Billing retains read-only delivery settings. Examination attendance permissions are unchanged.
+
+### Implementation, data flow and changed areas
+`examinationProgress.js` centralizes presentation precedence without altering completion, pass flags or scholarship records. `applicationController.js` uses it for management and applicant responses, while `applicantGuidance.js` explains the remaining steps. `ApplicantDashboard.jsx` consumes the authoritative status; `Dashboard.jsx` refreshes attendance and shows review status separately.
+
+`onlineExamConfiguration.js` validates and projects the bank, scores answers on the server and signs a domain-separated HMAC ticket containing only applicant, exam, configuration version and expiry. Question GET returns an answer-key-free allowlisted payload after the existing attendance/date/mode gates. Submission verifies the ticket, loads that immutable version, scores the answers, and records its version reference with the result. The current configuration is the newest saved version; a unique predecessor prevents concurrent editors silently overwriting each other. API responses containing configuration are private/no-store. Operational logs record the version-save action and ID, never question content, keys or submitted answers.
+
+Changed areas: the services above, `onlineExamConfigurationController.js`, application routes and activity middleware, application Prisma schema and migration `20261009000000_online_exam_configurations`, `SettingsManagement.jsx`, `SettingsTabs.jsx`, `OnlineQuestionsSettings.jsx`, its responsive stylesheet, `ExamPage.jsx`, applicant/admin views, and `LegalPage.jsx`. New service/controller/route and frontend rendering/keyboard tests cover this flow. The existing cleanup/reset SQL allowlists and narrow-cleanup test received only the new-table classification; they were not executed. All pre-existing unrelated local work was retained.
+
+### Impact assessment
+- **API:** adds protected GET/PUT `/online-examination/configuration`. The applicant question response adds configured metadata and `examTicket`; submission requires that ticket. Management/applicant payloads expose derived review status; applicant-facing result status still withholds Passed/Failed until the existing decision flow.
+- **Database:** adds immutable `online_exam_configurations` with JSON question keys, author reference, predecessor uniqueness and timestamp, plus nullable `results.online_configuration_id`. Zero identifies the built-in bank; null remains for older/paper results. No existing attendance/result rows are rewritten or backfilled. Applicant/scholar-only cleanup preserves the new table; an explicitly confirmed full reset includes it under that artifact's existing all-data semantics. Preview/rollback defaults and safety gates are unchanged.
+- **Configuration:** paper remains the default and no saved delivery mode is forcibly changed. The bank remains globally configured, not per municipality. Total points remain 20 to preserve existing result/re-evaluation scale; threshold is configurable from 1 to 20. No dependency changes. A configured existing `JWT_SECRET` is required for tickets; the new signing path deliberately has no weak fallback.
+- **Security/privacy:** role plus section checks, mutation rate limiting, strict configuration validation, no-store responses, server-side marking, version-binding and constant-time ticket verification. Individual submitted answers are processed transiently, not persisted in results. The privacy description was corrected to state server-side scoring and version provenance. No personal records or private documents were inspected or copied.
+- **Accessibility/UX:** labeled controls, fieldsets, alerts/status messages, responsive fields, tab/panel relationships, arrow/Home/End navigation and visible focus. Submission now displays progress/errors, disables repeat confirmation and uses bounded request waits while retaining answers on that page after a failure. Unselected/null multiple-choice values no longer coerce into option A.
+- **Deployment:** not performed. Apply the additive application-database migration and regenerate its Prisma client before serving the new API; deploy frontend/backend together outside an active exam sitting. Old already-loaded pages do not possess the required ticket and must reopen before answering. The legacy database target was not extended for the new configuration feature.
+- **Product scope:** still ends at CAO's official payroll list. Existing legacy payment-oriented routes/fields were retained unchanged outside scope; no fund release, claiming, disbursement, reconciliation or monetary audit was added.
+
+### Validation performed and results
+- Backend suite: 199 tests, 198 passed, one existing opt-in database-dependent catalog migration test skipped. In-memory controller and real local Express-route tests cover both delivery modes, attendance-only writes, status precedence, answer-key authorization, date/attendance gates, tampered/expired/cross-applicant tickets, version-stable marking, configured thresholds and concurrent save conflicts. No external database or mail service was used by these tests.
+- Frontend suite: 40 passed. Rendering and keyboard tests cover the new tabs, restricted question tab, grading disclosures, status consumption and ticket/non-contiguous-ID contracts. Final sequential test run avoids concurrent Vite preview-port contention observed in an earlier parallel run.
+- Frontend ESLint and production build passed; the pre-existing large ExcelJS chunk warning remains. Prisma client generation, schema validation and JavaScript syntax checks passed. An initial schema-validation invocation from the repository root lacked environment discovery; running it from the backend directory passed. Git whitespace validation passed.
+- No authenticated end-to-end browser session, actual migration execution or deployed-runtime smoke test was performed.
+
+### Known limitations, rollback and recommended next work
+Paper first-result entry and final unsuccessful-decision publication remain separate outstanding workflows; this change fixes attendance presentation, not those endpoints. Legacy completion-credit identification and essay behavior remains explicitly labeled in the editor; identification can now be converted to real accepted-answer matching. Manual essay marking and stored answer scripts are not implemented. The editor allows at most one essay, 20 questions and a total of 20 points.
+
+Question versions are immutable through the API. An already-open page retains its version for the signed ticket's 24-hour lifetime; reopening fetches the newest version and existing browser-only answers are not restored. The pre-existing client countdown remains advisory and is not a server-enforced duration. Avoid changing active delivery/schedules during a sitting; existing server gates still apply at submission.
+
+Before rollout, apply the migration in a controlled test database and test two browsers: mark Present, confirm For review without completion, save a question revision, submit an older already-open page, and confirm its original marking key. Review the legacy completion-credit items before using the bank in a real qualifying exam. For rollback, restore the previous matched frontend/backend/client build; leave the additive table/nullable column intact to preserve question history. Do not delete historical versions while their tickets or results may reference them. No automated rollback or maintenance operation was run.
+
 ## 2026-10-06 - Shared Billing and Payroll Name-and-School Layout
 
 ### TL;DR

@@ -1,4 +1,5 @@
 const express = require('express');
+const { onlineExamConfigurationController } = require('../controllers/onlineExamConfigurationController');
 const { authenticate, authenticateOptional } = require('../middleware/auth');
 const { auditSuccessfulMutation } = require('../middleware/activityAudit');
 const { checkRole, checkSectionAccess } = require('../middleware/rbac');
@@ -88,6 +89,8 @@ router.get('/application-settings', getApplicationSettings);
 router.put('/application-settings', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('settings'), updateApplicationSettings);
 router.get('/examination-settings', authenticate, checkRole(['Applicant', 'Scholar', 'SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getExaminationSettingsController);
 router.put('/examination-settings', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('settings'), updateExaminationSettings);
+router.get('/online-examination/configuration', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('settings'), onlineExamConfigurationController.get);
+router.put('/online-examination/configuration', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('settings'), onlineExamConfigurationController.save);
 router.get('/academic-periods', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), getAcademicPeriods);
 router.post('/academic-periods', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), createAcademicPeriod);
 router.put('/academic-periods/:id/activate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), activateAcademicPeriod);

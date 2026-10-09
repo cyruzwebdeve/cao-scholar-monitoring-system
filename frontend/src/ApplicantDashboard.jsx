@@ -140,17 +140,19 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   useEffect(() => {
     const refreshDashboard = () => setDashboardReloadKey((key) => key + 1);
     const refreshFromStorage = (event) => {
-      if (['examinationSettingsRevision', 'examinationScheduleRevision'].includes(event.key)) refreshDashboard();
+      if (['examinationSettingsRevision', 'examinationScheduleRevision', 'examinationAttendanceRevision'].includes(event.key)) refreshDashboard();
     };
     const stopRefreshing = subscribeToVisibleRefresh(refreshDashboard, { intervalMs: TIME_SENSITIVE_DATA_REFRESH_MS });
     window.addEventListener('storage', refreshFromStorage);
     window.addEventListener('exam-mode-changed', refreshDashboard);
     window.addEventListener('exam-schedule-persisted', refreshDashboard);
+    window.addEventListener('exam-attendance-persisted', refreshDashboard);
     return () => {
       stopRefreshing();
       window.removeEventListener('storage', refreshFromStorage);
       window.removeEventListener('exam-mode-changed', refreshDashboard);
       window.removeEventListener('exam-schedule-persisted', refreshDashboard);
+      window.removeEventListener('exam-attendance-persisted', refreshDashboard);
     };
   }, []);
 
@@ -219,11 +221,12 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   const controlNumber = profile?.controlNumber || "Not assigned";
   const examCompleted = Boolean(examination?.completed);
   const waitingForResults = examCompleted && !examination?.isScholar;
-  const applicationStatus = waitingForResults
+  const applicationStatus = examination?.status || (waitingForResults
     ? "Waiting for results"
     : examination?.isScholar
       ? "Accepted as scholar"
-      : application?.status || "Not submitted";
+      : application?.status || "Not submitted");
+  const attendanceReview = applicationStatus === 'For review';
   const eligibilitySummary = Object.entries(application?.eligibility || {})
     .filter(([, value]) => value === "Yes" || value === true)
     .map(([key]) => eligibilityLabels[key] || key)
@@ -387,7 +390,9 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
             <span>
               {waitingForResults
                 ? "Your examination was submitted successfully. Please wait for the official result."
-                : "Your application was submitted and is currently under review."}
+                : attendanceReview
+                  ? "Attendance confirmed. Your application is For review; this does not mean the examination is completed or passed."
+                  : "Your application was submitted and is currently under review."}
             </span>
           </section>
         )}
@@ -416,6 +421,8 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
               <small>
                 {waitingForResults
                   ? "Examination completed"
+                  : attendanceReview
+                  ? "Attendance confirmed; examination result not yet recorded"
                   : application
                   ? "Application received"
                   : "Complete your application"}

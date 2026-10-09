@@ -64,7 +64,7 @@ export function PrivacyPolicyPage() {
           <li><strong>Education information:</strong> school, school type, course or program, year level, school year, semester, grades, and general weighted average.</li>
           <li><strong>Family and eligibility information:</strong> parent or guardian details, occupations, sibling counts, household or family income, and answers used to evaluate program eligibility.</li>
           <li><strong>Application and scholar documents:</strong> proofs of residency or indigency, identification, registration records, grade reports, tax-related certifications, and other required supporting files.</li>
-          <li><strong>Examination and program records:</strong> assigned schedule and venue, attendance status, examination score and result, application decisions, requirement reviews, certification-list information, and payroll-list information. Individual question answers are evaluated in the browser and are not sent to the server.</li>
+          <li><strong>Examination and program records:</strong> assigned schedule and venue, attendance status, examination score and result, application decisions, requirement reviews, certification-list information, and payroll-list information. Online answers are sent securely to the server for scoring against the examination question version. The result stores the score, passing threshold, outcome, and question-version reference; individual answers are not retained in the result record.</li>
           <li><strong>Security and operational information:</strong> password hashes, password-reset records, login timestamps, IP addresses, and logs of authorized system actions. Passwords are not stored as readable text.</li>
         </ul>
       </section>

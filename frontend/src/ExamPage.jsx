@@ -66,7 +66,7 @@ function SendIcon() {
 
 // ─── Submit Modal ─────────────────────────────────────────────────────────────
 
-function SubmitModal({ answered, total, onConfirm, onCancel }) {
+function SubmitModal({ answered, total, onConfirm, onCancel, submitting, error }) {
   const unanswered = total - answered
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)' }}>
@@ -99,6 +99,7 @@ function SubmitModal({ answered, total, onConfirm, onCancel }) {
           <div className="flex gap-3">
             <button
               onClick={onCancel}
+              disabled={submitting}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all hover:bg-gray-50"
               style={{ borderColor: '#D1D5DB', color: '#374151', fontFamily: 'Outfit, sans-serif' }}
             >
@@ -106,12 +107,14 @@ function SubmitModal({ answered, total, onConfirm, onCancel }) {
             </button>
             <button
               onClick={onConfirm}
+              disabled={submitting}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
               style={{ backgroundColor: '#10A352', fontFamily: 'Outfit, sans-serif' }}
             >
-              Submit Now
+              {submitting ? 'Submitting…' : 'Submit Now'}
             </button>
           </div>
+          {error && <p role="alert" className="text-sm text-red-700 mt-3">{error}</p>}
         </div>
       </div>
     </div>
@@ -120,7 +123,7 @@ function SubmitModal({ answered, total, onConfirm, onCancel }) {
 
 // ─── Success Screen ───────────────────────────────────────────────────────────
 
-function SuccessScreen({ alreadySubmitted = false }) {
+function SuccessScreen({ alreadySubmitted = false, title, academicYear }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: '#F3F8F5' }}>
       <div className="text-center max-w-md px-6">
@@ -131,7 +134,7 @@ function SuccessScreen({ alreadySubmitted = false }) {
         </div>
         <h2 className="text-3xl font-bold mb-3" style={{ color: '#008B47', fontFamily: 'Outfit, sans-serif' }}>{alreadySubmitted ? 'Examination Completed' : 'Exam Submitted!'}</h2>
         <p className="text-gray-500 text-sm leading-relaxed mb-2">{alreadySubmitted ? 'This examination has already been submitted.' : 'Your examination has been successfully submitted.'}</p>
-        <p className="text-gray-400 text-xs">PGCEAP Qualifying Examination · A.Y. 2026–2027</p>
+        <p className="text-gray-400 text-xs">{title || 'PGCEAP Qualifying Examination'}{academicYear ? ` · A.Y. ${academicYear}` : ''}</p>
         <div className="mt-8 px-6 py-4 rounded-2xl" style={{ backgroundColor: '#E8F7EF', border: '1px solid #A7D9BF' }}>
           <p className="text-sm font-semibold" style={{ color: '#008B47', fontFamily: 'Outfit, sans-serif' }}>Thank you for taking the examination.</p>
           <p className="text-xs text-gray-500 mt-1">Results will be released by the LGU Scholarship Office.</p>
@@ -159,6 +162,10 @@ function AccessBlockedScreen({ message }) {
 
 export default function App({ token }) {
   const [questions, setQuestions] = useState([])
+  const [examTicket, setExamTicket] = useState('')
+  const [examMetadata, setExamMetadata] = useState({ title: 'PGCEAP Qualifying Examination', instructions: '', academicYear: '' })
+  const [submitting, setSubmitting] = useState(false)
+  const [submissionError, setSubmissionError] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const [mcAnswers, setMcAnswers] = useState({})
   const [idAnswers, setIdAnswers] = useState({})
@@ -175,7 +182,7 @@ export default function App({ token }) {
   useEffect(() => {
     let active = true
     if (!token) return () => { active = false }
-    fetch(`${API_BASE}/applications/me/examination/questions`, { headers: authHeaders(token), cache: 'no-store' })
+    fetch(`${API_BASE}/applications/me/examination/questions`, { headers: authHeaders(token), cache: 'no-store', signal: AbortSignal.timeout(30000) })
       .then(async response => {
         const body = await response.json().catch(() => null)
         if (!response.ok) {
@@ -190,6 +197,8 @@ export default function App({ token }) {
       .then(body => {
         if (!active || !body) return
         setQuestions(Array.isArray(body.questions) ? body.questions : [])
+        setExamTicket(body.examTicket || '')
+        setExamMetadata({ title: body.title, instructions: body.instructions, academicYear: body.examination?.academicYear || '' })
       })
       .catch(error => { if (active) setAccessDeniedMessage(error.message) })
       .finally(() => { if (active) setCheckingSubmission(false) })
@@ -220,21 +229,28 @@ export default function App({ token }) {
   }
 
   const handleSubmit = async () => {
+    if (submitting) return
+    setSubmitting(true)
+    setSubmissionError('')
     const answers = { multipleChoice: mcAnswers, identification: idAnswers, trueFalse: tfAnswers, essay: essayAnswer }
-    const response = await fetch(`${API_BASE}/applications/me/exam-result`, { method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, body: JSON.stringify({ answers }) })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
+    try {
+      const response = await fetch(`${API_BASE}/applications/me/exam-result`, { method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, body: JSON.stringify({ answers, examTicket }), signal: AbortSignal.timeout(60000) })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        if (String(body.message || '').includes('already been submitted')) { setAlreadySubmitted(true); return }
+        throw new Error(body.message || 'Unable to submit the examination. Your answers remain on this page.')
+      }
       setShowModal(false)
-      if (String(body.message || '').includes('already been submitted')) setAlreadySubmitted(true)
-      else setAccessDeniedMessage(body.message || 'The examination is no longer available.')
-      return
+      setSubmitted(true)
+    } catch (error) {
+      setSubmissionError(error.name === 'TimeoutError' ? 'The submission request timed out. Your answers remain on this page. Retry to confirm whether the submission was recorded.' : error.message || 'Connection failed. Please retry.')
+    } finally {
+      setSubmitting(false)
     }
-    setShowModal(false)
-    setSubmitted(true)
   }
 
   if (checkingSubmission) return <div className="fixed inset-0 flex items-center justify-center text-sm font-semibold" style={{ backgroundColor: '#F3F8F5', color: '#008B47', fontFamily: 'Outfit, sans-serif' }}>Checking examination status…</div>
-  if (submitted || alreadySubmitted) return <SuccessScreen alreadySubmitted={alreadySubmitted} />
+  if (submitted || alreadySubmitted) return <SuccessScreen alreadySubmitted={alreadySubmitted} title={examMetadata.title} academicYear={examMetadata.academicYear} />
   if (accessDeniedMessage) return <AccessBlockedScreen message={accessDeniedMessage} />
   if (!questions.length) return <AccessBlockedScreen message="No examination questions are available for this session." />
 
@@ -261,7 +277,7 @@ export default function App({ token }) {
           {/* Exam badge */}
           <div className="hidden sm:flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#E8F7EF', fontFamily: 'Outfit, sans-serif' }}>
             <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse inline-block" />
-            PGCEAP Qualifying Examination — A.Y. 2026–2027
+            {examMetadata.title}{examMetadata.academicYear ? ` — A.Y. ${examMetadata.academicYear}` : ''}
           </div>
 
           {/* Timer */}
@@ -311,14 +327,14 @@ export default function App({ token }) {
               Question Navigator
             </div>
             <div className="grid grid-cols-4 gap-2">
-              {questions.map(q => {
+              {questions.map((q, index) => {
                 const state = navState(q)
                 const isActive = state === 'active'
                 const isAnsw = state === 'answered'
                 return (
                   <button
                     key={q.id}
-                    onClick={() => setActiveIndex(q.id - 1)}
+                    onClick={() => setActiveIndex(index)}
                     className="relative rounded-xl font-bold text-sm transition-all duration-150 hover:scale-105 active:scale-95 flex flex-col items-center justify-center"
                     style={{
                       height: '52px',
@@ -333,7 +349,7 @@ export default function App({ token }) {
                       boxShadow: isActive ? '0 4px 12px rgba(16,163,82,0.3)' : 'none',
                     }}
                   >
-                    <span>{q.id}</span>
+                    <span>{index + 1}</span>
                     {isAnsw && (
                       <span className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#10A352' }} />
                     )}
@@ -378,6 +394,7 @@ export default function App({ token }) {
         <main className="exam-taking-main flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto">
 
+            {examMetadata.instructions && <p className="rounded-xl bg-white p-4 mb-3 text-sm text-gray-700">{examMetadata.instructions}</p>}
             {/* Part header */}
             <div className="flex items-center gap-3 mb-3">
               <div className="h-px flex-1" style={{ backgroundColor: '#D6EDE3' }} />
@@ -395,11 +412,11 @@ export default function App({ token }) {
                   className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
                   style={{ backgroundColor: '#10A352', color: 'white', fontFamily: 'Outfit, sans-serif', marginTop: '2px' }}
                 >
-                  {current.id}
+                  {activeIndex + 1}
                 </div>
                 <div className="flex-1">
                   <div className="text-xs font-semibold mb-1.5" style={{ color: '#10A352', fontFamily: 'Outfit, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Item {current.id} of {TOTAL} &nbsp;·&nbsp; {current.type === 'multiple-choice' ? '1 point' : current.type === 'essay' ? '5 points' : '1 point'}
+                    Item {activeIndex + 1} of {TOTAL} &nbsp;·&nbsp; {current.points} {current.points === 1 ? 'point' : 'points'}
                   </div>
                   {current.essayPrompt ? (
                     <>
@@ -619,6 +636,8 @@ export default function App({ token }) {
           answered={answeredCount}
           total={TOTAL}
           onConfirm={handleSubmit}
+          submitting={submitting}
+          error={submissionError}
           onCancel={() => setShowModal(false)}
         />
       )}

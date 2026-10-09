@@ -15,6 +15,8 @@ import {
 import { API_BASE, authHeaders } from './services/api';
 import SystemHealthPanel from './components/SystemHealthPanel';
 import SchoolCatalogManagement from './SchoolCatalogManagement';
+import SettingsTabs from './components/SettingsTabs';
+import OnlineQuestionsSettings from './OnlineQuestionsSettings';
 
 const emptyPeriodForm = { schoolYear: '', semester: '1st Semester', startDate: '', endDate: '' };
 const emptyAvailability = { isEnabled: true, opensAt: '', closesAt: '', state: 'open', isOpen: true };
@@ -55,6 +57,7 @@ const getNextSchoolYear = (schoolYear) => {
 };
 
 export default function SettingsManagement({ token, user }) {
+  const [activeTab, setActiveTab] = useState('general');
   const [mode, setMode] = useState('paper');
   const [examinationEnabled, setExaminationEnabled] = useState(false);
   const [examinationLoading, setExaminationLoading] = useState(true);
@@ -369,6 +372,11 @@ export default function SettingsManagement({ token, user }) {
         <div><span className="settings-page-eyebrow">SYSTEM CONFIGURATION</span><h2>Settings</h2><p>Configure academic periods, examinations, and scholarship portal preferences.</p></div>
       </div>
 
+      <SettingsTabs activeTab={activeTab} onChange={setActiveTab} canManageQuestions={canManageApplications} />
+      <div className="settings-tab-panel" id="settings-panel-general" role="tabpanel" aria-labelledby="settings-tab-general" hidden={activeTab !== 'general'}>
+      <section className="settings-card">
+        <div className="settings-card-heading"><div><span className="settings-eyebrow">PRIMARY EXAMINATION</span><h3>Face-to-face / Paper and Pen</h3><p>Paper is the primary delivery method. Manage municipality schedules and shared attendance in Examination Management. Present means For review, not completed or passed.</p><p>Use the Online Examination tab to choose the delivery method and save activation settings. Online delivery is optional.</p></div><UsersRound size={24} /></div>
+      </section>
       <section className="settings-card settings-application-card">
         <div className="settings-card-heading">
           <div><span className="settings-eyebrow">APPLICATION AVAILABILITY</span><h3>Application form access</h3><p>Open or close new submissions immediately, or limit them to a scheduled window.</p></div>
@@ -504,24 +512,27 @@ export default function SettingsManagement({ token, user }) {
         </div>
       </section>
 
+      {user?.role === 'SuperAdmin' && <SchoolCatalogManagement token={token} embedded />}
+      {user?.role === 'SuperAdmin' && <SystemHealthPanel />}
+      </div>
+
+      <div className="settings-tab-panel" id="settings-panel-online" role="tabpanel" aria-labelledby="settings-tab-online" hidden={activeTab !== 'online'}>
       <section className="settings-card settings-examination-card">
-        <div className="settings-card-heading"><div><span className="settings-eyebrow">FACE-TO-FACE EXAMINATION</span><h3>Examination mode and delivery</h3><p>Manually activate the examination and choose whether applicants use paper or the secured online question view.</p></div><Monitor size={24} /></div>
+        <div className="settings-card-heading"><div><span className="settings-eyebrow">OPTIONAL ONLINE DELIVERY</span><h3>Online Examination</h3><p>Paper and Pen remains primary. Select Online only when CAO intends applicants to answer through the portal. Access also requires an active municipality schedule, its permitted dates, and Present attendance.</p></div><Monitor size={24} /></div>
         {examinationError && <div className="settings-period-message error" role="status"><TriangleAlert size={15} /><span>{examinationError}</span><button type="button" onClick={loadExaminationSettings}>Retry</button></div>}
         <div className={`settings-availability-status ${examinationEnabled ? 'open' : 'disabled'}`}>
           <span className="settings-availability-status-icon"><Power size={18} /></span>
           <div><small>EXAMINATION MODE</small><strong>{examinationEnabled ? 'Active' : 'Inactive'}</strong><span>{examinationEnabled ? 'Eligible applicants can access their active municipality schedule.' : 'All applicant examination question views are blocked.'}</span></div>
           <label className="settings-availability-switch"><input type="checkbox" checked={examinationEnabled} disabled={!canManageApplications || examinationLoading || examinationSaving} onChange={(event) => setExaminationEnabled(event.target.checked)} /><span aria-hidden="true" /><b>{examinationEnabled ? 'Activated' : 'Deactivated'}</b></label>
         </div>
-        <div className="settings-mode-grid"><button type="button" disabled={examinationLoading || examinationSaving} className={mode === 'paper' ? 'selected' : ''} onClick={() => setMode('paper')}><UsersRound size={25} /><span><b>Paper and Pen</b><small>Applicants attend the venue and answer a printed examination.</small></span>{mode === 'paper' && <Check className="settings-check" size={18} />}</button><button type="button" disabled={examinationLoading || examinationSaving} className={mode === 'online' ? 'selected' : ''} onClick={() => setMode('online')}><Monitor size={25} /><span><b>Online Examination</b><small>Applicants answer through the secured Applicant Portal during the active schedule.</small></span>{mode === 'online' && <Check className="settings-check" size={18} />}</button></div>
+        <div className="settings-mode-grid"><button type="button" disabled={!canManageApplications || examinationLoading || examinationSaving} className={mode === 'paper' ? 'selected' : ''} onClick={() => setMode('paper')}><UsersRound size={25} /><span><b>Paper and Pen (Primary)</b><small>Applicants attend the venue and answer a printed examination.</small></span>{mode === 'paper' && <Check className="settings-check" size={18} />}</button><button type="button" disabled={!canManageApplications || examinationLoading || examinationSaving} className={mode === 'online' ? 'selected' : ''} onClick={() => setMode('online')}><Monitor size={25} /><span><b>Online Examination (Optional)</b><small>Applicants answer through the secured Applicant Portal during the active schedule.</small></span>{mode === 'online' && <Check className="settings-check" size={18} />}</button></div>
         <div className="settings-examination-actions">
           <span>Changes take effect for applicant examination access after saving.</span>
           <button className="settings-save" disabled={!canManageApplications || examinationLoading || examinationSaving} onClick={saveExamMode}><Save size={15} />{examinationSaving ? ' Saving…' : ' Save examination setting'}</button>
         </div>
       </section>
-
-      {user?.role === 'SuperAdmin' && <SchoolCatalogManagement token={token} embedded />}
-
-      {user?.role === 'SuperAdmin' && <SystemHealthPanel />}
+      </div>
+      {canManageApplications && <div className="settings-tab-panel" id="settings-panel-questions" role="tabpanel" aria-labelledby="settings-tab-questions" hidden={activeTab !== 'questions'}><OnlineQuestionsSettings token={token} active={activeTab === 'questions'} /></div>}
 
       {examinationSaveNotice && (
         <div className="admin-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExaminationSaveNotice(null); }}>

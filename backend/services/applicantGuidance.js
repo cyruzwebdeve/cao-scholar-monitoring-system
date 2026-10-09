@@ -1,5 +1,6 @@
 const { getRequirementSnapshot } = require('./lifecycleIntegrity');
 const { ADMIN_INITIAL_REQUIREMENT_KEYS, SCHOLAR_SEMESTER_REQUIREMENT_KEYS } = require('./documentReview');
+const { resolveExaminationProgress } = require('./examinationProgress');
 
 const REJECTED_STATUSES = new Set(['rejected', 'declined']);
 
@@ -63,6 +64,8 @@ const buildApplicantGuidance = ({
   const examScheduled = Boolean(examinationAccessEnabled && scheduledExam?.is_active);
   const examinationDeliveryMode = examinationSettings?.deliveryMode || 'paper';
   const attendanceConfirmed = Boolean(examSlot?.appeared);
+  const progress = resolveExaminationProgress({ result, scholar, examSlot, fallbackStatus: application.status, applicantFacing: true });
+  const attendanceReview = progress.status === 'For review';
   const requirementSnapshot = getRequirementSnapshot({
     initialDocs: application.initial_docs,
     requirement: scholarRequirement,
@@ -97,6 +100,8 @@ const buildApplicantGuidance = ({
         ? 'The qualifying examination was bypassed after CAO verified a priority eligibility proof.'
         : hasResult
           ? 'Your examination submission has been recorded.'
+        : attendanceReview
+          ? 'Attendance is Present. Your application is For review; no examination result has been recorded.'
         : examScheduled
           ? 'Your examination schedule is available.'
           : 'The Scholarship Office has not published your examination schedule yet.',
@@ -137,7 +142,26 @@ const buildApplicantGuidance = ({
     }),
   ];
 
-  if (!hasResult) {
+  if (!hasResult && !isScholar) {
+    if (['rejected', 'declined', 'withdrawn'].includes(String(progress.status).toLowerCase())) {
+      return { state: 'waiting', headline: `Application status: ${progress.status}`, description: 'Attendance does not change the recorded application decision. Contact CAO if you need clarification.', actions: [], timeline };
+    }
+    if (attendanceConfirmed && (examinationDeliveryMode === 'paper' || !examScheduled)) {
+      return {
+        state: 'waiting',
+        headline: 'Your application is For review',
+        description: 'CAO has confirmed your attendance. Attendance does not mean the examination is completed or passed.',
+        actions: [makeAction({
+          id: 'attendance-review',
+          type: 'waiting',
+          title: examinationDeliveryMode === 'paper' ? 'Follow CAO examination instructions' : 'Wait for online examination access',
+          description: examinationDeliveryMode === 'paper'
+            ? 'Complete the paper examination as instructed. CAO still needs to record and review your result.'
+            : 'Your online examination still needs to be completed when CAO enables access during your schedule.',
+        })],
+        timeline,
+      };
+    }
     if (examScheduled) {
       const isOnlineExamination = examinationDeliveryMode === 'online';
       const actionTitle = isOnlineExamination
@@ -145,15 +169,15 @@ const buildApplicantGuidance = ({
         : 'Attend your qualifying examination';
       const actionDescription = isOnlineExamination
         ? attendanceConfirmed
-          ? 'Your attendance is confirmed. Open the secured question view when you are ready.'
+          ? 'Your application is For review because attendance is confirmed. You must still complete and submit your online examination during the scheduled dates.'
           : `Report to ${scheduledExam.venue || 'your assigned venue'}. Online questions unlock after CAO marks you Present.`
         : scheduledExam.venue
           ? `Report to ${scheduledExam.venue} on your published examination date.`
           : 'Report to your assigned venue on the published examination date.';
       return {
         state: 'action_required',
-        headline: 'Your examination is scheduled',
-        description: 'Review the published schedule and prepare for the qualifying examination.',
+        headline: attendanceConfirmed ? 'Your application is For review' : 'Your examination is scheduled',
+        description: attendanceConfirmed ? 'Attendance is Present, but no examination result has been recorded.' : 'Review the published schedule and prepare for the qualifying examination.',
         actions: [makeAction({
           id: 'complete-examination',
           type: 'examination',
