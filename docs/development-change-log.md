@@ -11,7 +11,7 @@ and how the result was verified.
 - Authorized frontend deployment of clearer connection errors, actionable recovery and safeguards for unconfirmed actions.
 - Applicants, scholars and CAO staff retain inputs/answers on supported failures; failed reads no longer imply empty records or zero coverage.
 - Validation passed: 216 backend checks with one existing database skip, 69 frontend checks, lint/build and synthetic browser recovery checks.
-- Backend, database and configuration unchanged; no migration. Publication and public asset verification are in progress.
+- Backend, database and configuration unchanged; no migration. Release `709e770` pushed and new frontend assets verified live; API/database healthy.
 
 ### Objective, behavior, roles and implementation
 Publish the tested QA-10 frontend through the existing main/Hostinger pipeline for controlled acceptance. The shared API wrapper normalizes transport, unreadable-body and server failures with read/write recovery guidance while preserving business errors and tester-gate handling. Updated admin and applicant/scholar views suppress false empty conclusions. Examination success requires a recorded receipt, and failed initial schedule loading cannot enable cached autosave. Implementation details and changed files are recorded in the QA-10 entry below. Include frontend sources, regression tests, both change logs and QA register; original QA report/screenshots remain local and excluded.
@@ -24,7 +24,7 @@ Publish the tested QA-10 frontend through the existing main/Hostinger pipeline f
 - **Product scope:** payroll-list generation remains the workflow endpoint. Legacy payment retirement and retained historical data are unchanged.
 
 ### Validation, limitations, rollback and next work
-Local suites passed 285 checks with one existing opt-in database skip; lint/build, whitespace and synthetic browser failure/retry/receipt checks passed. Existing ExcelJS chunk warning remains. Remote main baseline was verified as 43eb8a4. Public asset and API-health checks will establish publication; authenticated hosted acceptance and provider logs are separate from those checks. No automatic write replay or universal request timeout is added. Roll back the matching frontend helper and consumers together without database rollback. Next: refresh old tabs and perform controlled acceptance using the QA register, then address QA-11 separately.
+Local suites passed 285 checks with one existing opt-in database skip; lint/build, whitespace and synthetic browser failure/retry/receipt checks passed. Existing ExcelJS chunk warning remains. Remote main baseline was verified as 43eb8a4. Push advanced main from 43eb8a4 to 709e770. Public frontend returned HTTP 200 with entry index-BKe9Wwze.js containing all three shared connection/unreadable/unconfirmed-action messages. Dashboard-DyvZ4EJm.js contains Data unavailable and Last loaded data; ExamPage-BoWz3Grd.js contains the positive recorded-receipt guard. API health returned HTTP 200 with status healthy and database connected. Backend code is unchanged. Authenticated hosted acceptance and provider logs were not independently inspected; public health does not expose a backend revision. No automatic write replay or universal request timeout is added. Roll back the matching frontend helper and consumers together without database rollback. Next: refresh old tabs and perform controlled acceptance using the QA register, then address QA-11 separately.
 
 ## 2026-10-12 - QA-10: Clear Connection Failures and Preserve Unconfirmed Actions
 
