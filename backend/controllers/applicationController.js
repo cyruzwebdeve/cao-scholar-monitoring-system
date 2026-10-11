@@ -1678,10 +1678,16 @@ const submitOnlineExam = async (req, res) => {
     catch (error) { return res.status(400).json({ message: error.message }); }
     const passingScore = configuration.passingScore;
     const data = { score, passing_score: passingScore, passed: score >= passingScore, online_configuration_id: configurationId, delivery_mode: 'online', updated_at: new Date() };
-    const result = await prisma.results.create({ data: { exam_slot_id: slot.id, applicant_id: applicantId, exam_id: exam.id, ...data } });
-    await prisma.application_submissions.updateMany({
-      where: { applicant_id: applicantId, status: { not: 'Withdrawn' } },
-      data: { status: APPLICATION_STATUSES.EXAMINED },
+    const result = await prisma.$transaction(async (tx) => {
+      const recorded = await tx.results.create({ data: { exam_slot_id: slot.id, applicant_id: applicantId, exam_id: exam.id, ...data } });
+      const updated = await tx.application_submissions.updateMany({
+        where: { applicant_id: applicantId, status: { not: 'Withdrawn' } },
+        data: { status: APPLICATION_STATUSES.EXAMINED },
+      });
+      if (updated.count === 0) {
+        throw new AttemptError('Your application is no longer available for examination submission. Contact CAO.');
+      }
+      return recorded;
     });
     const account = await prisma.control_accounts.findFirst({
       where: { applicant_id: applicantId },

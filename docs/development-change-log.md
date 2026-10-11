@@ -5,6 +5,33 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-11 - QA-07: Commit Online Results and Application Status Together
+
+### TL;DR
+- Online submission now commits the score and application status as one transaction; a failed status write rolls back the score.
+- Applicants with no matching non-withdrawn application receive a conflict response without a saved result or receipt email.
+- Existing slot uniqueness prevents duplicate scores; receipt delivery follows commit and unpublished scores remain private.
+- Root tests passed: 209 backend checks with one existing opt-in database skip, plus 56 frontend checks. Deployment through the authorized main/Hostinger pipeline is pending verification; no migration is required.
+
+### Objective and previous/new behavior
+Resolve QA-07's partial-save risk for applicants submitting an online examination. Previously the result was inserted before a separate application-status update. A failed second write could leave a saved score with an unchanged status, and retry would then report an already submitted examination. Both writes now use the same interactive Prisma transaction. An update affecting zero non-withdrawn applications throws a conflict and rolls back the insert. Existing applicant-wide non-withdrawn status selection is retained; this change does not redesign application history or repair historical partial writes.
+
+### Roles, implementation and data flow
+Applicant submissions still validate online availability, attendance, the original question version, answer grading and the persisted 45-minute deadline before writing. The transaction client creates the result and advances matching application submissions to Examined. Any failure aborts both writes. The existing application database unique constraint on results.exam_slot_id provides one winner for simultaneous submissions; the losing request receives HTTP 409. Only after commit does the controller look up the control number and send the existing receipt notification. CAO result review/publication, paper score entry and scholarship acceptance retain their existing workflows. Changed backend/controllers/applicationController.js and backend/tests/examinationIntegration.test.js, both change logs and docs/qa-fix-register.md.
+
+### Impacts
+- **API:** successful HTTP 201 receipt and unpublished-score privacy are retained. Missing/withdrawn application updates now return HTTP 409 with Contact CAO guidance; write failures remain HTTP 500 and duplicates HTTP 409.
+- **Database:** transactional write boundary added using existing tables and uniqueness. No schema change, migration, historical result rewrite, seed or production data repair.
+- **Configuration/deployment:** no environment-variable or frontend change. Deploy backend through existing main-branch Hostinger auto-build; no new migration. Public health does not identify the deployed backend revision.
+- **Security/privacy:** existing authorization, signed ticket/version checks and deadline rules retained. No new access or personal data exposure; synthetic fixtures only in tests.
+- **Accessibility:** no visual/interface change; existing submission errors display the new conflict message through current handling.
+- **Product scope:** workflow still ends at official payroll-list generation. Legacy payment/release functionality is retained unchanged outside approved scope; no monetary audit or release flow added.
+
+### Validation, limitations, rollback and next work
+Root npm test passed 209 backend checks, one existing opt-in real-database test skipped, and 56 frontend checks. Four additional controller integration tests cover commit-before-notification, forced status-write failure with rollback and successful retry, withdrawn/missing applications, and simultaneous/duplicate submissions with a single receipt. Tests use a serialized rollback-capable in-memory transaction facade and exercise existing HTTP integrations; they do not prove hosted PostgreSQL isolation or simulate real provider failures. The application Prisma schema already declares results.exam_slot_id unique. No frontend build is required for this backend-only change. Whitespace and remote main baseline checks passed before release.
+
+No existing inconsistent records are automatically repaired. Receipt delivery is outside the database transaction; a later notification/account lookup failure can occur after a committed submission, as before. Concurrency protection assumes the deployed application's existing unique constraint. Roll back the controller/test change without database rollback, understanding that rollback restores the partial-write risk. Next: verify Hostinger backend success and public health, then use a dedicated authorized test attempt for hosted acceptance; proceed separately to QA-09 legacy route review.
+
 ## 2026-10-11 - Deploy QA-06 Contrast and Preserve Test Tooling
 
 ### TL;DR

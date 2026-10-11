@@ -9,7 +9,7 @@ const prisma = {};
 const prismaPath = require.resolve('../config/prisma');
 require.cache[prismaPath] = { id: prismaPath, filename: prismaPath, loaded: true, exports: prisma };
 const mailerPath = require.resolve('../services/mailer');
-require.cache[mailerPath] = { id: mailerPath, filename: mailerPath, loaded: true, exports: { sendExamSubmittedEmail: async () => ({ sent: false }) } };
+require.cache[mailerPath] = { id: mailerPath, filename: mailerPath, loaded: true, exports: { sendExamSubmittedEmail: async () => { emailReceipts.push({ result, status: application.status }); return { sent: false }; } } };
 process.env.JWT_SECRET = randomBytes(32).toString('hex');
 const { defaultConfiguration, createExamTicket } = require('../services/onlineExamConfiguration');
 const { objectiveConfiguration } = require('./fixtures/objectiveExam');
@@ -26,9 +26,14 @@ let exam;
 let settings;
 let server;
 let baseUrl;
+let application;
+let emailReceipts;
+let transactionEvents;
 
 beforeEach(() => {
   writes = [];
+  emailReceipts = [];
+  transactionEvents = [];
   records = [];
   result = null;
   scholar = null;
@@ -36,15 +41,15 @@ beforeEach(() => {
   exam = { id: 3, title: 'Test examination', municipality: 'Daet', academic_year: '2026-2027', is_active: true, exam_date: new Date(), exam_end_date: new Date() };
   settings = { examination_enabled: true, exam_delivery_mode: 'online' };
   const applicant = { id: 7, first_name: 'TEST', last_name: 'APPLICANT', municipality: 'Daet', email: 'applicant@example.com', status: 'pending', school_year: '2026-2027' };
-  const application = { id: 1, applicant_id: 7, status: 'Applied', school_plan: {}, initial_docs: {} };
+  application = { id: 1, applicant_id: 7, status: 'Applied', school_plan: {}, initial_docs: {} };
   Object.assign(prisma, {
     academic_periods: { findFirst: async () => ({ id: 1, school_year: '2026-2027', is_active: true }) },
     application_settings: { findUnique: async () => settings },
     applicants: { findFirst: async () => applicant, findUnique: async () => applicant, findMany: async () => [applicant] },
     exams: { findFirst: async () => exam, findMany: async () => [exam], findUnique: async () => exam },
     exam_slots: { findUnique: async () => slot, findMany: async () => [slot], updateMany: async ({ where, data }) => { if (where.online_started_at === null && slot.online_started_at) return { count: 0 }; writes.push({ table: 'exam_slots', data }); slot = { ...slot, ...data }; return { count: 1 }; }, update: async ({ data }) => { writes.push({ table: 'exam_slots', data }); slot = { ...slot, ...data }; return slot; } },
-    results: { findFirst: async () => result, findMany: async () => result ? [result] : [], create: async ({ data }) => { writes.push({ table: 'results', data }); result = { id: 2, ...data }; return result; } },
-    application_submissions: { findFirst: async () => application, findMany: async () => [application], updateMany: async ({ data }) => { writes.push({ table: 'application_submissions', data }); return { count: 1 }; } },
+    results: { findFirst: async () => result, findMany: async () => result ? [result] : [], create: async ({ data }) => { if (result?.exam_slot_id === data.exam_slot_id) throw Object.assign(new Error('Duplicate examination result'), { code: 'P2002' }); writes.push({ table: 'results', data }); result = { id: 2, created_at: new Date(), ...data }; return result; } },
+    application_submissions: { findFirst: async () => application, findMany: async () => [application], updateMany: async ({ where, data }) => { if (!application || (where.status?.not && application.status === where.status.not)) return { count: 0 }; writes.push({ table: 'application_submissions', data }); Object.assign(application, data); return { count: 1 }; } },
     scholar_accounts: { findFirst: async () => scholar, findMany: async () => scholar ? [scholar] : [] },
     scholar_requirements: { findFirst: async () => null, findMany: async () => [] },
     eligibility_assessments: { findFirst: async () => null },
@@ -65,6 +70,31 @@ beforeEach(() => {
       },
     },
   });
+  // Serialize synthetic transactions and restore their state on rollback. This
+  // exercises controller use of the transaction client, not PostgreSQL itself.
+  let pending = Promise.resolve();
+  prisma.$transaction = (callback) => {
+    const operation = pending.then(async () => {
+      const previousResult = result;
+      const previousApplication = application && { ...application };
+      const previousWrites = writes.length;
+      transactionEvents.push('begin');
+      const tx = { results: { ...prisma.results }, application_submissions: { ...prisma.application_submissions } };
+      try {
+        const value = await callback(tx);
+        transactionEvents.push('commit');
+        return value;
+      } catch (error) {
+        result = previousResult;
+        application = previousApplication;
+        writes.length = previousWrites;
+        transactionEvents.push('rollback');
+        throw error;
+      }
+    });
+    pending = operation.catch(() => {});
+    return operation;
+  };
 });
 
 before(async () => {
@@ -341,4 +371,86 @@ test('legacy untimed and mismatched-version tickets cannot bypass persisted atte
   assert.equal(mismatch.statusCode, 409);
   assert.equal(result, null);
   assert.equal(writes.length, 0);
+});
+
+
+const openAtomicTestAttempt = async () => {
+  const config = objectiveConfiguration();
+  records.push({ id: 1, title: config.title, instructions: config.instructions, passing_score: config.passingScore, questions: config.questions });
+  slot.appeared = true;
+  const opened = response();
+  await getOnlineExamQuestions({ user: { id: 7 } }, opened);
+  assert.equal(opened.statusCode, 200);
+  writes = [];
+  return { user: { id: 7 }, body: { examTicket: opened.body.examTicket, answers: { multipleChoice: { 1: 1 } } } };
+};
+
+test('online result and Examined status commit together before receipt delivery', async () => {
+  const req = await openAtomicTestAttempt();
+  const res = response();
+  await submitOnlineExam(req, res);
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(transactionEvents, ['begin', 'commit']);
+  assert.equal(application.status, 'Examined');
+  assert.equal(result.exam_slot_id, slot.id);
+  assert.deepEqual(writes.map(({ table }) => table), ['results', 'application_submissions']);
+  assert.equal(emailReceipts.length, 1);
+  assert.equal(emailReceipts[0].status, 'Examined');
+  assert.equal(emailReceipts[0].result.id, result.id);
+  assert.equal(res.body.result, undefined);
+  assert.equal(res.body.receipt.recorded, true);
+});
+
+test('a failed application-status write rolls back the score and permits a safe retry', async (t) => {
+  const req = await openAtomicTestAttempt();
+  const update = prisma.application_submissions.updateMany;
+  prisma.application_submissions.updateMany = async () => { throw new Error('Synthetic status-write failure'); };
+  t.mock.method(console, 'error', () => {});
+  const failed = response();
+  await submitOnlineExam(req, failed);
+  assert.equal(failed.statusCode, 500);
+  assert.equal(result, null);
+  assert.equal(application.status, 'Applied');
+  assert.equal(writes.length, 0);
+  assert.equal(emailReceipts.length, 0);
+  assert.deepEqual(transactionEvents, ['begin', 'rollback']);
+  prisma.application_submissions.updateMany = update;
+  const retried = response();
+  await submitOnlineExam(req, retried);
+  assert.equal(retried.statusCode, 201);
+  assert.equal(application.status, 'Examined');
+  assert.equal(emailReceipts.length, 1);
+});
+
+test('withdrawn or missing applications cannot leave a committed online result', async () => {
+  const req = await openAtomicTestAttempt();
+  for (const state of [{ id: 1, applicant_id: 7, status: 'Withdrawn' }, null]) {
+    application = state;
+    const res = response();
+    await submitOnlineExam(req, res);
+    assert.equal(res.statusCode, 409);
+    assert.match(res.body.message, /Contact CAO/);
+    assert.equal(result, null);
+    assert.deepEqual(application, state);
+    assert.equal(writes.length, 0);
+    assert.equal(emailReceipts.length, 0);
+  }
+  assert.deepEqual(transactionEvents, ['begin', 'rollback', 'begin', 'rollback']);
+});
+
+test('simultaneous submissions commit one score/status pair and send one receipt', async () => {
+  const req = await openAtomicTestAttempt();
+  const responses = [response(), response()];
+  await Promise.all(responses.map((res) => submitOnlineExam(req, res)));
+  assert.deepEqual(responses.map(({ statusCode }) => statusCode).sort(), [201, 409]);
+  assert.deepEqual(transactionEvents, ['begin', 'commit', 'begin', 'rollback']);
+  assert.equal(result.exam_slot_id, slot.id);
+  assert.equal(application.status, 'Examined');
+  assert.equal(writes.filter(({ table }) => table === 'results').length, 1);
+  assert.equal(writes.filter(({ table }) => table === 'application_submissions').length, 1);
+  assert.equal(emailReceipts.length, 1);
+  const repeated = response();
+  await submitOnlineExam(req, repeated);
+  assert.equal(repeated.statusCode, 409);
+  assert.equal(emailReceipts.length, 1);
 });
