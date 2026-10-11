@@ -7,6 +7,9 @@
     "build:backend": "npm --prefix backend install --include=dev && npm --prefix backend run prisma:generate",
     "dev": "node scripts/dev.js",
     "dev:frontend": "npm --prefix frontend run dev",
-    "dev:backend": "npm --prefix backend run dev"
+    "dev:backend": "npm --prefix backend run dev",
+    "test": "node scripts/test.js",
+    "test:backend": "node scripts/test.js backend",
+    "test:frontend": "node scripts/test.js frontend"
   }
 }

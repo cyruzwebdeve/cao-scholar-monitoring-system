@@ -185,3 +185,9 @@
 2026-10-11 | QA-05: tester status/unlock requests time out after 10 seconds, including body reads; readable errors and manual retry preserve locked access, cancel stale requests and restore unlock controls. Frontend 56 tests, lint/build and synthetic timeout/retry/mobile checks passed. No backend/database change or deployment. QA-04 same-browser recovery retained as requested.
 
 2026-10-11 | Authorized combined QA-04/QA-05 deployment and added docs/qa-fix-register.md for all findings, fixes, release evidence and future acceptance tests. Same-browser recovery retained; no new migration or live record changes. Local checks passed. Release 3b9030e pushed; new recovery/gate code verified live and API/database healthy; user confirmed backend success. Authenticated acceptance testing remains pending.
+
+2026-10-11 | Added readable root automated testing: npm test, test:backend and test:frontend with named checks, timings, suite PASS/FAIL and real failure exit codes. Documented in docs/testing.md and linked from the QA register. Verified backend 205 passed/one existing skip and frontend 56 passed; temporary failure/invalid-selection checks passed and temporary test removed. No application change or deployment.
+
+2026-10-11 | QA-06: explicitly darken tester-code input/caret to #173a2a; rendered contrast 12.54:1. Keyboard/error/mobile checks passed; axe sampled gate had zero violations, 23 passes and one incomplete contrast review; lint/build passed. Local styling only, not deployed; no API/database impact.
+
+2026-10-11 | Authorized QA-06 deployment with previously requested readable test tooling and fix register. Input/caret contrast 12.54:1; local browser, lint/build and runner checks passed. No API/database/migration change; hosted verification pending push.

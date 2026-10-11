@@ -5,6 +5,75 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-11 - Deploy QA-06 Contrast and Preserve Test Tooling
+
+### TL;DR
+- Authorized publishing of the QA-06 tester-code foreground/caret correction through the existing main-branch Hostinger pipeline.
+- Includes the previously requested readable automated test runner, its documentation and updated fix register for future use; application behavior changes are limited to gate styling.
+- Local browser measured 12.54:1 input contrast, with keyboard/error/mobile checks passed and no axe violations in the sampled gate. Lint/build and the verified runner checks passed.
+- No API/database/migration or protected configuration changes. Hosted asset verification follows push.
+
+### Objective, behavior and affected roles
+Publish the approved darker tester-code text for all visitors to the testing gate. Developers retain the previously requested `npm test`, backend/frontend selection and readable PASS/FAIL output in the repository. Detailed implementation, validation and limitations for both are recorded in the preceding dated entries.
+
+### Implementation, files and data flow
+Remote main matched baseline `33cf953`. Publish the gate stylesheet, root package test scripts, `scripts/test.js`, `docs/testing.md`, fix register and matching change logs. Exclude the broader local QA report/entry and original tester-gate screenshots. Existing main-branch hosting and build commands are retained. No real tester code, sign-in, examination answers or applicant records are used in release verification.
+
+### Impact assessment
+- **API/database/security/privacy:** no application API, schema, migration, role, code/token storage or record changes. The test runner's dummy URL and disabled optional database test affect test child processes only.
+- **Configuration/deployment:** frontend styling and local test scripts only; no dependency, environment, hosting, DNS, schedule, threshold or delivery-mode changes. Normal frontend rebuild publishes the contrast fix; backend application code is unchanged.
+- **Accessibility:** explicit input/caret color provides 12.54:1 contrast on white. Keyboard/error/mobile behavior passed; the sampled axe scan has one incomplete contrast review and does not certify full-app accessibility.
+- **Scope:** official payroll-list generation remains the endpoint. Legacy payment/release code remains retained unchanged outside scope; no monetary workflow or audit is added.
+
+### Validation, limitations, rollback and next work
+Frontend lint/build and whitespace checks passed. Synthetic Chromium measured colors and checked focus, keyboard submission, alerts and mobile overflow. Axe sampled gate: zero violations, 23 passing rules, one incomplete contrast review. Root test runner previously passed 205 backend checks with one existing database skip and 56 frontend checks; temporary failure/invalid-selection verification passed and the temporary test was removed. Public CSS and API health will be inspected after push; live authenticated acceptance and full-app accessibility remain separate. Revert the gate color declarations to roll back styling without data impact; developer tooling can be independently removed. Record hosted confirmation in the fix register and proceed to QA-07 separately.
+
+## 2026-10-11 - QA-06: Improve Tester-Code Input Contrast
+
+### TL;DR
+- Tester-code input text and caret now explicitly use dark green `#173a2a` against the white input surface, replacing inherited low-contrast text.
+- Rendered input contrast measured 12.54:1, above the 4.5:1 target; keyboard focus/submission, error alerts and 390px layout passed.
+- Axe reported no violations in the sampled gate, with 23 passing rules and one incomplete color-contrast review. Lint/build passed; local only, not deployed.
+
+### Objective, previous/new behavior and affected roles
+Resolve QA-06's input foreground contrast for all visitors using the invitation-only tester gate. Previously the input inherited `#638072` from its icon wrapper, producing approximately 4.31:1 against white. The input now explicitly sets foreground and caret to `#173a2a`, yielding 12.54:1. The icon, gate authentication, messages, entered-code masking and timing/retry behavior remain unchanged.
+
+### Implementation, data flow and files
+Updated the input selector in `frontend/src/components/SiteAccessGate.css`. This is a visual style change with no request/data-flow change. Both change logs, the QA fix register and local QA report status are updated. No additional tests mirroring the CSS were added; verification used rendered browser styles and keyboard interaction.
+
+### Impact assessment
+- **API/database/configuration/security/privacy:** no endpoint, schema, migration, dependency, environment, permission, code storage or authentication change. No real tester codes or personal data used.
+- **Accessibility/UX:** stronger contrast for masked input characters and caret. Existing visible focus styling and labels remain; keyboard input-to-submit and error alert behavior verified.
+- **Deployment:** local frontend styling only; no push or hosted build performed. A frontend rebuild is required to publish it.
+- **Scope:** official payroll-list generation remains the endpoint. Legacy payment/release functionality is retained unchanged outside scope; no monetary workflow or audit is added.
+
+### Validation, limitations, rollback and next work
+Frontend lint and production build passed with the existing large ExcelJS chunk warning. Chromium computed input/caret `rgb(23,58,42)` against wrapper `rgb(255,255,255)`, yielding 12.54:1 via relative-luminance calculation. Synthetic gate checks verified typing, visible focus styles, Tab to submit, Enter submission and error alerts, no page errors and no horizontal overflow at 390px. Axe 4.10.3 returned zero violations, 23 passing rules and one incomplete contrast review for the sampled gate. This does not certify accessibility across the app or manually resolve every incomplete item. Hosted verification remains pending. Revert the two color declarations to roll back without data impact. Deploy when requested, then proceed separately to QA-07's online result/application-status transaction gap.
+
+## 2026-10-11 - Readable Automated Test Runner
+
+### TL;DR
+- Added root `npm test` plus backend/frontend selection commands, using real existing tests with named checks, timings, PASS/FAIL suite labels and overall status.
+- Developers receive readable terminal output and meaningful failure exit codes without adding a test framework or application behavior.
+- Default runner uses a dummy child-process database URL and skips the existing opt-in real-database migration test. No production operations or deployment are performed.
+- Verified 205 backend checks passed with one existing skip and 56 frontend checks passed. A removed temporary failure confirmed FAIL reporting/exit code 1; invalid selection returned usage/exit code 2.
+
+### Objective and previous/new behavior
+Provide the readable automated feature-test experience the user showed in a PHP/Laravel terminal, using this project's existing Node test suites. Previously there was no root command to run both sides and the backend default could emit TAP output. Now `npm test` runs backend then frontend with Node's spec reporter, named check/failure marks, timings and statistics. Root `test:backend` and `test:frontend` select one side. PASS is printed only after a successful child process; failure diagnostics remain visible and the overall exit status indicates failure. Existing backend test commands remain unchanged.
+
+### Roles, implementation, data flow and files
+Developers and QA staff use root package scripts invoking `scripts/test.js`. The launcher discovers sorted `.test.js` files, passes them directly to the current Node executable without shell globs, runs each selected suite in its own directory, and inherits terminal streams. Terminal labels support color and NO_COLOR; redirected logs stay readable. Child-process environment overrides only the test database URL and opt-in catalog migration flag. `docs/testing.md` documents commands, setup, coverage and limits; the QA fix register links to it. No test outcomes are fabricated or stored as application records.
+
+### Impact assessment
+- **API/database/configuration:** no application API, schema, migration, account, score, payroll or hosting changes. Root package test scripts are added; no dependencies or lockfiles change. The launcher supplies isolated test environment settings only to child processes.
+- **Security/privacy:** no credentials, real data, answer keys or tokens are added to the runner/docs. The optional database test is disabled for ordinary root runs rather than inheriting a production URL.
+- **Accessibility/UX:** developer terminal output includes textual PASS/FAIL and check names, so color is optional. No product UI/accessibility change.
+- **Deployment:** local developer tooling only; no push or hosted build required for this request.
+- **Scope:** tests retain official payroll-list generation as the workflow endpoint. Legacy payment/release application code is retained unchanged outside scope; no monetary workflow or audit is added.
+
+### Validation, limitations, rollback and next work
+Ran the real root command: 205 backend checks passed, one existing opt-in database skip, 56 frontend checks passed. Added a temporary failing frontend test solely to verify the actual launcher reports FAIL and returns exit code 1, then removed it; invalid suite selection returns usage and exit code 2. Whitespace checks passed. Existing dependencies/generated client are prerequisites; some tests require local HTTP port binding. Tests verify covered scenarios rather than certify all live behavior; hosted/browser/accessibility testing remains separate. Remove the root scripts/launcher/docs to roll back this tooling without database or application changes. Add future regression tests as new QA fixes are implemented and use the documented commands for verification.
+
 ## 2026-10-11 - Deploy QA-04/QA-05 and Maintain the QA Fix Register
 
 ### TL;DR

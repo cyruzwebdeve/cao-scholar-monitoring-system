@@ -40,7 +40,7 @@
 .site-access-form label { color: #334c40; font-size: 13px; font-weight: 700; }
 .site-access-input { display: flex; align-items: center; gap: 10px; padding: 0 14px; border: 1px solid #cbd9d1; border-radius: 11px; background: #fff; color: #638072; }
 .site-access-input:focus-within { border-color: #248a57; box-shadow: 0 0 0 3px rgba(36, 138, 87, .13); }
-.site-access-input input { width: 100%; min-height: 46px; border: 0; outline: 0; background: transparent; font: inherit; }
+.site-access-input input { width: 100%; min-height: 46px; border: 0; outline: 0; background: transparent; color: #173a2a; caret-color: #173a2a; font: inherit; }
 .site-access-form button,
 .site-access-retry { min-height: 47px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: 0; border-radius: 11px; background: #177747; color: #fff; font: inherit; font-weight: 750; cursor: pointer; }
 .site-access-form button:hover:not(:disabled), .site-access-retry:hover { background: #0f6138; }
