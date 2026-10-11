@@ -45,14 +45,6 @@ const formatPortalDateTime = (value, fallback = 'No deadline set') => {
   }).format(date);
 };
 
-const formatAllowanceStatus = (allowance) => {
-  if (!allowance) return 'No release scheduled';
-  const status = allowance.claimedDate
-    ? 'Claimed'
-    : allowance.batchStatus || allowance.status || 'Pending';
-  return String(status).replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
-};
-
 const getRequirementReviewStatus = (item) => {
   if (!item?.fileName) return 'missing';
   const status = String(item.status || '').toLowerCase();
@@ -209,17 +201,12 @@ function ScholarDashboard({ token, user, onLogout }) {
   const requirementsComplete = onlineRequirementsComplete;
   const requirementsDeadline = portalData.activePeriod?.requirementsDeadline || null;
   const requirementsSubmissionClosed = portalData.activePeriod?.requirementsSubmission?.isOpen === false;
-  const allowance = portalData.allowance;
-  const allowanceStatus = formatAllowanceStatus(allowance);
-  const certificationDate = formatPortalDate(portalData.certificationCreatedAt || allowance?.certificationCreatedAt, 'Not generated', 'Asia/Manila');
-  const allowanceSubtitle = isPrivateScholar
-    ? certificationDate !== 'Not generated'
-      ? 'Latest certification list generated'
-      : 'Awaiting certification-list generation'
-    : allowanceStatus;
-  const allowanceAmount = allowance
-    ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(allowance.amount)
-    : 'Not scheduled';
+  const payrollList = portalData.payrollList;
+  const certificationDate = formatPortalDate(portalData.certificationCreatedAt, 'Not generated', 'Asia/Manila');
+  const listDate = isPrivateScholar ? certificationDate : formatPortalDate(payrollList?.generatedAt, payrollList ? 'Date unavailable' : 'Not generated', 'Asia/Manila');
+  const listSubtitle = isPrivateScholar
+    ? certificationDate !== 'Not generated' ? 'Certification list generated' : 'Awaiting certification-list generation'
+    : payrollList ? 'Included in payroll list' : 'Awaiting payroll-list generation';
   const summaryNotifications = [
     rejectedCount > 0
       ? `${rejectedCount} requirement${rejectedCount === 1 ? ' was' : 's were'} returned for correction.`
@@ -228,11 +215,11 @@ function ScholarDashboard({ token, user, onLogout }) {
         : pendingReviewCount > 0
           ? `${pendingReviewCount} uploaded document${pendingReviewCount === 1 ? ' is' : 's are'} awaiting Billing staff review.`
           : 'All scholar-managed requirements are approved.',
-    allowance ? `Allowance status: ${allowanceStatus}.` : 'No allowance release has been scheduled yet.',
+    listSubtitle + '.',
   ];
   const unreadScholarNotifications = scholarNotifications.filter(({ isRead }) => !isRead);
   const latestScholarNotification = scholarNotifications[0] || null;
-  const hasActionNotifications = unreadScholarNotifications.length > 0 || attentionCount > 0 || pendingReviewCount > 0 || !allowance;
+  const hasActionNotifications = unreadScholarNotifications.length > 0 || attentionCount > 0 || pendingReviewCount > 0 || (isPrivateScholar ? certificationDate === 'Not generated' : !payrollList);
   const uploadRequirement = (requirement, file) => {
     if (!file) return;
     if (requirementsSubmissionClosed) {
@@ -374,7 +361,7 @@ function ScholarDashboard({ token, user, onLogout }) {
 
         <section className="scholar-stat-grid">
           <article className="scholar-stat-card"><div className="scholar-stat-icon green"><CheckCircle2 size={21} /></div><div><span>Scholarship status</span><strong>{portalData.scholar?.isActive ? 'Active Scholar' : 'Scholar record unavailable'}</strong><small>{portalData.scholar?.issuedAt ? `Approved ${formatPortalDate(portalData.scholar.issuedAt)}` : 'Approval date unavailable'}</small></div></article>
-          <article className="scholar-stat-card"><div className="scholar-stat-icon gold"><CircleDollarSign size={21} /></div><div><span>Allowance</span><strong>{isPrivateScholar ? certificationDate : allowanceAmount}</strong><small>{allowanceSubtitle}</small></div></article>
+          <article className="scholar-stat-card"><div className="scholar-stat-icon gold"><CircleDollarSign size={21} /></div><div><span>{isPrivateScholar ? 'Certification list' : 'Payroll list'}</span><strong>{listDate}</strong><small>{listSubtitle}</small></div></article>
           <article className="scholar-stat-card">
             <div className="scholar-stat-icon blue"><FileCheck2 size={21} /></div>
             <div>
@@ -391,7 +378,7 @@ function ScholarDashboard({ token, user, onLogout }) {
               guidance={portalData.guidance}
               resolveRoute={(route) => route === 'requirements' ? '#requirements' : null}
             />
-            <article className={`scholar-panel scholar-announcement-panel ${latestScholarNotification ? 'personal-notice' : ''}`}><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{latestScholarNotification ? 'PERSONAL PAYROLL UPDATE' : 'FROM CAO'}</p><h2>{latestScholarNotification ? 'Your latest update' : 'Latest announcement'}</h2></div><Bell size={20} className="scholar-heading-icon" /></div><h3>{latestScholarNotification?.title || latestAnnouncement?.title || (requirementsComplete ? 'Requirements submitted' : 'Complete your scholar requirements')}</h3><p>{latestScholarNotification?.message || latestAnnouncement?.content || (requirementsComplete ? 'Your required documents are approved and recorded. Watch this portal for allowance updates.' : 'Submit the remaining requirements so your scholar record can proceed to allowance processing.')}</p>{latestScholarNotification && <div className="scholar-payroll-notice-details"><span><small>Payment reference</small><strong>{latestScholarNotification.reference || 'Not assigned'}</strong></span><span><small>Amount</small><strong>{new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(latestScholarNotification.amount || 0)}</strong></span><span><small>Processed</small><strong>{formatPortalDate(latestScholarNotification.createdAt)}</strong></span></div>}{latestScholarNotification && !latestScholarNotification.isRead && <button type="button" className="scholar-text-button" onClick={() => markNotificationRead(latestScholarNotification.id)}>Mark as read <ChevronRight size={15} /></button>}{!latestScholarNotification && latestAnnouncement?.imageData && <img className="portal-announcement-image" src={latestAnnouncement.imageData} alt={latestAnnouncement.imageName || latestAnnouncement.title} />}{!latestScholarNotification && latestAnnouncement?.externalUrl ? <a href={latestAnnouncement.externalUrl} target="_blank" rel="noopener noreferrer" className="scholar-text-button">View official Facebook post <ExternalLink size={15} /></a> : !latestScholarNotification && <a href="#requirements">View requirements <ChevronRight size={15} /></a>}</article>
+            <article className={`scholar-panel scholar-announcement-panel ${latestScholarNotification ? 'personal-notice' : ''}`}><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{latestScholarNotification ? 'PERSONAL PAYROLL UPDATE' : 'FROM CAO'}</p><h2>{latestScholarNotification ? 'Your latest update' : 'Latest announcement'}</h2></div><Bell size={20} className="scholar-heading-icon" /></div><h3>{latestScholarNotification?.title || latestAnnouncement?.title || (requirementsComplete ? 'Requirements submitted' : 'Complete your scholar requirements')}</h3><p>{latestScholarNotification?.message || latestAnnouncement?.content || (requirementsComplete ? 'Your required documents are approved and recorded. Watch this portal for list-generation updates.' : 'Submit the remaining requirements so your scholar record can proceed to list preparation.')}</p>{latestScholarNotification && <div className="scholar-payroll-notice-details"><span><small>List reference</small><strong>{latestScholarNotification.reference || 'Not assigned'}</strong></span><span><small>Amount</small><strong>{new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(latestScholarNotification.amount || 0)}</strong></span><span><small>Processed</small><strong>{formatPortalDate(latestScholarNotification.createdAt)}</strong></span></div>}{latestScholarNotification && !latestScholarNotification.isRead && <button type="button" className="scholar-text-button" onClick={() => markNotificationRead(latestScholarNotification.id)}>Mark as read <ChevronRight size={15} /></button>}{!latestScholarNotification && latestAnnouncement?.imageData && <img className="portal-announcement-image" src={latestAnnouncement.imageData} alt={latestAnnouncement.imageName || latestAnnouncement.title} />}{!latestScholarNotification && latestAnnouncement?.externalUrl ? <a href={latestAnnouncement.externalUrl} target="_blank" rel="noopener noreferrer" className="scholar-text-button">View official Facebook post <ExternalLink size={15} /></a> : !latestScholarNotification && <a href="#requirements">View requirements <ChevronRight size={15} /></a>}</article>
           </div>
 
           <div className="scholar-portal-column">

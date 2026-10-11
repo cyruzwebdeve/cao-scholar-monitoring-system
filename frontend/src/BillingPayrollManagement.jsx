@@ -1,3 +1,4 @@
+import { matchesPayrollListStatus } from './utils/payrollListStatus';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Banknote,
@@ -153,7 +154,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const isPayroll = mode === 'payroll';
   const [initialHandoff] = useState(() => readProcessingHandoff(mode));
   const defaultBilledFilter = isPayroll ? 'All Billing Statuses' : 'Not billed yet';
-  const defaultPaidFilter = isPayroll ? 'Not paid yet' : 'All Payroll Statuses';
+  const defaultPayrollListFilter = isPayroll ? 'Not included yet' : 'All Payroll Statuses';
   const [records, setRecords] = useState([]);
   const [availableSchools, setAvailableSchools] = useState([]);
   const [activePeriods, setActivePeriods] = useState([]);
@@ -181,7 +182,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
   const [billed, setBilled] = useState(defaultBilledFilter);
   const [billingReference, setBillingReference] = useState('All Billing References');
   const [payReference, setPayReference] = useState('All Payroll References');
-  const [paid, setPaid] = useState(defaultPaidFilter);
+  const [payrollListStatus, setPayrollListStatus] = useState(defaultPayrollListFilter);
   const [schoolYearSem, setSchoolYearSem] = useState('All School Years / Semesters');
   const [school, setSchool] = useState('All Schools');
   const [schoolType, setSchoolType] = useState('All School Types');
@@ -208,7 +209,6 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
           ...history,
           id: `${record.id}-period-${history.academicPeriodId || history.dateProcessed || 'legacy'}`,
           billed: true,
-          paid: history.payrollStatus === 'Paid',
           schoolYearSemester: `${history.schoolYear} · ${history.semester}`,
           isArchivedPeriod: true,
         })));
@@ -274,27 +274,27 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
       && (billed === 'All Billing Statuses' || (billed === 'Billed' ? record.billed : !record.billed))
       && matchesBillingReference
       && matchesReference
-      && (paid === 'All Payroll Statuses' || (paid === 'Paid' ? record.paid : !record.paid))
+      && matchesPayrollListStatus(record, payrollListStatus)
       && isVisibleInProcessingMode(record, isPayroll ? 'payroll' : 'billing')
       && (schoolYearSem === 'All School Years / Semesters' || record.schoolYearSemester === schoolYearSem)
       && (school === 'All Schools' || record.school === school)
       && (schoolType === 'All School Types' || normalizedSchoolType === schoolType)
       && matchesDateRange(record.dateProcessed, dateFrom, dateTo);
-  }), [records, query, scholarStatus, billed, billingReference, payReference, paid, schoolYearSem, school, schoolType, dateFrom, dateTo, isPayroll]);
+  }), [records, query, scholarStatus, billed, billingReference, payReference, payrollListStatus, schoolYearSem, school, schoolType, dateFrom, dateTo, isPayroll]);
 
   const hasFilters = Boolean(query || dateFrom || dateTo
     || scholarStatus !== 'All Scholar Statuses'
     || billed !== defaultBilledFilter
     || billingReference !== 'All Billing References'
     || payReference !== 'All Payroll References'
-    || paid !== defaultPaidFilter
+    || payrollListStatus !== defaultPayrollListFilter
     || schoolYearSem !== 'All School Years / Semesters'
     || school !== 'All Schools'
     || schoolType !== 'All School Types');
 
   const clearFilters = () => {
     setQuery(''); setScholarStatus('All Scholar Statuses'); setBilled(defaultBilledFilter);
-    setBillingReference('All Billing References'); setPayReference('All Payroll References'); setPaid(defaultPaidFilter);
+    setBillingReference('All Billing References'); setPayReference('All Payroll References'); setPayrollListStatus(defaultPayrollListFilter);
     setSchoolYearSem('All School Years / Semesters'); setSchool('All Schools');
     setSchoolType('All School Types'); setDateFrom(''); setDateTo(''); setPage(1);
   };
@@ -530,7 +530,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
             <div className="billing-filter-group-fields">
               <div className="billing-filter-status-row">
                 <label><span>Billed?</span><select value={billed} onChange={(event) => { setBilled(event.target.value); setPage(1); }}><option>All Billing Statuses</option><option>Billed</option><option>Not billed yet</option></select></label>
-                <label><span>Paid?</span><select value={paid} onChange={(event) => { setPaid(event.target.value); setPage(1); }}><option>All Payroll Statuses</option><option>Paid</option><option>Not paid yet</option></select></label>
+                <label><span>Payroll list</span><select aria-label="Payroll list status" value={payrollListStatus} onChange={(event) => { setPayrollListStatus(event.target.value); setPage(1); }}><option>All Payroll Statuses</option><option>Included in payroll list</option><option>Not included yet</option></select></label>
               </div>
               <label><span>Billing reference</span><select value={billingReference} onChange={(event) => {
                 const nextReference = event.target.value;
@@ -543,7 +543,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
                 setPayReference(nextReference);
                 if (!['All Payroll References', 'No payroll reference'].includes(nextReference)) {
                   setBilled('All Billing Statuses');
-                  setPaid('All Payroll Statuses');
+                  setPayrollListStatus('All Payroll Statuses');
                 }
                 setPage(1);
               }}><option>All Payroll References</option><option>No payroll reference</option>{payReferences.map((option) => <option key={option}>{option}</option>)}</select></label>

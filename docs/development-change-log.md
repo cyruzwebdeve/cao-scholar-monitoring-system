@@ -5,6 +5,71 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-12 - Deploy QA-09 for Controlled Testing
+
+### TL;DR
+- Authorized deployment of the approved QA-09 legacy payout retirement and certification/payroll-list displays through the existing main/Hostinger pipeline.
+- CAO and scholar views end at list generation; existing official list generation and historical data are preserved.
+- Local validation passed: 216 backend checks with one existing database skip, 57 frontend checks, lint/build and synthetic status/filter/report/keyboard/mobile checks.
+- Matching frontend/backend deployment is required; no new migration or configuration change. Release and public/provider verification are pending.
+
+### Objective, behavior, roles and implementation
+Publish the tested QA-09 fix so the user can perform controlled acceptance tests. Six authenticated legacy payout/status routes return HTTP 410; old payout handlers and unused AdminPanel are removed. Supported scholar portal/history, Payroll filters, Reports and dashboard copy describe list membership/generation rather than payment confirmation. CAO list preparation, private certification, public payroll-list generation, eligibility/override rules and operational activity logs remain available. The implementation and changed API projections are detailed in the QA-09 entry below. Deploy the matching application controller, routes, report/activity changes, projection/filter helpers and frontend consumers; include regression tests and both required change logs/QA register. Broader original QA report/screenshots remain local and excluded from the release.
+
+### Impacts
+- **API:** retire six legacy routes with existing access checks; replace allowance/payment projections with list state and report counts. Existing consumers are updated together; external legacy clients need migration.
+- **Database:** no new migration, schema change, seed, historical conversion or data deletion. Retained payment columns are outside supported workflow.
+- **Configuration/deployment:** no environment-variable or dependency changes; use the established main-branch Hostinger auto-build pipeline for frontend/backend.
+- **Security/privacy:** existing role/section authorization retained; no new access or payment-note exposure. No production record mutation is part of deployment verification.
+- **Accessibility:** named native list-status filter and sampled keyboard/mobile checks passed; no broader accessibility claim.
+- **Product scope:** workflow ends at official payroll-list generation. Legacy payout routes disabled and implementations removed; historical records and unrelated legacy interfaces retained as described below. Activity logs track system operations, not released-money audits.
+
+### Validation, limitations, rollback and next work
+The completed local suites and browser checks passed as recorded below; one existing real-database test remains opt-in/skipped, and the existing ExcelJS chunk-size warning remains. Remote main baseline verified as `1e9fff2`; whitespace checks pass. No code changes since completed QA-09 validation. Push/deployed asset/API/provider checks are pending. Public API health alone does not identify a backend revision, and authenticated hosted tests are still required. Refresh old browser tabs once both builds succeed. Roll back matching frontend/backend code without database rollback; restoring payout routes requires deliberate scope review. Next: confirm Hostinger builds and perform the register's controlled QA-09 acceptance steps.
+
+## 2026-10-12 - QA-09: Retire Legacy Payout Routes and End Displays at List Generation
+
+### TL;DR
+- Approved retirement of six legacy payout/status endpoints: authorized callers now receive HTTP 410 without business writes; existing authentication and section checks remain.
+- CAO Payroll, Reports and scholar dashboards now describe certification/payroll-list inclusion and creation dates rather than Paid, Claimed or Released.
+- Existing official list generation, eligibility/overrides, workbook preparation and operational activity logging are preserved; legacy payment data remains stored without migration or deletion.
+- Validation passed: 216 backend checks with one existing opt-in database skip, 57 frontend checks, lint/build and synthetic Chromium status/filter/report/mobile checks. Local fix only; not deployed.
+
+### Objective and previous/new behavior
+Resolve QA-09 under the approved scope boundary: PGCEAP ends when CAO generates the official payroll list. Source inspection found registered legacy handlers for payout compliance, paid status, old batch creation/release and status lookups. Some used legacy Prisma models, so registration alone did not prove successful mutation against the deployed application database. Modern list generation was already separate and correctly persisted generated batches/listed memberships. The user approved the full retirement plan, including affected displays and retained historical data.
+
+Previously authenticated legacy calls could enter paid/release mutation implementations or incompatible legacy models. All six routes now use an explicit retirement handler after existing authentication, role and section checks. Legacy paid/claimed/released fields also influenced scholar cards, filtering, history and lifecycle paid totals. Supported views now use list membership and preparation dates, and reports end with separate certification-listed/payroll-listed counts. No payroll-list generation is redefined as fund release.
+
+### Roles, implementation and data flow
+Billing/Payroll staff using old payout clients receive HTTP 410 and instructions to use the supported list screens. Applicant/Scholar callers remain unauthorized for these staff routes. CAO staff and scholars retain supported certification and official payroll-list workflows.
+
+Retired routes: PUT /applications/:id/payout-compliant, PUT /applications/:id/paid, POST /payroll/billing-batch, PUT /payroll/billing-batch/:id/release, GET /scholars/eligible and GET /scholars. Retirement replies use LEGACY_PAYOUT_WORKFLOW_RETIRED and never call business mutations. Removed the six legacy controller implementations/exports after checking callers, their mutation activity mappings, and the unmounted AdminPanel component that invoked old batching/release APIs. POST /billing/process and POST /payroll/process, scholar-management access and requirement-review/override controls remain intact.
+
+The new payrollListScope helper projects existing membership/batch records into payrollList {status, reference, amount, generatedAt}; claimed notes/date, raw payment status and release date are excluded. BILL-prefix or billed batches remain certification records. Scholar management retains payReference as a compatibility key for payroll-list batch numbers only, and financialHistory as list history; it excludes paid/claimStatus/batchStatus and uses prepared_at/created_at rather than later payment update dates. Existing legacy released batches can still establish list inclusion; no released-money outcome is inferred.
+
+Payroll filtering uses inPayroll, with All Payroll Statuses, Included in payroll list and Not included yet choices. Public Payroll defaults to Not included yet. Scholars see certification/payroll-list dates and status, including Date unavailable for an existing public membership lacking a creation date. Reports split certification/payroll membership counts, remove paid monetary totals and retain operational activity data. Dashboard placeholder copy and reference labels use list-generation language. Legitimate examination-result release and private tuition-support certificate text remain.
+
+### Changed areas and impacts
+Changed application and lifecycle-report controllers, application routes, activity mutation mappings, the payroll-list projection helper and backend tests; BillingPayrollManagement, ScholarDashboard, ReportsManagement, ScholarsManagement, Dashboard, the list-filter helper and frontend test; removed unused AdminPanel; updated both change logs and QA fix register.
+
+- **API:** six authenticated legacy routes return 410; existing unauthorized 401/403 behavior remains. applications/me replaces allowance with payrollList. Scholar management removes payment confirmation fields. reports/lifecycle replaces funnel.billed/paid and finance payment totals with certificationListed/payrollListed and lists counts. Current consumers are updated together; external legacy clients must migrate.
+- **Database/data:** no schema change, migration, data deletion, recalculation, historical conversion or production query. Legacy payment columns and historical logs remain. Existing payroll_claims storage continues to represent supported list membership despite its legacy name.
+- **Configuration:** no environment variables, dependency or hosting configuration changes.
+- **Security/privacy:** no access expansion. Retired endpoints cannot execute business writes; payment notes/confirmation fields are no longer included in supported projections. Verification uses synthetic records and locally mocked authentication only.
+- **Accessibility:** the new Payroll list status selector has an explicit accessible name; native keyboard selection works. Existing labels/status handling and responsive layouts retained. No full-app accessibility certification claimed.
+- **Deployment:** local only. A matching backend/frontend release is required; no new migration. Refresh old browser tabs after deployment. No provider changes or production fault injection.
+- **Legacy scope:** payout handlers and obsolete AdminPanel are removed; legacy endpoints are disabled with 410. Schema columns, historical records/logs, unused payable-claim helper/validator/status constants and unrelated legacy application/requirements interfaces are retained unchanged outside this retirement. Operational access/change logs remain permitted; they are not monetary audits.
+
+### Validation and results
+Root npm test passed 216 backend checks with one existing opt-in real-database skip and 57 frontend checks. New tests exercise all six actual HTTP routes with missing authentication, wrong role, missing section access and permitted staff; permitted calls with invalid legacy amount payloads return 410 without business writes or success activity records. Synthetic legacy paid/claimed/released records yield list inclusion only, exclude payment confirmation fields from applicant and scholar-management responses, preserve stored source values and report preparation rather than payment update dates. Lifecycle reporting separates certification/payroll entries and retains operational activity counts. Frontend filter tests select inPayroll independently of legacy paid flags. Existing private certification and public payroll generation/eligibility/override/duplicate regressions passed.
+
+Frontend lint and production build passed; the existing large ExcelJS bundle warning remains. Synthetic Chromium checked public/private scholars with and without generated lists, default unlisted Payroll filtering, native keyboard selection and all-status filtering, ignoring legacy payment flags, and the lifecycle funnel ending at list stages. Scholar, Payroll and Reports samples had no horizontal page overflow at 390px and no browser page errors. These checks do not use real accounts, generate live payroll records, exercise hosted PostgreSQL or certify every workbook/browser scenario. Whitespace and removed-caller checks passed.
+
+### Limitations, rollback and recommended next work
+Historical database payment fields/logs are preserved and not converted or repaired. Free-text historical notices/announcements remain stored as authored. Missing historical preparation/creation dates cannot be reconstructed; the public card says Date unavailable for known membership. External clients relying on old routes/payment fields need migration. Backend/frontend revision mismatch during deployment can briefly show missing list state, so coordinate both builds and refresh existing tabs.
+
+Rollback requires matching frontend/backend code and no database rollback. Re-enabling retired payout endpoints restores an out-of-scope workflow and requires deliberate scope review. Recommended next work: deploy when requested, confirm both Hostinger builds, then run controlled authenticated list/filter/portal/report acceptance with dedicated test records. Continue separately with remaining QA-10 connection wording and QA-11 hosting documentation.
+
 ## 2026-10-11 - QA-07: Commit Online Results and Application Status Together
 
 ### TL;DR

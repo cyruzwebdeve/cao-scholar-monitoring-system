@@ -72,7 +72,7 @@ export default function ReportsManagement({ token }) {
       const [scholarBody, lifecycleBody] = await Promise.all([scholarResponse.json(), lifecycleResponse.json()]);
       if (!scholarResponse.ok) throw new Error(scholarBody.message || 'Unable to load report data.');
       setScholars(scholarBody.scholars || []);
-      if (!lifecycleResponse.ok) throw new Error(lifecycleBody.message || 'Unable to load lifecycle audit data.');
+      if (!lifecycleResponse.ok) throw new Error(lifecycleBody.message || 'Unable to load lifecycle report.');
       setLifecycleReport(lifecycleBody);
       setLoadError('');
     } catch (error) {
@@ -276,9 +276,9 @@ export default function ReportsManagement({ token }) {
       )}
 
       {lifecycleReport && (
-        <section className="reports-lifecycle-grid" aria-label="Scholar lifecycle audit">
+        <section className="reports-lifecycle-grid" aria-label="Scholar lifecycle through list generation">
           <article className="reports-surface reports-lifecycle-card">
-            <header><div><h2>Scholar lifecycle</h2><p>{lifecycleReport.period.schoolYear} · {lifecycleReport.period.semester}</p></div><span><ClipboardCheck size={16} /> Auditable flow</span></header>
+            <header><div><h2>Scholar lifecycle</h2><p>{lifecycleReport.period.schoolYear} · {lifecycleReport.period.semester}</p></div><span><ClipboardCheck size={16} /> List preparation</span></header>
             <div className="reports-funnel">
               {[
                 ['Applied', lifecycleReport.funnel.applied],
@@ -287,8 +287,8 @@ export default function ReportsManagement({ token }) {
                 ['Passed', lifecycleReport.funnel.passed],
                 ['Scholars', lifecycleReport.funnel.scholars],
                 ['Requirements cleared', lifecycleReport.funnel.requirementsCleared],
-                ['Billed', lifecycleReport.funnel.billed],
-                ['Paid', lifecycleReport.funnel.paid],
+                ['Certification listed', lifecycleReport.funnel.certificationListed],
+                ['Payroll listed', lifecycleReport.funnel.payrollListed],
               ].map(([label, count], index, stages) => {
                 const maximum = Math.max(1, ...stages.map(([, value]) => value));
                 return <div key={label}><span><strong>{label}</strong><em>{count}</em></span><i><b style={{ width: `${(count / maximum) * 100}%` }} /></i></div>;

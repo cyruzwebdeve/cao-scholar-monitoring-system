@@ -141,7 +141,7 @@ const sectionViews = {
     secondaryItems: [
       '3 applications are ready for exam encoding.',
       '2 role update requests need approval.',
-      '1 payroll batch is waiting for release review.',
+      '1 payroll list is waiting for preparation review.',
     ],
   },
   'Content Management': {
@@ -159,7 +159,7 @@ const sectionViews = {
     primaryLink: 'Open content editor',
     primaryItems: [
       { name: 'Scholarship deadline reminder', detail: 'Ready for publish', status: 'Approved', time: '2 hrs ago' },
-      { name: 'Payroll release update', detail: 'Scheduled for later today', status: 'Pending', time: 'Today' },
+      { name: 'Payroll-list update', detail: 'Scheduled for later today', status: 'Pending', time: 'Today' },
       { name: 'Exam schedule notice', detail: 'Needs final review', status: 'Needs Review', time: 'Today' },
     ],
     secondaryTitle: 'Content focus',
@@ -249,17 +249,17 @@ const sectionViews = {
     secondaryTitle: 'Management focus',
     secondaryTag: 'Compliance',
     secondaryHeadline: 'Keep scholar records current',
-    secondaryText: 'Confirm payout readiness and keep compliance flags aligned with the latest submissions.',
+    secondaryText: 'Confirm list readiness and keep document status aligned with the latest submissions.',
     secondaryItems: [
       'Check scholar status transitions.',
-      'Confirm payout-compliant records.',
-      'Resolve exceptions before payroll release.',
+      'Confirm document-ready records.',
+      'Resolve exceptions before payroll-list generation.',
     ],
   },
   Billing: {
     eyebrow: 'Billing overview',
-    title: 'Billing records and payment status',
-    description: 'Monitor pending charges, release requests, and billing-related follow ups.',
+    title: 'Certification-list preparation',
+    description: 'Monitor document readiness, certification lists, and billing-related follow ups.',
     heroBadge: 'Billing queue',
     metrics: [
       { label: 'Open Bills', value: '8', icon: '🧾', tone: 'emerald' },
@@ -270,24 +270,24 @@ const sectionViews = {
     primaryTitle: 'Billing queue',
     primaryLink: 'Open billing records',
     primaryItems: [
-      { name: 'Batch 2026-07A', detail: 'Pending release check', status: 'Pending', time: 'Today' },
+      { name: 'Batch 2026-07A', detail: 'Pending list preparation', status: 'Pending', time: 'Today' },
       { name: 'Batch 2026-07B', detail: 'Approved for billing', status: 'Approved', time: 'Today' },
       { name: 'Batch 2026-06C', detail: 'Archived billing cycle', status: 'Approved', time: 'Last week' },
     ],
     secondaryTitle: 'Billing focus',
     secondaryTag: 'Review',
     secondaryHeadline: 'Clear billing follow ups',
-    secondaryText: 'Keep billing records aligned with the latest approval and payment status.',
+    secondaryText: 'Keep billing records aligned with document approvals and certification-list status.',
     secondaryItems: [
       'Check pending billing items.',
-      'Verify release readiness.',
-      'Confirm paid billing cycles.',
+      'Verify list readiness.',
+      'Review generated certification lists.',
     ],
   },
   Payroll: {
     eyebrow: 'Payroll oversight',
     title: 'Payroll management',
-    description: 'Monitor compliant scholars, batch release status, and payment progress.',
+    description: 'Monitor eligible scholars and official payroll-list preparation.',
     heroBadge: 'Billing ready',
     metrics: [
       { label: 'Compliant Scholars', value: '28', icon: '💳', tone: 'emerald' },
@@ -298,18 +298,18 @@ const sectionViews = {
     primaryTitle: 'Payroll batch list',
     primaryLink: 'Open payroll batches',
     primaryItems: [
-      { name: 'Batch 2026-07A', detail: '10 scholars released', status: 'Approved', time: 'Today' },
-      { name: 'Batch 2026-07B', detail: 'Awaiting release', status: 'Pending', time: 'Today' },
-      { name: 'Batch 2026-06C', detail: 'Complete and paid', status: 'Approved', time: 'Last week' },
+      { name: 'Batch 2026-07A', detail: '10 scholars included in payroll list', status: 'Approved', time: 'Today' },
+      { name: 'Batch 2026-07B', detail: 'Awaiting list generation', status: 'Pending', time: 'Today' },
+      { name: 'Batch 2026-06C', detail: 'Payroll list generated', status: 'Approved', time: 'Last week' },
     ],
     secondaryTitle: 'Payroll focus',
     secondaryTag: 'Release',
-    secondaryHeadline: 'Clear payout batches on time',
-    secondaryText: 'Use the payroll queue to keep scholarship disbursements moving without delays.',
+    secondaryHeadline: 'Prepare payroll lists on time',
+    secondaryText: 'Use the payroll queue to prepare official scholar lists.',
     secondaryItems: [
-      'Review payout-compliant scholars.',
+      'Review document-ready scholars.',
       'Release approved batches.',
-      'Confirm paid scholarship records.',
+      'Confirm payroll-list inclusion.',
     ],
   },
   'Examination Management': {
@@ -383,13 +383,13 @@ const sectionViews = {
     primaryLink: 'Open announcement editor',
     primaryItems: [
       { name: 'Scholarship deadline reminder', detail: 'Published for applicants', status: 'Approved', time: '2 hrs ago' },
-      { name: 'Payroll release update', detail: 'Scheduled for scholars', status: 'Pending', time: 'Tomorrow' },
+      { name: 'Payroll-list update', detail: 'Scheduled for scholars', status: 'Pending', time: 'Tomorrow' },
       { name: 'Exam schedule notice', detail: 'Draft ready', status: 'Needs Review', time: 'Today' },
     ],
     secondaryTitle: 'Announcement focus',
     secondaryTag: 'Publishing',
     secondaryHeadline: 'Keep audiences informed',
-    secondaryText: 'Coordinate notices around deadlines, exam schedules, and payment releases.',
+    secondaryText: 'Coordinate notices around deadlines, exam schedules, and payroll-list generation.',
     secondaryItems: [
       'Publish urgent notices first.',
       'Schedule system reminders.',
@@ -440,7 +440,7 @@ const sectionViews = {
     primaryItems: [
       { name: 'Super Admin Login', detail: 'Dashboard access granted', status: 'Approved', time: '2 min ago' },
       { name: 'Role Update', detail: 'Staff permissions changed', status: 'Needs Review', time: '24 min ago' },
-      { name: 'Payroll Release', detail: 'Batch approved for payout', status: 'Approved', time: 'Today' },
+      { name: 'Payroll-list Generation', detail: 'Official payroll list generated', status: 'Approved', time: 'Today' },
     ],
     secondaryTitle: 'Log focus',
     secondaryTag: 'Monitoring',
@@ -483,7 +483,7 @@ const sectionViews = {
   Reports: {
     eyebrow: 'Reporting center',
     title: 'Reports and analytics',
-    description: 'Review operational exports, monthly summaries, and audit-ready snapshots.',
+    description: 'Review operational exports, monthly summaries, and operational activity summaries.',
     heroBadge: 'Export ready',
     metrics: [
       { label: 'Monthly Reports', value: '12', icon: '📊', tone: 'emerald' },
@@ -495,13 +495,13 @@ const sectionViews = {
     primaryLink: 'Open reporting workspace',
     primaryItems: [
       { name: 'Application summary', detail: 'Ready to export', status: 'Approved', time: 'Today' },
-      { name: 'Payroll summary', detail: 'Waiting on release totals', status: 'Pending', time: 'Today' },
+      { name: 'Payroll summary', detail: 'Waiting on list totals', status: 'Pending', time: 'Today' },
       { name: 'Access audit', detail: 'Needs signoff', status: 'Needs Review', time: 'Yesterday' },
     ],
     secondaryTitle: 'Reporting focus',
     secondaryTag: 'Insights',
     secondaryHeadline: 'Keep the system measurable',
-    secondaryText: 'Use reports to track approvals, releases, and role changes over time.',
+    secondaryText: 'Use reports to track approvals, generated lists, and role changes over time.',
     secondaryItems: [
       'Export monthly snapshots.',
       'Review approval trends.',

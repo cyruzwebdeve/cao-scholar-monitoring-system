@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const { isCertificationBatch } = require('../services/payrollListScope');
 const { evaluateBillingEligibility } = require('../services/lifecycleIntegrity');
 
 const getPrimaryAcademicPeriod = async () => prisma.academic_periods.findFirst({
@@ -44,7 +45,7 @@ const getLifecycleReport = async (req, res) => {
       }),
       prisma.payroll_batches.findMany({
         where: { billing_period_id: period.id },
-        select: { id: true, total_amount: true, status: true },
+        select: { id: true, batch_number: true, status: true },
       }),
       prisma.activity_logs.groupBy({
         by: ['action'],
@@ -64,7 +65,7 @@ const getLifecycleReport = async (req, res) => {
     const [slots, results, claims] = await Promise.all([
       examIds.length ? prisma.exam_slots.findMany({ where: { exam_id: { in: examIds }, applicant_id: { in: applicantIds } }, select: { applicant_id: true, appeared: true } }) : [],
       examIds.length ? prisma.results.findMany({ where: { exam_id: { in: examIds }, applicant_id: { in: applicantIds } }, select: { applicant_id: true, passed: true } }) : [],
-      batchIds.length ? prisma.payroll_claims.findMany({ where: { payroll_batch_id: { in: batchIds } } }) : [],
+      batchIds.length ? prisma.payroll_claims.findMany({ where: { payroll_batch_id: { in: batchIds } }, select: { applicant_id: true, payroll_batch_id: true } }) : [],
     ]);
 
     const applicationByApplicant = new Map();
@@ -72,16 +73,15 @@ const getLifecycleReport = async (req, res) => {
       if (!applicationByApplicant.has(application.applicant_id)) applicationByApplicant.set(application.applicant_id, application);
     });
     const requirementByApplicant = new Map(requirements.map((requirement) => [requirement.applicant_id, requirement]));
-    const billedIds = new Set(claims.map(({ applicant_id }) => applicant_id));
+    const certificationBatchIds = new Set(periodBatches.filter(isCertificationBatch).map(({ id }) => id));
+    const certificationEntries = claims.filter(({ payroll_batch_id }) => certificationBatchIds.has(payroll_batch_id));
+    const payrollEntries = claims.filter(({ payroll_batch_id }) => !certificationBatchIds.has(payroll_batch_id));
     const requirementsCleared = scholars.filter((scholar) => evaluateBillingEligibility({
       isActive: scholar.is_active,
       alreadyBilled: false,
       initialDocs: applicationByApplicant.get(scholar.applicant_id)?.initial_docs,
       requirement: requirementByApplicant.get(scholar.applicant_id),
     }).eligible).length;
-    const paidClaims = claims.filter((claim) => claim.claimed_date || ['paid', 'claimed', 'released'].includes(String(claim.claim_status || '').toLowerCase()));
-    const paidAmount = paidClaims.reduce((total, claim) => total + Number(claim.claim_amount || 0), 0);
-
     return res.json({
       period: { id: period.id, schoolYear: period.school_year, semester: period.semester, isActive: period.is_active },
       periods: availablePeriods.map((item) => ({ id: item.id, schoolYear: item.school_year, semester: item.semester, isActive: item.is_active })),
@@ -92,14 +92,14 @@ const getLifecycleReport = async (req, res) => {
         passed: new Set(results.filter(({ passed }) => passed).map(({ applicant_id }) => applicant_id)).size,
         scholars: scholars.filter(({ is_active }) => is_active).length,
         requirementsCleared,
-        billed: billedIds.size,
-        paid: new Set(paidClaims.map(({ applicant_id }) => applicant_id)).size,
+        certificationListed: new Set(certificationEntries.map(({ applicant_id }) => applicant_id)).size,
+        payrollListed: new Set(payrollEntries.map(({ applicant_id }) => applicant_id)).size,
       },
-      finance: {
-        billingBatches: periodBatches.length,
-        billedClaims: claims.length,
-        paidClaims: paidClaims.length,
-        paidAmount,
+      lists: {
+        certificationLists: certificationBatchIds.size,
+        payrollLists: periodBatches.length - certificationBatchIds.size,
+        certificationEntries: certificationEntries.length,
+        payrollEntries: payrollEntries.length,
       },
       audit: {
         actionCounts: actionGroups.map((group) => ({ action: group.action, count: group._count.action })),

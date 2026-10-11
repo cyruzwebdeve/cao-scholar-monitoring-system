@@ -37,6 +37,7 @@ const { getOrStartAttempt, assertAttemptOpen, AttemptError } = require('../servi
 const { assertAutomaticGrading, loadConfiguration, publicConfiguration, scoreConfiguredAnswers, createExamTicket, verifyExamTicket } = require('../services/onlineExamConfiguration');
 const { ADMIN_INITIAL_REQUIREMENT_KEYS, SCHOLAR_SEMESTER_REQUIREMENT_KEYS } = require('../services/documentReview');
 const { resolveRequirementSubmission } = require('../services/requirementSubmission');
+const { serializePayrollListMembership } = require('../services/payrollListScope');
 const { latestCertificationCreatedAt } = require('../services/certificationDate');
 const { loadSchoolHistory, loadResolvedScholarSchool, normalizeSchoolName, resolveScholarSchool, schoolClassification } = require('../services/scholarSchool');
 
@@ -385,149 +386,6 @@ const activateScholar = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error activating scholar.' });
-  }
-};
-
-const markPayoutCompliant = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const scholar = await prisma.scholar.findUnique({ where: { id: Number(id) } });
-    if (!scholar) {
-      return res.status(404).json({ message: 'Scholar record not found.' });
-    }
-
-    const updatedScholar = await prisma.scholar.update({
-      where: { id: Number(id) },
-      data: {
-        status: APPLICATION_STATUSES.PAYOUT_COMPLIANT,
-      },
-    });
-
-    return res.status(200).json({ message: 'Scholar marked payout compliant.', scholar: updatedScholar });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Server error updating scholar payout status.' });
-  }
-};
-
-const getEligibleScholars = async (req, res) => {
-  try {
-    const eligibleStatuses = [APPLICATION_STATUSES.ACTIVE_SCHOLAR, APPLICATION_STATUSES.PAYOUT_COMPLIANT];
-    const scholars = await prisma.scholar.findMany({
-      where: { status: { in: eligibleStatuses } },
-      include: { user: { select: { id: true, email: true, role: true } } },
-    });
-
-    return res.status(200).json({ scholars });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Server error fetching eligible scholars.' });
-  }
-};
-
-const getScholarsByStatus = async (req, res) => {
-  try {
-    const { status } = req.query;
-    if (!status || !Object.values(APPLICATION_STATUSES).includes(status)) {
-      return res.status(400).json({ message: 'A valid scholar status query is required.' });
-    }
-
-    const scholars = await prisma.scholar.findMany({
-      where: { status },
-      include: { user: { select: { id: true, email: true, role: true } } },
-    });
-
-    return res.status(200).json({ scholars });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Server error fetching scholars by status.' });
-  }
-};
-
-const createPayrollBatch = async (req, res) => {
-  try {
-    const { totalAmount } = req.body;
-    if (typeof totalAmount !== 'number' || totalAmount < 0) {
-      return res.status(400).json({ message: 'A valid total amount is required.' });
-    }
-
-    const eligibleScholars = await prisma.scholar.findMany({ where: { status: APPLICATION_STATUSES.PAYOUT_COMPLIANT } });
-    if (!eligibleScholars.length) {
-      return res.status(400).json({ message: 'No payout-compliant scholars available for batching.' });
-    }
-
-    const batch = await prisma.payrollBatch.create({
-      data: {
-        createdBy: { connect: { id: req.user.id } },
-        totalAmount,
-        status: 'pending',
-        scholars: {
-          connect: eligibleScholars.map((scholar) => ({ id: scholar.id })),
-        },
-      },
-      include: { scholars: true },
-    });
-
-    await prisma.scholar.updateMany({
-      where: { id: { in: eligibleScholars.map((scholar) => scholar.id) } },
-      data: { status: APPLICATION_STATUSES.IN_PAYROLL, payrollBatchId: batch.id },
-    });
-
-    return res.status(201).json({ message: 'Payroll batch created.', batch });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Server error creating payroll batch.' });
-  }
-};
-
-const releasePayrollBatch = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const batch = await prisma.payrollBatch.findUnique({
-      where: { id: Number(id) },
-      include: { scholars: true },
-    });
-
-    if (!batch) {
-      return res.status(404).json({ message: 'Payroll batch not found.' });
-    }
-
-    const updatedBatch = await prisma.payrollBatch.update({
-      where: { id: Number(id) },
-      data: { status: 'released' },
-    });
-
-    await prisma.scholar.updateMany({
-      where: { payrollBatchId: Number(id), status: APPLICATION_STATUSES.IN_PAYROLL },
-      data: { status: APPLICATION_STATUSES.PAID },
-    });
-
-    return res.status(200).json({ message: 'Payroll batch released.', batch: updatedBatch });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Server error releasing payroll batch.' });
-  }
-};
-
-const markPaid = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const scholar = await prisma.scholar.findUnique({ where: { id: Number(id) } });
-    if (!scholar) {
-      return res.status(404).json({ message: 'Scholar record not found.' });
-    }
-
-    const updatedScholar = await prisma.scholar.update({
-      where: { id: Number(id) },
-      data: {
-        status: APPLICATION_STATUSES.PAID,
-      },
-    });
-
-    return res.status(200).json({ message: 'Scholar marked paid.', scholar: updatedScholar });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Server error marking scholar paid.' });
   }
 };
 
@@ -984,11 +842,6 @@ const getScholarManagement = async (req, res) => {
       const billed = Boolean(payrollClaim && currentRecordRoute === 'billing');
       const inPayroll = Boolean(payrollClaim && currentRecordRoute === 'payroll');
       const processRoute = getSchoolProcessRoute(schoolType);
-      const normalizedClaimStatus = String(payrollClaim?.claim_status || '').toLowerCase();
-      const normalizedBatchStatus = String(payrollBatch?.status || '').toLowerCase();
-      const paid = Boolean(payrollClaim?.claimed_date)
-        || ['paid', 'claimed', 'released'].includes(normalizedClaimStatus)
-        || normalizedBatchStatus === 'released';
       const schoolYear = activePeriod.school_year;
       const semester = activePeriod.semester;
       const billingSchoolYear = requirement?.billing_school_year || schoolYear;
@@ -1002,11 +855,6 @@ const getScholarManagement = async (req, res) => {
           ? 'billing'
           : 'payroll';
         const period = academicPeriodById.get(batch?.billing_period_id);
-        const historyClaimStatus = String(claim.claim_status || '').toLowerCase();
-        const historyBatchStatus = String(batch?.status || '').toLowerCase();
-        const historyPaid = Boolean(claim.claimed_date)
-          || ['paid', 'claimed', 'released'].includes(historyClaimStatus)
-          || historyBatchStatus === 'released';
         return {
           academicPeriodId: batch?.billing_period_id || null,
           schoolYear: period?.school_year || (batch?.billing_period_id === activePeriod.id ? activePeriod.school_year : 'Legacy period'),
@@ -1017,11 +865,9 @@ const getScholarManagement = async (req, res) => {
           billingStatus: historyRoute === 'billing' ? 'Certification listed' : 'Not applicable',
           payrollStatus: historyRoute === 'payroll' ? 'Included in payroll list' : 'Not applicable',
           billingReference: historyRoute === 'billing' ? batch?.batch_number || null : null,
-          payReference: historyPaid ? claim.claimed_notes || batch?.batch_number || null : null,
-          dateProcessed: claim.updated_at || null,
+          payReference: historyRoute === 'payroll' ? batch?.batch_number || null : null,
+          dateProcessed: batch?.prepared_at || claim.created_at || null,
           claimAmount: Number(claim.claim_amount),
-          claimStatus: claim.claim_status || null,
-          batchStatus: batch?.status || null,
           isActivePeriod: batch?.billing_period_id === activePeriod.id,
         };
       });
@@ -1101,13 +947,10 @@ const getScholarManagement = async (req, res) => {
         billed,
         billingStatus: processRoute === 'billing' ? (billed ? 'Certification listed' : 'Not listed yet') : 'Not applicable',
         inPayroll,
-        paid,
         payrollStatus: processRoute === 'payroll' ? (inPayroll ? 'Included in payroll list' : 'Not included yet') : 'Not applicable',
-        payReference: inPayroll ? payrollBatch?.batch_number || null : paid ? payrollClaim?.claimed_notes || null : null,
-        dateProcessed: payrollClaim?.updated_at || null,
+        payReference: inPayroll ? payrollBatch?.batch_number || null : null,
+        dateProcessed: payrollBatch?.prepared_at || payrollClaim?.created_at || null,
         claimAmount: payrollClaim ? resolveBillingAmount(schoolType, payrollClaim.claim_amount) : effectiveBillingAmount,
-        claimStatus: payrollClaim?.claim_status || null,
-        batchStatus: payrollBatch?.status || null,
         financialHistory,
       };
     }).filter(Boolean);
@@ -1806,15 +1649,7 @@ const getMyApplication = async (req, res) => {
         isActive: scholar.is_active,
         notes: scholar.notes,
       } : null,
-      allowance: payrollClaim ? {
-        amount: Number(payrollClaim.claim_amount),
-        certificationCreatedAt: certificationDate,
-        status: payrollClaim.claim_status,
-        claimedDate: payrollClaim.claimed_date,
-        payReference: payrollClaim.claimed_notes,
-        batchStatus: payrollBatch?.status || null,
-        releasedAt: payrollBatch?.released_at || null,
-      } : null,
+      payrollList: serializePayrollListMembership(payrollClaim, payrollBatch),
       examination: {
         ...resolveExaminationProgress({ result, scholar, examSlot, fallbackStatus: application.status, applicantFacing: true, scheduledExam }),
         deliveryMode: result?.delivery_mode || examinationSettings.deliveryMode,
@@ -2561,12 +2396,6 @@ module.exports = {
   submitOnlineExam,
   submitRequirements,
   activateScholar,
-  markPayoutCompliant,
-  markPaid,
-  createPayrollBatch,
-  releasePayrollBatch,
-  getEligibleScholars,
-  getScholarsByStatus,
   getScholarManagement,
   updateScholarBillingDetails,
   updateScholarBillingMetadata,

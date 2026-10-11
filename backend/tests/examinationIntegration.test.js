@@ -13,7 +13,7 @@ require.cache[mailerPath] = { id: mailerPath, filename: mailerPath, loaded: true
 process.env.JWT_SECRET = randomBytes(32).toString('hex');
 const { defaultConfiguration, createExamTicket } = require('../services/onlineExamConfiguration');
 const { objectiveConfiguration } = require('./fixtures/objectiveExam');
-const { getOnlineExamQuestions, submitOnlineExam, updateExaminationAttendance, getApplicantManagement, getMyApplication, acceptApplicantAsScholar } = require('../controllers/applicationController');
+const { getOnlineExamQuestions, submitOnlineExam, updateExaminationAttendance, getScholarManagement, getApplicantManagement, getMyApplication, acceptApplicantAsScholar } = require('../controllers/applicationController');
 const { createOnlineExamConfigurationController } = require('../controllers/onlineExamConfigurationController');
 const routes = require('../routes/applicationRoutes');
 const response = () => ({ locals: {}, statusCode: 200, headers: {}, set(key, value) { this.headers[key] = value; return this; }, status(value) { this.statusCode = value; return this; }, json(value) { this.body = value; return this; } });
@@ -453,4 +453,93 @@ test('simultaneous submissions commit one score/status pair and send one receipt
   await submitOnlineExam(req, repeated);
   assert.equal(repeated.statusCode, 409);
   assert.equal(emailReceipts.length, 1);
+});
+
+test('retired payout endpoints preserve access checks and never write records or success logs', async () => {
+  let auditWrites = 0;
+  prisma.activity_logs.create = async () => { auditWrites += 1; return { id: 1 }; };
+  prisma.admins.findUnique = async ({ where }) => ({ id: where.id, is_active: true, auth_version: 0, is_super_admin: where.id === 1, role: 'billing', section_access: where.id === 4 ? ['billing', 'payroll', 'scholars'] : [] });
+  const allowed = jwt.sign({ userId: 4, role: 'BillingPayrollAdmin', accountType: 'admin', authVersion: 0 }, process.env.JWT_SECRET);
+  const deniedSection = jwt.sign({ userId: 2, role: 'BillingPayrollAdmin', accountType: 'admin', authVersion: 0 }, process.env.JWT_SECRET);
+  const applicantToken = jwt.sign({ userId: 7, role: 'Applicant', accountType: 'applicant', authVersion: 0 }, process.env.JWT_SECRET);
+  for (const [method, path] of [
+    ['PUT', '/applications/7/payout-compliant'], ['PUT', '/applications/7/paid'],
+    ['POST', '/payroll/billing-batch'], ['PUT', '/payroll/billing-batch/3/release'],
+    ['GET', '/scholars/eligible'], ['GET', '/scholars?status=Paid'],
+  ]) {
+    for (const [token, status] of [[null, 401], [applicantToken, 403], [deniedSection, 403], [allowed, 410]]) {
+      const res = await fetch(`${baseUrl}${path}`, {
+        method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        ...(method === 'GET' ? {} : { body: '{"totalAmount":"invalid"}' }),
+      });
+      assert.equal(res.status, status, `${method} ${path}`);
+      if (status === 410) {
+        const body = await res.json();
+        assert.equal(body.code, 'LEGACY_PAYOUT_WORKFLOW_RETIRED');
+        assert.match(body.message, /ends at payroll-list generation/);
+      }
+    }
+  }
+  assert.equal(writes.length, 0);
+  assert.equal(auditWrites, 0);
+});
+
+test('applicant portal returns list membership without legacy payment fields', async () => {
+  const claim = { applicant_id: 7, payroll_batch_id: 12, claim_amount: 3000, claim_status: 'paid', claimed_date: new Date(), claimed_notes: 'SYNTHETIC-PAYMENT-REFERENCE', created_at: new Date('2026-10-01T00:00:00Z') };
+  const batch = { id: 12, batch_number: 'PAYROLL-TEST', status: 'released', released_at: new Date(), prepared_at: claim.created_at };
+  prisma.payroll_claims.findFirst = async () => claim;
+  prisma.payroll_batches.findMany = async () => [batch];
+  prisma.payroll_batches.findUnique = async () => batch;
+  const res = response();
+  await getMyApplication({ user: { id: 7 } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.payrollList.reference, 'PAYROLL-TEST');
+  assert.equal(res.body.payrollList.status, 'Included in payroll list');
+  assert.equal(res.body.allowance, undefined);
+  assert.doesNotMatch(JSON.stringify(res.body), /claimedDate|releasedAt|SYNTHETIC-PAYMENT-REFERENCE/);
+  assert.equal(claim.claim_status, 'paid');
+});
+
+test('scholar list history retains inclusion without payment confirmations', async () => {
+  const prepared = new Date('2026-10-01T00:00:00Z');
+  prisma.academic_periods.findMany = async () => [{ id: 1, school_year: '2026-2027', semester: 'First Semester', is_active: true }];
+  prisma.scholar_accounts.findMany = async () => [{ id: 4, applicant_id: 7, is_active: true }];
+  const claim = { applicant_id: 7, payroll_batch_id: 12, academic_period_id: 1, claim_amount: 3000, claim_status: 'paid', claimed_date: new Date(), claimed_notes: 'SYNTHETIC-PAYMENT-REFERENCE', created_at: prepared };
+  prisma.payroll_claims = { findMany: async () => [claim] };
+  prisma.payroll_batches.findMany = async () => [{ id: 12, billing_period_id: 1, batch_number: 'PAYROLL-TEST', status: 'released', prepared_at: prepared }];
+  const res = response();
+  await getScholarManagement({ query: {} }, res);
+  assert.equal(res.statusCode, 200);
+  const record = res.body.scholars[0];
+  assert.equal(record.inPayroll, true);
+  assert.equal(record.payReference, 'PAYROLL-TEST');
+  assert.equal(record.dateProcessed, prepared);
+  assert.equal(record.paid, undefined);
+  assert.equal(record.claimStatus, undefined);
+  assert.equal(record.batchStatus, undefined);
+  assert.equal(record.financialHistory[0].payReference, 'PAYROLL-TEST');
+  assert.doesNotMatch(JSON.stringify(record), /SYNTHETIC-PAYMENT-REFERENCE|"paid"|"released"/);
+  assert.equal(claim.claim_status, 'paid');
+});
+
+test('lifecycle reporting ends with separate certification/payroll lists and retains operational activity', async () => {
+  const period = { id: 1, school_year: '2026-2027', semester: 'First Semester', is_active: true };
+  prisma.academic_periods.findMany = async () => [period];
+  const batches = [{ id: 10, batch_number: 'BILL-TEST', status: 'billed' }, { id: 11, batch_number: 'PAYROLL-TEST', status: 'generated' }, { id: 12, batch_number: 'PAYROLL-LEGACY', status: 'released' }];
+  const claims = [{ applicant_id: 7, payroll_batch_id: 10 }, { applicant_id: 8, payroll_batch_id: 11 }, { applicant_id: 9, payroll_batch_id: 12, claim_status: 'paid', claim_amount: 3000, claimed_date: new Date() }];
+  prisma.payroll_batches.findMany = async () => batches;
+  prisma.payroll_claims = { findMany: async ({ select }) => { assert.deepEqual(select, { applicant_id: true, payroll_batch_id: true }); return claims; } };
+  prisma.activity_logs.groupBy = async () => [{ action: 'PAYROLL_LIST_GENERATED', _count: { action: 2 } }];
+  prisma.activity_logs.findMany = async () => [{ id: 5, action: 'PAYROLL_LIST_GENERATED', description: 'Generated list' }];
+  const { getLifecycleReport } = require('../controllers/lifecycleReportController');
+  const res = response();
+  await getLifecycleReport({ query: {} }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.funnel.certificationListed, 1);
+  assert.equal(res.body.funnel.payrollListed, 2);
+  assert.equal(res.body.funnel.paid, undefined);
+  assert.equal(res.body.finance, undefined);
+  assert.deepEqual(res.body.lists, { certificationLists: 1, payrollLists: 2, certificationEntries: 1, payrollEntries: 2 });
+  assert.equal(res.body.audit.actionCounts[0].action, 'PAYROLL_LIST_GENERATED');
+  assert.equal(res.body.audit.recent[0].id, '5');
 });

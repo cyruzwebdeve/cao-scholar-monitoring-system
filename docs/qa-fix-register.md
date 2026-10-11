@@ -1,6 +1,6 @@
 # QA Fix Register
 
-Updated: 2026-10-11 (Asia/Manila). This register covers the October 11 QA findings and their fixes. Detailed implementation, impacts, validation and rollback are recorded in [development-change-log.md](development-change-log.md). A deployed fix is not a substitute for a controlled authenticated acceptance test.
+Updated: 2026-10-12 (Asia/Manila). This register covers the October 11 QA findings and their fixes. Detailed implementation, impacts, validation and rollback are recorded in [development-change-log.md](development-change-log.md). A deployed fix is not a substitute for a controlled authenticated acceptance test.
 
 | Finding | Fix or remaining work | Release | Status and evidence |
 | --- | --- | --- | --- |
@@ -12,7 +12,7 @@ Updated: 2026-10-11 (Asia/Manila). This register covers the October 11 QA findin
 | QA-06 · P2 · Tester-code contrast | Explicit dark input foreground/caret; rendered contrast improved from 4.31:1 to 12.54:1. | `81660a3` | Deployed; dark input/caret declarations verified in the live stylesheet and frontend/API healthy. Local keyboard/error/mobile checks and lint/build passed. Axe sampled gate: zero violations, 23 passing rules, one incomplete contrast review; broader accessibility remains unverified. |
 | QA-07 · P2 · Online result/status writes not atomic | Transactional score/status commit; rollback on failed or zero-row status update; existing unique slot blocks simultaneous duplicates. Receipt follows commit. | `6ef9bb7` | Deployed; user confirmed Hostinger backend success for this release. Public frontend HTTP 200 and subsequent API/database health check passed. Backend 209 passed/one existing database skip and frontend 56 passed. Synthetic rollback/retry/concurrency checks passed; hosted database acceptance pending. |
 | QA-08 · P2 · Submission leaks unpublished result | Return only submission receipt; applicant score/threshold remain hidden until CAO publication. | `bf432de` | Addressed with QA-01; regression tests passed and release deployed. Authenticated privacy acceptance test pending. |
-| QA-09 · P2 · Legacy payment/release routes outside scope | Review authorized retirement of legacy routes. Product workflow ends at official payroll-list generation. | — | Open; legacy payment/release code is explicitly retained unchanged outside scope. |
+| QA-09 · P2 · Legacy payment/release routes outside scope | Six legacy endpoints retired with authenticated 410 replies; obsolete handlers/AdminPanel removed. Supported portal/history/filter/report displays stop at certification/payroll-list generation; historical data retained. | — | Approved fix tested; authorized main/Hostinger deployment in progress. Backend 216 passed/one existing database skip, frontend 57 passed, lint/build and synthetic scholar/filter/report/mobile checks passed. Matching backend/frontend deployment and controlled live acceptance pending. |
 | QA-10 · P3 · Raw connection errors | Provide actionable connection messages across remaining affected views. | `3b9030e` covers tester gate | Partially addressed in tester gate only; broader error wording remains open. |
 | QA-11 · P3 · Outdated deployment guide | Replace retired hosting instructions with verified current Hostinger commands, build/migration sequencing and checks. | — | Open; this register does not replace the deployment guide. |
 
@@ -23,6 +23,7 @@ Updated: 2026-10-11 (Asia/Manila). This register covers the October 11 QA findin
 - QA-03: 205 backend checks passed, one existing opt-in database skip; 45 frontend tests; schema validation/client generation, lint/build, deadline/concurrency and synthetic reload/expiry/mobile checks passed.
 - Current QA-04/QA-05 combined state: 205 backend checks passed, one existing opt-in database skip; 56 frontend tests; lint/build passed. Synthetic browser tests covered all draft answer types, refresh/tab reopening, failed/successful submission, expiry/sign-out cleanup, hanging status/unlock recovery, invalid authorization, cancellation and mobile overflow. The existing ExcelJS chunk-size warning remains.
 - QA-07: 209 backend checks passed, one existing opt-in database skip; 56 frontend tests. Transaction facade checks covered successful commit, rollback/retry, missing/withdrawn application and simultaneous/duplicate submissions; real hosted database isolation remains unverified.
+- QA-09: 216 backend checks passed, one existing opt-in database skip; 57 frontend tests, lint/build and synthetic Chromium checks passed. Actual HTTP retirement/access checks, payment-field exclusion, list history/counts and filtering covered with synthetic fixtures. Existing list generation/eligibility regressions remain green.
 - Synthetic/local verification did not use real applicant data, production database queries or real tester codes. Public checks inspect deployed assets and API health. Provider success is user-reported where stated; authenticated live workflows remain acceptance-test work.
 
 ## Reusable testing steps
@@ -33,7 +34,8 @@ Updated: 2026-10-11 (Asia/Manila). This register covers the October 11 QA findin
 4. Verify a failed submission retains the draft, a successful submission clears it, and expiry prevents late writes. Confirm sign-out removes the draft. Use one examination tab; unavailable/cleared browser storage and other devices cannot recover it.
 5. Simulate delayed/offline tester status and unlock requests. After ten seconds verify useful errors/retry, unchanged locked access, and successful recovery only with valid authorization.
 6. For QA-07, submit a dedicated authorized online test attempt and verify exactly one result and Examined status. Use staging for forced write failures; never fault-inject the production database. Verify retry after rollback and simultaneous requests produce one result/receipt.
-7. Record acceptance-test outcomes and update this register with each future release. Preserve historical versions/results on rollback; do not generate fund-release or monetary-audit workflows.
+7. For QA-09, verify permitted legacy calls return 410 and unsupported roles retain 401/403. Confirm public/private list generation, list-status filters, scholar cards/history and report counts; no paid/claimed/released confirmation should appear in supported displays. Preserve historical records and operational logs.
+8. Record acceptance-test outcomes and update this register with each future release. Preserve historical versions/results on rollback; do not generate fund-release or monetary-audit workflows.
 
 ## Automated verification command
 

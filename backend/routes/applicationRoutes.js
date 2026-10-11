@@ -28,12 +28,6 @@ const {
   submitOnlineExam,
   submitRequirements,
   activateScholar,
-  markPayoutCompliant,
-  markPaid,
-  createPayrollBatch,
-  releasePayrollBatch,
-  getEligibleScholars,
-  getScholarsByStatus,
   getScholarManagement,
   updateScholarBillingDetails,
   updateScholarBillingMetadata,
@@ -59,7 +53,6 @@ const {
 const {
   validateCreateApplication,
   validateRequirements,
-  validatePayrollBatch,
   validateAnnouncement,
   validateStaffCreate,
   validateStaffPassword,
@@ -141,23 +134,18 @@ router.put('/applications/:id/requirements', authenticate, documentUploadRateLim
 // Super Admin route to activate a scholar as eligible
 router.put('/applications/:id/activate', authenticate, checkRole(['SuperAdmin']), activateScholar);
 
-// Billing/Payroll Admin route to mark scholar payout compliance
-router.put('/applications/:id/payout-compliant', authenticate, checkRole(['BillingPayrollAdmin']), checkSectionAccess('billing'), markPayoutCompliant);
-
-// Billing/Payroll Admin route to mark an individual scholar as paid
-router.put('/applications/:id/paid', authenticate, checkRole(['BillingPayrollAdmin']), checkSectionAccess('payroll'), markPaid);
-
-// Billing/Payroll Admin route to create a payroll batch from compliant scholars
-router.post('/payroll/billing-batch', authenticate, checkRole(['BillingPayrollAdmin']), checkSectionAccess('payroll'), validatePayrollBatch, createPayrollBatch);
-
-// Billing/Payroll Admin route to release a payroll batch and finalize payouts
-router.put('/payroll/billing-batch/:id/release', authenticate, checkRole(['BillingPayrollAdmin']), checkSectionAccess('payroll'), releasePayrollBatch);
-
-// List eligible scholars for payroll or review
-router.get('/scholars/eligible', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('payroll'), getEligibleScholars);
-
-// List scholars by workflow status
-router.get('/scholars', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), getScholarsByStatus);
+// Retired legacy payout workflow. Preserve authorization without business writes.
+// Supported list generation uses /billing/process and /payroll/process.
+const retiredPayoutWorkflow = (req, res) => res.status(410).json({
+  code: 'LEGACY_PAYOUT_WORKFLOW_RETIRED',
+  message: 'This legacy payout workflow is retired. Use Billing or Payroll Management to generate official lists. The system ends at payroll-list generation.',
+});
+router.put('/applications/:id/payout-compliant', authenticate, checkRole(['BillingPayrollAdmin']), checkSectionAccess('billing'), retiredPayoutWorkflow);
+router.put('/applications/:id/paid', authenticate, checkRole(['BillingPayrollAdmin']), checkSectionAccess('payroll'), retiredPayoutWorkflow);
+router.post('/payroll/billing-batch', authenticate, checkRole(['BillingPayrollAdmin']), checkSectionAccess('payroll'), retiredPayoutWorkflow);
+router.put('/payroll/billing-batch/:id/release', authenticate, checkRole(['BillingPayrollAdmin']), checkSectionAccess('payroll'), retiredPayoutWorkflow);
+router.get('/scholars/eligible', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('payroll'), retiredPayoutWorkflow);
+router.get('/scholars', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), retiredPayoutWorkflow);
 router.get('/scholars/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars', 'billing', 'payroll'), getScholarManagement);
 router.put('/scholars/:applicantId/requirements/:requirementKey', authenticate, documentUploadRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('scholars'), uploadScholarRequirementByAdmin);
 router.put('/scholars/:applicantId/billing-details', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing'), validateScholarBillingDetails, updateScholarBillingDetails);
