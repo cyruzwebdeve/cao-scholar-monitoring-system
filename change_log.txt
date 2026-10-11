@@ -174,4 +174,8 @@
 
 2026-10-11 | QA-02: require accepted-answer identification and objective online questions; reject essay/completion-credit banks at save, start and submission without altering existing versions/results. User reported legacy marking in the live editor; local 9/20 defect reproduced. Backend 199 passed/one existing skip, frontend 43 passed, lint/build and synthetic browser correction/save/mobile checks passed. Local fix only; CAO must approve a corrected 20-point bank before use.
 
-2026-10-11 | Authorized QA-02 testing deployment through main/Hostinger. Strict objective grading requires CAO correction of legacy banks; no data migration or historical score changes. Local regressions and browser checks passed; hosted verification pending push.
+2026-10-11 | Authorized QA-02 testing deployment through main/Hostinger. Strict objective grading requires CAO correction of legacy banks; no data migration or historical score changes. Local regressions and browser checks passed. Release 319d0e3 pushed; new frontend controls verified live and API/database healthy. User confirmed Hostinger backend deployment success for 319d0e3; authenticated testing remains pending.
+
+2026-10-11 | QA-03: persist the approved 45-minute online attempt start/deadline and question version; reopening/concurrent tabs cannot restart it, and late submissions/expired UI are blocked. Additive exam-slot migration preserves existing results and paper workflows. Backend 205 passed/one existing skip, frontend 45 passed, lint/build, Prisma generation/schema validation and synthetic browser checks passed. Local only; QA-04 answer recovery remains separate.
+
+2026-10-11 | Authorized QA-03 deployment: 45-minute persisted online attempts, deadline-bound tickets, expiry locks and additive slot migration through existing main/Hostinger pipeline. Local checks passed; hosted verification pending push. Existing results/paper workflows preserved; QA-04 recovery remains separate.

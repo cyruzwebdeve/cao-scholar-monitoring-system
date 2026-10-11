@@ -33,6 +33,7 @@ const { evaluateEligibility, serializeAssessment } = require('../services/eligib
 const { PRIORITY_PROOFS, selectedPriorityCriteria } = require('../services/priorityEligibility');
 const { createBillingReference } = require('../services/billingReference');
 const { resolveBillingAmount } = require('../services/billingGrant');
+const { getOrStartAttempt, assertAttemptOpen, AttemptError } = require('../services/onlineExamAttempt');
 const { assertAutomaticGrading, loadConfiguration, publicConfiguration, scoreConfiguredAnswers, createExamTicket, verifyExamTicket } = require('../services/onlineExamConfiguration');
 const { ADMIN_INITIAL_REQUIREMENT_KEYS, SCHOLAR_SEMESTER_REQUIREMENT_KEYS } = require('../services/documentReview');
 const { resolveRequirementSubmission } = require('../services/requirementSubmission');
@@ -1613,21 +1614,22 @@ const getOnlineExamQuestions = async (req, res) => {
       return res.status(403).json({ message: 'The secured question view is unavailable until Online Examination is active and CAO marks your attendance as Present.' });
     }
     res.set('Cache-Control', 'no-store, private');
-    const configuration = await loadConfiguration(prisma);
-    try { assertAutomaticGrading(configuration); }
-    catch { return res.status(409).json({ message: 'The online question bank requires CAO review before this examination can start. Contact the Scholarship Office.' }); }
+    const { slot: attempt, configuration } = await getOrStartAttempt(prisma, examSlot);
     return res.json({
       examination: { id: exam.id, title: exam.title, academicYear: exam.academic_year },
       ...publicConfiguration(configuration),
-      examTicket: createExamTicket({ applicantId, examId: exam.id, configurationId: configuration.id }),
+      attempt: { startedAt: attempt.online_started_at, deadlineAt: attempt.online_deadline_at, serverTime: new Date(), durationSeconds: 45 * 60 },
+      examTicket: createExamTicket({ applicantId, examId: exam.id, configurationId: configuration.id, deadlineAt: attempt.online_deadline_at }),
     });
   } catch (error) {
+    if (error instanceof AttemptError) return res.status(error.status).json({ message: error.message });
     console.error(error);
     return res.status(500).json({ message: 'Server error loading examination questions.' });
   }
 };
 
 const submitOnlineExam = async (req, res) => {
+  const receivedAt = Date.now();
   try {
     const applicantId = req.user.id;
     const [activePeriod, examinationSettings] = await Promise.all([
@@ -1660,12 +1662,14 @@ const submitOnlineExam = async (req, res) => {
     }
     const existing = await prisma.results.findFirst({ where: { applicant_id: applicantId, exam_id: exam.id } });
     if (existing) return res.status(409).json({ message: 'This examination has already been submitted. Please wait for the Scholarship Office to release the result.' });
+    assertAttemptOpen(slot, receivedAt);
     let configurationId;
     try {
-      configurationId = verifyExamTicket(req.body?.examTicket, { applicantId, examId: exam.id });
+      configurationId = verifyExamTicket(req.body?.examTicket, { applicantId, examId: exam.id }, process.env.JWT_SECRET, receivedAt);
     } catch (error) {
       return res.status(400).json({ message: error.message });
     }
+    if (configurationId !== slot.online_configuration_id) return res.status(409).json({ message: 'Your question version does not match this timed attempt. Reopen the examination.' });
     const configuration = await loadConfiguration(prisma, configurationId);
     try { assertAutomaticGrading(configuration); }
     catch { return res.status(409).json({ message: 'This question version uses unsupported grading and cannot be submitted. Contact CAO before reopening the examination; your answers have not been recorded.' }); }
@@ -1695,7 +1699,11 @@ const submitOnlineExam = async (req, res) => {
       receipt: { recorded: true, submittedAt: result.created_at },
       notification: { examReceiptEmailSent: emailDelivery.sent },
     });
-  } catch (error) { console.error(error); return res.status(500).json({ message: 'Server error submitting examination.' }); }
+  } catch (error) {
+    if (error instanceof AttemptError) return res.status(error.status).json({ message: error.message });
+    if (error?.code === 'P2002') return res.status(409).json({ message: 'This examination has already been submitted.' });
+    console.error(error); return res.status(500).json({ message: 'Server error submitting examination.' });
+  }
 };
 
 const getMyApplication = async (req, res) => {

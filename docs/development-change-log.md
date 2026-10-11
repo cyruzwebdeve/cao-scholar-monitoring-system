@@ -5,13 +5,69 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-11 - Deploy QA-03 Timed Online Attempts
+
+### TL;DR
+- Authorized deployment of the approved 45-minute timer through the existing main-branch Hostinger pipeline.
+- Includes matching backend/frontend and the additive attempt-field migration; reopening cannot extend the deadline and expired submissions cannot create results.
+- Existing results and paper workflows are preserved. Previously opened untimed examinations must reopen; answer restoration remains outside this release under QA-04.
+- Local checks passed: 205 backend checks, one existing database-dependent skip, 45 frontend tests, lint/build, Prisma generation/schema validation, focused tests and synthetic browser expiry/reload/mobile checks. Hosted verification follows push.
+
+### Objective, behavior and affected roles
+Deploy the preceding QA-03 implementation for applicant testing with the user's selected 45-minute duration. Applicants receive a saved deadline and version on their first authorized question load, and a locked form at expiry. CAO retains existing attendance and publication controls. This deployment adds no timer extension/reset action and does not automatically submit unsent answers or create a failed result.
+
+### Implementation, files and data flow
+Remote main matched baseline `319d0e3`. Publish the attempt service, ticket/controller changes, application Prisma schema and `20261011010000_online_exam_attempt_deadline`, examination page/countdown utility, corresponding tests and matching change logs. Exclude the broader local QA entry/report and tester-gate screenshots. The existing backend production build generates Prisma Client and deploys committed migrations before startup; no direct production database connection or manual migration is executed from this workstation.
+
+### Impact assessment
+- **API:** adds attempt metadata to secured questions; missing/mismatched attempts return 409 and expired attempts return 410. Existing authentication, section permissions, private caching, scoring and result publication are retained.
+- **Database:** three nullable exam-slot fields and a validity constraint; existing records remain unchanged until an authorized first question load starts an attempt. No historical score recalculation, deletion or seeding.
+- **Configuration/deployment:** existing main branch, provider settings, domains and protected environment values retained. Matching backend/migration/frontend must complete; old untimed tabs must reopen. No schedule, delivery-mode or threshold changes.
+- **Security/privacy/accessibility:** inherits server deadline enforcement, original version binding, protected answer keys, timing instructions, expiry alerts and disabled form controls. Public verification does not inspect personal records or submit real answers.
+- **Scope:** official payroll-list generation remains the endpoint. Legacy payment/release code is retained unchanged outside scope; no monetary workflow is added.
+
+### Validation, limitations, rollback and next work
+All required local checks passed as documented below; remote baseline and whitespace checks passed. Public frontend assets and API health will be checked after push. Provider build/migration logs and authenticated attempt behavior require hosted confirmation; API health alone does not prove migration completion. The older Render connection is separate from Hostinger status. Refresh after both Hostinger services complete, test a dedicated applicant's first load/reload and timely submission, and inspect the migration log. Do not test by changing real applicant scores or resetting their attempts. QA-04 unsent-answer recovery remains unresolved. Roll back matching application code if required while retaining additive fields and existing results; rollback restores the advisory timer weakness.
+
+## 2026-10-11 - QA-03: Persist and Enforce 45-Minute Online Attempts
+
+### TL;DR
+- Replaced the advisory 44:12 browser countdown with the user's approved 45-minute server deadline, persisted on the first authorized question load.
+- Reopening and concurrent tabs retain one start, deadline and marking version. Late submissions return 410 without recording a result; expiry disables answers and submission, including an open confirmation dialog.
+- Adds three nullable exam-slot fields and an additive migration. Existing results, schedules, attendance, paper-score workflows and question versions are preserved; old untimed pages must reopen after deployment.
+- Validation passed: 205 backend checks with one existing database-dependent skip, 45 frontend tests, lint/build, Prisma generation/explicit schema validation, 28 focused backend checks and synthetic Chromium reload/expiry/mobile checks. Local only; not deployed.
+
+### Objective and previous/new behavior
+Correct QA-03 so refreshing or changing a browser clock cannot grant additional examination time. Previously the page counted down from 44:12 on every mount, stopped at zero without submission enforcement, and signed question tickets lasted 24 hours. The user selected 45 minutes. Now the first authorized question request atomically claims the assigned slot's start, deadline and question-configuration ID. Subsequent requests reuse the persisted values. Tickets issued by the question route expire at that deadline; submission independently checks the saved deadline and matching question version. Existing schedule-window, attendance, delivery-mode and completed-result checks remain in force.
+
+### Roles, implementation and data flow
+Applicants receive start/deadline/server-time metadata with the secured questions. The browser derives remaining time from the server response and elapsed monotonic time, updating after delayed ticks and visibility changes. It displays the timing rule and disables the answer/submission fieldset and confirmation action at zero. The submit handler also checks elapsed time immediately before sending. The authenticated backend handler captures its receive time, rejects an expired or missing attempt before result writes, verifies the ticket and requires the slot's original configuration ID. Already-recorded submissions retain the existing confirmation behavior. Concurrent first requests use a conditional slot update and reread the winning attempt; they cannot extend its deadline or switch its marking version. Expiry does not automatically submit unsent answers, publish a score, mark the applicant failed or accept a scholar. Staff do not receive a timer-reset or extension action.
+
+### Files and areas changed
+`backend/services/onlineExamAttempt.js`; `backend/services/onlineExamConfiguration.js`; application controller; application Prisma schema and `20261011010000_online_exam_attempt_deadline`; attempt/configuration/integration tests. Frontend examination page, `utils/examinationDeadline.js` and countdown tests. Both change logs and the local QA report status are updated. Test fixtures and mocked browser requests use synthetic records only.
+
+### Impact assessment
+- **API:** secured question responses add attempt timestamps/duration. Missing attempts or mismatched versions return 409; expired attempts return 410. Existing authentication/section controls, private caching, scoring and publication rules remain intact. Concurrent duplicate result creation returns the existing already-submitted guidance.
+- **Database:** nullable `online_started_at`, `online_deadline_at` and `online_configuration_id` on `exam_slots`, with an all-null-or-complete validity constraint. No backdated start, production data query, historical score recalculation, bank rewrite or deletion. Initial attempt creation updates the slot revision through its existing updated-at behavior.
+- **Configuration:** fixed 45-minute policy approved by the user. No environment, DNS, threshold, schedule, delivery-mode, question-bank or permission changes. Schedule closure can still end access before the attempt deadline.
+- **Security/privacy:** server-enforced timing and slot-bound version protect against refresh, additional tabs and client-clock manipulation. No answer keys are added to applicant payloads; only the applicant's own attempt metadata is returned.
+- **Accessibility:** timing instructions and expiry messages use status/alert roles; the disabled answer fieldset has a descriptive legend. Confirmation cannot submit after expiry. Synthetic mobile checks found no horizontal overflow at 390px.
+- **Deployment:** deploy the committed additive migration and regenerate Prisma Client before starting the matching backend, then publish matching frontend. No live migration or deployment was performed in this change. Coordinate currently open untimed exams before rollout; those pages must reopen to create a timed attempt.
+- **Scope:** official payroll-list generation remains the endpoint. Legacy payment/release code is retained unchanged outside scope. No fund-release or monetary-audit workflow is added.
+
+### Validation and results
+Inspected the existing fixed countdown, 24-hour ticket and unenforced zero-time behavior. The full backend suite passed 205 checks with one existing opt-in real-database skip; all 45 frontend tests passed. Prisma Client generation and explicit schema validation passed using a dummy database URL, without connecting to a real database. Frontend lint/build passed with the existing large ExcelJS chunk warning. After final guard hardening, 28 focused backend checks passed. Tests cover the exact deadline boundary, concurrent first claims, reopening after a new bank is saved, expiry without writes, legacy untimed and mismatched-version tickets, deadline-bound signatures, invalid attempt dates and missed-tick/reopen countdown behavior. Chromium with synthetic API data and an accelerated clock confirmed the server-derived countdown, identical deadline after reload, disabled confirmation/form at expiry, no late network submission, no page errors and no 390px horizontal overflow. The migration has not been exercised against a database in this session.
+
+### Limitations, rollback and next work
+QA-04 unsent-answer restoration is not implemented: refreshing retains the clock and version but can still lose answers. There is no server draft storage or automatic submission at expiry, and no staff extension/reset control. Applicants must submit before the deadline; expired attempts need CAO handling. Historical results are unchanged, and expiration alone does not create an examination result. Production timing/scoring and migration completion require controlled authenticated testing after deployment. Roll back matching application code if needed while retaining additive fields/history; rollback restores the advisory-timer weakness. Complete QA-04 recovery before relying on refresh as an applicant recovery path.
+
 ## 2026-10-11 - Deploy QA-02 Objective Grading for Testing
 
 ### TL;DR
 - Authorized deployment of strict identification keys and objective online grading through the existing main-branch Hostinger pipeline.
 - CAO must correct legacy completion-credit/essay banks before testing automatic examinations; unsafe starts and submissions return 409 without recording a result.
 - No database migration, saved-bank replacement or historical-result recalculation; paper results/publication and payroll scope remain unchanged.
-- Release checks passed: 199 backend checks, one existing database-dependent skip, 43 frontend tests, lint/build and synthetic browser correction/save/mobile checks. Hosted verification follows push.
+- Release checks passed: 199 backend checks, one existing database-dependent skip, 43 frontend tests, lint/build and synthetic browser correction/save/mobile checks. Release `319d0e3` was pushed; the new frontend controls are verified live and API health is good. The user confirmed Hostinger backend deployment success for `319d0e3`.
 
 ### Objective, behavior and affected roles
 Promote the preceding QA-02 correction for user testing. Authorized Settings staff can provide identification keys and replace legacy essays while keeping the bank at 20 points. Applicants use automatic grading only for supported versions; previously opened unsafe versions cannot be submitted and require CAO coordination before reopening. Implementation and user behavior are described in the matching entry below.
@@ -27,7 +83,7 @@ Remote main matched baseline `14f0880`. Publish only the examination services/co
 - **Scope:** payroll-list generation remains the endpoint. Legacy payment/release code is retained unchanged outside approved scope.
 
 ### Validation, limitations, rollback and next work
-Local verification passed as above and whitespace checks passed. Hosted asset checks and API health will be checked after push; authenticated result grading and provider migration/build logs cannot be independently inspected without access. The older Render deployment connection failed on the prior release and must not be treated as Hostinger status. After Hostinger completion, refresh Settings, replace legacy items, save the reviewed 20-point bank, and test a dedicated applicant with correct and incorrect responses. Timer enforcement and draft recovery remain separate QA issues. Roll back matched code if necessary without deleting versions/results; rollback restores completion-credit weakness.
+Local verification passed as above and whitespace checks passed. Push advanced main from `14f0880` to `319d0e3`. Public checks found new main asset `index-DmAA8KuU.js` and staff bundle `Dashboard-Ci8DgKRv.js` with strict-grading and unsafe-bank warnings. API health returned HTTP 200 with the database connected. The user confirmed Hostinger backend deployment success for `319d0e3`; authenticated result grading and provider build logs were not independently inspected. The older Render deployment connection failed on the prior release and must not be treated as Hostinger status. After Hostinger completion, refresh Settings, replace legacy items, save the reviewed 20-point bank, and test a dedicated applicant with correct and incorrect responses. Timer enforcement and draft recovery remain separate QA issues. Roll back matched code if necessary without deleting versions/results; rollback restores completion-credit weakness.
 
 ## 2026-10-11 - QA-02: Require Objective Online Examination Grading
 

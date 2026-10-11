@@ -111,3 +111,14 @@ test('full objective answers score exactly 20 while keys remain normalized', () 
   }
   assert.equal(scoreConfiguredAnswers(answers, config), 20);
 });
+
+
+test('attempt tickets expire at their server deadline rather than 24 hours later', () => {
+  const secret = randomBytes(32).toString('hex');
+  const now = 1000;
+  const context = { applicantId: 7, examId: 3, configurationId: 2, deadlineAt: new Date(now + 2700000) };
+  const ticket = createExamTicket(context, secret, now);
+  assert.equal(verifyExamTicket(ticket, context, secret, now + 2699999), 2);
+  assert.throws(() => verifyExamTicket(ticket, context, secret, now + 2700000), /expired/);
+  assert.throws(() => createExamTicket({ ...context, deadlineAt: 'invalid' }, secret, now), /deadline/);
+});

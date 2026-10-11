@@ -42,7 +42,7 @@ beforeEach(() => {
     application_settings: { findUnique: async () => settings },
     applicants: { findFirst: async () => applicant, findUnique: async () => applicant, findMany: async () => [applicant] },
     exams: { findFirst: async () => exam, findMany: async () => [exam], findUnique: async () => exam },
-    exam_slots: { findUnique: async () => slot, findMany: async () => [slot], update: async ({ data }) => { writes.push({ table: 'exam_slots', data }); slot = { ...slot, ...data }; return slot; } },
+    exam_slots: { findUnique: async () => slot, findMany: async () => [slot], updateMany: async ({ where, data }) => { if (where.online_started_at === null && slot.online_started_at) return { count: 0 }; writes.push({ table: 'exam_slots', data }); slot = { ...slot, ...data }; return { count: 1 }; }, update: async ({ data }) => { writes.push({ table: 'exam_slots', data }); slot = { ...slot, ...data }; return slot; } },
     results: { findFirst: async () => result, findMany: async () => result ? [result] : [], create: async ({ data }) => { writes.push({ table: 'results', data }); result = { id: 2, ...data }; return result; } },
     application_submissions: { findFirst: async () => application, findMany: async () => [application], updateMany: async ({ data }) => { writes.push({ table: 'application_submissions', data }); return { count: 1 }; } },
     scholar_accounts: { findFirst: async () => scholar, findMany: async () => scholar ? [scholar] : [] },
@@ -158,6 +158,9 @@ test('an opened exam is scored with its original key after settings staff save a
 
 test('invalid tickets are rejected before writing any examination result', async () => {
   slot.appeared = true;
+  slot.online_started_at = new Date();
+  slot.online_deadline_at = new Date(Date.now() + 2700000);
+  slot.online_configuration_id = 0;
   for (const examTicket of [undefined, 'invalid', createExamTicket({ applicantId: 8, examId: 3, configurationId: 0 })]) {
     const res = response();
     await submitOnlineExam({ user: { id: 7 }, body: { examTicket, answers: {} } }, res);
@@ -281,4 +284,58 @@ test('unsafe legacy banks cannot start or submit an examination or write results
     assert.equal(result, null);
     assert.equal(writes.length, 0);
   }
+});
+
+
+test('reopening a timed attempt retains its deadline and original bank after staff saves', async () => {
+  slot.appeared = true;
+  const original = objectiveConfiguration();
+  records.push({ id: 1, title: original.title, instructions: '', passing_score: 14, questions: original.questions });
+  const first = response();
+  await getOnlineExamQuestions({ user: { id: 7 } }, first);
+  assert.equal(first.statusCode, 200);
+  const deadline = slot.online_deadline_at.getTime();
+  assert.equal(deadline - slot.online_started_at.getTime(), 45 * 60 * 1000);
+  records.push({ id: 2, title: 'New bank', instructions: '', passing_score: 14, questions: original.questions });
+  const second = response();
+  await getOnlineExamQuestions({ user: { id: 7 } }, second);
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.body.title, original.title);
+  assert.equal(slot.online_deadline_at.getTime(), deadline);
+  assert.equal(second.body.attempt.deadlineAt.getTime(), deadline);
+  assert.equal(writes.filter(({ table }) => table === 'exam_slots').length, 1);
+});
+
+test('expired attempts cannot reopen, refresh their deadline or write late results', async () => {
+  slot.appeared = true;
+  slot.online_started_at = new Date(Date.now() - 2700000);
+  slot.online_deadline_at = new Date(Date.now() - 1);
+  slot.online_configuration_id = 1;
+  const deadline = slot.online_deadline_at.getTime();
+  const opened = response();
+  await getOnlineExamQuestions({ user: { id: 7 } }, opened);
+  assert.equal(opened.statusCode, 410);
+  assert.equal(opened.body.examTicket, undefined);
+  const submitted = response();
+  await submitOnlineExam({ user: { id: 7 }, body: { examTicket: createExamTicket({ applicantId: 7, examId: 3, configurationId: 1 }), answers: {} } }, submitted);
+  assert.equal(submitted.statusCode, 410);
+  assert.equal(slot.online_deadline_at.getTime(), deadline);
+  assert.equal(result, null);
+  assert.equal(writes.length, 0);
+});
+
+test('legacy untimed and mismatched-version tickets cannot bypass persisted attempt checks', async () => {
+  slot.appeared = true;
+  const ticket = createExamTicket({ applicantId: 7, examId: 3, configurationId: 2 });
+  const untimed = response();
+  await submitOnlineExam({ user: { id: 7 }, body: { examTicket: ticket, answers: {} } }, untimed);
+  assert.equal(untimed.statusCode, 409);
+  slot.online_started_at = new Date();
+  slot.online_deadline_at = new Date(Date.now() + 2700000);
+  slot.online_configuration_id = 1;
+  const mismatch = response();
+  await submitOnlineExam({ user: { id: 7 }, body: { examTicket: ticket, answers: {} } }, mismatch);
+  assert.equal(mismatch.statusCode, 409);
+  assert.equal(result, null);
+  assert.equal(writes.length, 0);
 });

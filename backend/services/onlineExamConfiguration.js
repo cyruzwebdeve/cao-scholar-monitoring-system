@@ -115,8 +115,10 @@ const ticketSignature = (payload, secret) => {
   if (!secret) throw new Error('Examination ticket signing is not configured.');
   return crypto.createHmac('sha256', secret).update(`pgceap-online-exam-v1:${payload}`).digest();
 };
-const createExamTicket = ({ applicantId, examId, configurationId }, secret = process.env.JWT_SECRET, now = Date.now()) => {
-  const payload = Buffer.from(JSON.stringify({ applicantId, examId, configurationId, expiresAt: now + 24 * 60 * 60 * 1000 })).toString('base64url');
+const createExamTicket = ({ applicantId, examId, configurationId, deadlineAt }, secret = process.env.JWT_SECRET, now = Date.now()) => {
+  const expiresAt = deadlineAt ? new Date(deadlineAt).getTime() : now + 24 * 60 * 60 * 1000;
+  if (!Number.isFinite(expiresAt) || expiresAt <= now) throw new TypeError('The examination deadline is invalid or expired.');
+  const payload = Buffer.from(JSON.stringify({ applicantId, examId, configurationId, expiresAt })).toString('base64url');
   return `${payload}.${ticketSignature(payload, secret).toString('base64url')}`;
 };
 const verifyExamTicket = (ticket, { applicantId, examId }, secret = process.env.JWT_SECRET, now = Date.now()) => {

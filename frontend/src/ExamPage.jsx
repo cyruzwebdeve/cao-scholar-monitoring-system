@@ -2,18 +2,22 @@ import { useState, useEffect, useCallback } from 'react'
 import './exam-source.css'
 import './styles/exam-responsive.css'
 import { API_BASE, authHeaders } from './services/api'
+import { createDeadlineClock, remainingAttemptSeconds } from './utils/examinationDeadline'
 
 // Questions are loaded only after the backend authorizes this applicant session.
 
 // ─── Timer hook ───────────────────────────────────────────────────────────────
 
-function useTimer(initialSeconds) {
-  const [seconds, setSeconds] = useState(initialSeconds)
+function useTimer(clock) {
+  const [tick, setTick] = useState(() => performance.now())
   useEffect(() => {
-    if (seconds <= 0) return
-    const id = setInterval(() => setSeconds(s => s - 1), 1000)
-    return () => clearInterval(id)
-  }, [seconds])
+    if (!clock) return
+    const update = () => setTick(performance.now())
+    const id = setInterval(update, 250)
+    document.addEventListener('visibilitychange', update)
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', update) }
+  }, [clock])
+  const seconds = remainingAttemptSeconds(clock, Math.max(tick, clock?.receivedAt || 0))
   const mins = String(Math.floor(seconds / 60)).padStart(2, '0')
   const secs = String(seconds % 60).padStart(2, '0')
   return { display: `${mins}:${secs}`, seconds }
@@ -66,7 +70,7 @@ function SendIcon() {
 
 // ─── Submit Modal ─────────────────────────────────────────────────────────────
 
-function SubmitModal({ answered, total, onConfirm, onCancel, submitting, error }) {
+function SubmitModal({ answered, total, onConfirm, onCancel, submitting, expired, error }) {
   const unanswered = total - answered
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)' }}>
@@ -107,7 +111,7 @@ function SubmitModal({ answered, total, onConfirm, onCancel, submitting, error }
             </button>
             <button
               onClick={onConfirm}
-              disabled={submitting}
+              disabled={submitting || expired}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
               style={{ backgroundColor: '#10A352', fontFamily: 'Outfit, sans-serif' }}
             >
@@ -163,6 +167,7 @@ function AccessBlockedScreen({ message }) {
 export default function App({ token }) {
   const [questions, setQuestions] = useState([])
   const [examTicket, setExamTicket] = useState('')
+  const [deadlineClock, setDeadlineClock] = useState(null)
   const [examMetadata, setExamMetadata] = useState({ title: 'PGCEAP Qualifying Examination', instructions: '', academicYear: '' })
   const [submitting, setSubmitting] = useState(false)
   const [submissionError, setSubmissionError] = useState('')
@@ -176,7 +181,8 @@ export default function App({ token }) {
   const [alreadySubmitted, setAlreadySubmitted] = useState(false)
   const [checkingSubmission, setCheckingSubmission] = useState(Boolean(token))
   const [accessDeniedMessage, setAccessDeniedMessage] = useState(() => token ? '' : 'Sign in with an applicant account before opening the examination.')
-  const { display: timeDisplay, seconds } = useTimer(44 * 60 + 12)
+  const { display: timeDisplay, seconds } = useTimer(deadlineClock)
+  const expired = Boolean(deadlineClock) && seconds === 0
   const timerWarning = seconds < 5 * 60
 
   useEffect(() => {
@@ -196,6 +202,7 @@ export default function App({ token }) {
       })
       .then(body => {
         if (!active || !body) return
+        setDeadlineClock(createDeadlineClock(body.attempt, performance.now()))
         setQuestions(Array.isArray(body.questions) ? body.questions : [])
         setExamTicket(body.examTicket || '')
         setExamMetadata({ title: body.title, instructions: body.instructions, academicYear: body.examination?.academicYear || '' })
@@ -230,6 +237,10 @@ export default function App({ token }) {
 
   const handleSubmit = async () => {
     if (submitting) return
+    if (remainingAttemptSeconds(deadlineClock, performance.now()) === 0) {
+      setSubmissionError('Your examination time has expired. Late answers cannot be submitted. Contact CAO.')
+      return
+    }
     setSubmitting(true)
     setSubmissionError('')
     const answers = { multipleChoice: mcAnswers, identification: idAnswers, trueFalse: tfAnswers, essay: essayAnswer }
@@ -297,6 +308,9 @@ export default function App({ token }) {
           </div>
         </div>
       </header>
+      <p role={expired ? 'alert' : 'status'} className="px-6 py-2 text-sm" style={{ backgroundColor: expired ? '#FFF2E2' : '#F3F8F5' }}>
+        {expired ? 'Time expired. Answering and submission are locked. Contact CAO; late answers cannot be recorded.' : 'You have 45 minutes from the first question load. Refreshing does not restart the timer. Submit before time runs out; late answers are not accepted.'}
+      </p>
 
       {/* ── Body ────────────────────────────────────────────────────────────── */}
       <div className="exam-taking-body flex flex-1 overflow-hidden gap-4 p-4">
@@ -392,6 +406,8 @@ export default function App({ token }) {
 
         {/* ── Main Content ─────────────────────────────────────────────────── */}
         <main className="exam-taking-main flex-1 flex flex-col overflow-hidden">
+          <fieldset disabled={expired || submitting} className="flex-1 flex flex-col overflow-hidden" style={{ minWidth: 0, border: 0, padding: 0, margin: 0 }}>
+            <legend className="sr-only">Examination answers and submission</legend>
           <div className="flex-1 overflow-y-auto">
 
             {examMetadata.instructions && <p className="rounded-xl bg-white p-4 mb-3 text-sm text-gray-700">{examMetadata.instructions}</p>}
@@ -628,6 +644,7 @@ export default function App({ token }) {
               )}
             </div>
           </div>
+          </fieldset>
         </main>
       </div>
 
@@ -637,7 +654,8 @@ export default function App({ token }) {
           total={TOTAL}
           onConfirm={handleSubmit}
           submitting={submitting}
-          error={submissionError}
+          expired={expired}
+          error={expired ? 'Time expired. Late answers cannot be submitted. Contact CAO.' : submissionError}
           onCancel={() => setShowModal(false)}
         />
       )}

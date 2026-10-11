@@ -207,6 +207,9 @@ model exam_slots {
   appeared     Boolean?
   appeared_at  DateTime? @db.Timestamp(6)
   forfeited_at DateTime? @db.Timestamp(6)
+  online_started_at DateTime? @db.Timestamp(6)
+  online_deadline_at DateTime? @db.Timestamp(6)
+  online_configuration_id Int?
   created_at   DateTime  @default(now()) @db.Timestamp(6)
   updated_at   DateTime  @updatedAt @db.Timestamp(6)
 
