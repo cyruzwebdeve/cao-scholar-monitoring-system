@@ -1,3 +1,4 @@
+import { getApplicantExaminationSummary } from './utils/applicantExamination';
 import {
   Bell,
   CalendarDays,
@@ -220,13 +221,8 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   const firstName = profile?.firstName || displayName.split(" ")[0];
   const controlNumber = profile?.controlNumber || "Not assigned";
   const examCompleted = Boolean(examination?.completed);
-  const waitingForResults = examCompleted && !examination?.isScholar;
-  const applicationStatus = examination?.status || (waitingForResults
-    ? "Waiting for results"
-    : examination?.isScholar
-      ? "Accepted as scholar"
-      : application?.status || "Not submitted");
-  const attendanceReview = applicationStatus === 'For review';
+  const waitingForResults = examCompleted && !examination?.isScholar && !examination?.published;
+  const examSummary = getApplicantExaminationSummary(examination || {});
   const eligibilitySummary = Object.entries(application?.eligibility || {})
     .filter(([, value]) => value === "Yes" || value === true)
     .map(([key]) => eligibilityLabels[key] || key)
@@ -259,8 +255,8 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
               <div className="applicant-notification-dropdown">
                 {waitingForResults ? (
                   <>
-                    <strong>Examination completed</strong>
-                    <span>Your answers were submitted. Please wait for the Scholarship Office to release your result.</span>
+                    <strong>{examSummary.title}</strong>
+                    <span>{examSummary.description}</span>
                   </>
                 ) : application ? (
                   <>
@@ -335,7 +331,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
                 <div><span>Email address</span><strong>{profile?.email || "Not provided"}</strong></div>
                 <div><span>Control number</span><strong>{controlNumber}</strong></div>
                 <div><span>Account status</span><strong className="applicant-status">Active</strong></div>
-                <div><span>Application status</span><strong>{applicationStatus}</strong></div>
+                <div><span>Application status</span><strong>{examination?.isScholar ? 'Accepted as scholar' : application?.status || 'Not submitted'}</strong></div>
                 {application && (
                   <>
                     <h3>Personal information</h3>
@@ -385,14 +381,10 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
         {application && (
           <section className="applicant-completion-banner applicant-completion-panel">
             <p>YOUR APPLICATION</p>
-            <h2>{waitingForResults ? "Examination completed" : "Application completed"}</h2>
-            <strong>100% complete</strong>
+            <h2>{examSummary.title}</h2>
+            <strong>Application form submitted</strong>
             <span>
-              {waitingForResults
-                ? "Your examination was submitted successfully. Please wait for the official result."
-                : attendanceReview
-                  ? "Attendance confirmed. Your application is For review; this does not mean the examination is completed or passed."
-                  : "Your application was submitted and is currently under review."}
+              {examSummary.description}
             </span>
           </section>
         )}
@@ -410,22 +402,17 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
           </div>
         </section>
 
+        {examination?.published && !examination?.isScholar && <section className="applicant-official-result" role="status"><ClipboardCheck size={17} /><span><strong>Official examination result: {examination.status}</strong> Score: {examination.score}/20 · Passing score: {examination.passingScore}. {examSummary.description}</span></section>}
         <section className="applicant-stat-grid">
           <article className="applicant-stat-card">
             <div className="applicant-stat-icon green">
               <FileText size={21} />
             </div>
             <div>
-              <span>Application status</span>
-              <strong>{applicationStatus}</strong>
+              <span>Examination status</span>
+              <strong>{examSummary.title}</strong>
               <small>
-                {waitingForResults
-                  ? "Examination completed"
-                  : attendanceReview
-                  ? "Attendance confirmed; examination result not yet recorded"
-                  : application
-                  ? "Application received"
-                  : "Complete your application"}
+                {examSummary.description}
               </small>
             </div>
           </article>

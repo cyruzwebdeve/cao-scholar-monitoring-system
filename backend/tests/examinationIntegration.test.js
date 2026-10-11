@@ -12,7 +12,7 @@ const mailerPath = require.resolve('../services/mailer');
 require.cache[mailerPath] = { id: mailerPath, filename: mailerPath, loaded: true, exports: { sendExamSubmittedEmail: async () => ({ sent: false }) } };
 process.env.JWT_SECRET = randomBytes(32).toString('hex');
 const { defaultConfiguration, createExamTicket } = require('../services/onlineExamConfiguration');
-const { getOnlineExamQuestions, submitOnlineExam, updateExaminationAttendance, getApplicantManagement, getMyApplication } = require('../controllers/applicationController');
+const { getOnlineExamQuestions, submitOnlineExam, updateExaminationAttendance, getApplicantManagement, getMyApplication, acceptApplicantAsScholar } = require('../controllers/applicationController');
 const { createOnlineExamConfigurationController } = require('../controllers/onlineExamConfigurationController');
 const routes = require('../routes/applicationRoutes');
 const response = () => ({ locals: {}, statusCode: 200, headers: {}, set(key, value) { this.headers[key] = value; return this; }, status(value) { this.statusCode = value; return this; }, json(value) { this.body = value; return this; } });
@@ -39,7 +39,7 @@ beforeEach(() => {
   Object.assign(prisma, {
     academic_periods: { findFirst: async () => ({ id: 1, school_year: '2026-2027', is_active: true }) },
     application_settings: { findUnique: async () => settings },
-    applicants: { findUnique: async () => applicant, findMany: async () => [applicant] },
+    applicants: { findFirst: async () => applicant, findUnique: async () => applicant, findMany: async () => [applicant] },
     exams: { findFirst: async () => exam, findMany: async () => [exam], findUnique: async () => exam },
     exam_slots: { findUnique: async () => slot, findMany: async () => [slot], update: async ({ data }) => { writes.push({ table: 'exam_slots', data }); slot = { ...slot, ...data }; return slot; } },
     results: { findFirst: async () => result, findMany: async () => result ? [result] : [], create: async ({ data }) => { writes.push({ table: 'results', data }); result = { id: 2, ...data }; return result; } },
@@ -146,9 +146,11 @@ test('an opened exam is scored with its original key after settings staff save a
   const submitted = response();
   await submitOnlineExam({ user: { id: 7 }, body: { examTicket: opened.body.examTicket, answers: { multipleChoice: { 1: 1 } }, score: 20 } }, submitted);
   assert.equal(submitted.statusCode, 201);
-  assert.equal(submitted.body.result.score, 1);
-  assert.equal(submitted.body.result.online_configuration_id, 0);
-  assert.equal(submitted.body.result.passed, false);
+  assert.equal(submitted.body.result, undefined);
+  assert.equal(submitted.body.receipt.recorded, true);
+  assert.equal(result.score, 1);
+  assert.equal(result.online_configuration_id, 0);
+  assert.equal(result.passed, false);
 });
 
 test('invalid tickets are rejected before writing any examination result', async () => {
@@ -175,10 +177,12 @@ test('newly opened examinations use saved title, answer key and passing threshol
   const submitted = response();
   await submitOnlineExam({ user: { id: 7 }, body: { examTicket: opened.body.examTicket, answers: { multipleChoice: { 1: 0 } } } }, submitted);
   assert.equal(submitted.statusCode, 201);
-  assert.equal(submitted.body.result.score, 1);
-  assert.equal(submitted.body.result.passing_score, 1);
-  assert.equal(submitted.body.result.passed, true);
-  assert.equal(submitted.body.result.online_configuration_id, 1);
+  assert.equal(submitted.body.result, undefined);
+  assert.equal(submitted.body.receipt.recorded, true);
+  assert.equal(result.score, 1);
+  assert.equal(result.passing_score, 1);
+  assert.equal(result.passed, true);
+  assert.equal(result.online_configuration_id, 1);
 });
 
 test('simultaneous saves from one base version create only one successor', async () => {
@@ -216,4 +220,44 @@ test('real configuration routes deny anonymous, applicant, billing and staff wit
       if (expected < 300) assert.match(res.headers.get('cache-control'), /no-store/);
     }
   }
+});
+
+
+test('score and publication routes require an examination-authorized staff account', async () => {
+  for (const [method, suffix] of [['POST', ''], ['PUT', ''], ['POST', '/publish']]) {
+    const url = `${baseUrl}/examinations/3/results/7${suffix}`;
+    for (const [user, expected] of [[null, 401], [{ userId: 7, role: 'Applicant', accountType: 'applicant', authVersion: 0 }, 403], [{ userId: 2, role: 'RegularAdmin', accountType: 'admin', authVersion: 0 }, 403], [{ userId: 4, role: 'BillingPayrollAdmin', accountType: 'admin', authVersion: 0 }, 403], [{ userId: 3, role: 'RegularAdmin', accountType: 'admin', authVersion: 0 }, 400], [{ userId: 1, role: 'SuperAdmin', accountType: 'admin', authVersion: 0 }, 400]]) {
+      const token = user ? jwt.sign(user, process.env.JWT_SECRET) : '';
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: '{}' });
+      assert.equal(res.status, expected);
+    }
+  }
+});
+
+
+test('examination-only staff can load results without Applicants section access', async () => {
+  const token = jwt.sign({ userId: 3, role: 'RegularAdmin', accountType: 'admin', authVersion: 0 }, process.env.JWT_SECRET);
+  const headers = { Authorization: `Bearer ${token}` };
+  const resultResponse = await fetch(`${baseUrl}/results/management`, { headers });
+  assert.equal(resultResponse.status, 200);
+  assert.match(resultResponse.headers.get('cache-control'), /no-store/);
+  assert.equal((await fetch(`${baseUrl}/applicants/management`, { headers })).status, 403);
+});
+
+test('paper score stays hidden before publication and does not enable early scholarship acceptance', async () => {
+  result = { id: 2, applicant_id: 7, exam_id: 3, delivery_mode: 'paper', score: 14, passing_score: 14, passed: true, published_at: null };
+  let portal = response();
+  await getMyApplication({ user: { id: 7 } }, portal);
+  assert.equal(portal.body.examination.status, 'Result under review');
+  assert.equal(portal.body.examination.score, null);
+  assert.equal(portal.body.examination.passingScore, null);
+  const accepted = response();
+  await acceptApplicantAsScholar({ params: { applicantId: '7' }, body: {}, user: { id: 1 } }, accepted);
+  assert.equal(accepted.statusCode, 409);
+  result.published_at = new Date();
+  portal = response();
+  await getMyApplication({ user: { id: 7 } }, portal);
+  assert.equal(portal.body.examination.status, 'Passed');
+  assert.equal(portal.body.examination.score, 14);
+  assert.equal(portal.body.examination.isScholar, false);
 });

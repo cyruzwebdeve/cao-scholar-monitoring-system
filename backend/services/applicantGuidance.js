@@ -64,7 +64,7 @@ const buildApplicantGuidance = ({
   const examScheduled = Boolean(examinationAccessEnabled && scheduledExam?.is_active);
   const examinationDeliveryMode = examinationSettings?.deliveryMode || 'paper';
   const attendanceConfirmed = Boolean(examSlot?.appeared);
-  const progress = resolveExaminationProgress({ result, scholar, examSlot, fallbackStatus: application.status, applicantFacing: true });
+  const progress = resolveExaminationProgress({ result, scholar, examSlot, fallbackStatus: application.status, applicantFacing: true, scheduledExam });
   const attendanceReview = progress.status === 'For review';
   const requirementSnapshot = getRequirementSnapshot({
     initialDocs: application.initial_docs,
@@ -99,7 +99,7 @@ const buildApplicantGuidance = ({
       detail: examBypassed
         ? 'The qualifying examination was bypassed after CAO verified a priority eligibility proof.'
         : hasResult
-          ? 'Your examination submission has been recorded.'
+          ? result.published_at ? `Your official examination outcome is ${result.passed ? 'Passed' : 'Did not pass'}.` : result.delivery_mode === 'paper' ? 'CAO recorded your paper score. Your examination result is under review.' : 'Your examination submission has been recorded.'
         : attendanceReview
           ? 'Attendance is Present. Your application is For review; no examination result has been recorded.'
         : examScheduled
@@ -156,7 +156,7 @@ const buildApplicantGuidance = ({
           type: 'waiting',
           title: examinationDeliveryMode === 'paper' ? 'Follow CAO examination instructions' : 'Wait for online examination access',
           description: examinationDeliveryMode === 'paper'
-            ? 'Complete the paper examination as instructed. CAO still needs to record and review your result.'
+            ? 'Complete the paper examination as instructed. Await CAO recording and review of your result.'
             : 'Your online examination still needs to be completed when CAO enables access during your schedule.',
         })],
         timeline,
@@ -206,8 +206,8 @@ const buildApplicantGuidance = ({
   if (!isScholar) {
     return {
       state: 'waiting',
-      headline: 'Your examination is under review',
-      description: 'The Scholarship Office will publish the official decision after reviewing your application and examination.',
+      headline: result?.published_at ? `Examination result: ${result.passed ? 'Passed' : 'Did not pass'}` : 'Your examination result is under review',
+      description: result?.published_at ? result.passed ? 'You passed the examination. Scholarship acceptance remains a separate CAO decision.' : 'You did not meet the examination passing score. Contact CAO for guidance; this is not a final application rejection.' : 'CAO is reviewing your examination result before publication.',
       actions: [makeAction({
         id: 'wait-official-decision',
         type: 'waiting',

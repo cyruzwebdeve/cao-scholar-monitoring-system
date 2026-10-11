@@ -5,6 +5,76 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-11 - Deploy Paper Examination Results and Publication
+
+### TL;DR
+- Prepared the authorized paper-score entry, correction and CAO publication release for the existing main-branch Hostinger pipeline; GitHub write authentication is currently missing.
+- Includes matching backend/frontend changes, the additive result-publication migration, regression tests and synthetic workflow screenshots; the broader QA report remains local.
+- Existing results are preserved and remain unpublished; online scoring remains automatic and scholarship acceptance remains separate. Legacy payment/release routes are retained unchanged outside scope.
+- Release checks passed: 196 backend tests, one existing database-dependent skip, 43 frontend tests, lint/build, schema validation/client generation and synthetic local browser checks. Hosted verification follows publication.
+
+### Objective, previous/new behavior and affected roles
+Deploy the preceding implementation so authorized CAO examination staff can record first paper scores and publish reviewed outcomes, and applicants can see independent attendance and official examination status. The behavior, roles and API/data flow are detailed in the implementation entry below. This deployment introduces no additional application feature or permission change.
+
+### Implementation, data flow and files
+Remote main matched local baseline `46277ee`. Publish the examination result controller, application/progress/guidance changes, private exam routes and operational Activity Logs, application schema/migration, Results and Applicant frontend changes, regression tests, matching change entries and synthetic paper-workflow screenshots. Exclude the broader QA review entry/report and tester-gate screenshots. The existing backend production build generates Prisma Client and applies committed migrations before startup; no migration or production database connection is executed directly from this workstation.
+
+### Impact assessment
+- **API/database:** deploys exam-specific mutations and publication/privacy contracts described below; four additive result fields and check constraints preserve records. Historical versioned online rows gain provenance; no result is automatically published or deleted.
+- **Configuration/deployment:** existing repository, main branch, domains, build settings and protected environment values remain unchanged. Backend migration/build must complete before using the frontend; old tabs must refresh because retired exam mutations return 410.
+- **Security/privacy/accessibility:** inherits tested staff section checks, revision guards, private responses, result history and labeled controls. Public verification will not sign in, inspect personal records, record/publish real results or generate payroll lists.
+- **Scope:** payroll-list generation remains the endpoint. Legacy payment code remains retained unchanged outside scope; deployment performs no fund-release or monetary-audit operation.
+
+### Validation and results
+All required local checks passed as recorded above. Remote baseline and whitespace checks passed. Pre-release frontend and API returned HTTP 200. The workspace lacked Git author configuration and GitHub push authentication; the initial commit and push attempt failed without publication. A scoped Codex commit identity is used for the local release commit without changing user/global configuration. GitHub authentication must be connected before push; no new hosted assets, backend revision or migration completion is claimed.
+
+### Limitations, rollback and next work
+GitHub write authentication, hosting-provider build logs and authenticated test access are unavailable in this session. Connect GitHub or authenticate Git to push the prepared release, then confirm both Hostinger builds and migration completion; a healthy API alone does not prove its new revision or schema. Revert the isolated release with matched frontend/backend code if required, retaining additive fields and review history rather than deleting results. After hosting completion, refresh and test a controlled paper record from Present through score entry, review, publication, correction/republishing and separate scholarship acceptance. Preserve local QA artifacts.
+
+## 2026-10-11 - Manual Paper Scores and Reviewed Examination Publication
+
+### TL;DR
+- CAO examination staff can record the first paper score, correct a score with a reason, and publish the reviewed result through the existing Results drawer.
+- Applicant examination status now distinguishes Scheduled, For review, Result under review, Passed and Did not pass; attendance and the application decision remain separate. Passing does not automatically accept a scholar.
+- Scores remain hidden until publication; corrections revoke publication and retain the old/new score, reason, actor and time in transactional review history. Online scores remain automatically computed.
+- Added an additive results migration; existing results remain unpublished and existing scholar accounts remain intact. Legacy payment/release functionality is retained unchanged outside scope.
+- Backend/frontend regressions, schema/client generation, lint/build and local browser flows with synthetic records passed. No production migration or deployment was performed; live authenticated testing remains pending.
+
+### Objective and previous/new behavior
+Complete the user-approved face-to-face workflow after QA found that Results Management could only re-evaluate an existing score. The older score-entry endpoint wrote to an incompatible legacy model. Previously paper examinees could reach Present/For review but staff had no current-schema first-entry action; applicants with any result stayed at Waiting for results until acceptance. New paper results use the current assigned exam slot, a manual score out of 20, an explicitly recorded passing threshold (default 14 in the form), and a mandatory recording remark. Saving creates a draft. CAO reviews and publishes separately; the applicant then sees the official score, threshold and Passed/Did not pass. A failing examination is not an automatic application rejection.
+
+### Affected roles and workflows
+SuperAdmin, RegularAdmin and Billing/Payroll Admin accounts with Examination section access can record, correct and publish. Examination-only staff can read the Results list without requiring the Applicants section. Applicants see attendance independently from examination progress and application status. Scholarship acceptance remains separately authorized and requires a published passing result for any new acceptance. Existing accepted scholar accounts and their idempotent acceptance behavior are preserved. Online question delivery, automatic computation and immutable question tickets remain in place; new online results use the same review/publication lifecycle and submission replies contain only a receipt, not the unpublished score.
+
+### Implementation and data flow
+- New `examinationResultController.js` implements exam/applicant-specific record, correction and publication mutations. It validates assignment, active academic year, application availability, Present attendance for first paper entry, the paper delivery setting and acceptance locks. Scores/thresholds are bounded to the existing 20-point scale and two decimal places; zero is valid. First-entry uniqueness, serializable transactions and revision-guarded updates reject duplicate/stale/concurrent writes with 409.
+- Result, application progress and a durable JSON review-history entry commit together. Corrections preserve the passing threshold and previous score/publication metadata; publication is cleared until reviewed again. Actor/time/reason are stored in history and successful operations also use existing operational Activity Logs. These are record-change logs, not monetary audits.
+- Added `delivery_mode`, `published_at`, `published_by` and `review_history` to `results`. The migration labels versioned online rows as online, leaves unknown older provenance null and initializes empty history; it does not publish, delete or fabricate historical decisions. Check constraints limit modes and pair publication actor/time.
+- Applicant responses expose score/threshold only after publication; the progress/guidance helpers and frontend summary produce mode-appropriate messages. The Results drawer adds first-entry, correction and publication actions, records revision tokens and blocks premature acceptance. A dedicated official-result notice avoids a pre-existing CSS rule hiding generic notifications.
+- The incompatible `/applications/:id/exam` and revision-free `/results/:applicantId/re-evaluate` mutation routes return 410 with guidance to reload and use the examination-specific actions. Their old controller functions are retained but no longer routed. Payment/release routes and controllers are retained unchanged outside approved scope.
+
+### Files and areas changed
+Backend result controller, application controller, application routes, progress/guidance helpers, activity definitions, application Prisma schema and one migration; Results Management, Applicant Dashboard, the applicant summary utility and applicant styles; result/integration/status tests; both change logs. Synthetic local browser screenshots are stored in `docs/qa/2026-10-11/paper-workflow/`. The broader QA report and tester-gate screenshots remain local historical evidence and are excluded from this deployment.
+
+### Impact assessment
+- **API:** adds GET `/api/results/management`, POST/PUT `/api/examinations/:examId/results/:applicantId` and POST of its `/publish` child. Mutation requests carry a result ID and updated timestamp for correction/publication; first entry carries score, passingScore and remarks. Applicant and staff management responses gain publication/provenance fields. Online submission returns a receipt rather than the result object. Two legacy exam mutations are explicitly retired with 410.
+- **Database:** additive nullable provenance/publication columns plus default-empty review-history JSON and check constraints. No destructive cleanup, recalculation or automatic publication. Prisma client regeneration and migration deployment are required before the new code runs.
+- **Configuration/dependencies:** no new environment variable or runtime dependency. Existing paper/online mode, 20-point scale, authentication and hosting pipeline are used; manual first-entry threshold defaults to 14 but must be saved explicitly.
+- **Security/privacy:** role plus Examination section checks, existing staff mutation rate limiter, private no-store responses, revision/concurrency guards and transactional history. Unpublished scores are excluded from applicant/online-submission responses. Review history is staff record data and is not returned to applicants. Publication updates the dashboard; no new email or notification delivery was added.
+- **Accessibility/UX:** labeled numeric and reason inputs, progress/error feedback, explicit publication confirmation, independent attendance/outcome text and mobile result notice. Score editing is disabled after acceptance and incomplete/unpublished outcomes cannot authorize a new acceptance.
+- **Deployment:** local implementation only, no push or live setting change. Apply the migration and generate the client before deploying the matching backend/frontend; refresh existing browser tabs because old mutation calls now return 410.
+- **Scope:** official payroll-list generation remains the terminal workflow. No fund release, claiming, payment confirmation, reconciliation or financial audit capability was added or changed.
+
+### Validation and results
+Regression suites passed: 196 backend tests with one existing opt-in database-dependent skip, and 43 frontend tests. Frontend lint/build passed; the existing large ExcelJS chunk advisory remains. Prisma client generation and schema validation passed using a dummy local database setting; no database migration was executed. Result tests cover zero/boundary/precision validation, assignment/attendance/mode/year/application locks, duplicate entry, publication, corrections/history, stale revisions, accepted-scholar locks and transactional rollback. Local Express route tests verify role/section isolation, Examination-only reading, unpublished-score privacy and the publication requirement for acceptance.
+
+Local Chromium testing with intercepted synthetic API responses completed first paper entry at zero, failing-result publication, correction to 14 with publication reset, republishing, and applicant draft/published display. No page exceptions occurred and the 390px applicant view had no horizontal overflow. This is UI verification with synthetic responses, not a real database or authenticated production end-to-end test. A first browser startup timed out; a bounded retry reached the flow and exposed the inherited hidden-notice CSS, which was corrected and retested. Whitespace validation passed.
+
+### Known limitations, rollback and next work
+Production rollout and real-database migration/concurrency testing remain pending. Paper examinations use the existing 20-point scale; alternate maxima require a separate design. The saved passing threshold cannot be changed through score correction. The shared delivery setting determines whether a new manual result is permitted; switch modes deliberately outside active sittings. Historical rows with unknown source keep legacy waiting presentation until staff publish; their old correction history cannot be reconstructed. Existing online completion-credit grading, advisory timer and answer-recovery limitations were not changed.
+
+History and publication fields should remain during a code rollback to preserve records; restore matched frontend/backend code rather than deleting results or reversing the data migration. Older open tabs must refresh. Before live rollout, test a controlled paper applicant from schedule through Present, manual entry, unpublished dashboard, publication of passing/failing outcomes, correction/republishing, and separate acceptance. Validate migration constraints and concurrent attempts against a test database and confirm CAO's threshold and publication roles.
+
 ## 2026-10-09 - Deploy Two-Tab Settings Layout
 
 ### TL;DR

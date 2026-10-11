@@ -69,10 +69,10 @@ test('question configuration clearly discloses versioning, scale and legacy grad
 
 test('portal consumes authoritative review status while retaining attendance as a separate field', async () => {
   const source = await readFile(new URL('../src/ApplicantDashboard.jsx', import.meta.url), 'utf8');
-  assert.match(source, /applicationStatus = examination\?\.status/);
+  assert.match(source, /getApplicantExaminationSummary/);
   assert.match(source, /examination\?\.attendance\?\.status/);
   assert.match(source, /examinationAttendanceRevision/);
-  assert.match(source, /does not mean the examination is completed or passed/);
+  assert.match(source, /Examination status/);
 });
 
 test('question page supports non-contiguous IDs and submits its version ticket, not a computed score', async () => {

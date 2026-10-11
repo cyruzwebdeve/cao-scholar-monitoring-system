@@ -224,6 +224,10 @@ model results {
   passed        Boolean
   remarks       String?
   recorded_by   Int?
+  delivery_mode String?  @db.VarChar(10)
+  published_at  DateTime? @db.Timestamp(6)
+  published_by  Int?
+  review_history Json @default("[]")
   online_configuration_id Int?
   created_at    DateTime @default(now()) @db.Timestamp(6)
   updated_at    DateTime @updatedAt @db.Timestamp(6)

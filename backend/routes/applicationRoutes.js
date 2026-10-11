@@ -1,3 +1,4 @@
+const { examinationResultController } = require('../controllers/examinationResultController');
 const express = require('express');
 const { onlineExamConfigurationController } = require('../controllers/onlineExamConfigurationController');
 const { authenticate, authenticateOptional } = require('../middleware/auth');
@@ -23,7 +24,6 @@ const {
   setPrimaryAcademicPeriod,
   deactivateAcademicPeriod,
   createApplication,
-  inputExamScore,
   getOnlineExamQuestions,
   submitOnlineExam,
   submitRequirements,
@@ -55,11 +55,9 @@ const {
   saveExaminationManagement,
   updateExaminationAttendance,
   acceptApplicantAsScholar,
-  reevaluateExamResult,
 } = require('../controllers/applicationController');
 const {
   validateCreateApplication,
-  validateExamInput,
   validateRequirements,
   validatePayrollBatch,
   validateAnnouncement,
@@ -81,6 +79,7 @@ const {
 } = require('../middleware/rateLimits');
 
 const router = express.Router();
+const privateResponse = (req, res, next) => { res.set('Cache-Control', 'no-store, private'); next(); };
 
 router.use(auditSuccessfulMutation);
 
@@ -112,22 +111,27 @@ router.put('/document-reviews/:applicationId/approve-pending', authenticate, doc
 router.put('/document-reviews/:applicationId/:requirementKey', authenticate, documentReviewRateLimiter, checkRole(['BillingPayrollAdmin', 'SuperAdmin']), checkSectionAccess('documentReviews'), validateDocumentReview, reviewDocument);
 router.put('/schools/classification', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), updateSchoolClassification);
 router.get('/applicants/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('applicants'), getApplicantManagement);
+router.get('/results/management', privateResponse, authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), getApplicantManagement);
 router.get('/examinations/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), getExaminationManagement);
 router.put('/examinations/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), saveExaminationManagement);
 router.put('/examinations/:examId/attendance/:applicantId', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), updateExaminationAttendance);
+
+router.post('/examinations/:examId/results/:applicantId', privateResponse, authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), examinationResultController.record);
+router.put('/examinations/:examId/results/:applicantId', privateResponse, authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), examinationResultController.correct);
+router.post('/examinations/:examId/results/:applicantId/publish', privateResponse, authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), examinationResultController.publish);
 
 // Public route to create a baseline application and optionally register a user
 router.post('/applications', applicationSubmissionRateLimiter, authenticateOptional, validateCreateApplication, createApplication);
 
 // Get application by ID (owner or privileged roles)
-router.get('/applications/me', authenticate, checkRole(['Applicant', 'Scholar']), getMyApplication);
+router.get('/applications/me', privateResponse, authenticate, checkRole(['Applicant', 'Scholar']), getMyApplication);
 router.get('/notifications/me', authenticate, checkRole(['Applicant', 'Scholar']), getMyNotifications);
 router.put('/notifications/:id/read', authenticate, checkRole(['Applicant', 'Scholar']), markMyNotificationRead);
 router.put('/applications/me/requirements', authenticate, documentUploadRateLimiter, checkRole(['Scholar']), uploadMyRequirement);
 router.get('/applications/:id', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin', 'Applicant', 'Scholar']), checkSectionAccess('applicants', 'billing', 'scholars'), getApplicationById);
 
 // Super Admin only route to input exam results
-router.put('/applications/:id/exam', authenticate, checkRole(['SuperAdmin']), validateExamInput, inputExamScore);
+router.put('/applications/:id/exam', authenticate, checkRole(['SuperAdmin']), (req, res) => res.status(410).json({ message: 'Use the examination-specific Record score action in Results Management.' }));
 router.get('/applications/me/examination/questions', authenticate, checkRole(['Applicant']), getOnlineExamQuestions);
 router.post('/applications/me/exam-result', authenticate, checkRole(['Applicant', 'Scholar']), submitOnlineExam);
 
@@ -161,7 +165,8 @@ router.put('/scholars/:applicantId/billing-metadata', authenticate, billingWrite
 router.post('/billing/process', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing'), processBillingSelection);
 router.post('/payroll/process', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('payroll'), processPayrollSelection);
 router.post('/scholars/:applicantId/accept', authenticate, scholarshipDecisionRateLimiter, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), acceptApplicantAsScholar);
-router.put('/results/:applicantId/re-evaluate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), reevaluateExamResult);
+// Retired latest-result mutation: exact exam/result revision is now required.
+router.put('/results/:applicantId/re-evaluate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), (req, res) => res.status(410).json({ message: 'Reload Results Management and use the examination-specific Correct score action.' }));
 
 router.get('/announcements/latest', authenticate, checkRole(['Applicant', 'Scholar', 'SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getLatestPublishedAnnouncement);
 router.get('/announcements/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('announcements'), getAnnouncementManagement);

@@ -1669,7 +1669,7 @@ const submitOnlineExam = async (req, res) => {
     try { score = scoreConfiguredAnswers(req.body?.answers, configuration); }
     catch (error) { return res.status(400).json({ message: error.message }); }
     const passingScore = configuration.passingScore;
-    const data = { score, passing_score: passingScore, passed: score >= passingScore, online_configuration_id: configurationId, updated_at: new Date() };
+    const data = { score, passing_score: passingScore, passed: score >= passingScore, online_configuration_id: configurationId, delivery_mode: 'online', updated_at: new Date() };
     const result = await prisma.results.create({ data: { exam_slot_id: slot.id, applicant_id: applicantId, exam_id: exam.id, ...data } });
     await prisma.application_submissions.updateMany({
       where: { applicant_id: applicantId, status: { not: 'Withdrawn' } },
@@ -1688,7 +1688,7 @@ const submitOnlineExam = async (req, res) => {
     });
     return res.status(201).json({
       message: 'Examination submitted.',
-      result,
+      receipt: { recorded: true, submittedAt: result.created_at },
       notification: { examReceiptEmailSent: emailDelivery.sent },
     });
   } catch (error) { console.error(error); return res.status(500).json({ message: 'Server error submitting examination.' }); }
@@ -1743,7 +1743,7 @@ const getMyApplication = async (req, res) => {
     const exam = result
       ? await prisma.exams.findUnique({ where: { id: result.exam_id }, select: { title: true, exam_date: true, academic_year: true } })
       : null;
-    const examSlot = examSlots?.find((slot) => slot.exam_id === (scheduledExam?.id || result?.exam_id)) || null;
+    const examSlot = examSlots?.find((slot) => slot.exam_id === (result?.exam_id || scheduledExam?.id)) || null;
     const [schoolCatalog, schoolHistory] = await Promise.all([
       prisma.schools.findMany({ select: { id: true, name: true, school_type: true } }),
       loadSchoolHistory(prisma, applicantId ? [applicantId] : []),
@@ -1798,7 +1798,11 @@ const getMyApplication = async (req, res) => {
         releasedAt: payrollBatch?.released_at || null,
       } : null,
       examination: {
-        ...resolveExaminationProgress({ result, scholar, examSlot, fallbackStatus: application.status, applicantFacing: true }),
+        ...resolveExaminationProgress({ result, scholar, examSlot, fallbackStatus: application.status, applicantFacing: true, scheduledExam }),
+        deliveryMode: result?.delivery_mode || examinationSettings.deliveryMode,
+        publishedAt: result?.published_at || null,
+        score: result?.published_at ? Number(result.score) : null,
+        passingScore: result?.published_at ? Number(result.passing_score ?? 14) : null,
         submittedAt: result?.created_at || null,
         examTitle: exam?.title || 'PGCEAP Qualifying Examination',
         examDate: exam?.exam_date || null,
@@ -2110,7 +2114,7 @@ const getApplicantManagement = async (req, res) => {
     const [accounts, slots, results, exams, scholarAccounts, applications] = await Promise.all([
       prisma.control_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, control_number: true, username: true, last_login_at: true } }),
       prisma.exam_slots.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, exam_id: true, appeared: true, appeared_at: true, forfeited_at: true } }),
-      prisma.results.findMany({ where: { applicant_id: { in: applicantIds } }, orderBy: { created_at: 'desc' }, select: { id: true, applicant_id: true, exam_id: true, score: true, passing_score: true, passed: true, remarks: true, created_at: true, updated_at: true } }),
+      prisma.results.findMany({ where: { applicant_id: { in: applicantIds } }, orderBy: { created_at: 'desc' }, select: { id: true, applicant_id: true, exam_id: true, score: true, passing_score: true, passed: true, remarks: true, delivery_mode: true, published_at: true, published_by: true, recorded_by: true, created_at: true, updated_at: true } }),
       prisma.exams.findMany({
         orderBy: { updated_at: 'desc' },
         select: { id: true, title: true, exam_date: true, exam_end_date: true, venue: true, municipality: true, academic_year: true, is_active: true, updated_at: true },
@@ -2191,6 +2195,10 @@ const getApplicantManagement = async (req, res) => {
           lastLogin: account?.last_login_at || null,
           ...resolveExaminationProgress({ result, scholar, examSlot: slot, fallbackStatus: applicant.status, applicationStatus: application?.status }),
           appearedAt: slot?.appeared_at || null,
+          resultId: result?.id || null,
+          resultUpdatedAt: result?.updated_at || null,
+          resultPublishedAt: result?.published_at || null,
+          resultDeliveryMode: result?.delivery_mode || null,
           examId: exam?.id || null,
           examScore: result?.score === null || result?.score === undefined ? null : Number(result.score),
           passingScore: result?.passing_score === null || result?.passing_score === undefined ? null : Number(result.passing_score),
@@ -2390,6 +2398,8 @@ const acceptApplicantAsScholar = async (req, res) => {
     if (existingScholar?.is_active) {
       return res.status(200).json({ message: 'Applicant is already an active scholar.', scholar: existingScholar });
     }
+
+    if (!latestResult.published_at) return res.status(409).json({ message: 'Publish the reviewed examination result before scholarship acceptance.' });
 
     const assessment = evaluateEligibility({ application, result: latestResult });
     if (assessment.requiresOverrideReason && !reviewReason) {

@@ -60,6 +60,9 @@ function StatusBadge({ status }) {
 
 export default function ResultsManagement({ token }) {
   const [applicants, setApplicants] = useState([]);
+  const [deliveryMode, setDeliveryMode] = useState('');
+  const [passingScore, setPassingScore] = useState('14');
+  const [publishing, setPublishing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [query, setQuery] = useState('');
@@ -83,9 +86,13 @@ export default function ResultsManagement({ token }) {
   const loadResults = useCallback(async ({ showLoader = false } = {}) => {
     if (showLoader) setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/applicants/management`, { headers: authHeaders(token) });
+      const response = await fetch(`${API_BASE}/results/management`, { headers: authHeaders(token) });
       if (!response.ok) throw new Error('Unable to load examination results.');
       const payload = await response.json();
+      const settingsResponse = await fetch(`${API_BASE}/examination-settings`, { headers: authHeaders(token) });
+      if (!settingsResponse.ok) throw new Error('Unable to verify examination delivery mode.');
+      const settingsBody = await settingsResponse.json();
+      setDeliveryMode(settingsBody.examination?.deliveryMode || '');
       let localScheduleByMunicipality = new Map();
       try {
         const storedSchedules = JSON.parse(localStorage.getItem('examVenueData') || '[]');
@@ -122,10 +129,10 @@ export default function ResultsManagement({ token }) {
 
   useEffect(() => {
     if (!selected) return undefined;
-    const closeOnEscape = (event) => { if (event.key === 'Escape') setSelected(null); };
+    const closeOnEscape = (event) => { if (event.key === 'Escape' && !publishing && !reevaluating && !acceptingScholar) setSelected(null); };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [selected]);
+  }, [selected, publishing, reevaluating, acceptingScholar]);
 
   const municipalities = useMemo(() => [...new Set(applicants.map((item) => item.municipality).filter(Boolean))].sort(), [applicants]);
   const barangays = useMemo(() => [...new Set(applicants
@@ -166,7 +173,7 @@ export default function ResultsManagement({ token }) {
   const stats = [
     { label: 'Total Records', value: applicants.length, detail: 'Applicant examination records', tone: 'green', Icon: UsersRound },
     { label: 'For Review', value: pendingCount, detail: 'Awaiting result review', tone: 'orange', Icon: Clock3 },
-    { label: 'Completed', value: completedCount, detail: 'Final examination results', tone: 'blue', Icon: ClipboardCheck },
+    { label: 'Scored', value: completedCount, detail: 'Recorded examination scores', tone: 'blue', Icon: ClipboardCheck },
     { label: 'Passed', value: passedCount, detail: 'Met the passing score', tone: 'green', Icon: BadgeCheck },
     { label: 'Failed', value: failedCount, detail: 'Below the passing score', tone: 'red', Icon: CircleX },
   ];
@@ -189,6 +196,7 @@ export default function ResultsManagement({ token }) {
     setAcceptError('');
     setDecisionReason('');
     setReevaluationOpen(false);
+    setPassingScore(String(applicant.passingScore ?? 14));
     setReevaluationScore(String(applicant.score ?? ''));
     setReevaluationRemarks(applicant.notes || '');
     setReevaluationError('');
@@ -196,27 +204,36 @@ export default function ResultsManagement({ token }) {
 
   const saveReevaluation = async () => {
     if (!selected || selected.isScholar) return;
+    const isFirstResult = !selected.resultId;
     const score = Number(reevaluationScore);
-    if (!Number.isFinite(score) || score < 0 || score > 20) {
+    if (!reevaluationScore.trim() || !Number.isFinite(score) || score < 0 || score > 20) {
       setReevaluationError('Enter a score between 0 and 20.');
       return;
     }
     if (!reevaluationRemarks.trim()) {
-      setReevaluationError('Add a remark explaining the re-evaluation.');
+      setReevaluationError('Add a remark explaining the score recording or correction.');
+      return;
+    }
+    if (isFirstResult && (!passingScore.trim() || !Number.isFinite(Number(passingScore)) || Number(passingScore) < 1 || Number(passingScore) > 20)) {
+      setReevaluationError('Enter a passing score between 1 and 20.');
       return;
     }
     setReevaluating(true);
     setReevaluationError('');
     try {
-      const response = await fetch(`${API_BASE}/results/${selected.id}/re-evaluate`, {
-        method: 'PUT',
+      const response = await fetch(`${API_BASE}/examinations/${selected.examId}/results/${selected.id}`, {
+        method: isFirstResult ? 'POST' : 'PUT',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score, remarks: reevaluationRemarks.trim() }),
+        body: JSON.stringify({ score, passingScore: Number(passingScore), remarks: reevaluationRemarks.trim(), resultId: selected.resultId, updatedAt: selected.resultUpdatedAt }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.message || 'Unable to re-evaluate this result.');
       const updated = {
         ...selected,
+        resultId: payload.result.id,
+        resultUpdatedAt: payload.result.updatedAt,
+        resultPublishedAt: payload.result.publishedAt,
+        resultDeliveryMode: payload.result.deliveryMode,
         score: payload.result.score,
         passingScore: payload.result.passingScore,
         status: payload.result.status,
@@ -226,11 +243,30 @@ export default function ResultsManagement({ token }) {
       setSelected(updated);
       setApplicants((current) => current.map((applicant) => applicant.id === updated.id ? { ...applicant, ...updated } : applicant));
       setReevaluationOpen(false);
+      await loadResults();
     } catch (error) {
       setReevaluationError(error.message || 'Unable to re-evaluate this result.');
     } finally {
       setReevaluating(false);
     }
+  };
+
+  const publishResult = async () => {
+    if (!selected?.resultId || selected.isScholar || publishing) return;
+    if (!window.confirm('Publish this reviewed score and outcome to the applicant dashboard?')) return;
+    setPublishing(true);
+    setAcceptError('');
+    try {
+      const response = await fetch(`${API_BASE}/examinations/${selected.examId}/results/${selected.id}/publish`, {
+        method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resultId: selected.resultId, updatedAt: selected.resultUpdatedAt }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message || 'Unable to publish the result.');
+      setSelected((current) => ({ ...current, resultUpdatedAt: payload.result.updatedAt, resultPublishedAt: payload.result.publishedAt }));
+      await loadResults();
+    } catch (error) { setAcceptError(error.message); }
+    finally { setPublishing(false); }
   };
 
   const acceptAsScholar = async () => {
@@ -318,14 +354,15 @@ export default function ResultsManagement({ token }) {
     {exportOpen && <CsvExportModal title="Export examination results" description="Choose the applicant, location, and examination fields to include. Current filters and sorting will be preserved." columns={resultExportColumns} rowCount={sorted.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `examination-results-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(sorted, columns) })} />}
 
     {selected && (
-      <div className="rm-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}>
+      <div className="rm-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !publishing && !reevaluating && !acceptingScholar) setSelected(null); }}>
         <aside className="rm-drawer" role="dialog" aria-modal="true" aria-labelledby="rm-result-title">
-          <button type="button" className="rm-close" onClick={() => setSelected(null)} aria-label="Close result details"><X size={19} /></button>
+          <button type="button" className="rm-close" disabled={publishing || reevaluating || acceptingScholar} onClick={() => setSelected(null)} aria-label="Close result details"><X size={19} /></button>
           <div className="rm-drawer-profile">
             <span className="rm-drawer-avatar">{selected.initials || selected.name?.slice(0, 2).toUpperCase()}</span>
             <div><span className="rm-eyebrow">EXAMINATION RESULT</span><h3 id="rm-result-title">{selected.name}</h3><p>{selected.control}</p></div>
           </div>
           <StatusBadge status={selected.status} />
+          <p role="status">{selected.resultPublishedAt ? 'Official result published to the applicant' : selected.resultId ? 'Score saved — result under CAO review' : 'No examination result recorded'}</p>
           <div className="rm-score-summary"><div><span>Recorded score</span><b>{selected.score ?? '—'}</b></div><div><span>Passing score</span><strong>{selected.passingScore ?? 'Not set'}</strong></div></div>
           <section className="rm-detail-section"><h4>Examination details</h4><dl><div><dt>Examination</dt><dd>{selected.examTitle || 'PGCEAP Qualifying Examination'}</dd></div><div><dt>Date</dt><dd>{formatResultDate(selected.date)}</dd></div><div><dt>Academic year</dt><dd>{selected.academicYear || '2026-2027'}</dd></div><div><dt>Venue</dt><dd>{selected.examVenue || selected.municipality || 'Not specified'}</dd></div></dl></section>
           <section className="rm-detail-section"><h4>Applicant location</h4><dl><div><dt>Municipality</dt><dd>{selected.municipality || 'Not specified'}</dd></div><div><dt>Barangay</dt><dd>{selected.barangay || 'Not specified'}</dd></div></dl></section>
@@ -333,20 +370,22 @@ export default function ResultsManagement({ token }) {
 
           {reevaluationOpen && (
             <section className="rm-reevaluation-panel">
-              <div className="rm-reevaluation-heading"><div><span>RESULT REVIEW</span><h4>Re-evaluate examination</h4></div><button type="button" onClick={() => { setReevaluationOpen(false); setReevaluationError(''); }}>Cancel</button></div>
+              <div className="rm-reevaluation-heading"><div><span>RESULT REVIEW</span><h4>{!selected.resultId ? 'Record paper score' : 'Correct examination score'}</h4></div><button type="button" onClick={() => { setReevaluationOpen(false); setReevaluationError(''); }}>Cancel</button></div>
               <div className="rm-reevaluation-scores">
-                <label><span>Revised score</span><input type="number" min="0" max="20" step="1" value={reevaluationScore} onChange={(event) => { setReevaluationScore(event.target.value); setReevaluationError(''); }} /></label>
-                <div><span>Passing score</span><strong>{selected.passingScore ?? 14}</strong></div>
+                <label><span>Score out of 20</span><input type="number" min="0" max="20" step="0.01" value={reevaluationScore} onChange={(event) => { setReevaluationScore(event.target.value); setReevaluationError(''); }} /></label>
+                {!selected.resultId ? <label><span>Passing score</span><input type="number" min="1" max="20" step="0.01" value={passingScore} onChange={(event) => setPassingScore(event.target.value)} /></label> : <div><span>Passing score</span><strong>{selected.passingScore ?? 14}</strong></div>}
               </div>
-              <label className="rm-reevaluation-remarks"><span>Review remarks <b>*</b></span><textarea rows="3" maxLength="2000" value={reevaluationRemarks} onChange={(event) => { setReevaluationRemarks(event.target.value); setReevaluationError(''); }} placeholder="Explain why this result is being re-evaluated." /></label>
-              {reevaluationScore !== '' && <div className="rm-reevaluation-preview"><span>Updated outcome</span><StatusBadge status={Number(reevaluationScore) >= Number(selected.passingScore ?? 14) ? 'Passed' : 'Failed'} /></div>}
+              <label className="rm-reevaluation-remarks"><span>Review remarks <b>*</b></span><textarea rows="3" maxLength="2000" value={reevaluationRemarks} onChange={(event) => { setReevaluationRemarks(event.target.value); setReevaluationError(''); }} placeholder="Record the paper-checking note or explain the score correction." /></label>
+              {reevaluationScore !== '' && <div className="rm-reevaluation-preview"><span>Updated outcome</span><StatusBadge status={Number(reevaluationScore) >= Number(selected.passingScore ?? passingScore) ? 'Passed' : 'Failed'} /></div>}
               {reevaluationError && <div className="rm-accept-error"><TriangleAlert size={14} />{reevaluationError}</div>}
-              <button type="button" className="rm-save-reevaluation" disabled={reevaluating} onClick={saveReevaluation}><Save size={15} />{reevaluating ? 'Saving re-evaluation…' : 'Save re-evaluation'}</button>
+              <button type="button" className="rm-save-reevaluation" disabled={reevaluating} onClick={saveReevaluation}><Save size={15} />{reevaluating ? 'Saving score…' : 'Save score for review'}</button>
             </section>
           )}
 
           <footer className="rm-scholar-action">
-            {!reevaluationOpen && <button type="button" className="rm-reevaluate-trigger" disabled={selected.isScholar || selected.score === null || selected.score === undefined} onClick={() => { setReevaluationOpen(true); setReevaluationScore(String(selected.score ?? '')); setReevaluationRemarks(selected.notes || ''); setReevaluationError(''); }}><RefreshCw size={16} />{selected.isScholar ? 'Result locked after acceptance' : selected.score === null || selected.score === undefined ? 'No recorded result to re-evaluate' : 'Re-evaluate result'}</button>}
+            {!reevaluationOpen && <button type="button" className="rm-reevaluate-trigger" disabled={selected.isScholar || publishing || ((!selected.resultId) && (deliveryMode !== 'paper' || selected.attendanceStatus !== 'Present' || !selected.examId))} onClick={() => { setReevaluationOpen(true); setReevaluationScore(String(selected.score ?? '')); setReevaluationRemarks(''); setReevaluationError(''); }}><RefreshCw size={16} />{selected.isScholar ? 'Result locked after acceptance' : !selected.resultId ? deliveryMode === 'online' ? 'Online score computed on submission' : selected.attendanceStatus !== 'Present' ? 'Confirm Present attendance before recording' : 'Record paper score' : 'Correct score'}</button>}
+            {selected.resultId && !selected.resultPublishedAt && !selected.isScholar && !reevaluationOpen && <button type="button" className="rm-save-reevaluation" disabled={publishing || reevaluating} onClick={publishResult}>{publishing ? 'Publishing…' : 'Publish reviewed result'}</button>}
+            {reevaluationOpen && <p>Saving keeps the result under review. Correcting a published score hides the outcome until CAO republishes it.</p>}
             {!selected.isScholar && selected.status === 'Passed' && (
               <label className="rm-decision-reason">
                 <span>Decision reason {selected.eligibilityRecommendation?.requiresOverrideReason && <b>* required for override</b>}</span>
@@ -354,7 +393,7 @@ export default function ResultsManagement({ token }) {
               </label>
             )}
             {acceptError && <div className="rm-accept-error"><TriangleAlert size={14} />{acceptError}</div>}
-            <button type="button" className={selected.isScholar ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || acceptingScholar || (selected.eligibilityRecommendation?.requiresOverrideReason && !decisionReason.trim())} onClick={acceptAsScholar}><UserCheck size={16} />{acceptingScholar ? 'Recording decision…' : selected.isScholar ? 'Accepted as Scholar' : selected.status !== 'Passed' ? 'Latest exam result is not passing' : 'Accept as Scholar'}</button>
+            <button type="button" className={selected.isScholar ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || (selected.resultId && !selected.resultPublishedAt) || publishing || acceptingScholar || (selected.eligibilityRecommendation?.requiresOverrideReason && !decisionReason.trim())} onClick={acceptAsScholar}><UserCheck size={16} />{acceptingScholar ? 'Recording decision…' : selected.isScholar ? 'Accepted as Scholar' : selected.status !== 'Passed' ? 'Latest exam result is not passing' : selected.resultId && !selected.resultPublishedAt ? 'Publish result before acceptance' : 'Accept as Scholar'}</button>
             <small>{selected.isScholar ? `Scholar account active${selected.scholarId ? ` · ${selected.scholarId}` : ''}.` : selected.status === 'Passed' ? 'A versioned recommendation snapshot and the staff decision will be recorded.' : 'Only applicants whose latest examination result is passing can be accepted.'}</small>
           </footer>
         </aside>
