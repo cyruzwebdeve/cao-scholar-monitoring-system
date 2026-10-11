@@ -12,6 +12,7 @@ const mailerPath = require.resolve('../services/mailer');
 require.cache[mailerPath] = { id: mailerPath, filename: mailerPath, loaded: true, exports: { sendExamSubmittedEmail: async () => ({ sent: false }) } };
 process.env.JWT_SECRET = randomBytes(32).toString('hex');
 const { defaultConfiguration, createExamTicket } = require('../services/onlineExamConfiguration');
+const { objectiveConfiguration } = require('./fixtures/objectiveExam');
 const { getOnlineExamQuestions, submitOnlineExam, updateExaminationAttendance, getApplicantManagement, getMyApplication, acceptApplicantAsScholar } = require('../controllers/applicationController');
 const { createOnlineExamConfigurationController } = require('../controllers/onlineExamConfigurationController');
 const routes = require('../routes/applicationRoutes');
@@ -132,16 +133,18 @@ test('question access still requires Present, active dates and online mode', asy
 });
 
 test('an opened exam is scored with its original key after settings staff save a new version', async () => {
+  const original = objectiveConfiguration();
+  records.push({ id: 1, title: original.title, instructions: original.instructions, passing_score: original.passingScore, questions: original.questions });
   slot.appeared = true;
   const opened = response();
   await getOnlineExamQuestions({ user: { id: 7 } }, opened);
   assert.equal(opened.statusCode, 200);
   assert.equal(opened.headers['Cache-Control'], 'no-store, private');
   assert.ok(opened.body.questions.every((question) => !Object.hasOwn(question, 'answer')));
-  const config = defaultConfiguration();
+  const config = objectiveConfiguration();
   config.questions[0].answer = 0;
   const saved = response();
-  await createOnlineExamConfigurationController(prisma).save({ user: { id: 1 }, body: { ...config, baseVersion: 0 } }, saved);
+  await createOnlineExamConfigurationController(prisma).save({ user: { id: 1 }, body: { ...config, baseVersion: 1 } }, saved);
   assert.equal(saved.statusCode, 201);
   const submitted = response();
   await submitOnlineExam({ user: { id: 7 }, body: { examTicket: opened.body.examTicket, answers: { multipleChoice: { 1: 1 } }, score: 20 } }, submitted);
@@ -149,7 +152,7 @@ test('an opened exam is scored with its original key after settings staff save a
   assert.equal(submitted.body.result, undefined);
   assert.equal(submitted.body.receipt.recorded, true);
   assert.equal(result.score, 1);
-  assert.equal(result.online_configuration_id, 0);
+  assert.equal(result.online_configuration_id, 1);
   assert.equal(result.passed, false);
 });
 
@@ -165,7 +168,7 @@ test('invalid tickets are rejected before writing any examination result', async
 
 test('newly opened examinations use saved title, answer key and passing threshold', async () => {
   slot.appeared = true;
-  const config = defaultConfiguration();
+  const config = objectiveConfiguration();
   config.title = 'Configured examination';
   config.passingScore = 1;
   config.questions[0].answer = 0;
@@ -187,7 +190,7 @@ test('newly opened examinations use saved title, answer key and passing threshol
 
 test('simultaneous saves from one base version create only one successor', async () => {
   const controller = createOnlineExamConfigurationController(prisma);
-  const req = { user: { id: 1 }, body: { ...defaultConfiguration(), baseVersion: 0 } };
+  const req = { user: { id: 1 }, body: { ...objectiveConfiguration(), baseVersion: 0 } };
   const first = response();
   const second = response();
   await Promise.all([controller.save(req, first), controller.save(req, second)]);
@@ -197,7 +200,7 @@ test('simultaneous saves from one base version create only one successor', async
 
 test('configuration saves reject stale versions instead of overwriting another editor', async () => {
   const controller = createOnlineExamConfigurationController(prisma);
-  const req = { user: { id: 1 }, body: { ...defaultConfiguration(), baseVersion: 0 } };
+  const req = { user: { id: 1 }, body: { ...objectiveConfiguration(), baseVersion: 0 } };
   const first = response();
   await controller.save(req, first);
   assert.equal(first.statusCode, 201);
@@ -214,7 +217,7 @@ test('real configuration routes deny anonymous, applicant, billing and staff wit
       const res = await fetch(`${baseUrl}/online-examination/configuration`, {
         method,
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'Content-Type': 'application/json' },
-        ...(method === 'PUT' ? { body: JSON.stringify({ ...defaultConfiguration(), baseVersion: records.at(-1)?.id || 0 }) } : {}),
+        ...(method === 'PUT' ? { body: JSON.stringify({ ...objectiveConfiguration(), baseVersion: records.at(-1)?.id || 0 }) } : {}),
       });
       assert.equal(res.status, expected, `${method} ${id}`);
       if (expected < 300) assert.match(res.headers.get('cache-control'), /no-store/);
@@ -260,4 +263,22 @@ test('paper score stays hidden before publication and does not enable early scho
   assert.equal(portal.body.examination.status, 'Passed');
   assert.equal(portal.body.examination.score, 14);
   assert.equal(portal.body.examination.isScholar, false);
+});
+
+
+test('unsafe legacy banks cannot start or submit an examination or write results', async () => {
+  slot.appeared = true;
+  const legacy = defaultConfiguration();
+  for (const id of [0, 1]) {
+    records = id ? [{ id, title: legacy.title, instructions: legacy.instructions, passing_score: legacy.passingScore, questions: legacy.questions }] : [];
+    const opened = response();
+    await getOnlineExamQuestions({ user: { id: 7 } }, opened);
+    assert.equal(opened.statusCode, 409);
+    assert.equal(opened.body.examTicket, undefined);
+    const submitted = response();
+    await submitOnlineExam({ user: { id: 7 }, body: { examTicket: createExamTicket({ applicantId: 7, examId: 3, configurationId: id }), answers: { identification: { 9: 'anything' }, essay: 'x' } } }, submitted);
+    assert.equal(submitted.statusCode, 409);
+    assert.equal(result, null);
+    assert.equal(writes.length, 0);
+  }
 });

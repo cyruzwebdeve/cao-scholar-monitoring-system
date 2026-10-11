@@ -48,7 +48,6 @@ const validateConfiguration = (input) => {
   if (!Number.isInteger(input.passingScore) || input.passingScore < 1 || input.passingScore > 20) throw new TypeError('Passing score must be a whole number from 1 to 20.');
   if (!Array.isArray(input.questions) || !input.questions.length || input.questions.length > 20) throw new TypeError('Provide between 1 and 20 questions.');
   const ids = new Set();
-  let essays = 0;
   const questions = input.questions.map((raw) => {
     if (!raw || !Object.hasOwn(PARTS, raw.type)) throw new TypeError('Select a supported question type.');
     if (!Number.isSafeInteger(raw.id) || raw.id < 1 || ids.has(raw.id)) throw new TypeError('Question IDs must be unique positive integers.');
@@ -65,18 +64,11 @@ const validateConfiguration = (input) => {
       if (!['TRUE', 'FALSE'].includes(raw.answer)) throw new TypeError('Select TRUE or FALSE as the answer key.');
       question.answer = raw.answer;
     } else if (raw.type === 'identification') {
-      // Existing completion-credit items remain explicit; staff can replace them with an exact answer key.
-      if (raw.grading === 'completion') question.grading = 'completion';
-      else {
-        if (!Array.isArray(raw.acceptedAnswers) || !raw.acceptedAnswers.length || raw.acceptedAnswers.length > 10) throw new TypeError('Identification questions require 1 to 10 accepted answers.');
-        question.acceptedAnswers = raw.acceptedAnswers.map((answer) => boundedText(answer, 'Accepted answer', 500));
-      }
+      if (raw.grading === 'completion') throw new TypeError('Identification requires accepted answers; completion credit is not allowed.');
+      if (!Array.isArray(raw.acceptedAnswers) || !raw.acceptedAnswers.length || raw.acceptedAnswers.length > 10) throw new TypeError('Identification questions require 1 to 10 accepted answers.');
+      question.acceptedAnswers = raw.acceptedAnswers.map((answer) => boundedText(answer, 'Accepted answer', 500));
     } else {
-      essays += 1;
-      if (essays > 1) throw new TypeError('Only one essay is supported by the current examination page.');
-      if (raw.grading !== 'completion') throw new TypeError('Essay scoring currently supports completion credit only, not manual grading.');
-      question.grading = 'completion';
-      question.essayPrompt = boundedText(raw.essayPrompt || raw.text, 'Essay prompt', 3000);
+      throw new TypeError('Replace essay questions with objectively scored questions. Automatic essay completion credit is not allowed.');
     }
     return question;
   });
@@ -92,8 +84,14 @@ const publicConfiguration = (configuration) => ({
 });
 
 const normalizeAnswer = (value) => String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
+// Legacy versions stay immutable for history, but cannot award completion credit.
+const assertAutomaticGrading = (configuration) => {
+  validateConfiguration({ ...configuration, baseVersion: configuration.id });
+};
+
 const scoreConfiguredAnswers = (answers, configuration) => {
   if (!answers || typeof answers !== 'object' || Array.isArray(answers)) throw new TypeError('Examination answers must be provided.');
+  assertAutomaticGrading(configuration);
   return configuration.questions.reduce((score, question) => {
     let correct = false;
     if (question.type === 'multiple-choice') {
@@ -102,10 +100,10 @@ const scoreConfiguredAnswers = (answers, configuration) => {
     } else if (question.type === 'true-false') {
       correct = String(answers.trueFalse?.[question.id] || '').toUpperCase() === question.answer;
     } else {
-      const answer = question.type === 'essay' ? answers.essay : answers.identification?.[question.id];
+      const answer = answers.identification?.[question.id];
       if (typeof answer === 'string') {
-        const normalized = normalizeAnswer(answer.slice(0, question.type === 'essay' ? 10000 : 500));
-        correct = question.grading === 'completion' ? Boolean(normalized) : question.acceptedAnswers.some((key) => normalizeAnswer(key) === normalized);
+        const normalized = normalizeAnswer(answer.slice(0, 500));
+        correct = question.acceptedAnswers.some((key) => normalizeAnswer(key) === normalized);
       }
     }
     return score + (correct ? question.points : 0);
@@ -136,4 +134,4 @@ const verifyExamTicket = (ticket, { applicantId, examId }, secret = process.env.
   }
 };
 
-module.exports = { defaultConfiguration, loadConfiguration, validateConfiguration, publicConfiguration, scoreConfiguredAnswers, createExamTicket, verifyExamTicket };
+module.exports = { assertAutomaticGrading, defaultConfiguration, loadConfiguration, validateConfiguration, publicConfiguration, scoreConfiguredAnswers, createExamTicket, verifyExamTicket };

@@ -33,7 +33,7 @@ const { evaluateEligibility, serializeAssessment } = require('../services/eligib
 const { PRIORITY_PROOFS, selectedPriorityCriteria } = require('../services/priorityEligibility');
 const { createBillingReference } = require('../services/billingReference');
 const { resolveBillingAmount } = require('../services/billingGrant');
-const { loadConfiguration, publicConfiguration, scoreConfiguredAnswers, createExamTicket, verifyExamTicket } = require('../services/onlineExamConfiguration');
+const { assertAutomaticGrading, loadConfiguration, publicConfiguration, scoreConfiguredAnswers, createExamTicket, verifyExamTicket } = require('../services/onlineExamConfiguration');
 const { ADMIN_INITIAL_REQUIREMENT_KEYS, SCHOLAR_SEMESTER_REQUIREMENT_KEYS } = require('../services/documentReview');
 const { resolveRequirementSubmission } = require('../services/requirementSubmission');
 const { latestCertificationCreatedAt } = require('../services/certificationDate');
@@ -1614,6 +1614,8 @@ const getOnlineExamQuestions = async (req, res) => {
     }
     res.set('Cache-Control', 'no-store, private');
     const configuration = await loadConfiguration(prisma);
+    try { assertAutomaticGrading(configuration); }
+    catch { return res.status(409).json({ message: 'The online question bank requires CAO review before this examination can start. Contact the Scholarship Office.' }); }
     return res.json({
       examination: { id: exam.id, title: exam.title, academicYear: exam.academic_year },
       ...publicConfiguration(configuration),
@@ -1665,6 +1667,8 @@ const submitOnlineExam = async (req, res) => {
       return res.status(400).json({ message: error.message });
     }
     const configuration = await loadConfiguration(prisma, configurationId);
+    try { assertAutomaticGrading(configuration); }
+    catch { return res.status(409).json({ message: 'This question version uses unsupported grading and cannot be submitted. Contact CAO before reopening the examination; your answers have not been recorded.' }); }
     let score;
     try { score = scoreConfiguredAnswers(req.body?.answers, configuration); }
     catch (error) { return res.status(400).json({ message: error.message }); }

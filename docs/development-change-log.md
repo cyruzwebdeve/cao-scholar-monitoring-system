@@ -5,6 +5,62 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-11 - Deploy QA-02 Objective Grading for Testing
+
+### TL;DR
+- Authorized deployment of strict identification keys and objective online grading through the existing main-branch Hostinger pipeline.
+- CAO must correct legacy completion-credit/essay banks before testing automatic examinations; unsafe starts and submissions return 409 without recording a result.
+- No database migration, saved-bank replacement or historical-result recalculation; paper results/publication and payroll scope remain unchanged.
+- Release checks passed: 199 backend checks, one existing database-dependent skip, 43 frontend tests, lint/build and synthetic browser correction/save/mobile checks. Hosted verification follows push.
+
+### Objective, behavior and affected roles
+Promote the preceding QA-02 correction for user testing. Authorized Settings staff can provide identification keys and replace legacy essays while keeping the bank at 20 points. Applicants use automatic grading only for supported versions; previously opened unsafe versions cannot be submitted and require CAO coordination before reopening. Implementation and user behavior are described in the matching entry below.
+
+### Implementation, files and data flow
+Remote main matched baseline `14f0880`. Publish only the examination services/controller, question-editor change, regression tests/synthetic fixture, and matching change logs. Keep the broader local QA report, original QA entry and tester-gate screenshots outside the release. Use the existing main-branch pipeline without changes to provider build commands or protected environment values.
+
+### Impact assessment
+- **API:** strict saved-bank validation and 409 responses for unsafe question versions; existing routes, permission checks and valid-bank payloads retained.
+- **Database:** no schema change or new migration; no direct production database connection, seeding, bank overwrite or result mutation performed for deployment verification.
+- **Configuration/deployment:** matching frontend/backend deployment required. No DNS, environment, delivery-mode or threshold changes; staff must explicitly save a corrected bank before using affected online examinations.
+- **Security/privacy/accessibility:** inherits protected answer keys, Settings authorization, labeled controls and alert warnings. Verification reads only public assets and health; no personal records or real examination answers are accessed.
+- **Scope:** payroll-list generation remains the endpoint. Legacy payment/release code is retained unchanged outside approved scope.
+
+### Validation, limitations, rollback and next work
+Local verification passed as above and whitespace checks passed. Hosted asset checks and API health will be checked after push; authenticated result grading and provider migration/build logs cannot be independently inspected without access. The older Render deployment connection failed on the prior release and must not be treated as Hostinger status. After Hostinger completion, refresh Settings, replace legacy items, save the reviewed 20-point bank, and test a dedicated applicant with correct and incorrect responses. Timer enforcement and draft recovery remain separate QA issues. Roll back matched code if necessary without deleting versions/results; rollback restores completion-credit weakness.
+
+## 2026-10-11 - QA-02: Require Objective Online Examination Grading
+
+### TL;DR
+- Confirmed QA-02 locally: arbitrary identification answers and a one-character essay previously earned 9/20. The user confirmed the live editor includes legacy completion-credit marking; live version and saved answer keys were not read.
+- Identification now requires accepted-answer keys; automatic examination banks cannot include essays or completion-credit identification. CAO can replace legacy items through Settings while preserving the 20-point total.
+- Unsafe versions cannot start or submit online attempts. Existing question versions and recorded results remain unchanged; correctly keyed online banks retain automatic scoring and version-bound marking. Paper score entry/publication is unchanged.
+- Backend regressions passed (199 passing checks, one existing database-dependent skip); all 43 frontend tests, lint and build passed. Local browser verification is recorded below. This fix is local and has not been deployed.
+
+### Objective and previous/new behavior
+Prevent completion alone from contributing qualifying-examination marks. Previously the built-in bank and editable legacy marking awarded four identification points plus five essay points for arbitrary nonempty strings. Now identification saves require 1–10 nonempty accepted answers, matched using Unicode normalization, case and whitespace normalization. Essay questions must be replaced with multiple-choice, true-or-false or keyed identification items, or removed with explicit staff allocation of their points. The total stays 20; thresholds are not silently changed. No answer keys or replacement academic content are invented by this change.
+
+### Affected roles, implementation and data flow
+SuperAdmin and RegularAdmin with Settings access see legacy-item warnings, required identification keys and objective question choices. The editor disables saving until legacy essays/identification are corrected. Server-side configuration validation enforces the same rules independently of the browser. Applicant question loading checks the version before issuing a ticket and returns 409 with CAO-review guidance if unsupported. Submission validates its ticket-bound version before scoring or writing a result; unsafe in-progress versions return 409 without recording a score or sending submission mail. Correctly keyed attempts retain their original keys even after a newer version is saved. The compatibility scorer delegates to the same strict service, preventing the older entry point from awarding completion points.
+
+### Files and system areas
+`backend/services/onlineExamConfiguration.js`, `backend/services/examQuestions.js`, `backend/controllers/applicationController.js`, examination configuration/scoring/integration tests and a synthetic objective-bank fixture; `frontend/src/OnlineQuestionsSettings.jsx` and examination Settings tests; both change logs and the local QA report status. Synthetic fixture keys are test-only and never seed production data.
+
+### Impact assessment
+- **API:** existing protected routes and success payloads retained; invalid question saves return 400 and unsafe applicant starts/submissions return 409. Authentication and section permissions are unchanged.
+- **Database:** no schema, migration, production query, bank overwrite, historical score recalculation or record deletion. Legacy built-in version 0 and saved versions remain immutable but are blocked from automatic use if unsafe.
+- **Configuration:** CAO must save an objective, keyed version before using a legacy bank for online examinations. No environment, threshold, schedule, DNS or delivery-mode changes are made.
+- **Security/privacy:** marking keys remain staff-only and are omitted from applicant payloads. Live protected bank inspection returned 401; no authentication bypass or personal-record access was attempted.
+- **Accessibility:** retains labeled inputs and fieldsets; legacy marking/readiness warnings use alert roles. New essay choices and completion-rule choices are removed while existing essays can be explicitly replaced or removed.
+- **Deployment:** local implementation only; deploy matching backend/frontend together after CAO reviews the bank and coordinates any unsafe in-progress attempts. No production migration is required.
+- **Scope:** official payroll-list generation remains the workflow endpoint. Legacy payment/release code is retained unchanged outside scope; this work adds no monetary workflow or audit.
+
+### Validation and results
+Before changes, executed the current scorer with four incorrect identification strings plus essay `x`, obtaining 9/20. The public live bank endpoint returned 401; the user subsequently reported completion-credit legacy marking in the live editor. After changes, regression tests verify arbitrary strings score zero for a valid objective bank, full correct answers score 20, unsupported defaults and saved banks cannot start/submit or write results, missing keys/essays cannot save, keys stay private, authorization stays enforced, and valid older keyed tickets retain their original marking. Backend: 199 passed, one existing opt-in real-database skip. Frontend: 43 passed; lint/build passed with the existing large ExcelJS chunk warning. Existing backend imports require a dummy database URL; no real database was contacted. A Chromium check using synthetic local API data verified the unsafe-bank warning and disabled save, entry of all required identification keys, conversion of the five-point essay into an objective question, removal of essay/completion choices, and saving a new version totaling 20. No browser page errors or horizontal overflow occurred at a 390px viewport. No live bank or applicant records were edited.
+
+### Limitations, rollback and recommended next work
+Live version, answer keys, bank contents and authenticated scoring have not been independently inspected. A CAO-reviewed objective replacement is still required if the live bank contains legacy items. Previously opened unsafe versions are blocked rather than awarded completion points or silently scored against new keys; coordinate reopening with CAO because the separate QA-04 answer-recovery gap is not fixed here. Historical results are not automatically invalidated or recalculated. This change does not implement manual essay marking, exam deadlines (QA-03), or recovery (QA-04). Roll back matching application code if needed, without deleting saved versions or results; doing so restores the grading weakness. Publish the local fix and validate a dedicated test attempt using the approved saved bank before real use.
+
 ## 2026-10-11 - Deploy Paper Examination Results and Publication
 
 ### TL;DR

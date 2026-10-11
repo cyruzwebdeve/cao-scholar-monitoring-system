@@ -8,12 +8,7 @@ test('public examination questions never expose answer keys', () => {
   assert.equal(questions.some((question) => Object.hasOwn(question, 'answer')), false);
 });
 
-test('examination answers are scored only on the server', () => {
-  assert.equal(scoreExamAnswers({
-    multipleChoice: { 1: 1, 2: 2, 3: 1, 4: 0, 5: 1, 6: 2, 7: 1, 8: 1 },
-    identification: { 9: 'answer', 10: 'answer', 11: 'answer', 12: 'answer' },
-    trueFalse: { 13: 'TRUE', 14: 'TRUE', 15: 'FALSE' },
-    essay: 'Answer',
-  }), 20);
+test('legacy scoring entry point cannot bypass the strict grading policy', () => {
+  assert.throws(() => scoreExamAnswers({ identification: { 9: 'anything' }, essay: 'x' }), /completion credit/);
   assert.throws(() => scoreExamAnswers(null), /answers must be provided/i);
 });

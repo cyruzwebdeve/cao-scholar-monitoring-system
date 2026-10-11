@@ -17,22 +17,15 @@ const EXAM_QUESTIONS = Object.freeze([
   { id: 16, part: 'IV', partLabel: 'PART IV: Essay', type: 'essay', text: 'Essay Question (5 Points)', essayPrompt: 'Explain why Camarines Norte is called the "Gateway to Bicolandia." Discuss how its geographic location, history, and cultural influences shape its unique identity compared to other provinces in the Bicol Region.' },
 ]);
 
-const publicExamQuestions = () => EXAM_QUESTIONS.map(({ answer, ...question }) => ({ ...question }));
+const publicExamQuestions = () => {
+  const { defaultConfiguration, publicConfiguration } = require('./onlineExamConfiguration');
+  return publicConfiguration(defaultConfiguration()).questions;
+};
 
+// Retained compatibility entry point uses the same strict marking policy.
 const scoreExamAnswers = (answers) => {
-  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
-    throw new TypeError('Examination answers must be provided.');
-  }
-  const multipleChoice = answers.multipleChoice && typeof answers.multipleChoice === 'object' ? answers.multipleChoice : {};
-  const identification = answers.identification && typeof answers.identification === 'object' ? answers.identification : {};
-  const trueFalse = answers.trueFalse && typeof answers.trueFalse === 'object' ? answers.trueFalse : {};
-  const essay = typeof answers.essay === 'string' ? answers.essay.trim().slice(0, 10000) : '';
-  return EXAM_QUESTIONS.reduce((score, question) => {
-    if (question.type === 'multiple-choice') return score + (Number(multipleChoice[question.id]) === question.answer ? 1 : 0);
-    if (question.type === 'true-false') return score + (String(trueFalse[question.id] || '').toUpperCase() === question.answer ? 1 : 0);
-    if (question.type === 'identification') return score + (String(identification[question.id] || '').trim().slice(0, 500) ? 1 : 0);
-    return score + (essay ? 5 : 0);
-  }, 0);
+  const { defaultConfiguration, scoreConfiguredAnswers } = require('./onlineExamConfiguration');
+  return scoreConfiguredAnswers(answers, defaultConfiguration());
 };
 
 module.exports = { EXAM_QUESTIONS, publicExamQuestions, scoreExamAnswers };

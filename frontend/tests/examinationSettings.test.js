@@ -59,11 +59,12 @@ test('tab keyboard navigation supports arrows, Home and End with focus movement'
   }
 });
 
-test('question configuration clearly discloses versioning, scale and legacy grading limits', () => {
+test('question configuration clearly discloses versioning, scale and required objective grading', () => {
   const html = renderToStaticMarkup(createElement(OnlineQuestionsSettings, { token: '', active: false }));
   assert.match(html, /new version/);
   assert.match(html, /20 points/);
-  assert.match(html, /not correctness or a human assessment/);
+  assert.match(html, /Essays and completion credit are not supported/);
+  assert.match(html, /Identification requires accepted answers/);
   assert.match(html, /does not activate online delivery/);
 });
 
