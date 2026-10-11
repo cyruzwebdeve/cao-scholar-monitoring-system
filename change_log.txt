@@ -190,4 +190,4 @@
 
 2026-10-11 | QA-06: explicitly darken tester-code input/caret to #173a2a; rendered contrast 12.54:1. Keyboard/error/mobile checks passed; axe sampled gate had zero violations, 23 passes and one incomplete contrast review; lint/build passed. Local styling only, not deployed; no API/database impact.
 
-2026-10-11 | Authorized QA-06 deployment with previously requested readable test tooling and fix register. Input/caret contrast 12.54:1; local browser, lint/build and runner checks passed. No API/database/migration change; hosted verification pending push.
+2026-10-11 | Authorized QA-06 deployment with previously requested readable test tooling and fix register. Input/caret contrast 12.54:1; local browser, lint/build and runner checks passed. No API/database/migration change. Release 81660a3 pushed; input/caret dark colors verified in live CSS and frontend/API/database healthy.

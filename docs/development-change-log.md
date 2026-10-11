@@ -11,7 +11,7 @@ and how the result was verified.
 - Authorized publishing of the QA-06 tester-code foreground/caret correction through the existing main-branch Hostinger pipeline.
 - Includes the previously requested readable automated test runner, its documentation and updated fix register for future use; application behavior changes are limited to gate styling.
 - Local browser measured 12.54:1 input contrast, with keyboard/error/mobile checks passed and no axe violations in the sampled gate. Lint/build and the verified runner checks passed.
-- No API/database/migration or protected configuration changes. Hosted asset verification follows push.
+- No API/database/migration or protected configuration changes. Release `81660a3` was pushed; explicit dark text/caret declarations are verified in the live CSS and frontend/API health checks passed.
 
 ### Objective, behavior and affected roles
 Publish the approved darker tester-code text for all visitors to the testing gate. Developers retain the previously requested `npm test`, backend/frontend selection and readable PASS/FAIL output in the repository. Detailed implementation, validation and limitations for both are recorded in the preceding dated entries.
@@ -26,7 +26,7 @@ Remote main matched baseline `33cf953`. Publish the gate stylesheet, root packag
 - **Scope:** official payroll-list generation remains the endpoint. Legacy payment/release code remains retained unchanged outside scope; no monetary workflow or audit is added.
 
 ### Validation, limitations, rollback and next work
-Frontend lint/build and whitespace checks passed. Synthetic Chromium measured colors and checked focus, keyboard submission, alerts and mobile overflow. Axe sampled gate: zero violations, 23 passing rules, one incomplete contrast review. Root test runner previously passed 205 backend checks with one existing database skip and 56 frontend checks; temporary failure/invalid-selection verification passed and the temporary test was removed. Public CSS and API health will be inspected after push; live authenticated acceptance and full-app accessibility remain separate. Revert the gate color declarations to roll back styling without data impact; developer tooling can be independently removed. Record hosted confirmation in the fix register and proceed to QA-07 separately.
+Frontend lint/build and whitespace checks passed. Synthetic Chromium measured colors and checked focus, keyboard submission, alerts and mobile overflow. Axe sampled gate: zero violations, 23 passing rules, one incomplete contrast review. Root test runner previously passed 205 backend checks with one existing database skip and 56 frontend checks; temporary failure/invalid-selection verification passed and the temporary test was removed. Push advanced main from `33cf953` to `81660a3`. Public frontend returned HTTP 200; stylesheet `index-3GS4n9f_.css` contains explicit `color:#173a2a` and `caret-color:#173a2a` for the tester-code input. API health returned HTTP 200 with the database connected. Backend application code is unchanged; provider build logs were not inspected. Live authenticated acceptance and full-app accessibility remain separate. Revert the gate color declarations to roll back styling without data impact; developer tooling can be independently removed. Record hosted confirmation in the fix register and proceed to QA-07 separately.
 
 ## 2026-10-11 - QA-06: Improve Tester-Code Input Contrast
 
