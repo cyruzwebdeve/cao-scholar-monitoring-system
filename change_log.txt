@@ -184,4 +184,4 @@
 
 2026-10-11 | QA-05: tester status/unlock requests time out after 10 seconds, including body reads; readable errors and manual retry preserve locked access, cancel stale requests and restore unlock controls. Frontend 56 tests, lint/build and synthetic timeout/retry/mobile checks passed. No backend/database change or deployment. QA-04 same-browser recovery retained as requested.
 
-2026-10-11 | Authorized combined QA-04/QA-05 deployment and added docs/qa-fix-register.md for all findings, fixes, release evidence and future acceptance tests. Same-browser recovery retained; no new migration or live record changes. Local checks passed; hosted verification pending push.
+2026-10-11 | Authorized combined QA-04/QA-05 deployment and added docs/qa-fix-register.md for all findings, fixes, release evidence and future acceptance tests. Same-browser recovery retained; no new migration or live record changes. Local checks passed. Release 3b9030e pushed; new recovery/gate code verified live and API/database healthy; user confirmed backend success. Authenticated acceptance testing remains pending.
