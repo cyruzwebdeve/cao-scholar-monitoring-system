@@ -226,7 +226,7 @@ export default function ResultsManagement({ token }) {
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({ score, passingScore: Number(passingScore), remarks: reevaluationRemarks.trim(), resultId: selected.resultId, updatedAt: selected.resultUpdatedAt }),
       });
-      const payload = await response.json().catch(() => ({}));
+      const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Unable to re-evaluate this result.');
       const updated = {
         ...selected,
@@ -261,7 +261,7 @@ export default function ResultsManagement({ token }) {
         method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({ resultId: selected.resultId, updatedAt: selected.resultUpdatedAt }),
       });
-      const payload = await response.json().catch(() => ({}));
+      const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Unable to publish the result.');
       setSelected((current) => ({ ...current, resultUpdatedAt: payload.result.updatedAt, resultPublishedAt: payload.result.publishedAt }));
       await loadResults();
@@ -279,7 +279,7 @@ export default function ResultsManagement({ token }) {
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({ reviewReason: decisionReason.trim() }),
       });
-      const payload = await response.json().catch(() => ({}));
+      const payload = await response.json();
       if (!response.ok) {
         if (payload.eligibilityRecommendation) {
           setSelected((current) => ({ ...current, eligibilityRecommendation: payload.eligibilityRecommendation }));
@@ -319,7 +319,7 @@ export default function ResultsManagement({ token }) {
         <div className="rm-heading-actions"><span className="rm-live"><i />Refreshes every 30 seconds</span><button type="button" className="rm-export" onClick={() => setExportOpen(true)} disabled={!sorted.length}><Download size={15} />Export CSV</button></div>
       </header>
 
-      <div className="rm-stats">{stats.map(({ label, value, detail, tone, Icon }) => <article key={label} className={tone}><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div><i className="rm-stat-icon"><Icon size={20} /></i></article>)}</div>
+      <div className="rm-stats">{stats.map(({ label, value, detail, tone, Icon }) => <article key={label} className={tone}><div><span>{label}</span><strong>{loading || (loadError && !applicants.length) ? '—' : value}</strong><small>{detail}</small></div><i className="rm-stat-icon"><Icon size={20} /></i></article>)}</div>
 
       {loadError && <div className="rm-alert error"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadResults({ showLoader: true })}>Retry</button></div>}
       {!!pendingCount && <div className="rm-alert"><Clock3 size={17} /><span><b>{pendingCount} {pendingCount === 1 ? 'result is' : 'results are'} awaiting review.</b> Open each record to verify the examination details.</span></div>}

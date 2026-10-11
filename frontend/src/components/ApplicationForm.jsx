@@ -400,8 +400,8 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
       setSuccess('Application submitted successfully.');
       setSubmitted(true);
       onCreated(body.scholar);
-    } catch {
-      setError('Unable to connect to backend.');
+    } catch (error) {
+      setError(error.message || 'The service could not be reached. Check your connection and try again.');
     } finally {
       setSubmitting(false);
     }

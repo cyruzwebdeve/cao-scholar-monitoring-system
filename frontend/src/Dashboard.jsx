@@ -660,15 +660,15 @@ function DashboardOverview({ token, onSectionChange, onSessionExpired }) {
     <div className="super-admin-dashboard admin-overview-dashboard">
       <header className="dashboard-section-header">
         <div><span className="dashboard-overview-eyebrow">PROGRAM OPERATIONS</span><h2>Dashboard Overview</h2><p>Monitor scholarship accounts, recent applications, and program activity.</p></div>
-        <div className="dashboard-overview-status"><span className="dashboard-live-indicator"><i />Live data</span><small>{lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : loading ? 'Updating dashboard…' : 'Update unavailable'}</small></div>
+        <div className="dashboard-overview-status"><span className="dashboard-live-indicator"><i />{loadError ? lastUpdated ? 'Last loaded data' : 'Data unavailable' : 'Live data'}</span><small>{lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : loading ? 'Updating dashboard…' : 'Update unavailable'}</small></div>
       </header>
 
-      {loadError && <div className="dashboard-overview-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => { setLoading(true); setReloadKey((current) => current + 1); }}>Retry</button></div>}
+      {loadError && <div className="dashboard-overview-alert" role="status"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => { setLoading(true); setReloadKey((current) => current + 1); }}>Retry</button></div>}
 
       <div className="dashboard-stat-grid">
         {metrics.map((stat) => {
           const Icon = stat.icon;
-          return <article key={stat.label} className={`dashboard-stat-card dashboard-stat-card-${stat.tone}`}><div><p className="dashboard-stat-label">{stat.label}</p><h3>{loading ? '—' : stat.value}</h3><small>{stat.detail}</small></div><div className={`dashboard-stat-icon dashboard-stat-icon-${stat.accent}`}><Icon size={22} strokeWidth={2.1} /></div></article>;
+          return <article key={stat.label} className={`dashboard-stat-card dashboard-stat-card-${stat.tone}`}><div><p className="dashboard-stat-label">{stat.label}</p><h3>{loading || (loadError && !lastUpdated) ? '—' : stat.value}</h3><small>{stat.detail}</small></div><div className={`dashboard-stat-icon dashboard-stat-icon-${stat.accent}`}><Icon size={22} strokeWidth={2.1} /></div></article>;
         })}
       </div>
 
@@ -677,7 +677,7 @@ function DashboardOverview({ token, onSectionChange, onSessionExpired }) {
           <div className="dashboard-surface-header"><div><span className="dashboard-panel-icon"><UsersRound size={16} /></span><div><h3>Recent Applications</h3><p>Latest applicant records from the scholarship database.</p></div></div><button className="dashboard-link-button" type="button" onClick={() => onSectionChange?.('Applicants')}>View applicants</button></div>
           <div className="dashboard-table-wrap">
             <table className="dashboard-table dashboard-applications-table"><thead><tr><th>Name</th><th>Control no.</th><th>Status</th></tr></thead><tbody>{overview.recentApplications.map((row) => <tr key={row.controlNo}><td data-label="Applicant">{row.name}</td><td data-label="Control no."><code className="dashboard-control-number">{row.controlNo}</code></td><td data-label="Status"><span className={`dashboard-pill dashboard-pill-${String(row.status).toLowerCase().replace(/\s+/g, '-')}`}>{row.status}</span></td></tr>)}</tbody></table>
-            {!loading && !overview.recentApplications.length && <div className="dashboard-panel-empty"><ClipboardList size={21} /><strong>No recent applications</strong><span>New applicant records will appear here.</span></div>}
+            {!loading && !loadError && !overview.recentApplications.length && <div className="dashboard-panel-empty"><ClipboardList size={21} /><strong>No recent applications</strong><span>New applicant records will appear here.</span></div>}
             {loading && !overview.recentApplications.length && <div className="dashboard-panel-loading"><span />Loading applications…</div>}
           </div>
         </section>
@@ -685,7 +685,7 @@ function DashboardOverview({ token, onSectionChange, onSessionExpired }) {
         <section className="dashboard-surface dashboard-recent-activity">
           <div className="dashboard-surface-header"><div><span className="dashboard-panel-icon blue"><Clock3 size={16} /></span><div><h3>Recent Activity</h3><p>Latest recorded system events.</p></div></div><span className="dashboard-record-count">{overview.recentActivity.length} events</span></div>
           <div className="dashboard-activity-list">{overview.recentActivity.map((entry) => <article key={`${entry.title}-${entry.time}`} className="dashboard-activity-row"><div className="dashboard-activity-dot" /><div className="dashboard-activity-copy"><strong>{entry.title}</strong><p>{entry.detail}</p></div><div className="dashboard-activity-meta"><span className="dashboard-activity-tag">{entry.status}</span><small>{formatDashboardTime(entry.time)}</small></div></article>)}</div>
-          {!loading && !overview.recentActivity.length && <div className="dashboard-panel-empty compact"><Clock3 size={21} /><strong>No recent activity</strong><span>Recorded system events will appear here.</span></div>}
+          {!loading && !loadError && !overview.recentActivity.length && <div className="dashboard-panel-empty compact"><Clock3 size={21} /><strong>No recent activity</strong><span>Recorded system events will appear here.</span></div>}
           {loading && !overview.recentActivity.length && <div className="dashboard-panel-loading"><span />Loading activity…</div>}
         </section>
 
@@ -984,6 +984,7 @@ function ExaminationManagement({ token }) {
     }
   });
   const [applicants, setApplicants] = useState([]);
+  const [applicantsLoadError, setApplicantsLoadError] = useState('');
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState('');
   const [selectedExam, setSelectedExam] = useState(null);
@@ -1026,11 +1027,11 @@ function ExaminationManagement({ token }) {
           setActiveExamMunicipalities(savedSchedules.filter((exam) => exam.isActive).map((exam) => exam.municipality));
         }
         setScheduleSaveError('');
+        setScheduleReady(true);
       })
       .catch((error) => {
         if (active) setScheduleSaveError(`${error.message || 'Unable to load examination schedules'} Local schedule data remains available.`);
-      })
-      .finally(() => { if (active) setScheduleReady(true); });
+      });
     return () => { active = false; };
   }, [token]);
 
@@ -1052,7 +1053,7 @@ function ExaminationManagement({ token }) {
       })
         .then(async (response) => {
           if (!response.ok) {
-            const body = await response.json().catch(() => ({}));
+            const body = await response.json();
             throw new Error(body.message || 'Unable to save examination schedules.');
           }
           setScheduleSaveError('');
@@ -1154,9 +1155,9 @@ function ExaminationManagement({ token }) {
   useEffect(() => {
     let active = true;
     fetch(`${API_BASE}/applicants/management`, { headers: authHeaders(token) })
-      .then((response) => response.ok ? response.json() : null)
-      .then((data) => { if (active) setApplicants(data?.applicants || []); })
-      .catch(() => { if (active) setApplicants([]); });
+      .then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.message || 'Unable to load assigned applicants.'); return body; })
+      .then((data) => { if (active) { setApplicants(data?.applicants || []); setApplicantsLoadError(''); } })
+      .catch((error) => { if (active) setApplicantsLoadError(error.message || 'Unable to load assigned applicants. Refresh this page to retry.'); });
     return () => { active = false; };
   }, [token]);
 
@@ -1240,7 +1241,7 @@ function ExaminationManagement({ token }) {
         headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
         body: JSON.stringify({ status }),
       });
-      const body = await response.json().catch(() => ({}));
+      const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to update attendance.');
       setApplicants((current) => current.map((record) => record.id === applicant.id ? {
         ...record,
@@ -1270,7 +1271,7 @@ function ExaminationManagement({ token }) {
         </div>
         <div className="exam-heading-summary"><span>{activeExamMunicipalities.length} of {examinations.length}</span><small>examinations active</small></div>
       </header>
-      {scheduleSaveError && <div className="dashboard-overview-alert"><TriangleAlert size={17} /><span>{scheduleSaveError}</span></div>}
+      {scheduleSaveError && <div className="dashboard-overview-alert" role="status"><TriangleAlert size={17} /><span>{scheduleSaveError}</span></div>}
       <div className="exam-status-grid">
         <article className="total"><div className="exam-stat-icon"><ClipboardList size={20} /></div><div><span>Total Venues</span><strong>{examinations.length}</strong><small>Configured examination locations</small></div></article>
         <article className="active"><div className="exam-stat-icon"><Power size={20} /></div><div><span>Active Examinations</span><strong>{activeExamMunicipalities.length}</strong><small>Currently accessible to applicants</small></div></article>
@@ -1325,7 +1326,7 @@ function ExaminationManagement({ token }) {
             </div>
             {attendanceSaveError && <div className="exam-attendance-error" role="alert">{attendanceSaveError}</div>}
             <div className="exam-attendance-heading"><div><strong>Examination Attendance</strong><span>Present moves an applicant to For review unless a later outcome exists. It does not record completion or a passing result. Paper is primary; online access is optional.</span></div><small>Changes save automatically</small></div>
-            <div className="exam-applicant-list">{applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).length ? applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).map((applicant) => <div className="exam-applicant-row" key={applicant.id}><span className="exam-applicant-avatar">{applicant.initials || applicant.name?.slice(0, 2).toUpperCase() || 'AP'}</span><div><strong>{applicant.name || 'Unnamed applicant'}</strong><small>{applicant.email || applicant.controlNo || 'No contact information'}</small><small>Application/review status: {applicant.status || 'Pending'}</small></div><label className="exam-attendance-control"><span>Attendance</span><select value={applicant.attendanceStatus === 'Present' ? 'Present' : 'Pending'} disabled={attendanceSavingId === applicant.id || Number.isFinite(applicant.examScore)} onChange={(event) => updateAttendance(applicant, event.target.value)} aria-label={`Attendance for ${applicant.name || 'applicant'}`}><option value="Pending">Pending</option><option value="Present">Present</option></select></label></div>) : <p className="exam-empty-state">No applicants are currently assigned to this venue.</p>}</div>
+            <div className="exam-applicant-list">{applicantsLoadError ? <p role="status">{applicantsLoadError}</p> : applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).length ? applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).map((applicant) => <div className="exam-applicant-row" key={applicant.id}><span className="exam-applicant-avatar">{applicant.initials || applicant.name?.slice(0, 2).toUpperCase() || 'AP'}</span><div><strong>{applicant.name || 'Unnamed applicant'}</strong><small>{applicant.email || applicant.controlNo || 'No contact information'}</small><small>Application/review status: {applicant.status || 'Pending'}</small></div><label className="exam-attendance-control"><span>Attendance</span><select value={applicant.attendanceStatus === 'Present' ? 'Present' : 'Pending'} disabled={attendanceSavingId === applicant.id || Number.isFinite(applicant.examScore)} onChange={(event) => updateAttendance(applicant, event.target.value)} aria-label={`Attendance for ${applicant.name || 'applicant'}`}><option value="Pending">Pending</option><option value="Present">Present</option></select></label></div>) : <p className="exam-empty-state">No applicants are currently assigned to this venue.</p>}</div>
           </section>
         </div>
       )}

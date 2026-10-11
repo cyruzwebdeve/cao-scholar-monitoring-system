@@ -1,3 +1,4 @@
+import { ApiRequestError } from '../services/apiFailure';
 import { useState } from 'react';
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -27,9 +28,10 @@ function LoginForm({ onLogin }) {
         setLoading(false);
         return;
       }
+      if (!body?.token || !body?.user?.role) throw new ApiRequestError('response', { method: 'POST', path: '/auth/login' });
       onLogin(body.token, body.user);
-    } catch {
-      setError('Unable to connect to backend.');
+    } catch (error) {
+      setError(error.message || 'The service could not be reached. Check your connection and try again.');
       setLoading(false);
     }
   };

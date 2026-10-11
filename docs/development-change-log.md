@@ -5,6 +5,70 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-12 - Deploy QA-10 for Testing
+
+### TL;DR
+- Authorized frontend deployment of clearer connection errors, actionable recovery and safeguards for unconfirmed actions.
+- Applicants, scholars and CAO staff retain inputs/answers on supported failures; failed reads no longer imply empty records or zero coverage.
+- Validation passed: 216 backend checks with one existing database skip, 69 frontend checks, lint/build and synthetic browser recovery checks.
+- Backend, database and configuration unchanged; no migration. Publication and public asset verification are in progress.
+
+### Objective, behavior, roles and implementation
+Publish the tested QA-10 frontend through the existing main/Hostinger pipeline for controlled acceptance. The shared API wrapper normalizes transport, unreadable-body and server failures with read/write recovery guidance while preserving business errors and tester-gate handling. Updated admin and applicant/scholar views suppress false empty conclusions. Examination success requires a recorded receipt, and failed initial schedule loading cannot enable cached autosave. Implementation details and changed files are recorded in the QA-10 entry below. Include frontend sources, regression tests, both change logs and QA register; original QA report/screenshots remain local and excluded.
+
+### Impacts
+- **API/security/privacy:** client failure handling and critical success checks change; no server endpoint, authorization or session change. Proxy/server details are suppressed. No production record mutation is part of verification.
+- **Database:** no schema, migration, seed, deletion or data conversion.
+- **Configuration/deployment:** existing frontend main-branch auto-build; no environment-variable, package or hosting changes. Backend application code unchanged.
+- **Accessibility:** existing error panels/native Retry controls; sampled keyboard/mobile checks passed, without a full accessibility certification.
+- **Product scope:** payroll-list generation remains the workflow endpoint. Legacy payment retirement and retained historical data are unchanged.
+
+### Validation, limitations, rollback and next work
+Local suites passed 285 checks with one existing opt-in database skip; lint/build, whitespace and synthetic browser failure/retry/receipt checks passed. Existing ExcelJS chunk warning remains. Remote main baseline was verified as 43eb8a4. Public asset and API-health checks will establish publication; authenticated hosted acceptance and provider logs are separate from those checks. No automatic write replay or universal request timeout is added. Roll back the matching frontend helper and consumers together without database rollback. Next: refresh old tabs and perform controlled acceptance using the QA register, then address QA-11 separately.
+
+## 2026-10-12 - QA-10: Clear Connection Failures and Preserve Unconfirmed Actions
+
+### TL;DR
+- Supported API failures now show plain recovery guidance for unreachable services, timeouts, unreadable responses and HTTP 5xx; validation, permission and conflict messages remain available.
+- Failed loads no longer announce empty queues or zero coverage in affected admin/portal views; existing data can remain visible with an error, and reports are withheld until a complete successful load.
+- Failed writes explain that completion is unconfirmed without automatic replay. Exam answers and form values remain; examination success requires a recorded receipt, and failed schedule loading cannot trigger cached schedule autosaving.
+- Validation passed: 216 backend checks with one existing opt-in database skip, 69 frontend checks, lint/build and synthetic browser failure/retry checks. Local only; not deployed. No backend, schema or configuration change.
+
+### Objective and previous/new behavior
+Finish QA-10 beyond the already deployed tester-gate recovery. Browser transport/JSON errors such as Failed to fetch and unreadable proxy replies previously reached many views directly. Some response parsing catches replaced failures with empty objects, permitting empty-state or success messages. Several directories showed No records after a failed request, Reports could infer zero scholarship coverage without a completed load, and schedule loading set the autosave-ready flag even when the initial request failed.
+
+The existing API fetch wrapper now applies shared failure handling to supported API requests, with read versus write recovery wording. Read failures suggest checking connectivity and using Retry or refresh. Write failures explicitly state that completion could not be confirmed and advise checking the affected record before repeating. Application submission advises retaining the form and contacting CAO before resubmitting; examination submission retains its answers and deadline guidance; sign-in offers sign-in retry. No mutation is automatically replayed.
+
+### Roles, implementation and data flow
+Applicants, scholars and CAO staff receive consistent connection guidance through existing error panels. The apiFailure service converts fetch/body TypeError and JSON SyntaxError failures, preserves intentional AbortError cancellation, and preserves TimeoutError identity for existing deadline handling. HTTP 5xx becomes a safe service-unavailable error without exposing a proxy body or server detail. Ordinary successful structured JSON passes through; null/scalar JSON is rejected as unreadable. Native blob/text readers preserve successful data and normalize body transport errors. Ordinary HTTP 400/401/403/409/410/429 responses retain their payloads and status, so field validation, session handling, access controls, retired-route messages and conflict behavior remain available.
+
+The wrapper retains tester-token injection and access-challenge handling. Tester-gate URLs remain under their existing dedicated ten-second request/deadline/error handling; unrelated URLs are untouched. Removed swallowed JSON failures from affected API consumers. Existing auth-session and health-panel fallback parsing is retained because these callers already treat an absent payload conservatively rather than presenting a save success.
+
+Admin overview, staff, activity logs, document review, catalogs, announcements, scholars, results and Payroll suppress affected empty conclusions and mark unavailable metrics/counts. Overview distinguishes unavailable/last-loaded data. Reports commit scholar and lifecycle data together, withhold metrics/coverage until a complete successful load, and disable export when the report is unavailable. Scholar record sections stay hidden until loaded; auxiliary announcement/notification errors preserve earlier data and offer update retry. Applicant portal retry retains its existing error-state flow.
+
+Examination loading no longer swallows bad JSON; successful submission requires receipt.recorded === true before displaying success and clearing its draft. Unconfirmed responses leave answers/modal available. Schedule readiness is set only after a successful initial schedule load, preventing failed initial loading from enabling automatic persistence of local defaults. Assigned-applicant errors are explicit rather than being replaced by an empty list. Sign-in validates its required token/role fields before handing off an authenticated session. Existing examination timing, grading, results privacy and local draft boundaries remain intact.
+
+### Changed files/areas and impacts
+Added frontend/src/services/apiFailure.js and frontend/tests/apiFailure.test.js; updated the existing services/api.js fetch wrapper. Updated error/parsing/loading displays in Dashboard, ReportsManagement, ScholarDashboard, ApplicantDashboard, BillingPayrollManagement, ScholarsManagement, ResultsManagement, StaffManagement, ActivityLogsManagement, DocumentReviewManagement, SchoolCatalogManagement, AnnouncementsManagement, ExamPage, PasswordRecoveryPage and the LoginForm/ApplicationForm components. Updated both change logs and QA fix register.
+
+- **API:** frontend request/body failure handling changes; no backend endpoints, server response contracts or authorization changes. HTTP 5xx now enters existing client error paths immediately. Examination receipt and sign-in required fields are checked before client success.
+- **Database:** no schema change, migration, data repair, deletion, seed or production query. Preventing autosave after a failed initial schedule load avoids unintended writes from an unverified local state.
+- **Configuration/dependencies:** no environment-variable, hosting, package or dependency changes. Existing timeouts and polling intervals remain.
+- **Security/privacy:** existing tester gate, token injection, authentication and section checks retained. Server/proxy internals are not shown for 5xx failures; verification uses synthetic users/records only. Error causes remain available for local diagnostics rather than being rendered as messages.
+- **Accessibility:** error/status panels and native Retry controls remain; sampled retries work by keyboard, with no horizontal page overflow at 390px in sampled admin views. No full-app accessibility certification.
+- **Deployment:** local only. Frontend build required when deploying; backend code is unchanged and no migration is required. Hosted/provider verification remains pending.
+- **Product scope:** list generation remains the endpoint. QA-09 payout retirement is preserved. Legacy payment data/interfaces retained outside this fix are unchanged; operational activity logs remain system-operation records, not monetary audits.
+
+### Validation and results
+Root npm test passed 216 backend checks, one existing opt-in real-database skip, and 69 frontend checks. Twelve new API-wrapper tests cover read/write wording, Request/init method precedence, action-specific guidance, no automatic write replay, server/proxy detail suppression, malformed/null/scalar JSON, retained validation/auth/conflict payloads, timeout/cancellation identity, document bytes/body failures, tester-gate isolation and unrelated requests. Frontend lint, production build and whitespace checks passed; the existing large ExcelJS chunk warning remains.
+
+Synthetic Chromium tested offline, malformed-response and HTTP 503 failures across dashboard, staff, document reviews, Payroll, announcements, activity logs and Reports. Empty records appear only after recovery succeeds; Retry works with keyboard input, sampled mobile pages do not overflow horizontally and no browser page errors occurred. Malformed applicant/scholar dashboard reads recover through existing retry controls; scholar state cards remain hidden while unavailable. Failed sign-in retains inputs and sends one request. Failed examination submission keeps answers with one request; malformed/missing successful receipts do not produce false success, and an explicit retry with a recorded receipt succeeds. A failed initial schedule load sends no autosave mutation. No real account, production fault injection, live examination submission or real payroll record was used.
+
+### Limitations, rollback and recommended next work
+This handles observed request failures; it does not add a universal timeout or new automatic retry policy to every view. Browser network failures cannot distinguish connectivity, CORS and unreachable-service causes precisely. Previously loaded records may remain visible alongside an error and can be stale. Structurally valid JSON objects with incorrect endpoint-specific fields are not universally schema-validated; critical examination receipt/sign-in fields are checked. Existing discretionary session/health fallback behavior and free-text server validation below 500 remain. Hosted network conditions and authenticated acceptance are not yet verified.
+
+Rollback the matching frontend fetch helper and consumers together; no database rollback is needed. Reverting the schedule-readiness guard restores the earlier cached-autosave risk. Recommended next work: deploy when requested and test read failure/recovery, safe write guidance, receipt-confirmed examination submission and unchanged gate access with dedicated test records; then address QA-11 deployment documentation separately.
+
 ## 2026-10-12 - Deploy QA-09 for Controlled Testing
 
 ### TL;DR

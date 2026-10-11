@@ -1,3 +1,4 @@
+import { ApiRequestError } from './services/apiFailure';
 import { useState, useEffect, useCallback } from 'react'
 import './exam-source.css'
 import './styles/exam-responsive.css'
@@ -194,7 +195,7 @@ export default function App({ token }) {
     if (!token) return () => { active = false }
     fetch(`${API_BASE}/applications/me/examination/questions`, { headers: authHeaders(token), cache: 'no-store', signal: AbortSignal.timeout(30000) })
       .then(async response => {
-        const body = await response.json().catch(() => null)
+        const body = await response.json()
         if (!response.ok) {
           if (response.status === 409 && String(body?.message || '').includes('already been submitted')) {
             try { clearExaminationDrafts(localStorage, { now: null }) } catch { /* Storage may be unavailable. */ }
@@ -292,10 +293,12 @@ export default function App({ token }) {
     try {
       const response = await fetch(`${API_BASE}/applications/me/exam-result`, { method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, body: JSON.stringify({ answers, examTicket }), signal: AbortSignal.timeout(60000) })
       if (!response.ok) {
-        const body = await response.json().catch(() => ({}))
+        const body = await response.json()
         if (String(body.message || '').includes('already been submitted')) { setAlreadySubmitted(true); return }
         throw new Error(body.message || 'Unable to submit the examination. Your answers remain on this page.')
       }
+      const receipt = await response.json()
+      if (receipt?.receipt?.recorded !== true) throw new ApiRequestError('response', { method: 'POST', path: '/applications/me/exam-result' })
       setShowModal(false)
       setSubmitted(true)
     } catch (error) {

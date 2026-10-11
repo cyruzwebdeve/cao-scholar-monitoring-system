@@ -38,7 +38,7 @@ function PasswordRecoveryPage({ mode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier }),
       });
-      const body = await response.json().catch(() => ({}));
+      const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to request a password reset.');
       setSuccess(body.message || 'If an active account matches those details, a password reset link has been sent.');
     } catch (requestError) {
@@ -71,7 +71,7 @@ function PasswordRecoveryPage({ mode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: resetToken, password }),
       });
-      const body = await response.json().catch(() => ({}));
+      const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to reset your password.');
       setPassword('');
       setConfirmPassword('');

@@ -1,3 +1,5 @@
+import { normalizeApiFailure, protectApiResponse } from './apiFailure.js';
+
 export const API_BASE = import.meta.env?.VITE_API_BASE || 'http://localhost:3601/api';
 
 export const SITE_ACCESS_TOKEN_KEY = 'pgceapSiteAccessToken';
@@ -27,12 +29,17 @@ export const installSiteAccessFetch = ({ windowObject = window } = {}) => {
       options.headers = headers;
     }
 
-    const response = await originalFetch(input, options);
+    const path = new URL(absoluteUrl).pathname;
+    const useFriendlyErrors = isApiRequest && !path.includes('/site-access/');
+    const context = { method: String(init.method || (input instanceof Request ? input.method : 'GET')).toUpperCase(), path };
+    let response;
+    try { response = await originalFetch(input, options); }
+    catch (error) { throw useFriendlyErrors ? normalizeApiFailure(error, context) : error; }
     if (isApiRequest && response.headers.get('X-Site-Access-Required') === 'true') {
       windowObject.sessionStorage.removeItem(SITE_ACCESS_TOKEN_KEY);
       windowObject.dispatchEvent(new CustomEvent(SITE_ACCESS_REQUIRED_EVENT));
     }
-    return response;
+    return useFriendlyErrors ? protectApiResponse(response, context) : response;
   };
 
   windowObject.__pgceapSiteAccessFetchInstalled = true;

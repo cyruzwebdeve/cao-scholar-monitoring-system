@@ -134,7 +134,7 @@ function DocumentReviewManagement({ token }) {
 
   const fetchReviews = useCallback(async () => {
     const response = await fetch(`${API_BASE}/document-reviews`, { headers: authHeaders(token) });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await response.json();
     if (!response.ok) throw new Error(payload.message || 'Unable to load document reviews.');
     return payload;
   }, [token]);
@@ -218,7 +218,7 @@ function DocumentReviewManagement({ token }) {
     try {
       const response = await fetch(`${API_BASE}/document-reviews/${review.applicationId}/${review.requirementKey}/file`, { headers: authHeaders(token) });
       if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
+        const body = await response.json();
         throw new Error(body.message || 'Unable to open the document.');
       }
       setPreview(URL.createObjectURL(await response.blob()));
@@ -238,7 +238,7 @@ function DocumentReviewManagement({ token }) {
         headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
         body: JSON.stringify({ decision, notes }),
       });
-      const payload = await response.json().catch(() => ({}));
+      const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Unable to save the review decision.');
       setNotice({ tone: 'success', message: payload.message });
       setDecision('');
@@ -260,7 +260,7 @@ function DocumentReviewManagement({ token }) {
         method: 'PUT',
         headers: authHeaders(token),
       });
-      const payload = await response.json().catch(() => ({}));
+      const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Unable to approve the pending documents.');
       setNotice({ tone: 'success', message: payload.message });
       setBulkGroup(null);
@@ -282,14 +282,14 @@ function DocumentReviewManagement({ token }) {
   return (
     <div className="document-reviews">
       <header className="document-review-heading"><div><span>CONTENT MODERATION</span><h2>Document Reviews</h2><p>Verify applicant eligibility proofs and scholar requirement uploads.</p></div><button type="button" onClick={loadReviews} disabled={loading}><RefreshCw size={16} className={loading ? 'spinning' : ''} />Refresh queue</button></header>
-      <div className="document-review-metrics">{metrics.map(([label, value, Icon, tone, helper]) => <article className={tone} key={label}><div><span>{label}</span><strong>{value}</strong><small>{helper}</small></div><i><Icon size={21} /></i></article>)}</div>
+      <div className="document-review-metrics">{metrics.map(([label, value, Icon, tone, helper]) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading || (error && !data.reviews.length) ? '—' : value}</strong><small>{helper}</small></div><i><Icon size={21} /></i></article>)}</div>
       {notice && <div className={`document-review-notice ${notice.tone}`} role="status">{notice.tone === 'success' ? <CheckCircle2 size={18} /> : <TriangleAlert size={18} />}<span>{notice.message}</span><button type="button" onClick={() => setNotice(null)} aria-label="Dismiss"><X size={16} /></button></div>}
       {error && <div className="document-review-notice error" role="status"><TriangleAlert size={18} /><span>{error}</span><button type="button" onClick={loadReviews}>Retry</button></div>}
       <section className="document-review-directory">
-        <div className="document-review-toolbar"><div><i><ClipboardCheck size={19} /></i><section><h3>Review queue</h3><p>{groupedReviews.length} {groupedReviews.length === 1 ? 'person' : 'people'} · {visibleReviews.length} of {data.reviews.length} files shown</p></section></div><div className="document-review-filters"><label><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Applicant, control number, or file" /></label><select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Filter review status"><option value="pending">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="">All statuses</option></select><select value={requirement} onChange={(event) => setRequirement(event.target.value)} aria-label="Filter requirement"><option value="">All requirements</option>{requirementOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div></div>
+        <div className="document-review-toolbar"><div><i><ClipboardCheck size={19} /></i><section><h3>Review queue</h3><p>{error && !data.reviews.length ? 'Records unavailable' : <>{groupedReviews.length} {groupedReviews.length === 1 ? 'person' : 'people'} · {visibleReviews.length} of {data.reviews.length} files shown</>}</p></section></div><div className="document-review-filters"><label><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Applicant, control number, or file" /></label><select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Filter review status"><option value="pending">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="">All statuses</option></select><select value={requirement} onChange={(event) => setRequirement(event.target.value)} aria-label="Filter requirement"><option value="">All requirements</option>{requirementOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div></div>
         <div className="document-review-groups">
           {loading && !data.reviews.length && <div className="document-review-group-empty"><span className="review-loader" />Loading secure document queue…</div>}
-          {!loading && !visibleReviews.length && <div className="document-review-group-empty"><ClipboardCheck size={27} /><strong>{status === 'pending' ? 'Review queue is clear' : 'No documents found'}</strong><span>{status === 'pending' ? 'New scholar uploads will appear here automatically.' : 'Try changing the current filters.'}</span></div>}
+          {!loading && !error && !visibleReviews.length && <div className="document-review-group-empty"><ClipboardCheck size={27} /><strong>{status === 'pending' ? 'Review queue is clear' : 'No documents found'}</strong><span>{status === 'pending' ? 'New scholar uploads will appear here automatically.' : 'Try changing the current filters.'}</span></div>}
           {groupedReviews.map((group) => {
             const expanded = expandedScholar === group.key;
             const panelId = `scholar-review-${group.key.replace(/[^a-zA-Z0-9_-]/g, '-')}`;

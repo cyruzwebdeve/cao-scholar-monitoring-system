@@ -27,7 +27,7 @@ function SchoolCatalogManagement({ token, embedded = false }) {
 
   const fetchCatalog = useCallback(async () => {
     const response = await fetch(`${API_BASE}/schools/catalog`, { headers: authHeaders(token) });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await response.json();
     if (!response.ok) throw new Error(payload.message || 'Unable to load the school catalog.');
     return payload;
   }, [token]);
@@ -97,7 +97,7 @@ function SchoolCatalogManagement({ token, embedded = false }) {
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: selectedSchool.name, classification }),
       });
-      const payload = await response.json().catch(() => ({}));
+      const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Unable to update the school classification.');
       const nextClassification = formatClassification(payload.school?.classification || classification);
       setSchools((current) => current.map((school) => school.name === selectedSchool.name
@@ -120,16 +120,16 @@ function SchoolCatalogManagement({ token, embedded = false }) {
       </header>
 
       <div className="school-catalog-stats">
-        <article><span>All schools</span><strong>{counts.total}</strong><small>Saved server catalog entries</small></article>
-        <article className="public"><span>Public</span><strong>{counts.public}</strong><small>Government-funded institutions</small></article>
-        <article className="private"><span>Private</span><strong>{counts.private}</strong><small>Privately operated institutions</small></article>
+        <article><span>All schools</span><strong>{loading || (loadError && !schools.length) ? '—' : counts.total}</strong><small>Saved server catalog entries</small></article>
+        <article className="public"><span>Public</span><strong>{loading || (loadError && !schools.length) ? '—' : counts.public}</strong><small>Government-funded institutions</small></article>
+        <article className="private"><span>Private</span><strong>{loading || (loadError && !schools.length) ? '—' : counts.private}</strong><small>Privately operated institutions</small></article>
       </div>
 
       {notice && <div className="school-catalog-notice success" role="status"><CheckCircle2 size={17} /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Dismiss notification"><X size={15} /></button></div>}
       {loadError && <div className="school-catalog-notice error" role="status"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={loadCatalog}>Retry</button></div>}
 
       <section className="dashboard-surface dashboard-school-directory school-catalog-directory">
-        <div className="dashboard-surface-header"><div><span className="dashboard-panel-icon gold"><School size={16} /></span><div><h3>School Directory</h3><p>Click a school to change its classification.</p></div></div><span className="dashboard-record-count">{visibleSchools.length} of {schools.length} schools</span></div>
+        <div className="dashboard-surface-header"><div><span className="dashboard-panel-icon gold"><School size={16} /></span><div><h3>School Directory</h3><p>Click a school to change its classification.</p></div></div><span className="dashboard-record-count">{loadError && !schools.length ? 'Records unavailable' : <>{visibleSchools.length} of {schools.length} schools</>}</span></div>
         <div className="school-catalog-toolbar">
           <label><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search school name" aria-label="Search schools" /></label>
           <select value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="Filter school classification"><option value="all">All classifications</option><option value="public">Public schools</option><option value="private">Private schools</option><option value="unclassified">Unclassified schools ({counts.unclassified})</option></select>
@@ -137,7 +137,7 @@ function SchoolCatalogManagement({ token, embedded = false }) {
         <div className="dashboard-school-grid school-catalog-grid">
           {loading && !schools.length && <div className="school-catalog-empty"><span className="school-catalog-loader" /><strong>Loading school catalog</strong><span>Retrieving the latest classifications…</span></div>}
           {visibleSchools.map((school) => <button type="button" key={school.name} onClick={() => openClassification(school)}><span className="dashboard-school-icon"><School size={15} /></span><div><strong>{school.name}</strong><small className={`dashboard-school-type ${school.classification.toLowerCase()}`}>{school.classification}</small></div><FilePenLine className="dashboard-school-edit" size={14} /></button>)}
-          {!loading && !visibleSchools.length && <div className="school-catalog-empty"><Search size={24} /><strong>No schools found</strong><span>Try another name or classification.</span><button type="button" onClick={() => { setQuery(''); setFilter('all'); }}>Clear filters</button></div>}
+          {!loading && !loadError && !visibleSchools.length && <div className="school-catalog-empty"><Search size={24} /><strong>No schools found</strong><span>Try another name or classification.</span><button type="button" onClick={() => { setQuery(''); setFilter('all'); }}>Clear filters</button></div>}
         </div>
       </section>
 

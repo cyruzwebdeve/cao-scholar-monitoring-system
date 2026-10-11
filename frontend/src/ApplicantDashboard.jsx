@@ -108,7 +108,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
       .catch(() => {});
     fetch(`${API_BASE}/applications/me`, { headers: authHeaders(token), cache: 'no-store' })
       .then(async (response) => {
-        const body = await response.json().catch(() => null);
+        const body = await response.json();
         if (!response.ok) {
           throw new Error(body?.message || "Unable to load your application record.");
         }

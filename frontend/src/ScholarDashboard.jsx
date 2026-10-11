@@ -58,6 +58,8 @@ function ScholarDashboard({ token, user, onLogout }) {
   const [portalData, setPortalData] = useState({});
   const [loadingRequirements, setLoadingRequirements] = useState(true);
   const [requirementsError, setRequirementsError] = useState('');
+  const [announcementError, setAnnouncementError] = useState('');
+  const [notificationsError, setNotificationsError] = useState('');
   const [uploadingRequirement, setUploadingRequirement] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -115,36 +117,39 @@ function ScholarDashboard({ token, user, onLogout }) {
     const loadAnnouncement = async () => {
       try {
         const response = await fetch(`${API_BASE}/announcements/latest`, { headers: authHeaders(token), cache: 'no-store' });
-        const body = response.ok ? await response.json() : null;
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message || 'Unable to load portal updates.');
         if (active) {
           const announcement = body?.announcement || null;
           const expiresAt = announcement?.expiresAt ? new Date(announcement.expiresAt).getTime() : null;
           setLatestAnnouncement(Number.isFinite(expiresAt) && expiresAt <= Date.now() ? null : announcement);
+          setAnnouncementError('');
         }
-      } catch {
-        // Keep the contextual fallback notice when the announcement service is unavailable.
+      } catch (error) {
+        if (active) setAnnouncementError(error.message || 'Unable to load announcements. Refresh this page to retry.');
       }
     };
     loadAnnouncement();
     const stopRefreshing = subscribeToVisibleRefresh(loadAnnouncement, { intervalMs: ROUTINE_DATA_REFRESH_MS });
     return () => { active = false; stopRefreshing(); };
-  }, [token]);
+  }, [refreshRequest, token]);
 
   useEffect(() => {
     let active = true;
     const loadNotifications = async () => {
       try {
         const response = await fetch(`${API_BASE}/notifications/me`, { headers: authHeaders(token), cache: 'no-store' });
-        const body = response.ok ? await response.json() : null;
-        if (active && body) setScholarNotifications(body.notifications || []);
-      } catch {
-        // Allowance data remains available if the notification service is temporarily unavailable.
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message || 'Unable to load portal updates.');
+        if (active && body) { setScholarNotifications(body.notifications || []); setNotificationsError(''); }
+      } catch (error) {
+        if (active) setNotificationsError(error.message || 'Unable to load notifications. Refresh this page to retry.');
       }
     };
     loadNotifications();
     const stopRefreshing = subscribeToVisibleRefresh(loadNotifications, { intervalMs: ROUTINE_DATA_REFRESH_MS });
     return () => { active = false; stopRefreshing(); };
-  }, [token]);
+  }, [refreshRequest, token]);
 
   useEffect(() => {
     const expirationTime = latestAnnouncement?.expiresAt
@@ -207,7 +212,7 @@ function ScholarDashboard({ token, user, onLogout }) {
   const listSubtitle = isPrivateScholar
     ? certificationDate !== 'Not generated' ? 'Certification list generated' : 'Awaiting certification-list generation'
     : payrollList ? 'Included in payroll list' : 'Awaiting payroll-list generation';
-  const summaryNotifications = [
+  const summaryNotifications = application ? [
     rejectedCount > 0
       ? `${rejectedCount} requirement${rejectedCount === 1 ? ' was' : 's were'} returned for correction.`
       : attentionCount > 0
@@ -216,7 +221,7 @@ function ScholarDashboard({ token, user, onLogout }) {
           ? `${pendingReviewCount} uploaded document${pendingReviewCount === 1 ? ' is' : 's are'} awaiting Billing staff review.`
           : 'All scholar-managed requirements are approved.',
     listSubtitle + '.',
-  ];
+  ] : ['Scholar records are unavailable until loading succeeds.'];
   const unreadScholarNotifications = scholarNotifications.filter(({ isRead }) => !isRead);
   const latestScholarNotification = scholarNotifications[0] || null;
   const hasActionNotifications = unreadScholarNotifications.length > 0 || attentionCount > 0 || pendingReviewCount > 0 || (isPrivateScholar ? certificationDate === 'Not generated' : !payrollList);
@@ -359,6 +364,10 @@ function ScholarDashboard({ token, user, onLogout }) {
           <div className="scholar-welcome-icon"><GraduationCap size={42} /></div>
         </section>
 
+        {(announcementError || notificationsError) && <div className="scholar-requirements-error" role="status"><span>{announcementError || notificationsError} Announcements or notifications may be out of date.</span><button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry updates</button></div>}
+        {requirementsError && <div className="scholar-requirements-error" role="status"><span>{requirementsError}</span><button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry now</button></div>}
+        {loadingRequirements && !application && <p role="status">Loading scholar records…</p>}
+        {application && <>
         <section className="scholar-stat-grid">
           <article className="scholar-stat-card"><div className="scholar-stat-icon green"><CheckCircle2 size={21} /></div><div><span>Scholarship status</span><strong>{portalData.scholar?.isActive ? 'Active Scholar' : 'Scholar record unavailable'}</strong><small>{portalData.scholar?.issuedAt ? `Approved ${formatPortalDate(portalData.scholar.issuedAt)}` : 'Approval date unavailable'}</small></div></article>
           <article className="scholar-stat-card"><div className="scholar-stat-icon gold"><CircleDollarSign size={21} /></div><div><span>{isPrivateScholar ? 'Certification list' : 'Payroll list'}</span><strong>{listDate}</strong><small>{listSubtitle}</small></div></article>
@@ -389,7 +398,6 @@ function ScholarDashboard({ token, user, onLogout }) {
               <div><strong>{requirementsSubmissionClosed ? 'Submission deadline has passed' : requirementsDeadline ? 'Submission deadline' : 'Submissions are open'}</strong><span>{requirementsDeadline ? formatPortalDateTime(requirementsDeadline) : 'CAO has not set a deadline for this academic period.'}</span></div>
             </div>
             <p className="scholar-panel-copy">{requirementsComplete ? 'All scholar-managed semester files have been approved and recorded.' : `Upload your ${isPrivateScholar ? 'semester requirements and Private-school tuition receipt' : 'two semester requirements'}. Initial requirements are recorded by CAO staff.`}</p>
-            {requirementsError && <div className="scholar-requirements-error"><span>{requirementsError}</span><button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry now</button></div>}
             <div className="scholar-requirements-list" aria-busy={loadingRequirements}>
               {visibleRequirementItems.map(({ key, label, note }) => {
                 const item = uploadedRequirements[key];
@@ -431,6 +439,7 @@ function ScholarDashboard({ token, user, onLogout }) {
             <article className="scholar-panel scholar-profile-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">ACCOUNT DETAILS</p><h2>My profile</h2></div><UserRound size={20} className="scholar-heading-icon" /></div><div className="scholar-profile-detail"><span>Scholar ID</span><strong>{portalData.scholar?.scholarId || 'Not assigned'}</strong></div><div className="scholar-profile-detail"><span>Control number</span><strong>{user?.controlNumber || 'Not assigned'}</strong></div><div className="scholar-profile-detail"><span>Email address</span><strong>{user?.email || 'Not provided'}</strong></div><button type="button" className="scholar-text-button" onClick={() => setProfileOpen(true)}>View profile <ChevronRight size={15} /></button></article>
           </div>
         </div>
+        </>}
         <footer className="scholar-footer"><CalendarDays size={14} /> Need help? Contact the Community Affairs Office for assistance.</footer>
       </main>
     </div>

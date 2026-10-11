@@ -53,6 +53,7 @@ export default function ReportsManagement({ token }) {
   const [scholars, setScholars] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [hasLoadedReport, setHasLoadedReport] = useState(false);
   const [query, setQuery] = useState('');
   const [schoolYear, setSchoolYear] = useState('All School Years');
   const [locationLevel, setLocationLevel] = useState('municipality');
@@ -71,9 +72,10 @@ export default function ReportsManagement({ token }) {
       ]);
       const [scholarBody, lifecycleBody] = await Promise.all([scholarResponse.json(), lifecycleResponse.json()]);
       if (!scholarResponse.ok) throw new Error(scholarBody.message || 'Unable to load report data.');
-      setScholars(scholarBody.scholars || []);
       if (!lifecycleResponse.ok) throw new Error(lifecycleBody.message || 'Unable to load lifecycle report.');
+      setScholars(scholarBody.scholars || []);
       setLifecycleReport(lifecycleBody);
+      setHasLoadedReport(true);
       setLoadError('');
     } catch (error) {
       setLoadError(error.message || 'Unable to load report data.');
@@ -256,16 +258,9 @@ export default function ReportsManagement({ token }) {
         </div>
         <div className="reports-heading-actions">
           <label><span>School year</span><select value={schoolYear} onChange={(event) => { setSchoolYear(event.target.value); setExpandedMunicipality(null); }}><option>All School Years</option>{schoolYears.map((year) => <option key={year}>{year}</option>)}</select></label>
-          <button type="button" onClick={() => setExportOpen(true)} disabled={loading}><Download size={16} /> Export CSV</button>
+          <button type="button" onClick={() => setExportOpen(true)} disabled={loading || !hasLoadedReport || Boolean(loadError)}><Download size={16} /> Export CSV</button>
         </div>
       </header>
-
-      <section className="reports-metrics" aria-label="Report summary">
-        <article className="green"><div><span>Active Scholars</span><strong>{activeScholars.length}</strong><small>Included in this report</small></div><i><UsersRound size={22} /></i></article>
-        <article className="red"><div><span>Municipalities with None</span><strong>{municipalityCounts.filter((count) => count === 0).length}</strong><small>Need immediate coverage</small></div><i><MapPin size={22} /></i></article>
-        <article className="orange"><div><span>Barangays with Low / None</span><strong>{barangayAttentionCount}</strong><small>Two scholars or fewer</small></div><i><ChartColumn size={22} /></i></article>
-        <article className="blue"><div><span>Graduating Scholars</span><strong>{graduatingScholars.length}</strong><small>For admin notification</small></div><i><GraduationCap size={22} /></i></article>
-      </section>
 
       {loadError && (
         <div className="reports-error" role="status">
@@ -274,6 +269,17 @@ export default function ReportsManagement({ token }) {
           <button type="button" onClick={() => loadReports({ showLoader: true })}><RefreshCw size={14} /> Retry</button>
         </div>
       )}
+
+      {loading && !hasLoadedReport && <p role="status">Loading report data…</p>}
+      {hasLoadedReport && <>
+      <section className="reports-metrics" aria-label="Report summary">
+        <article className="green"><div><span>Active Scholars</span><strong>{activeScholars.length}</strong><small>Included in this report</small></div><i><UsersRound size={22} /></i></article>
+        <article className="red"><div><span>Municipalities with None</span><strong>{municipalityCounts.filter((count) => count === 0).length}</strong><small>Need immediate coverage</small></div><i><MapPin size={22} /></i></article>
+        <article className="orange"><div><span>Barangays with Low / None</span><strong>{barangayAttentionCount}</strong><small>Two scholars or fewer</small></div><i><ChartColumn size={22} /></i></article>
+        <article className="blue"><div><span>Graduating Scholars</span><strong>{graduatingScholars.length}</strong><small>For admin notification</small></div><i><GraduationCap size={22} /></i></article>
+      </section>
+
+
 
       {lifecycleReport && (
         <section className="reports-lifecycle-grid" aria-label="Scholar lifecycle through list generation">
@@ -427,6 +433,7 @@ export default function ReportsManagement({ token }) {
           </div>
         </article>
       </section>
+      </>}
       {exportOpen && <CsvExportModal title="Export reports and insights" description="Choose columns from the priority-location and graduating-scholar report sections." columns={reportExportColumns} rowCount={filteredCoverage.length + graduatingScholars.length} getRowCount={(columns) => (columns.some(({ group }) => group === 'Priority locations') ? filteredCoverage.length : 0) + (columns.some(({ group }) => group === 'Graduating scholars') ? graduatingScholars.length : 0)} onClose={() => setExportOpen(false)} onExport={exportReport} />}
     </div>
   );

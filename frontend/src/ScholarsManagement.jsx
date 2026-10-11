@@ -204,7 +204,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     try {
       const response = await fetch(`${API_BASE}/document-reviews/${document.applicationId}/${document.requirementKey}/file`, { headers: authHeaders(token) });
       if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
+        const body = await response.json();
         throw new Error(body.message || 'Unable to open the document.');
       }
       setDocumentPreview(URL.createObjectURL(await response.blob()));
@@ -225,7 +225,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
         headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
         body: JSON.stringify({ decision: documentDecision, notes }),
       });
-      const body = await response.json().catch(() => ({}));
+      const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to save the review decision.');
       setDocumentNotice(body.message || 'Document review saved.');
       setDocumentNoticeTone('success');
@@ -264,7 +264,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
             fileData: String(reader.result || ''),
           }),
         });
-        const body = await response.json().catch(() => ({}));
+        const body = await response.json();
         if (!response.ok) throw new Error(body.message || 'Unable to upload the scholar requirement.');
         setDocumentNotice(body.message || 'Scholar requirement uploaded successfully.');
         setDocumentNoticeTone('success');
@@ -286,7 +286,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     try {
       const response = await fetch(`${API_BASE}/document-reviews/${document.applicationId}/${document.requirementKey}/file`, { headers: authHeaders(token) });
       if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
+        const body = await response.json();
         throw new Error(body.message || 'Unable to open the scholar requirement.');
       }
       const url = URL.createObjectURL(await response.blob());
@@ -375,7 +375,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     setBillingEditError('');
     try {
       const response = await fetch(`${API_BASE}/scholars/management?academicPeriodId=${encodeURIComponent(period.id)}`, { headers: authHeaders(token), cache: 'no-store' });
-      const body = await response.json().catch(() => ({}));
+      const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to prepare the selected scholar session.');
       const periodScholar = (body.scholars || []).find((scholar) => scholar.id === selected.id);
       if (!periodScholar) throw new Error('The scholar is unavailable for the selected period.');
@@ -406,7 +406,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({ academicPeriodId: selectedPeriod.id, billingStatus: billingForm.billingStatus }),
       });
-      const body = await response.json().catch(() => ({}));
+      const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to update billing and payroll details.');
       const destinationMode = 'billing';
       const handoffSaved = saveProcessingHandoff({ periodId: selectedPeriod.id, applicantId: selected.applicantId, mode: destinationMode });
@@ -523,7 +523,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     <div className="scholars-management">
       <header className="scholars-admin-heading"><div><span className="scholars-admin-eyebrow">SCHOLAR RECORDS</span><h2>Scholars Management</h2><p>Manage scholar accounts, review documents, and track status updates.</p></div><button type="button" className="scholars-export" onClick={() => setExportOpen(true)} disabled={!filtered.length}><Download size={15} />Export CSV</button></header>
 
-      <div className="scholars-admin-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading ? '—' : value}</strong><small>{detail}</small></div><i><Icon size={20} /></i></article>)}</div>
+      <div className="scholars-admin-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !scholars.length) ? '—' : value}</strong><small>{detail}</small></div><i><Icon size={20} /></i></article>)}</div>
 
       {loadError && <div className="scholars-admin-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadScholars({ showLoader: true })}>Retry</button></div>}
 

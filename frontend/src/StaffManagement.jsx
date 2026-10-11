@@ -141,7 +141,7 @@ function StaffManagement({ token, onLogout }) {
 
   const fetchStaff = useCallback(async () => {
     const response = await fetch(`${API_BASE}/staff/management`, { headers: authHeaders(token) });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await response.json();
     if (!response.ok) throw new Error(payload.message || 'Unable to load staff accounts.');
     return payload;
   }, [token]);
@@ -240,7 +240,7 @@ function StaffManagement({ token, onLogout }) {
         headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
         body: JSON.stringify(body),
       });
-      const result = await response.json().catch(() => ({}));
+      const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Unable to save the staff account.');
       setNotice({ tone: 'success', message: result.message });
       setEditor(null);
@@ -293,7 +293,7 @@ function StaffManagement({ token, onLogout }) {
         headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
         body: JSON.stringify({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword }),
       });
-      const result = await response.json().catch(() => ({}));
+      const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Unable to change the staff password.');
       setPasswordTarget(null);
       setNotice({ tone: 'success', message: result.message });
@@ -325,7 +325,7 @@ function StaffManagement({ token, onLogout }) {
 
       <div className="staff-metrics">
         {metrics.map(([label, value, Icon, tone, helper]) => (
-          <article className={tone} key={label}><div><span>{label}</span><strong>{value}</strong><small>{helper}</small></div><i><Icon size={21} /></i></article>
+          <article className={tone} key={label}><div><span>{label}</span><strong>{loading || (error && !data.staff.length) ? '—' : value}</strong><small>{helper}</small></div><i><Icon size={21} /></i></article>
         ))}
       </div>
 
@@ -334,7 +334,7 @@ function StaffManagement({ token, onLogout }) {
 
       <section className="staff-directory">
         <div className="staff-directory-heading">
-          <div className="staff-directory-title"><i><UserRoundCog size={19} /></i><div><h3>Staff directory</h3><p>{visibleStaff.length} of {data.staff.length} accounts shown</p></div></div>
+          <div className="staff-directory-title"><i><UserRoundCog size={19} /></i><div><h3>Staff directory</h3><p>{error && !data.staff.length ? 'Records unavailable' : <>{visibleStaff.length} of {data.staff.length} accounts shown</>}</p></div></div>
           <div className="staff-filters">
             <label className="staff-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name or email" /></label>
             <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} aria-label="Filter by staff role">
@@ -352,7 +352,7 @@ function StaffManagement({ token, onLogout }) {
             <thead><tr><th>Staff member</th><th>Role</th><th>Status</th><th>Last login</th><th>Created</th><th>Actions</th></tr></thead>
             <tbody>
               {loading && !data.staff.length && <tr className="staff-empty"><td colSpan="6"><span className="staff-loader" />Loading staff accounts...</td></tr>}
-              {!loading && !visibleStaff.length && <tr className="staff-empty"><td colSpan="6"><UsersRound size={25} /><strong>No staff accounts found</strong><span>Adjust the filters or create a new staff account.</span></td></tr>}
+              {!loading && !error && !visibleStaff.length && <tr className="staff-empty"><td colSpan="6"><UsersRound size={25} /><strong>No staff accounts found</strong><span>Adjust the filters or create a new staff account.</span></td></tr>}
               {visibleStaff.map((member) => (
                 <tr key={member.id} className={!member.isActive ? 'is-inactive' : ''}>
                   <td data-label="Staff member"><strong>{member.fullName}{member.isCurrentUser && <em>You</em>}</strong><small>{member.email}</small></td>

@@ -398,7 +398,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...details, academicPeriodId: Number(selectedPeriodId), schoolId, billingAmount: Number(billingForm.billingAmount) }),
       });
-      const body = await response.json().catch(() => ({}));
+      const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to update billing details.');
       setBillingEditor(null);
       setOperationNotice({ tone: 'success', text: body.message });
@@ -509,7 +509,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
         <label className="billing-period-selector"><span>Processing period</span><select value={selectedPeriodId} disabled={loading || !activePeriods.length} onChange={(event) => { setSelectedPeriodId(event.target.value); setQueuedIds([]); setSourceSelection([]); setQueueSelection([]); setProcessingOverrides({}); closeProcessingOverride(); setOperationNotice(null); setPage(1); }}><option value="" disabled>Select active period</option>{activePeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}{period.isPrimary ? ' (Primary)' : ''}</option>)}</select></label>
       </header>
 
-      <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></article>)}</section>
+      <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !records.length) ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></article>)}</section>
 
       {loadError && <div className="billing-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadRecords({ showLoader: true })}>Retry</button></div>}
 
@@ -569,14 +569,14 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
       <section className="billing-transfer-board">
         <article className="billing-transfer-panel billing-source-panel">
           <header className="billing-transfer-header">
-            <div><strong>List of Scholars</strong><small>{sourceRecords.length} filtered record{sourceRecords.length === 1 ? '' : 's'}</small></div>
+            <div><strong>List of Scholars</strong><small>{loadError && !records.length ? 'Records unavailable' : <>{sourceRecords.length} filtered record{sourceRecords.length === 1 ? '' : 's'}</>}</small></div>
             <span><button type="button" onClick={() => setSourceSelection(movableSourceRecords.map(({ applicantId }) => applicantId))} disabled={!movableSourceRecords.length}>Select movable</button><button type="button" onClick={() => setSourceSelection([])} disabled={!sourceSelection.length}>Clear</button></span>
           </header>
           <div className="billing-queue-table billing-source-table">
             <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>Status</span></div>
             <div className="billing-queue-table-body">
               {loading && !records.length && <div className="billing-queue-empty"><span className="scholars-spinner" />Loading scholars…</div>}
-              {!loading && !sourceRecords.length && <div className="billing-queue-empty"><Search size={20} /><strong>No scholar records</strong><span>{hasFilters ? 'No records match the selected filters.' : 'Scholar records will appear here automatically.'}</span></div>}
+              {!loading && !loadError && !sourceRecords.length && <div className="billing-queue-empty"><Search size={20} /><strong>No scholar records</strong><span>{hasFilters ? 'No records match the selected filters.' : 'Scholar records will appear here automatically.'}</span></div>}
               {sourceRecords.map((record) => {
                 const canMove = canQueueForProcessing(record, isPayroll ? 'payroll' : 'billing');
                 const canOverride = canOverrideForProcessing(record, mode, userRole);
@@ -631,7 +631,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing', user
           <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Total payroll amount' : 'Total certification amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing}>{processing ? 'Processing…' : isPayroll ? 'Generate payroll list' : 'Generate certification list'}</button></footer>
         </article>
       </section>
-      {!isPayroll && <section className="billing-certification-history"><header><div><span>CERTIFICATION RECORDS</span><h3>Certification history</h3><p>Review generated Private-scholar lists and download a previous workbook again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount || 5000), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download XLSX</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>No certification history yet</strong><span>Generated Private-scholar certification lists will appear here.</span></div>}</section>}
+      {!isPayroll && !loadError && <section className="billing-certification-history"><header><div><span>CERTIFICATION RECORDS</span><h3>Certification history</h3><p>Review generated Private-scholar lists and download a previous workbook again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount || 5000), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download XLSX</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>No certification history yet</strong><span>Generated Private-scholar certification lists will appear here.</span></div>}</section>}
       {exportOpen && <CsvExportModal title={`Export ${isPayroll ? 'payroll' : 'billing'} queue`} description="Choose which scholar, academic, and processing fields to include in this CSV file." columns={billingExportColumns} rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `${mode}-records-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(queuedRecords, columns) })} />}
       {overrideCandidate && <div className="billing-override-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeProcessingOverride()}>
         <section className="billing-override-modal" role="dialog" aria-modal="true" aria-labelledby="billing-override-title" aria-describedby="billing-override-description">

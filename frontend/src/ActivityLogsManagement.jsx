@@ -63,7 +63,7 @@ function ActivityLogsManagement({ token }) {
         }
       } catch (loadError) {
         console.warn('Unable to load activity logs:', loadError);
-        if (active) setError('Activity logs could not be refreshed. Please try again.');
+        if (active) setError(loadError.message || 'Activity logs could not be refreshed. Use Retry or refresh this page.');
       } finally {
         if (active) setLoading(false);
       }
@@ -106,7 +106,7 @@ function ActivityLogsManagement({ token }) {
       <div className="audit-metrics">
         {metrics.map(([label, value, Icon, tone, helper]) => (
           <article className={tone} key={label}>
-            <div><span>{label}</span><strong>{value}</strong><small>{helper}</small></div>
+            <div><span>{label}</span><strong>{loading || (error && !data.logs.length) ? '—' : value}</strong><small>{helper}</small></div>
             <i><Icon size={20} /></i>
           </article>
         ))}
@@ -149,7 +149,7 @@ function ActivityLogsManagement({ token }) {
             <thead><tr><th>Activity</th><th>User</th><th>Type</th><th>Target</th><th>Date and time</th></tr></thead>
             <tbody>
               {loading && !data.logs.length && <tr className="audit-empty"><td colSpan="5"><span className="audit-loader" />Loading activity records...</td></tr>}
-              {!loading && !data.logs.length && <tr className="audit-empty"><td colSpan="5"><ClipboardList size={24} /><strong>No activity found</strong><span>New sign-ins and system actions will appear here.</span></td></tr>}
+              {!loading && !error && !data.logs.length && <tr className="audit-empty"><td colSpan="5"><ClipboardList size={24} /><strong>No activity found</strong><span>New sign-ins and system actions will appear here.</span></td></tr>}
               {data.logs.map((log) => (
                 <tr key={log.id}>
                   <td data-label="Activity"><strong>{formatAction(log.action)}</strong><small>{log.description}</small></td>

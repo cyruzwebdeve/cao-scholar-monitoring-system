@@ -200,17 +200,17 @@ export default function AnnouncementsManagement({ token }) {
       </header>
 
       <section className="announcement-metrics">
-        <article className="green"><div><span>Total announcements</span><strong>{loading ? '—' : metrics.total}</strong><small>All communication records</small></div><i><Megaphone size={20} /></i></article>
-        <article className="blue"><div><span>Published</span><strong>{loading ? '—' : metrics.published}</strong><small>Currently visible notices</small></div><i><Send size={20} /></i></article>
-        <article className="orange"><div><span>Scheduled</span><strong>{loading ? '—' : metrics.scheduled}</strong><small>Waiting for publication</small></div><i><CalendarClock size={20} /></i></article>
-        <article className="violet"><div><span>Drafts</span><strong>{loading ? '—' : metrics.drafts}</strong><small>Unpublished working copies</small></div><i><FilePenLine size={20} /></i></article>
+        <article className="green"><div><span>Total announcements</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.total}</strong><small>All communication records</small></div><i><Megaphone size={20} /></i></article>
+        <article className="blue"><div><span>Published</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.published}</strong><small>Currently visible notices</small></div><i><Send size={20} /></i></article>
+        <article className="orange"><div><span>Scheduled</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.scheduled}</strong><small>Waiting for publication</small></div><i><CalendarClock size={20} /></i></article>
+        <article className="violet"><div><span>Drafts</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.drafts}</strong><small>Unpublished working copies</small></div><i><FilePenLine size={20} /></i></article>
       </section>
 
       {notice && <div className={`announcement-notice ${notice.tone}`} role="status"><span>{notice.text}</span><button type="button" onClick={() => setNotice(null)} aria-label="Dismiss notification"><X size={14} /></button></div>}
-      {loadError && <div className="announcement-notice error"><TriangleAlert size={16} /><span>{loadError}</span><button type="button" onClick={() => loadAnnouncements({ showLoader: true })}>Retry</button></div>}
+      {loadError && <div className="announcement-notice error" role="status"><TriangleAlert size={16} /><span>{loadError}</span><button type="button" onClick={() => loadAnnouncements({ showLoader: true })}>Retry</button></div>}
 
       <section className="announcement-directory">
-        <div className="announcement-directory-heading"><div><i><Megaphone size={16} /></i><span><strong>Announcement directory</strong><small>Search and manage the complete publishing history.</small></span></div><em>{filtered.length} records</em></div>
+        <div className="announcement-directory-heading"><div><i><Megaphone size={16} /></i><span><strong>Announcement directory</strong><small>Search and manage the complete publishing history.</small></span></div><em>{loadError && !announcements.length ? 'Records unavailable' : <>{filtered.length} records</>}</em></div>
         <div className="announcement-filters">
           <label className="announcement-search"><span>Search</span><div><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Title or message" /></div></label>
           <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option><option value="published">Published</option><option value="scheduled">Scheduled</option><option value="draft">Draft</option><option value="archived">Archived</option></select></label>
@@ -223,7 +223,7 @@ export default function AnnouncementsManagement({ token }) {
           <div className="announcement-table-head"><span>Announcement</span><span>Audience</span><span>Priority</span><span>Status</span><span>Publish date</span><span>Updated</span><span>Action</span></div>
           <div className="announcement-table-body">
             {loading && !announcements.length && <div className="announcement-empty"><span className="scholars-spinner" />Loading announcements…</div>}
-            {!loading && !filtered.length && <div className="announcement-empty"><Megaphone size={22} /><strong>No announcements found</strong><span>{hasFilters ? 'Clear or adjust the filters.' : 'Create the first announcement to begin publishing notices.'}</span>{!hasFilters && <button type="button" onClick={openCreate}>Create announcement</button>}</div>}
+            {!loading && !loadError && !filtered.length && <div className="announcement-empty"><Megaphone size={22} /><strong>No announcements found</strong><span>{hasFilters ? 'Clear or adjust the filters.' : 'Create the first announcement to begin publishing notices.'}</span>{!hasFilters && <button type="button" onClick={openCreate}>Create announcement</button>}</div>}
             {filtered.map((announcement) => <article className="announcement-row" key={announcement.id}>
               <button type="button" className="announcement-title" onClick={() => openEdit(announcement)}>{announcement.imageData && <img src={announcement.imageData} alt="" />}<span><strong>{announcement.title}</strong><small>{announcement.content}</small></span></button>
               <span><UsersRound size={12} />{audienceLabels[announcement.audience] || announcement.audience}</span>
