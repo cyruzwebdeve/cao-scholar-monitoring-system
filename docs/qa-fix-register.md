@@ -1,0 +1,34 @@
+# QA Fix Register
+
+Updated: 2026-10-11 (Asia/Manila). This register covers the October 11 QA findings and their fixes. Detailed implementation, impacts, validation and rollback are recorded in [development-change-log.md](development-change-log.md). A deployed fix is not a substitute for a controlled authenticated acceptance test.
+
+| Finding | Fix or remaining work | Release | Status and evidence |
+| --- | --- | --- | --- |
+| QA-01 · P1 · First paper score missing | Exam-specific first-score entry, reasoned corrections, review history and explicit CAO publication. Applicant attendance, examination outcome and scholarship acceptance are separate; scores stay private before publication. | `bf432de` | Deployed; public frontend verified and Hostinger success reported by user. Local paper workflow passed; real authenticated acceptance test pending. |
+| QA-02 · P1 · Arbitrary text receives credit | Identification requires accepted answers; automatic banks reject essays/completion credit. Unsafe starts/submissions cannot write results. CAO must explicitly correct the 20-point bank. | `319d0e3` | Deployed; public frontend verified and backend success reported by user. Live legacy marking reported by user; saved bank/keys and real grading were not independently inspected. |
+| QA-03 · P1 · Timer unenforced | Persisted 45-minute start/deadline/question version; refresh and concurrent tabs cannot reset it. Server rejects expired submissions; page and submit dialog lock at expiry. | `9a30827` | Deployed; live timer bundle/API checked and backend/migration success reported by user. Controlled real timed attempt pending. |
+| QA-04 · P1 · Refresh loses answers | Per-edit same-browser drafts bound to authorized applicant/exam/slot/version/start/deadline; restore after refresh/tab reopening; leave warning and storage-failure guidance. Submission, expiry and sign-out cleanup. | Included in current QA-04/QA-05 release | Tested and authorized for deployment; hosted completion pending. Cross-device recovery excluded at user's request. |
+| QA-05 · P2 · Tester verification hangs | Ten-second status/unlock timeout including JSON-body reads; clear manual retry, retained code after timeout, request cancellation and stale-response guards. Failed/malformed/missing-token responses keep gate locked. | Included in current QA-04/QA-05 release | Tested and authorized for deployment; hosted completion pending. |
+| QA-06 · P2 · Tester-code contrast | Darken/verify the input foreground against its background and repeat accessibility checks. | — | Open; not changed by QA-05. |
+| QA-07 · P2 · Online result/status writes not atomic | Make online result creation and application-status advancement transactional, with retry/concurrency coverage. | — | Open. Duplicate-result guidance was improved by QA-03, but sequential writes remain. |
+| QA-08 · P2 · Submission leaks unpublished result | Return only submission receipt; applicant score/threshold remain hidden until CAO publication. | `bf432de` | Addressed with QA-01; regression tests passed and release deployed. Authenticated privacy acceptance test pending. |
+| QA-09 · P2 · Legacy payment/release routes outside scope | Review authorized retirement of legacy routes. Product workflow ends at official payroll-list generation. | — | Open; legacy payment/release code is explicitly retained unchanged outside scope. |
+| QA-10 · P3 · Raw connection errors | Provide actionable connection messages across remaining affected views. | Current QA-05 release covers tester gate | Partially addressed in tester gate only; broader error wording remains open. |
+| QA-11 · P3 · Outdated deployment guide | Replace retired hosting instructions with verified current Hostinger commands, build/migration sequencing and checks. | — | Open; this register does not replace the deployment guide. |
+
+## Verification baseline
+
+- QA-01: 196 backend checks passed, one existing opt-in database skip; 43 frontend tests; lint/build, schema/client and synthetic paper entry/correction/publication/applicant flows passed.
+- QA-02: 199 backend checks passed, one existing opt-in database skip; 43 frontend tests; lint/build and synthetic bank correction/save/mobile checks passed.
+- QA-03: 205 backend checks passed, one existing opt-in database skip; 45 frontend tests; schema validation/client generation, lint/build, deadline/concurrency and synthetic reload/expiry/mobile checks passed.
+- Current QA-04/QA-05 combined state: 205 backend checks passed, one existing opt-in database skip; 56 frontend tests; lint/build passed. Synthetic browser tests covered all draft answer types, refresh/tab reopening, failed/successful submission, expiry/sign-out cleanup, hanging status/unlock recovery, invalid authorization, cancellation and mobile overflow. The existing ExcelJS chunk-size warning remains.
+- Synthetic/local verification did not use real applicant data, production database queries or real tester codes. Public checks inspect deployed assets and API health. Provider success is user-reported where stated; authenticated live workflows remain acceptance-test work.
+
+## Reusable testing steps
+
+1. Confirm matching Hostinger frontend/backend revisions and any required migration, then refresh old tabs. QA-04/QA-05 introduce no new migration; QA-03's attempt fields must already be present.
+2. For paper: assign a test slot, mark Present, record a bounded score with remarks, verify applicant draft privacy, publish, correct/re-publish, and verify scholarship acceptance stays separate.
+3. For online: save a CAO-reviewed objective 20-point bank with keyed identification. Open a dedicated test attempt, change answers, refresh/reopen in the same browser and confirm answers, original bank and deadline persist.
+4. Verify a failed submission retains the draft, a successful submission clears it, and expiry prevents late writes. Confirm sign-out removes the draft. Use one examination tab; unavailable/cleared browser storage and other devices cannot recover it.
+5. Simulate delayed/offline tester status and unlock requests. After ten seconds verify useful errors/retry, unchanged locked access, and successful recovery only with valid authorization.
+6. Record acceptance-test outcomes and update this register with each future release. Preserve historical versions/results on rollback; do not generate fund-release or monetary-audit workflows.

@@ -178,4 +178,10 @@
 
 2026-10-11 | QA-03: persist the approved 45-minute online attempt start/deadline and question version; reopening/concurrent tabs cannot restart it, and late submissions/expired UI are blocked. Additive exam-slot migration preserves existing results and paper workflows. Backend 205 passed/one existing skip, frontend 45 passed, lint/build, Prisma generation/schema validation and synthetic browser checks passed. Local only; QA-04 answer recovery remains separate.
 
-2026-10-11 | Authorized QA-03 deployment: 45-minute persisted online attempts, deadline-bound tickets, expiry locks and additive slot migration through existing main/Hostinger pipeline. Local checks passed; hosted verification pending push. Existing results/paper workflows preserved; QA-04 recovery remains separate.
+2026-10-11 | Authorized QA-03 deployment: 45-minute persisted online attempts, deadline-bound tickets, expiry locks and additive slot migration through existing main/Hostinger pipeline. Local checks passed. Release 9a30827 pushed; new timer code verified live, API/database healthy, and user confirmed backend/migration success. Authenticated attempt testing remains pending. Existing results/paper workflows preserved; QA-04 recovery remains separate.
+
+2026-10-11 | QA-04: same-browser online answer drafts restore only for the authorized applicant/attempt/version/deadline; per-edit saving, leave warnings, storage-failure guidance and submission/expiry/sign-out cleanup preserve the 45-minute timer. No database migration or live record changes. Backend 205 passed/one existing skip, frontend 51 passed, lint/build and synthetic recovery checks passed. Local only.
+
+2026-10-11 | QA-05: tester status/unlock requests time out after 10 seconds, including body reads; readable errors and manual retry preserve locked access, cancel stale requests and restore unlock controls. Frontend 56 tests, lint/build and synthetic timeout/retry/mobile checks passed. No backend/database change or deployment. QA-04 same-browser recovery retained as requested.
+
+2026-10-11 | Authorized combined QA-04/QA-05 deployment and added docs/qa-fix-register.md for all findings, fixes, release evidence and future acceptance tests. Same-browser recovery retained; no new migration or live record changes. Local checks passed; hosted verification pending push.

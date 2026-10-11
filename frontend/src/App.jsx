@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
+import { clearExaminationDrafts } from './utils/examinationDraft';
 
 const ApplicantDashboard = lazy(() => import('./ApplicantDashboard'));
 const ApplicationPage = lazy(() => import('./ApplicationPage'));
@@ -45,6 +46,7 @@ const getRoleSubtitle = (role) => {
 
 const getInitialAuthState = () => {
   try {
+    try { clearExaminationDrafts(); } catch { /* Draft cleanup must not block authentication. */ }
     const stored = localStorage.getItem('authState');
     if (!stored) return { token: '', user: null };
 
@@ -84,6 +86,7 @@ function App() {
 
         if (response.status === 401) {
           if (!active) return;
+          try { clearExaminationDrafts(localStorage, { now: null }); } catch { /* Draft cleanup must not block sign-out. */ }
           localStorage.removeItem('authState');
           setAuthToken('');
           setUser(null);
@@ -93,6 +96,7 @@ function App() {
         if (!response.ok || !body?.user) return;
 
         if (active) {
+          try { clearExaminationDrafts(localStorage, body.user.role === 'Applicant' ? { applicantId: body.user.id } : { now: null }); } catch { /* Draft cleanup must not block authentication. */ }
           setUser(body.user);
           setActiveSection(getDefaultSectionForRole(body.user.role, body.user.sectionAccess));
           localStorage.setItem('authState', JSON.stringify({ token: authToken, user: body.user }));
@@ -134,6 +138,7 @@ function App() {
   };
 
   const handleLogin = (token, loggedUser) => {
+    try { clearExaminationDrafts(localStorage, loggedUser.role === 'Applicant' ? { applicantId: loggedUser.id } : { now: null }); } catch { /* Storage may be unavailable. */ }
     setAuthToken(token);
     setUser(loggedUser);
     setActiveSection(getDefaultSectionForRole(loggedUser?.role, loggedUser?.sectionAccess));
@@ -146,6 +151,7 @@ function App() {
     setUser(null);
     setActiveSection('Dashboard');
     setSidebarOpen(false);
+    try { clearExaminationDrafts(localStorage, { now: null }); } catch { /* Storage may be unavailable. */ }
     localStorage.removeItem('authState');
     setAuthChecking(false);
   }, [setActiveSection, setAuthChecking, setAuthToken, setSidebarOpen, setUser]);

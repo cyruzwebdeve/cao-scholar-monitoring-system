@@ -3,6 +3,7 @@ import './exam-source.css'
 import './styles/exam-responsive.css'
 import { API_BASE, authHeaders } from './services/api'
 import { createDeadlineClock, remainingAttemptSeconds } from './utils/examinationDeadline'
+import { draftContext, readDraft, saveDraftPatch, removeDraft, clearExaminationDrafts } from './utils/examinationDraft'
 
 // Questions are loaded only after the backend authorizes this applicant session.
 
@@ -168,6 +169,9 @@ export default function App({ token }) {
   const [questions, setQuestions] = useState([])
   const [examTicket, setExamTicket] = useState('')
   const [deadlineClock, setDeadlineClock] = useState(null)
+  const [recoveryContext, setRecoveryContext] = useState(null)
+  const [recoveryMessage, setRecoveryMessage] = useState('')
+  const [recoveryError, setRecoveryError] = useState('')
   const [examMetadata, setExamMetadata] = useState({ title: 'PGCEAP Qualifying Examination', instructions: '', academicYear: '' })
   const [submitting, setSubmitting] = useState(false)
   const [submissionError, setSubmissionError] = useState('')
@@ -193,6 +197,7 @@ export default function App({ token }) {
         const body = await response.json().catch(() => null)
         if (!response.ok) {
           if (response.status === 409 && String(body?.message || '').includes('already been submitted')) {
+            try { clearExaminationDrafts(localStorage, { now: null }) } catch { /* Storage may be unavailable. */ }
             setAlreadySubmitted(true)
             return null
           }
@@ -206,6 +211,19 @@ export default function App({ token }) {
         setQuestions(Array.isArray(body.questions) ? body.questions : [])
         setExamTicket(body.examTicket || '')
         setExamMetadata({ title: body.title, instructions: body.instructions, academicYear: body.examination?.academicYear || '' })
+        try {
+          const context = draftContext(body.attempt, body.examination?.id)
+          const restored = readDraft(context, body.questions, localStorage, Date.parse(body.attempt.serverTime))
+          setRecoveryContext(context)
+          if (restored) {
+            setMcAnswers(restored.multipleChoice)
+            setIdAnswers(restored.identification)
+            setTfAnswers(restored.trueFalse)
+            setRecoveryMessage('Your saved answers were restored from this browser. The original deadline still applies.')
+          } else {
+            setRecoveryMessage('Answers save in this browser as you type. Reopening restores them while this attempt remains active.')
+          }
+        } catch (error) { setRecoveryError(error.message || 'Answer recovery is unavailable. Keep this page open until submission.') }
       })
       .catch(error => { if (active) setAccessDeniedMessage(error.message) })
       .finally(() => { if (active) setCheckingSubmission(false) })
@@ -219,6 +237,33 @@ export default function App({ token }) {
     if (q.type === 'essay') return essayAnswer.trim().length > 0
     return false
   }, [mcAnswers, idAnswers, tfAnswers, essayAnswer])
+
+  useEffect(() => {
+    if ((!expired && !submitted && !alreadySubmitted) || !recoveryContext) return
+    try { removeDraft(recoveryContext) } catch { /* A blocked store cannot be cleaned. */ }
+  }, [expired, submitted, alreadySubmitted, recoveryContext])
+
+  const hasUnsentAnswers = Object.keys(mcAnswers).length > 0 || Object.values(idAnswers).some((answer) => answer.trim()) || Object.keys(tfAnswers).length > 0 || Boolean(essayAnswer.trim())
+  useEffect(() => {
+    if (!hasUnsentAnswers || submitted || alreadySubmitted || expired) return
+    const warn = (event) => { event.preventDefault(); event.returnValue = '' }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [hasUnsentAnswers, submitted, alreadySubmitted, expired])
+
+  const saveAnswer = (type, id, value) => {
+    if (expired || submitting) return
+    if (type === 'multipleChoice') setMcAnswers((previous) => ({ ...previous, [id]: value }))
+    else if (type === 'identification') setIdAnswers((previous) => ({ ...previous, [id]: value }))
+    else setTfAnswers((previous) => ({ ...previous, [id]: value }))
+    try {
+      if (!recoveryContext) throw new Error('Answer recovery is unavailable. Keep this page open until submission.')
+      const serverNow = Date.parse(recoveryContext.deadlineAt) - seconds * 1000
+      saveDraftPatch(recoveryContext, { [type]: { [id]: value } }, questions, localStorage, serverNow)
+      setRecoveryError('')
+      setRecoveryMessage('Answers saved in this browser. Submit before the deadline; a draft is not a submitted examination.')
+    } catch { setRecoveryError('Answers could not be saved in this browser. Keep this page open and submit before the deadline.') }
+  }
 
   const TOTAL = questions.length
   const answeredCount = questions.filter(q => isAnswered(q)).length
@@ -308,6 +353,7 @@ export default function App({ token }) {
           </div>
         </div>
       </header>
+      {!expired && <p role={recoveryError ? 'alert' : 'status'} className="px-6 py-2 text-sm">{recoveryError || recoveryMessage} Drafts are removed on submission, expiry or sign-out. Use one examination tab.</p>}
       <p role={expired ? 'alert' : 'status'} className="px-6 py-2 text-sm" style={{ backgroundColor: expired ? '#FFF2E2' : '#F3F8F5' }}>
         {expired ? 'Time expired. Answering and submission are locked. Contact CAO; late answers cannot be recorded.' : 'You have 45 minutes from the first question load. Refreshing does not restart the timer. Submit before time runs out; late answers are not accepted.'}
       </p>
@@ -459,7 +505,7 @@ export default function App({ token }) {
                       return (
                         <button
                           key={i}
-                          onClick={() => setMcAnswers(prev => ({ ...prev, [current.id]: i }))}
+                          onClick={() => saveAnswer('multipleChoice', current.id, i)}
                           className="flex items-center gap-4 w-full text-left px-5 py-3.5 rounded-xl transition-all duration-150 hover:shadow-sm group"
                           style={{
                             backgroundColor: selected ? '#E8F7EF' : '#FAFAFA',
@@ -496,7 +542,8 @@ export default function App({ token }) {
                     <input
                       type="text"
                       value={idAnswers[current.id] ?? ''}
-                      onChange={e => setIdAnswers(prev => ({ ...prev, [current.id]: e.target.value }))}
+                      onChange={e => saveAnswer('identification', current.id, e.target.value)}
+                      maxLength={500}
                       placeholder="Type your answer here..."
                       className="w-full px-5 py-3.5 rounded-xl text-sm transition-all outline-none"
                       style={{
@@ -522,7 +569,7 @@ export default function App({ token }) {
                       return (
                         <button
                           key={val}
-                          onClick={() => setTfAnswers(prev => ({ ...prev, [current.id]: val }))}
+                          onClick={() => saveAnswer('trueFalse', current.id, val)}
                           className="flex-1 py-5 rounded-2xl text-sm font-bold tracking-wider uppercase transition-all duration-150 hover:shadow-md active:scale-95"
                           style={{
                             backgroundColor: selected ? (val === 'TRUE' ? '#10A352' : '#EF4444') : '#FAFAFA',

@@ -140,6 +140,9 @@ test('an opened exam is scored with its original key after settings staff save a
   await getOnlineExamQuestions({ user: { id: 7 } }, opened);
   assert.equal(opened.statusCode, 200);
   assert.equal(opened.headers['Cache-Control'], 'no-store, private');
+  assert.equal(opened.body.attempt.applicantId, 7);
+  assert.equal(opened.body.attempt.id, slot.id);
+  assert.equal(opened.body.attempt.configurationId, slot.online_configuration_id);
   assert.ok(opened.body.questions.every((question) => !Object.hasOwn(question, 'answer')));
   const config = objectiveConfiguration();
   config.questions[0].answer = 0;

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
 import {
   API_BASE,
   saveSiteAccessToken,
   SITE_ACCESS_REQUIRED_EVENT,
 } from '../services/api';
+import { requestSiteAccess, siteAccessFailureMessage } from '../services/siteAccessRequest';
 import './SiteAccessGate.css';
 
 export default function SiteAccessGate({ children }) {
@@ -12,13 +13,18 @@ export default function SiteAccessGate({ children }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const requestController = useRef(null);
 
   const checkAccess = useCallback(async () => {
+    requestController.current?.abort();
+    const controller = new AbortController();
+    requestController.current = controller;
     setState('checking');
+    setError('');
     try {
-      const response = await fetch(`${API_BASE}/site-access/status`, { cache: 'no-store' });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(body?.message || 'Unable to verify private access.');
+      const { response, body } = await requestSiteAccess(`${API_BASE}/site-access/status`, { cache: 'no-store' }, controller);
+      if (requestController.current !== controller) return;
+      if (!response.ok || typeof body?.authorized !== 'boolean') throw new Error(body?.message || 'Unable to verify private access. Please try again.');
       if (body.authorized) {
         setState('authorized');
         setError('');
@@ -27,14 +33,20 @@ export default function SiteAccessGate({ children }) {
         setState('locked');
       }
     } catch (requestError) {
-      setError(requestError.message || 'The private access service is currently unavailable.');
+      if (requestController.current !== controller) return;
+      setError(siteAccessFailureMessage(requestError));
       setState('unavailable');
+    } finally {
+      if (requestController.current === controller) requestController.current = null;
     }
   }, []);
 
   useEffect(() => {
     const initialCheck = window.setTimeout(checkAccess, 0);
     const handleRequired = () => {
+      requestController.current?.abort();
+      requestController.current = null;
+      setSubmitting(false);
       setPassword('');
       setError('Your shared access session expired. Enter the password again.');
       setState('locked');
@@ -42,30 +54,40 @@ export default function SiteAccessGate({ children }) {
     window.addEventListener(SITE_ACCESS_REQUIRED_EVENT, handleRequired);
     return () => {
       window.clearTimeout(initialCheck);
+      requestController.current?.abort();
+      requestController.current = null;
       window.removeEventListener(SITE_ACCESS_REQUIRED_EVENT, handleRequired);
     };
   }, [checkAccess]);
 
   const unlock = async (event) => {
     event.preventDefault();
+    if (submitting) return;
     if (!password) return setError('Enter the tester access code provided by the project administrator.');
+    requestController.current?.abort();
+    const controller = new AbortController();
+    requestController.current = controller;
     setSubmitting(true);
     setError('');
     try {
-      const response = await fetch(`${API_BASE}/site-access/unlock`, {
+      const { response, body } = await requestSiteAccess(`${API_BASE}/site-access/unlock`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok || !body?.authorized) throw new Error(body?.message || 'Private access was not authorized.');
+      }, controller);
+      if (requestController.current !== controller) return;
+      if (!response.ok || body?.authorized !== true || (body.required !== false && (typeof body.token !== 'string' || !body.token))) throw new Error(body?.message || 'Private access was not authorized.');
       saveSiteAccessToken(body.token || '');
       setPassword('');
       setState('authorized');
     } catch (requestError) {
-      setError(requestError.message || 'Private access was not authorized.');
+      if (requestController.current !== controller) return;
+      setError(siteAccessFailureMessage(requestError));
     } finally {
-      setSubmitting(false);
+      if (requestController.current === controller) {
+        requestController.current = null;
+        setSubmitting(false);
+      }
     }
   };
 
@@ -103,6 +125,7 @@ export default function SiteAccessGate({ children }) {
                     id="tester-access-code"
                     name="deployment-tester-access-code"
                     type="password"
+                    disabled={submitting}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     autoComplete="off"

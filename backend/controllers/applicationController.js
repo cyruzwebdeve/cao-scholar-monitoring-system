@@ -1618,7 +1618,7 @@ const getOnlineExamQuestions = async (req, res) => {
     return res.json({
       examination: { id: exam.id, title: exam.title, academicYear: exam.academic_year },
       ...publicConfiguration(configuration),
-      attempt: { startedAt: attempt.online_started_at, deadlineAt: attempt.online_deadline_at, serverTime: new Date(), durationSeconds: 45 * 60 },
+      attempt: { id: attempt.id, applicantId, configurationId: configuration.id, startedAt: attempt.online_started_at, deadlineAt: attempt.online_deadline_at, serverTime: new Date(), durationSeconds: 45 * 60 },
       examTicket: createExamTicket({ applicantId, examId: exam.id, configurationId: configuration.id, deadlineAt: attempt.online_deadline_at }),
     });
   } catch (error) {

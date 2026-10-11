@@ -5,13 +5,97 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-11 - Deploy QA-04/QA-05 and Maintain the QA Fix Register
+
+### TL;DR
+- Authorized deployment of same-browser examination answer recovery and bounded tester verification through the existing main-branch Hostinger pipeline.
+- Added `docs/qa-fix-register.md` listing every QA finding, implemented fixes, releases, evidence, limitations and remaining work for future use.
+- No new migration, saved-bank change or historical-result mutation; QA-03's attempt schema remains a prerequisite. Cross-device recovery remains excluded as requested.
+- Release checks passed: 205 backend checks with one existing opt-in database skip, 56 frontend tests, lint/build and synthetic recovery/gate browser checks. Hosted verification follows push.
+
+### Objective, behavior and affected roles
+Deploy QA-04 and QA-05 for testing and preserve a reusable record of all fixes. Applicants recover answers only for their authorized timed attempt in the same browser, retaining its original deadline/version. Visitors receive bounded tester verification and retry guidance while failed authorization keeps access locked. Staff and future maintainers can use the register to distinguish deployed fixes from open findings and authenticated acceptance tests still required.
+
+### Implementation, files and data flow
+Remote main matched baseline `9a30827`. Publish the recovery metadata/controller integration assertion, App cleanup, examination page/draft utility/tests, tester gate/request helper/tests, matching change logs and new fix register. Exclude the broader local QA report/entry and original tester-gate screenshots. Existing main-branch Hostinger builds remain in use, with no duplicate/manual deployment or protected configuration changes.
+
+### Impact assessment
+- **API/database:** adds own-attempt recovery IDs to the existing secured response; no new endpoint, database field or migration. No live data query, answer submission, bank rewrite or result recalculation performed during release verification.
+- **Configuration/deployment:** matching frontend/backend required for recovery metadata. Existing domains, environment, delivery mode, schedule, thresholds and provider build commands retained. QA-03's already-deployed attempt fields remain required.
+- **Security/privacy/accessibility:** per-attempt draft isolation, expiry/submission/sign-out cleanup and status/alert messages retained. Gate stays locked on timeout/failure and ignores stale responses. No real codes, names, tokens or personal records are included in release documentation.
+- **Scope:** official payroll-list generation remains the endpoint. Legacy payment/release routes remain explicitly retained unchanged outside scope and tracked as open QA-09 work.
+
+### Validation, limitations, rollback and next work
+All required local checks passed as described in the fix entries and register, and whitespace/remote baseline checks passed. Public frontend assets and API health will be checked after push. Backend provider completion and authenticated workflows require confirmation; API health alone does not identify its revision. Same-browser recovery cannot survive cleared/unavailable storage or move to another device, and one editing tab is recommended. Gate timeout is fixed at ten seconds with manual retry and existing rate limits. Roll back matching application code if needed without altering results; clear namespaced local drafts before removing cleanup. Update the register after each release and acceptance test; QA-06/07/09/11 and broader QA-10 work remain open.
+
+## 2026-10-11 - QA-05: Bound Tester Verification and Allow Recovery
+
+### TL;DR
+- Tester status and unlock requests now have a 10-second deadline covering response headers and JSON body reading, preventing indefinite verification spinners.
+- Status failure offers Retry verification; unlock failure restores usable controls and preserves the entered code for retry. Access remains locked until a valid authorized response is received.
+- Pending requests are cancelled on unmount, newer checks and expired-session events; stale responses cannot authorize the gate. No backend, database or protected-code configuration changes.
+- All 56 frontend tests, lint/build and synthetic Chromium timeout/retry/fail-closed/mobile checks passed. Local only; QA-04 same-browser recovery is retained as requested and neither local fix is deployed yet.
+
+### Objective and previous/new behavior
+Resolve QA-05's hanging invitation-only checkpoint. Previously a pending status/unlock fetch or stalled JSON response could leave all users waiting without a time limit. Status already had a Retry control for ordinary failures, but a hang never reached it. Now both requests abort after 10 seconds and show connection/retry guidance. Malformed responses produce readable errors; ambiguous authorization and required unlock responses lacking a token remain locked. A failed unlock leaves the code in component memory and re-enables the form; it does not require repeating unrelated account credentials.
+
+### Affected roles, implementation and data flow
+All visitors pass through the tester gate before account sign-in. A shared request helper attaches an AbortController and retains its timeout through body parsing. The gate stores the current controller in a ref, aborts older requests, and ignores completions that no longer belong to the active request. Session-expiry events cancel pending unlocks, clear the code and restore the locked form. Unmount cancels pending work. Requests are manually retried rather than automatically looping against the server's existing rate limiter. Inputs are disabled while unlock is pending and duplicate submits are ignored.
+
+### Files and system areas
+`frontend/src/components/SiteAccessGate.jsx`, `frontend/src/services/siteAccessRequest.js`, timeout/request tests, both change logs and the local QA report status. The existing tester-token header installation, backend gate enforcement, roles, exam grading/timing and browser answer recovery remain unchanged.
+
+### Impact assessment
+- **API/database:** no endpoint, payload, backend validation, schema, migration or production data changes. Existing status/unlock routes and session tokens are reused.
+- **Configuration/deployment:** frontend-only timeout change; fixed 10-second policy, no environment, dependencies, DNS, hosting or tester-code changes. No deployment performed.
+- **Security/privacy:** fail-closed access retained and strengthened for malformed/ambiguous responses. No code/token logging or storage change. Unlock codes remain in component memory for retries and are cleared on success/expiry. Pending/stale requests cannot override expired-session locking.
+- **Accessibility:** existing status/alert roles and Retry button retained; timeout errors give clear instructions and unlock controls re-enable. The separate QA-06 input-contrast issue is not addressed here.
+- **Scope:** official payroll-list generation remains the endpoint. Legacy payment/release code is retained unchanged outside scope; no monetary workflow is added.
+
+### Validation and results
+All 56 frontend tests passed, including stalled-header and stalled-body timeout, fresh-controller retry, explicit cancellation and malformed JSON failures, plus all existing recovery/timer/settings tests. Lint and production build passed with the existing large ExcelJS chunk warning. Synthetic Chromium requests with an accelerated clock reproduced pending status/unlock calls, then verified timeout guidance, status retry, malformed-status recovery, preserved unlock input, invalid-code and missing-token rejection, expired-session cancellation, successful valid retry, no page errors and no 390px horizontal overflow. Deliberately held test routes generated cancellation notices at harness teardown; browser assertions and exit status passed. No real tester codes, accounts or hosted records were used. Backend tests were not repeated because backend code was unchanged by QA-05; QA-04's 205 passing checks and one existing database-dependent skip remain its prior validation evidence.
+
+### Limitations, rollback and recommended next work
+The fixed timeout can reject a slow but otherwise legitimate response; retry remains manual and existing rate limits still apply. Browser suspension can delay the visible timeout until JavaScript resumes. Hosted network behavior is not yet tested. Retain QA-04 same-browser recovery as instructed; no cross-device recovery is added. Deploy the local fixes when requested, then test the gate under delayed/offline requests without bypassing access. Revert the gate/helper changes to roll back this fix independently of QA-04; no database rollback is needed. Address QA-06 contrast separately.
+
+## 2026-10-11 - QA-04: Recover Online Examination Answers in the Same Browser
+
+### TL;DR
+- Online answers now save after each edit and restore after refresh or tab reopening in the same browser, following server authorization of the original timed attempt.
+- Recovery is bound to applicant, exam slot, question version, start and deadline. It neither resets the 45-minute clock nor records a result; expired, submitted and signed-out drafts are cleared.
+- Applicants receive restoration/save status, a visible storage-failure warning and a native leave/reload warning for unsent answers. No tokens, names, email addresses or answer keys are stored in drafts.
+- Backend regressions passed (205 checks, one existing database-dependent skip), all 51 frontend tests passed, and lint/build plus synthetic browser recovery checks passed. Local only; no database migration or deployment performed.
+
+### Objective and previous/new behavior
+Resolve QA-04's loss of unsent answers on refresh, tab closure or browser interruption. Previously every examination mount started with empty component state. QA-03 already preserved the attempt deadline and question version. Now the authorized question response supplies slot/applicant/configuration IDs alongside that existing timing metadata, and the browser restores only a matching unexpired draft. Multiple-choice, keyed identification and true/false edits are saved immediately to local browser storage. Reopening still obtains a fresh signed ticket from the server and loads the original immutable marking version; browser drafts never authorize access or determine the final score.
+
+### Roles, implementation and data flow
+Applicants see recovery status and keep their answers in the same browser profile. A namespaced key identifies one applicant/exam/slot/version; stored context also includes the original start/deadline, and values are filtered against the authorized question IDs/types/options. Per-question writes merge with the stored draft, rather than saving an entire stale page snapshot. Invalid JSON, mismatched metadata, unknown answers and expired records are rejected or removed. Identification inputs are bounded to the existing 500-character scoring limit. Browser storage exceptions keep answers in memory and show a warning instead of reporting a successful save. Unsent answers trigger the browser's native beforeunload prompt after interaction. Submission failures retain the draft; success, already-submitted recovery and foreground expiry remove it. Explicit sign-out and rejected sessions clear examination drafts; login/session validation removes other applicants' drafts and clears drafts for staff/scholar roles. Cleanup failures cannot prevent authentication or sign-out.
+
+### Files and system areas
+Application controller's secured attempt metadata and its integration assertions; `frontend/src/ExamPage.jsx`, `frontend/src/App.jsx`, `frontend/src/utils/examinationDraft.js`, draft tests, both change logs and the local QA report. Existing timer, grading, result publication, staff question editor and paper-examination workflows are retained.
+
+### Impact assessment
+- **API:** existing authenticated question response adds slot, applicant and configuration IDs to attempt metadata. No new endpoint, write request, grading contract or permission is introduced. Applicant answer keys remain omitted and responses remain private/no-store.
+- **Database:** no schema change, migration, server draft table, production data query, saved-bank mutation or result recalculation. Existing persisted attempt timing/version is reused.
+- **Configuration/deployment:** no dependencies, environment, hosting, DNS, threshold, schedule or delivery-mode changes. Deploy matching backend/frontend so recovery metadata is available. With older/missing metadata, the page remains usable but reports unavailable recovery rather than restoring an unbound draft.
+- **Security/privacy:** drafts store examination responses and internal context IDs in the current browser profile only, without account names, auth tokens or answer keys. Same-origin scripts/browser-profile users can access local storage; it is not encrypted remote storage. Drafts cannot restore after expiry and are pruned at next app use when the browser was closed at expiry. Sign-out/rejected sessions and account changes remove drafts as described above.
+- **Accessibility:** save/restoration messages use status roles and failures use alerts; browser leave prompts follow native behavior. Existing labeled controls and expiry locks remain. Synthetic mobile checks found no horizontal overflow at 390px.
+- **Scope:** official payroll-list generation remains the endpoint. Legacy payment/release code is retained unchanged outside scope; no fund-release or monetary-audit behavior is added.
+
+### Validation and results
+The full backend suite passed 205 checks with one existing opt-in real-database skip, using a dummy URL without production database access. All 51 frontend tests passed, including all answer types, per-question preservation, applicant/attempt/version/deadline isolation, malformed records, expiry boundaries, invalid-answer filtering, bounded identification text, cleanup and storage-denial propagation. Lint/build passed with the existing large ExcelJS chunk warning. Synthetic Chromium checks verified refresh restoration with native beforeunload confirmation, tab closure/reopening, restored identification text, failed-submission retention, successful submission of recovered answers, successful/expired cleanup, no page errors and no 390px horizontal overflow. The final browser run also confirmed explicit sign-out removes the draft, alongside the unit cleanup checks. No live applicant records or real answer keys were accessed.
+
+### Limitations, rollback and next work
+Recovery is limited to the same browser profile/origin with local storage available; other devices, incognito disposal, cleared browser data or denied/quota-exhausted storage cannot restore drafts. Use one examination tab: simultaneous edits can overwrite the same answer and cross-tab editing synchronization is not provided. A closed browser cannot execute deletion at the deadline; stale records are rejected and pruned on the next app visit. Native beforeunload warnings depend on browser interaction/support and do not block every SPA history change; already-saved answers remain recoverable. Expiry does not automatically submit a draft, and there is no cross-device recovery or timer reset. Hosted testing remains pending. Roll back matched frontend/backend code to remove recovery without touching examination results; existing namespaced drafts then expire but should be cleared before removing cleanup code. A separately scoped server draft store would be needed for cross-device recovery.
+
 ## 2026-10-11 - Deploy QA-03 Timed Online Attempts
 
 ### TL;DR
 - Authorized deployment of the approved 45-minute timer through the existing main-branch Hostinger pipeline.
 - Includes matching backend/frontend and the additive attempt-field migration; reopening cannot extend the deadline and expired submissions cannot create results.
 - Existing results and paper workflows are preserved. Previously opened untimed examinations must reopen; answer restoration remains outside this release under QA-04.
-- Local checks passed: 205 backend checks, one existing database-dependent skip, 45 frontend tests, lint/build, Prisma generation/schema validation, focused tests and synthetic browser expiry/reload/mobile checks. Hosted verification follows push.
+- Local checks passed: 205 backend checks, one existing database-dependent skip, 45 frontend tests, lint/build, Prisma generation/schema validation, focused tests and synthetic browser expiry/reload/mobile checks. Release `9a30827` was pushed; the timed frontend is verified live, API/database health is good, and the user confirmed backend and migration success.
 
 ### Objective, behavior and affected roles
 Deploy the preceding QA-03 implementation for applicant testing with the user's selected 45-minute duration. Applicants receive a saved deadline and version on their first authorized question load, and a locked form at expiry. CAO retains existing attendance and publication controls. This deployment adds no timer extension/reset action and does not automatically submit unsent answers or create a failed result.
@@ -27,7 +111,7 @@ Remote main matched baseline `319d0e3`. Publish the attempt service, ticket/cont
 - **Scope:** official payroll-list generation remains the endpoint. Legacy payment/release code is retained unchanged outside scope; no monetary workflow is added.
 
 ### Validation, limitations, rollback and next work
-All required local checks passed as documented below; remote baseline and whitespace checks passed. Public frontend assets and API health will be checked after push. Provider build/migration logs and authenticated attempt behavior require hosted confirmation; API health alone does not prove migration completion. The older Render connection is separate from Hostinger status. Refresh after both Hostinger services complete, test a dedicated applicant's first load/reload and timely submission, and inspect the migration log. Do not test by changing real applicant scores or resetting their attempts. QA-04 unsent-answer recovery remains unresolved. Roll back matching application code if required while retaining additive fields and existing results; rollback restores the advisory timer weakness.
+All required local checks passed as documented below; remote baseline and whitespace checks passed. Push advanced main from `319d0e3` to `9a30827`. Public checks found main bundle `index-DU3lJgKo.js` and `ExamPage-BgSbO3vi.js` containing persisted-deadline handling, no-reset guidance and expiry locks. Frontend and API health returned HTTP 200 with the database connected. The user confirmed Hostinger backend deployment and migration success for this release. Provider logs and authenticated attempt behavior were not independently inspected; API health alone does not prove migration completion. The older Render connection is separate from Hostinger status. Refresh after both Hostinger services complete, test a dedicated applicant's first load/reload and timely submission, and inspect the migration log. Do not test by changing real applicant scores or resetting their attempts. QA-04 unsent-answer recovery remains unresolved. Roll back matching application code if required while retaining additive fields and existing results; rollback restores the advisory timer weakness.
 
 ## 2026-10-11 - QA-03: Persist and Enforce 45-Minute Online Attempts
 
