@@ -572,6 +572,7 @@ const ANNOUNCEMENT_AUDIENCES = ['all', 'applicants', 'scholars', 'applicants_sch
 const ANNOUNCEMENT_PRIORITIES = ['normal', 'high', 'urgent'];
 const ANNOUNCEMENT_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
 const { normalizeFacebookPostUrl } = require('../services/announcementLinks');
+const { validateAnnouncementImage, latestPriorityAnnouncement } = require('../services/announcementPolicy');
 
 const serializeAnnouncement = (announcement) => ({
   id: announcement.id,
@@ -592,16 +593,18 @@ const serializeAnnouncement = (announcement) => ({
   updatedAt: announcement.updated_at,
 });
 
-const parseAnnouncementPayload = (body) => {
+const parseAnnouncementPayload = (body, existing = null) => {
+  const postNow = body.action === 'post-now';
+  if (body.action && !postNow) return { error: 'Select a valid announcement action.' };
   const title = String(body.title || '').trim();
   const content = String(body.content || '').trim();
   const audience = String(body.audience || 'all').toLowerCase();
   const priority = String(body.priority || 'normal').toLowerCase();
-  const status = String(body.status || 'draft').toLowerCase();
-  const publishAt = body.publishAt ? new Date(body.publishAt) : null;
+  const status = postNow ? 'published' : String(body.status || 'draft').toLowerCase();
+  const publishAt = !postNow && body.publishAt ? new Date(body.publishAt) : null;
   const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
   const imageName = body.imageName ? String(body.imageName).trim().slice(0, 255) : null;
-  const imageType = body.imageType ? String(body.imageType).trim().slice(0, 100) : null;
+  let imageType = body.imageType ? String(body.imageType).trim().slice(0, 100) : null;
   const imageData = body.imageData ? String(body.imageData) : null;
   const rawExternalUrl = String(body.externalUrl || '').trim();
   const externalUrl = normalizeFacebookPostUrl(rawExternalUrl);
@@ -616,10 +619,14 @@ const parseAnnouncementPayload = (body) => {
   if (rawExternalUrl && !externalUrl) return { error: 'Enter a valid HTTPS Facebook post URL.' };
   const isImageDataUrl = /^data:image\/(jpeg|png|webp|gif);base64,/i.test(imageData || '');
   if (imageData && !isImageDataUrl && !isBlobUrl(imageData)) return { error: 'Upload a valid JPG, PNG, WEBP, or GIF image.' };
-  if (isImageDataUrl && imageData.length > 4.5 * 1024 * 1024) return { error: 'Announcement image must not exceed 3 MB.' };
-  const effectivePublishDate = publishAt || new Date();
-  if (expiresAt && expiresAt <= effectivePublishDate) return { error: 'Expiration must be later than the publishing date.' };
-  return { title, content, audience, priority, status, publishAt, expiresAt, imageName, imageType, imageData, externalUrl };
+  if (isImageDataUrl) {
+    try { imageType = validateAnnouncementImage(imageData, imageType); }
+    catch (error) { return { error: error.message }; }
+  }
+  const preservesWindow = existing && !postNow && existing.status === status && +new Date(existing.publish_at) === +new Date(publishAt);
+  const effectivePublishDate = publishAt || (existing && !postNow ? existing.published_at : null) || new Date();
+  if (expiresAt && expiresAt <= effectivePublishDate && !(['draft', 'archived'].includes(status) || (preservesWindow && +new Date(expiresAt) === +new Date(existing.expires_at)))) return { error: 'Expiration must be later than the publishing date.' };
+  return { title, content, audience, priority, status, publishAt, expiresAt, imageName, imageType, imageData, externalUrl, postNow };
 };
 
 const persistAnnouncementImage = async (payload) => {
@@ -665,22 +672,12 @@ const getLatestPublishedAnnouncement = async (req, res) => {
         ? ['all', 'applicants', 'applicants_scholars']
         : ['all', 'admins'];
     const now = new Date();
-    const availableAnnouncements = await prisma.announcements.findMany({
-      where: {
+    const announcement = await latestPriorityAnnouncement(prisma, {
         status: 'published',
         audience: { in: roleAudiences },
         OR: [{ publish_at: null }, { publish_at: { lte: now } }],
         AND: [{ OR: [{ expires_at: null }, { expires_at: { gt: now } }] }],
-      },
-      orderBy: [{ published_at: 'desc' }, { updated_at: 'desc' }],
-      take: 50,
-    });
-    const priorityWeight = { urgent: 3, high: 2, normal: 1 };
-    const announcement = availableAnnouncements.sort((left, right) => {
-      const priorityDifference = (priorityWeight[right.priority] || 0) - (priorityWeight[left.priority] || 0);
-      if (priorityDifference) return priorityDifference;
-      return new Date(right.published_at || right.updated_at) - new Date(left.published_at || left.updated_at);
-    })[0] || null;
+      });
     return res.json({ announcement: announcement ? serializeAnnouncement(announcement) : null });
   } catch (error) {
     console.error(error);
@@ -719,16 +716,21 @@ const createAnnouncement = async (req, res) => {
 };
 
 const updateAnnouncement = async (req, res) => {
+  let uploadedImage = null;
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'A valid announcement is required.' });
     const existing = await prisma.announcements.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ message: 'Announcement not found.' });
-    const payload = parseAnnouncementPayload(req.body);
+    if (typeof req.body.updatedAt !== 'string' || !Number.isFinite(+new Date(req.body.updatedAt))) return res.status(400).json({ message: 'Reload the announcement before editing or posting it.' });
+    if (+new Date(existing.updated_at) !== +new Date(req.body.updatedAt)) return res.status(409).json({ message: 'This announcement changed. Reload before saving your edits.' });
+    const payload = parseAnnouncementPayload(req.body, existing);
     if (payload.error) return res.status(400).json({ message: payload.error });
     const storedImage = await persistAnnouncementImage(payload);
-    const announcement = await prisma.announcements.update({
-      where: { id },
+    if (storedImage !== payload.imageData) uploadedImage = storedImage;
+    const announcement = await prisma.$transaction(async (tx) => {
+      const changed = await tx.announcements.updateMany({
+      where: { id, updated_at: new Date(req.body.updatedAt) },
       data: {
         title: payload.title,
         content: payload.content,
@@ -737,18 +739,25 @@ const updateAnnouncement = async (req, res) => {
         status: payload.status,
         publish_at: payload.publishAt,
         expires_at: payload.expiresAt,
-        published_at: payload.status === 'published' ? existing.published_at || new Date() : existing.published_at,
+        published_at: payload.postNow ? new Date() : payload.status === 'published' ? existing.published_at || new Date() : existing.published_at,
+        updated_at: new Date(Math.max(Date.now(), +new Date(existing.updated_at) + 1)),
         image_name: payload.imageName,
         image_type: payload.imageType,
         image_data: storedImage,
         external_url: payload.externalUrl,
       },
-    });
+      });
+      if (changed.count !== 1) throw Object.assign(new Error('This announcement changed. Reload before saving your edits.'), { status: 409 });
+      return tx.announcements.findUnique({ where: { id } });
+    }, { isolationLevel: 'Serializable' });
+    uploadedImage = null;
     if (existing.image_data && existing.image_data !== storedImage) {
       await deleteBlob(existing.image_data, process.env.ANNOUNCEMENT_BLOB_READ_WRITE_TOKEN);
     }
     return res.json({ message: 'Announcement updated successfully.', announcement: serializeAnnouncement(announcement) });
   } catch (error) {
+    if (uploadedImage) await deleteBlob(uploadedImage, process.env.ANNOUNCEMENT_BLOB_READ_WRITE_TOKEN);
+    if (error.status === 409 || ['P2034', 'P2002'].includes(error.code)) return res.status(409).json({ message: 'This announcement changed. Reload before saving your edits.' });
     console.error(error);
     if (error instanceof BlobStorageConfigurationError) return res.status(error.statusCode).json({ message: error.message });
     return res.status(500).json({ message: 'Server error updating the announcement.' });

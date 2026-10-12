@@ -7229,6 +7229,7 @@
 .announcement-status.published { background: #e6f6ec; color: #16844a; }
 .announcement-status.scheduled { background: #e9f2ff; color: #3578bd; }
 .announcement-status.draft { background: #fff2df; color: #a66a19; }
+.announcement-status.expired { background: #fff2df; color: #795114; }
 .announcement-status.archived { background: #eef1ef; color: #6d7971; }
 .announcement-edit { display: inline-flex; align-items: center; gap: 4px; padding: 6px 7px; border: 1px solid #abd6ba; border-radius: 6px; background: #eef8f2; color: #16804a; font: inherit; font-size: 8px; font-weight: 900; cursor: pointer; }
 .announcement-empty { min-height: 190px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 7px; color: #89958d; font-size: 9px; text-align: center; }
@@ -7287,7 +7288,7 @@
 .announcement-preview-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 9px; color: #187c49; font-size: 9px; font-style: normal; font-weight: 900; }
 .portal-announcement-image { display: block; width: 100%; max-height: 260px; margin: 13px 0 4px; border-radius: 10px; object-fit: cover; }
 .announcement-form-error { display: flex; align-items: center; gap: 7px; margin-top: 12px; padding: 9px 10px; border: 1px solid #efb7b3; border-radius: 7px; background: #fff4f3; color: #ae3e38; font-size: 8px; }
-.announcement-editor > footer { min-height: 61px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 20px; border-top: 1px solid #e3eae5; }
+.announcement-editor > footer { min-height: 61px; flex-wrap: wrap; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid #e3eae5; }
 .announcement-editor > footer button { min-height: 35px; padding: 0 13px; border-radius: 7px; font: inherit; font-size: 9px; font-weight: 900; cursor: pointer; }
 .announcement-editor > footer .secondary { border: 1px solid #d4ded7; background: #fff; color: #607067; }
 .announcement-editor > footer .primary { border: 1px solid #158149; background: #188c50; color: #fff; }

@@ -5,6 +5,90 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-12 - Deploy Announcement Fixes and Post Now for Testing
+
+### TL;DR
+- Authorized matching frontend/backend deployment of eight announcement QA fixes and explicit Post Now, Save Draft and Schedule actions.
+- CAO editors receive revision conflict/reload and explicit PHT dates; applicants/scholars receive reliable error/urgent-notice delivery and expiry semantics.
+- Local verification passed: 241 backend checks/one existing database skip, 72 frontend checks, lint/build and synthetic action/portal/conflict/timezone/mobile checks.
+- No new migration/configuration/history conversion. Publication and live frontend/API checks are in progress; provider backend revision confirmation remains separate.
+
+### Objective, behavior and implementation
+Publish the tested announcement fix and operator checklist through existing main/Hostinger delivery, including matching policy/controller and editor/portal/time utility/styles/test changes, dated audit and both change logs/register. Post Now clears future publishing dates, stale edits cannot overwrite, urgent notice priority precedes selection, personal notices no longer hide CAO announcements, expired archives retain dates and date interpretation is PHT. Full implementation/data flow is in the following entry. Include docs/qa/2026-10-12/announcement-acceptance-checklist.md; exclude original October 11 local QA report/screenshots.
+
+### Impacts
+- **API:** updatedAt required on edits; action post-now additive. Matching frontend/backend release required; stale clients must refresh. Permissions/gate/audience unchanged.
+- **Database:** no new migration, seed, deadline reset, notice data conversion/deletion or direct production query; historical records and existing storage separation retained.
+- **Configuration/deployment:** existing main-branch Hostinger builds; no environment values, dependencies, domains, ports or protected provider settings changed.
+- **Security/privacy/accessibility:** public verification is asset/health only; no real notice/upload/tester credential used. Existing role controls retained, bounded MIME/byte validation added, named wrapping actions and sampled mobile/error clarity verified; no full accessibility/security claim.
+- **Product scope:** supported process ends at official payroll-list generation. Personal updates/legacy payout retirement retained; no monetary-audit workflow added.
+
+### Validation, limitations, rollback and next work
+Application changes are unchanged since completed regression/lint/build/browser validation; whitespace/local document links pass. Publication and public verification will be recorded after push. Health does not identify backend revision or prove protected content/cloud-storage/concurrency behavior. Confirm Hostinger backend success, refresh tabs and use the checklist with dedicated notices/staging for >50/concurrent/error/size fixtures. Roll back matching frontend/backend without schema rollback, preserving notice history/UTC values/private files. Next: complete both builds and record controlled authenticated acceptance.
+
+## 2026-10-12 - Fix Announcement QA and Add Explicit Post Now
+
+### TL;DR
+- Added Post Now, Save Draft and Schedule; Post Now immediately publishes new/draft/scheduled notices and clears future publishing dates while retaining audience/priority and validating expiry.
+- Fixed urgent notice visibility/selection, stale edit overwrites, expired archival, applicant load failures, server image-size mismatch and misleading published counts; dates now explicitly use PHT/UTC+8.
+- Existing notices/history, permissions, public image/private-document separation and list-generation scope retained; no schema/migration, environment or dependency change.
+- Validation passed: 241 backend checks/one existing database skip and 72 frontend checks; lint/build and synthetic browser action/conflict/archive/portal/timezone/mobile checks passed. Deployment authorized; publication evidence is tracked below.
+
+### Objective and previous/new behavior
+Resolve ANN-01–ANN-08 and the user's missing immediate-post action. Previously publication was hidden behind a status selector; priority sorting operated only after a newest-50 cap, personal scholar updates hid general notices, updates overwrote without a revision, historic expiry validation rejected some archives, applicant announcement errors looked empty, raw/encoded image caps differed, published counts claimed visibility and schedule inputs depended on browser timezone.
+
+The management editor now provides explicit Post Now, Save Draft and Schedule plus Save changes for existing records. Actions validate required title/content; Schedule requires a publish date. Post Now sends action post-now, which the server treats as authoritative published status with publish_at=null and a fresh published_at. It rejects expired immediate posts rather than silently removing expiry. Audience, priority, image and link remain part of validated payloads. Confirmation requires a returned announcement ID/revision; unconfirmed failures keep editor/input and do not automatically replay writes. Existing-edit Enter submission selects Save changes rather than Draft. Footer actions wrap on small screens.
+
+### Roles, implementation and data flow
+Existing announcement-authorized CAO staff use management; applicant/scholar readers retain audience filtering. latestPriorityAnnouncement queries eligible urgent, then high, then normal notices, each ordered by publication/update/ID, before limiting to one record; recency no longer hides an older urgent record. The scheduler remains request-triggered and portal polling remains five minutes. Scholar portals show a separate CAO announcement card when a personal update exists, retaining both messages/images/links.
+
+Updates require updatedAt. A preliminary check avoids unnecessary uploads for already stale forms; a Serializable transaction conditionally updates that exact revision, increments updated_at monotonically and reads the saved record. Zero matches/serialization conflicts return 409. Rejected edits retain unsaved input and offer an explicit Reload saved version action, labeled as replacing unsaved edits. A newly uploaded update candidate is removed on rejected/failed updates; existing image replacement/removal cleanup remains after commit. Create-upload failure compensation is not expanded by this fix.
+
+Expiry validation permits draft/archive historical records and uses the original publication window for existing notices. Unchanged editor publish/expiry inputs retain their original serialized timestamp precision rather than truncating them to minute-level fields. New immediate publications require valid future expiry. Dates are entered/formatted as Philippine Standard Time, converting only at the UI/API boundary; stored UTC timestamps are not rewritten. Published records replaces the misleading Currently visible metric; Expired badges/filter distinguish expired published rows without changing stored history status.
+
+Applicant announcement reads now distinguish failures from empty success, retain a last-loaded notice with stale guidance and offer Retry announcements. The existing expiry timer, gate, role controls and other portal data flows remain. Image data is decoded before enforcing the same 3 MiB cap as the frontend; supported JPEG/PNG/WEBP/GIF MIME types and declared/data-URL agreement are checked before storage. Existing Facebook HTTPS host/scheme validation remains.
+
+### Changed files/areas and impacts
+Changed applicationController, AnnouncementsManagement, ApplicantDashboard, ScholarDashboard and admin styles; added announcementPolicy service and announcementTime utility. Added backend announcementIntegration and frontend announcementTime tests. Added the dated announcement acceptance checklist and updated report/fix register/both change logs.
+
+- **API:** create/update accept optional action post-now; update requires updatedAt and returns 400 for missing revision, 409 for conflicts. Matching frontend/backend required; stale clients must reload. Latest selection keeps its response shape/audience/expiry contract. No new endpoint or permission expansion.
+- **Database:** no schema, migration, seed, conversion/deletion of notice records or production queries during validation. Existing updated_at supports revision control; UTC date storage retained. Conflict uploads may be cleaned up through the existing public storage token, never private documents.
+- **Configuration/dependencies:** no new package, environment value, provider build/port or hosting setting. Existing Blob and mail systems unchanged.
+- **Security/privacy:** server validates byte limits and MIME agreement; this is not magic-byte/malicious-image scanning. Gate/auth/section/rate-limit controls retained; no real account, token, personal document or live notice used in tests. Facebook validation does not establish CAO page ownership.
+- **Accessibility:** explicit named native actions, error alert/reload guidance, clear date zone and wrapping footer; sampled 390px page has no horizontal overflow. No full accessibility certification.
+- **Deployment:** user authorized matching frontend/backend publication via existing main/Hostinger pipeline; no new migration. Deployment evidence is recorded separately below; local test success is not hosted acceptance.
+- **Product scope:** personal list notifications retained unchanged; general announcement separation does not extend into fund release. Legacy payout retirement, historical data and operational logs remain as before.
+
+### Validation and results
+Root npm test passed 241 backend checks with one existing opt-in database migration skip, plus 72 frontend checks (313 passes). Backend cases cover due schedule/audience/expiry, normal draft/edit and invalid fields, local route permissions, >50 priority regression, expired archival, new/scheduled Post Now, stale/competing edit CAS, missing revisions/expired immediate post, exact 3 MiB boundaries/MIME mismatch and conflict upload compensation. Frontend time/display regressions passed; final frontend suite rerun after unchanged-date precision handling also passed. Lint/build/whitespace passed; existing large ExcelJS chunk warning remains and 11 route fallbacks generated.
+
+Synthetic Chromium in Manila/UTC browser contexts verifies identical PHT conversion, Schedule validation, Post Now for new/existing records, audience/priority preservation, revision payload/conflict/input retention/manual reload, archival preserving original expiry and 390px wrapping. Applicant failed-load/manual recovery and separate urgent scholar notice beside a read personal update passed; completed runs have no page errors. Initial test fixture auth/environment setup and generated Python/select/capitalization expectations were corrected; no real service/storage mutation occurred. A scoped edit initially affected the profile fetch branch; it was corrected so only announcement reads use the new error handling before final checks.
+
+### Limitations, rollback and recommended next work
+No authenticated hosted acceptance, actual PostgreSQL competing-edit execution, real public Blob upload or full accessibility/security/performance test was performed. Five-minute polling/request-triggered scheduling remain; one general notice per audience is selected by priority, not a feed. Create-upload/DB failure can retain an orphan object as before; broader compensation/signature validation and Facebook ownership/path policies remain separate work. Stored expiry display/filter updates use ordinary directory refresh; portal timers remove loaded expired notices.
+
+Rollback matching frontend/backend together without database rollback; reverting restores reviewed weaknesses and removes explicit actions. Do not revert date storage or delete historical notices/private files. Next: finish authorized deployment, confirm both Hostinger builds, refresh tabs and execute the acceptance checklist with dedicated notices/staging for competing edits, >50 fixtures, request blocking and direct API size tests. Record cloud upload and protected portal results separately from public asset/health evidence.
+
+## 2026-10-12 - Announcement Feature QA Review
+
+### TL;DR
+- Audited announcement creation/editing, schedules, audience/priority, expiry/archive, images/links, permissions and applicant/scholar display without modifying application behavior.
+- Eight issues reproduced: hidden urgent notices, recency-capped priority selection, stale overwrites, expired archive rejection, silent applicant errors, oversized server image acceptance, misleading visible counts and implicit timezone.
+- Seven temporary controller/route probes, four existing URL checks and synthetic browser scenarios completed; public frontend/API health and outer tester-gate checks passed.
+- Added report/register evidence only; no fix, deployment, production mutation or real upload. Protected hosted/storage/database-concurrency acceptance remains unverified.
+
+### Objective, behavior, roles and implementation
+Respond to the request to QA Announcements across its lifecycle. CAO staff publish audience-specific notices consumed by applicant/scholar portals; no behavior changed. Reviewed controllers, route/field validators, public Blob persistence, URL normalization, management editor, portal polling/expiry and schema. Temporary source-backed controller probes use query-aware in-memory announcement storage, mock accounts/email and a local HTTP server. Browser fixtures exercise scheduling/save, image rejection, counts and portal visibility/errors in Manila/UTC. Added docs/qa/2026-10-12/announcement-review.md and updated register/change logs; source/test files unchanged.
+
+### Impacts
+- **API/database/configuration/deployment:** no endpoint/contract/schema/migration/seed, environment-value, dependency, build or provider change. No deployment or announcement write to production; read-only health uses its existing connectivity probe, with no direct production DB query.
+- **Security/privacy:** no credential, real account/person, private document or live image used. Authenticated permission checks run against local mock accounts; public unauthenticated requests verify only the existing tester gate. No access expansion.
+- **Accessibility:** existing native form controls and text rendering reviewed; sampled 390px management layout has no overflow and completed browser checks no page errors. No full accessibility certification.
+- **Product scope/storage:** announcement cloud storage remains public, scholar document storage private. Legacy payout retirement and list-generation endpoint are unchanged; no monetary-audit process introduced.
+
+### Validation, results, limitations and next work
+Seven controller/route probes completed, including four positive reproductions of undesired behavior, not seven successful feature assertions. Normal CRUD/validation/audience/expiry/due schedule and sampled management/create permissions passed. Four named link regressions passed. Browser reproduced four further issue categories; scheduled saves and client image-type rejection passed. Temporary harness Status selection and sandboxed link-test reporting were corrected before final verification. Public frontend/API healthy; unauthenticated announcement GETs returned 401 SITE_ACCESS_REQUIRED. The dated report records fixture conditions, severities, expected changes and limits; no authenticated hosted content, real Blob upload, SQL race, full MIME/accessibility/performance or provider setting check. Rollback is documentation-only. Next: fix urgent delivery and stale/expired lifecycle integrity, then failure/size validation and count/timezone clarity when authorized; add focused regressions and staged/controlled hosted acceptance.
+
 ## 2026-10-12 - Deploy Examination Boundary Fixes for Acceptance Testing
 
 ### TL;DR

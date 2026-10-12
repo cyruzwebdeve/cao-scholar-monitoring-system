@@ -92,6 +92,8 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [latestAnnouncement, setLatestAnnouncement] = useState(null);
+  const [announcementError, setAnnouncementError] = useState('');
+  const [announcementRefresh, setAnnouncementRefresh] = useState(0);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState("");
   const [dashboardReloadKey, setDashboardReloadKey] = useState(0);
@@ -160,18 +162,19 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   useEffect(() => {
     let active = true;
     const loadAnnouncement = () => fetch(`${API_BASE}/announcements/latest`, { headers: authHeaders(token), cache: 'no-store' })
-      .then((response) => (response.ok ? response.json() : null))
+      .then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.message || 'Unable to load announcements.'); return body; })
       .then((body) => {
         if (!active) return;
         const announcement = body?.announcement || null;
         const expiresAt = announcement?.expiresAt ? new Date(announcement.expiresAt).getTime() : null;
         setLatestAnnouncement(Number.isFinite(expiresAt) && expiresAt <= Date.now() ? null : announcement);
+        setAnnouncementError('');
       })
-      .catch(() => {});
+      .catch((error) => { if (active) setAnnouncementError(error.message || 'Announcements could not be loaded.'); });
     loadAnnouncement();
     const stopRefreshing = subscribeToVisibleRefresh(loadAnnouncement, { intervalMs: ROUTINE_DATA_REFRESH_MS });
     return () => { active = false; stopRefreshing(); };
-  }, [token]);
+  }, [token, announcementRefresh]);
 
   useEffect(() => {
     const expirationTime = latestAnnouncement?.expiresAt
@@ -520,6 +523,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
               </div>
               <FileText size={20} className="applicant-heading-icon" />
             </div>
+            {announcementError && <div role="status"><p>{announcementError} Existing notices may be out of date.</p><button type="button" onClick={() => setAnnouncementRefresh((value) => value + 1)}>Retry announcements</button></div>}
             {showExamSchedule && (
               <div className={`applicant-exam-announcement${examActivated ? '' : ' pending'}`}>
                 <div className="applicant-exam-announcement-heading">
@@ -552,7 +556,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
               <div className="applicant-announcement-empty">
                 <FileText size={22} />
                 <div>
-                  <strong>No new announcements</strong>
+                  <strong>{announcementError ? 'Announcements unavailable' : 'No new announcements'}</strong>
                   <span>Official notices from CAO will appear here.</span>
                 </div>
               </div>

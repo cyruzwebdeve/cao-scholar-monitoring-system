@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
+import { toManilaDateTimeInput, fromManilaDateTimeInput, announcementDisplayStatus } from './utils/announcementTime';
 import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 
 const audienceLabels = {
@@ -38,19 +39,11 @@ const emptyForm = () => ({
   externalUrl: '',
 });
 
-const toDateTimeInput = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
-};
-
 const formatAnnouncementDate = (value, fallback = 'Not set') => {
   if (!value) return fallback;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return fallback;
-  return date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return date.toLocaleString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' PHT';
 };
 
 export default function AnnouncementsManagement({ token }) {
@@ -64,6 +57,8 @@ export default function AnnouncementsManagement({ token }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [editingRevision, setEditingRevision] = useState(null);
+  const [editingDates, setEditingDates] = useState(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [notice, setNotice] = useState(null);
@@ -106,13 +101,15 @@ export default function AnnouncementsManagement({ token }) {
   const filtered = useMemo(() => announcements.filter((announcement) => {
     const search = `${announcement.title} ${announcement.content} ${announcement.externalUrl || ''}`.toLowerCase();
     return search.includes(query.trim().toLowerCase())
-      && (statusFilter === 'all' || announcement.status === statusFilter)
+      && (statusFilter === 'all' || announcementDisplayStatus(announcement) === statusFilter)
       && (audienceFilter === 'any' || announcement.audience === audienceFilter)
       && (priorityFilter === 'all' || announcement.priority === priorityFilter);
   }), [announcements, query, statusFilter, audienceFilter, priorityFilter]);
 
   const openCreate = () => {
     setEditingId(null);
+    setEditingRevision(null);
+    setEditingDates(null);
     setForm(emptyForm());
     setFormError('');
     setEditorOpen(true);
@@ -120,14 +117,16 @@ export default function AnnouncementsManagement({ token }) {
 
   const openEdit = (announcement) => {
     setEditingId(announcement.id);
+    setEditingRevision(announcement.updatedAt);
+    setEditingDates({ publishAt: announcement.publishAt || null, expiresAt: announcement.expiresAt || null });
     setForm({
       title: announcement.title,
       content: announcement.content,
       audience: announcement.audience,
       priority: announcement.priority,
       status: announcement.status,
-      publishAt: toDateTimeInput(announcement.publishAt),
-      expiresAt: toDateTimeInput(announcement.expiresAt),
+      publishAt: toManilaDateTimeInput(announcement.publishAt),
+      expiresAt: toManilaDateTimeInput(announcement.expiresAt),
       imageName: announcement.imageName || '',
       imageType: announcement.imageType || '',
       imageData: announcement.imageData || '',
@@ -140,7 +139,9 @@ export default function AnnouncementsManagement({ token }) {
   const saveAnnouncement = async (event) => {
     event.preventDefault();
     if (saving) return;
-    if (form.status === 'scheduled' && !form.publishAt) {
+    const action = event.nativeEvent?.submitter?.value || 'save';
+    const nextStatus = action === 'post-now' ? 'published' : action === 'draft' ? 'draft' : action === 'schedule' ? 'scheduled' : form.status;
+    if (nextStatus === 'scheduled' && !form.publishAt) {
       setFormError('Choose when this scheduled announcement should be published.');
       return;
     }
@@ -152,12 +153,16 @@ export default function AnnouncementsManagement({ token }) {
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          publishAt: form.publishAt ? new Date(form.publishAt).toISOString() : null,
-          expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
+          status: nextStatus,
+          ...(action === 'post-now' ? { action } : {}),
+          ...(editingId ? { updatedAt: editingRevision } : {}),
+          publishAt: action === 'post-now' ? null : editingId && form.publishAt === toManilaDateTimeInput(editingDates?.publishAt) ? editingDates.publishAt : fromManilaDateTimeInput(form.publishAt),
+          expiresAt: editingId && form.expiresAt === toManilaDateTimeInput(editingDates?.expiresAt) ? editingDates.expiresAt : fromManilaDateTimeInput(form.expiresAt),
         }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to save the announcement.');
+      if (!body.announcement?.id || !body.announcement.updatedAt) throw new Error('We could not confirm the saved announcement. Keep this editor open and reload the directory before trying again.');
       setEditorOpen(false);
       setNotice({ tone: 'success', text: body.message });
       await loadAnnouncements();
@@ -166,6 +171,20 @@ export default function AnnouncementsManagement({ token }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const reloadEditor = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_BASE}/announcements/management`, { headers: authHeaders(token), cache: 'no-store' });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to reload announcements.');
+      const current = body.announcements?.find((item) => item.id === editingId);
+      if (!current) throw new Error('The announcement is no longer available.');
+      setAnnouncements(body.announcements);
+      openEdit(current);
+    } catch (error) { setFormError(error.message || 'Unable to reload the saved announcement.'); }
+    finally { setSaving(false); }
   };
 
   const selectAnnouncementImage = (event) => {
@@ -201,7 +220,7 @@ export default function AnnouncementsManagement({ token }) {
 
       <section className="announcement-metrics">
         <article className="green"><div><span>Total announcements</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.total}</strong><small>All communication records</small></div><i><Megaphone size={20} /></i></article>
-        <article className="blue"><div><span>Published</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.published}</strong><small>Currently visible notices</small></div><i><Send size={20} /></i></article>
+        <article className="blue"><div><span>Published records</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.published}</strong><small>Includes expired published records</small></div><i><Send size={20} /></i></article>
         <article className="orange"><div><span>Scheduled</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.scheduled}</strong><small>Waiting for publication</small></div><i><CalendarClock size={20} /></i></article>
         <article className="violet"><div><span>Drafts</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.drafts}</strong><small>Unpublished working copies</small></div><i><FilePenLine size={20} /></i></article>
       </section>
@@ -213,7 +232,7 @@ export default function AnnouncementsManagement({ token }) {
         <div className="announcement-directory-heading"><div><i><Megaphone size={16} /></i><span><strong>Announcement directory</strong><small>Search and manage the complete publishing history.</small></span></div><em>{loadError && !announcements.length ? 'Records unavailable' : <>{filtered.length} records</>}</em></div>
         <div className="announcement-filters">
           <label className="announcement-search"><span>Search</span><div><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Title or message" /></div></label>
-          <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option><option value="published">Published</option><option value="scheduled">Scheduled</option><option value="draft">Draft</option><option value="archived">Archived</option></select></label>
+          <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option><option value="published">Published</option><option value="scheduled">Scheduled</option><option value="draft">Draft</option><option value="archived">Archived</option><option value="expired">Expired</option></select></label>
           <label><span>Audience</span><select value={audienceFilter} onChange={(event) => setAudienceFilter(event.target.value)}><option value="any">All audiences</option>{Object.entries(audienceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label><span>Priority</span><select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option></select></label>
           {hasFilters && <button type="button" onClick={clearFilters}><X size={13} />Clear</button>}
@@ -228,7 +247,7 @@ export default function AnnouncementsManagement({ token }) {
               <button type="button" className="announcement-title" onClick={() => openEdit(announcement)}>{announcement.imageData && <img src={announcement.imageData} alt="" />}<span><strong>{announcement.title}</strong><small>{announcement.content}</small></span></button>
               <span><UsersRound size={12} />{audienceLabels[announcement.audience] || announcement.audience}</span>
               <span className={`announcement-priority ${announcement.priority}`}>{announcement.priority}</span>
-              <span className={`announcement-status ${announcement.status}`}>{announcement.status}</span>
+              <span className={`announcement-status ${announcementDisplayStatus(announcement)}`}>{announcementDisplayStatus(announcement)}</span>
               <span>{announcement.status === 'draft' ? 'Not scheduled' : formatAnnouncementDate(announcement.publishAt || announcement.publishedAt)}</span>
               <span>{formatAnnouncementDate(announcement.updatedAt)}</span>
               <button type="button" className="announcement-edit" onClick={() => openEdit(announcement)}><FilePenLine size={13} />Edit</button>
@@ -243,11 +262,11 @@ export default function AnnouncementsManagement({ token }) {
         <header><div><span><Megaphone size={18} /></span><div><small>ANNOUNCEMENT EDITOR</small><h3 id="announcement-editor-title">{editingId ? 'Edit announcement' : 'Create announcement'}</h3></div></div><button type="button" onClick={() => setEditorOpen(false)} disabled={saving} aria-label="Close editor"><X size={19} /></button></header>
         <div className="announcement-editor-body">
           <section><h4>Message</h4><label><span>Title</span><input required maxLength={200} value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} placeholder="Enter a clear announcement title" /></label><label><span>Content</span><textarea required maxLength={5000} rows={7} value={form.content} onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))} placeholder="Write the announcement message…" /><small>{form.content.length} / 5,000</small></label><label><span>Official Facebook post <small>(optional)</small></span><input type="url" inputMode="url" maxLength={2048} value={form.externalUrl} onChange={(event) => setForm((current) => ({ ...current, externalUrl: event.target.value }))} placeholder="https://www.facebook.com/..." /><small>Paste the exact official CAO Facebook post URL.</small></label><div className="announcement-image-field"><span>Image <small>(optional)</small></span>{form.imageData ? <div className="announcement-image-selected"><img src={form.imageData} alt="Announcement preview" /><span><strong>{form.imageName}</strong><small>{form.imageType}</small></span><button type="button" onClick={() => setForm((current) => ({ ...current, imageName: '', imageType: '', imageData: '' }))}><Trash2 size={14} />Remove</button></div> : <label className="announcement-image-upload"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={selectAnnouncementImage} /><ImagePlus size={18} /><span><strong>Add announcement image</strong><small>JPG, PNG, WEBP, or GIF · Maximum 3 MB</small></span></label>}</div></section>
-          <section><h4>Delivery</h4><div className="announcement-editor-grid"><label><span>Audience</span><select value={form.audience} onChange={(event) => setForm((current) => ({ ...current, audience: event.target.value }))}>{Object.entries(audienceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span>Priority</span><select value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label><label><span>Status</span><select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option value="draft">Draft</option><option value="scheduled">Scheduled</option><option value="published">Published</option><option value="archived">Archived</option></select></label><label><span>Publish date</span><input type="datetime-local" required={form.status === 'scheduled'} value={form.publishAt} onChange={(event) => setForm((current) => ({ ...current, publishAt: event.target.value }))} /></label><label><span>Expires <small>(optional)</small></span><input type="datetime-local" value={form.expiresAt} onChange={(event) => setForm((current) => ({ ...current, expiresAt: event.target.value }))} /></label></div></section>
+          <section><h4>Delivery</h4><p>All announcement dates use Philippine Standard Time (UTC+8).</p><div className="announcement-editor-grid"><label><span>Audience</span><select value={form.audience} onChange={(event) => setForm((current) => ({ ...current, audience: event.target.value }))}>{Object.entries(audienceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span>Priority</span><select value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label><label><span>Status</span><select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option value="draft">Draft</option><option value="scheduled">Scheduled</option><option value="published">Published</option><option value="archived">Archived</option></select></label><label><span>Publish date (PHT · UTC+8)</span><input type="datetime-local" value={form.publishAt} onChange={(event) => setForm((current) => ({ ...current, publishAt: event.target.value }))} /></label><label><span>Expires (PHT · UTC+8) <small>(optional)</small></span><input type="datetime-local" value={form.expiresAt} onChange={(event) => setForm((current) => ({ ...current, expiresAt: event.target.value }))} /></label></div></section>
           <aside className={`announcement-preview ${form.priority}`}>{form.imageData && <img src={form.imageData} alt="" />}<div><span>PREVIEW · {audienceLabels[form.audience]}</span><strong>{form.title || 'Announcement title'}</strong><p>{form.content || 'Your announcement message will appear here.'}</p>{form.externalUrl && <em className="announcement-preview-link"><ExternalLink size={13} /> View official Facebook post</em>}</div></aside>
-          {formError && <div className="announcement-form-error"><TriangleAlert size={15} />{formError}</div>}
+          {formError && <div className="announcement-form-error" role="alert"><TriangleAlert size={15} />{formError}{editingId && <button type="button" disabled={saving} onClick={reloadEditor}>Reload saved version (replaces unsaved edits)</button>}</div>}
         </div>
-        <footer><button type="button" className="secondary" onClick={() => setEditorOpen(false)} disabled={saving}>Cancel</button><button type="submit" className="primary" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Save changes' : form.status === 'published' ? 'Publish announcement' : 'Save announcement'}</button></footer>
+        <footer><button type="button" className="secondary" onClick={() => setEditorOpen(false)} disabled={saving}>Cancel</button>{editingId && <button type="submit" name="action" value="save" className="secondary" disabled={saving}>Save changes</button>}<button type="submit" name="action" value="draft" className="secondary" disabled={saving}>Save Draft</button><button type="submit" name="action" value="schedule" className="secondary" disabled={saving}>Schedule</button><button type="submit" name="action" value="post-now" className="primary" disabled={saving}>{saving ? 'Saving…' : 'Post Now'}</button></footer>
       </form>
     </div>}
   </>;
