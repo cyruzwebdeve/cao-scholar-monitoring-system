@@ -1,7 +1,8 @@
 # Announcement feature QA
 
-Date: 2026-10-12 (Asia/Manila). Source baseline `f47ad62`. Review only: no
-application/configuration changes, real announcement/image publication or deployment.
+Date: 2026-10-12 (Asia/Manila). Source baseline `f47ad62`. Initial audit only: no
+application/configuration changes or real announcement/image publication during
+that audit. The subsequent authorized release is described below.
 
 ## TL;DR
 
@@ -13,10 +14,10 @@ application/configuration changes, real announcement/image publication or deploy
 ## Authorized fix status
 
 ANN-01–ANN-08 and the user's explicit Post Now action are implemented for the
-matching frontend/backend release. 241 backend checks/one existing skip and 72
+matching frontend/backend release `1c5b486`, pushed for testing. 241 backend checks/one existing skip and 72
 frontend checks passed; lint/build and synthetic action/portal/conflict/archive/
-timezone/mobile checks passed. No migration/history conversion. Deployment is
-authorized and tracked in the [fix register](../../qa-fix-register.md); follow the
+timezone/mobile checks passed. No migration/history conversion. New frontend assets are live and API/database healthy; backend provider confirmation
+is pending and tracked in the [fix register](../../qa-fix-register.md); follow the
 [acceptance checklist](announcement-acceptance-checklist.md). Findings below are
 preserved pre-fix evidence; authenticated hosted/storage acceptance remains.
 
