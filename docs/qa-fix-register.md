@@ -28,6 +28,10 @@ Updated: 2026-10-12 (Asia/Manila). This register covers the October 11 QA findin
 
 [Announcement QA report](qa/2026-10-12/announcement-review.md): ANN-01–ANN-08 and the requested Post Now action are implemented in release `1c5b486`, pushed for testing. Reproduced hidden urgent scholar notices, priority loss beyond 50 candidates, stale edit overwrites, expired archive validation failure, silent applicant load failure, server image-size mismatch, misleading visible counts and implicit browser timezone. Seven temporary controller/route probes (including defect reproductions), four named URL regressions and synthetic browser checks completed. Public frontend/API health and unauthenticated tester-gate protection passed; authenticated hosted content/storage remains unverified. Validation: 241 backend passed/one existing skip, 72 frontend passed, lint/build and synthetic action/conflict/archive/portal/timezone/mobile checks passed. Matching release pushed; new actions/PHT/retry frontend assets verified live and API/database healthy. Hostinger backend provider confirmation pending; no new migration. Use the [announcement acceptance checklist](qa/2026-10-12/announcement-acceptance-checklist.md); authenticated hosted/cloud-storage acceptance remains pending.
 
+## Individual scholar certification placement — 2026-10-12
+
+Existing private-school individual PDF action moved to the Scholar drawer header beside status badges as Download Certification, available across tabs. Private-only eligibility/PDF content retained; no new Applicant/general certificate action. Lint/build and synthetic keyboard/PDF-content/mobile checks passed. Frontend-only local change; not deployed. Verify Scholars → View details for a private scholar → Download Certification.
+
 ## Verification baseline
 
 - QA-01: 196 backend checks passed, one existing opt-in database skip; 43 frontend tests; lint/build, schema/client and synthetic paper entry/correction/publication/applicant flows passed.

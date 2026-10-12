@@ -5,6 +5,44 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-12 - Deploy Scholar Drawer Certification Placement for Testing
+
+### TL;DR
+- Authorized frontend release moves Download Certification beside individual Scholar drawer status badges and keeps it available across tabs.
+- Existing private-school eligibility, PDF content and PHP 5,000 coverage retained; no backend, API, database or migration change.
+- Lint/build, synthetic keyboard/PDF-content/mobile and whitespace checks passed. Publication/live asset verification is in progress.
+
+### Objective, behavior, roles and implementation
+Publish the tested project-manager-requested placement through the existing main/Hostinger pipeline for CAO testing. Stage ScholarsManagement, its drawer button/context/focus/mobile styles, both change logs and the fix register; original October 11 local QA report/screenshots stay excluded. No application code has changed since the recorded validation below. Remote main baseline verified as ab3a55b.
+
+### Impacts and verification
+The change is frontend-only: no backend endpoint, permission, schema, migration, record mutation, dependency, environment-value or hosting-setting change. Private-school PDF generation remains client-side using the selected scholar and existing header/reference/content. Existing security/privacy boundaries retained; validation used synthetic records and no private files. Named native action/focus/status feedback and sampled 390px wrapping passed; no broader accessibility certification. Payroll-list scope and legacy payout retirement are unchanged. Existing large ExcelJS build warning remains.
+
+### Deployment, limits, rollback and next work
+Publish through main and check public frontend assets plus API health without production writes. Health does not prove protected workflows or a backend revision; backend code is unchanged by this release, and prior announcement provider confirmation remains separately pending. Record release/asset evidence after push. Rollback restores matching prior frontend button/styles, with no data rollback. Next: refresh tabs, open Scholars → View details for a dedicated private scholar, verify Download Certification beside badges on each tab and check the resulting PDF; Public records do not expose this private certificate. Authenticated hosted acceptance remains user testing.
+
+## 2026-10-12 - Move Individual Scholar Certification Download to Drawer Header
+
+### TL;DR
+- Moved the existing private-scholar certificate action beside status/document badges in the individual Scholar record drawer, labeled Download Certification to match the requested placement.
+- The same individual PDF action remains available on Overview, Billing & Payroll and Certification History tabs; duplicate lower Overview action removed.
+- Private-school eligibility, selected-scholar PDF content and PHP 5,000 tuition coverage retained; no API, database or hosting change.
+- Lint/build and synthetic browser checks passed, including keyboard-triggered real PDF generation, content check and 390px layout. Local only; not deployed.
+
+### Objective, previous/new behavior and roles
+Implement the project manager's requested placement near the individual record status rather than lower in the Overview tab. The screenshot is a placement reference; this change applies to the existing Scholar record drawer and its existing private-school tuition certification, not a new general acceptance certificate or Applicant drawer action. CAO staff with existing scholar-management access can use Download Certification directly in the drawer header without choosing a tab. Public-school records remain outside this private certificate action.
+
+### Implementation, changed areas and impacts
+Relocated the existing downloadPrivateCertificate button to scholars-drawer-badges; moved progress/success/error feedback to the shared drawer header and retained explicit private-school/tuition context. Removed the former Overview certificate card. Repurposed its button/focus/disabled/mobile styles for the new scholars-certification-download class and retained readable context. Changed frontend/src/ScholarsManagement.jsx and frontend/src/styles/admin.css, plus both change logs and QA register. The existing PDF generator/header/reference/content is unchanged and still reads the selected scholar.
+
+- **API/database/configuration/deployment:** no endpoint, role, request, schema, migration, record write, environment, dependency or hosting change. Frontend-only local change; nothing pushed/deployed in this task.
+- **Security/privacy:** existing drawer access/private-school condition retained; no real scholar/photo data used in tests or documentation, and no private files queried. No new portal/Applicant action or permission expansion.
+- **Accessibility:** native labeled button with existing focus/disabled feedback; keyboard focus/Enter successfully downloads, live status feedback is available across tabs. Footer/header placement wraps at 390px without horizontal page overflow; no full-app accessibility claim.
+- **Product scope:** existing private-school tuition certificate and PHP 5,000 coverage retained; no fund-release or monetary-audit workflow added. Legacy payout retirement and historical records unchanged.
+
+### Validation, limitations, rollback and next work
+Frontend lint/build and whitespace checks passed, with the existing large ExcelJS chunk warning. Synthetic browser confirmed one header download action, no duplicate Overview action, presence on Certification History, absence for Public records, keyboard-generated actual PDF and no page errors. PDF text extraction confirms selected synthetic scholar/school and existing tuition amount; 390px layout has no horizontal overflow. No production record, real certificate or authenticated hosted check used. No mirrored unit test added for this reversible placement-only change. Rollback moves the action/feedback back and restores old styles; no data rollback needed. Next: publish frontend when requested and verify Scholars → View details → Download Certification with a dedicated private-scholar test record. If the requested document instead means a general certificate in the Accepted Applicant drawer shown by the reference, that separate document/placement needs clarification.
+
 ## 2026-10-12 - Deploy Announcement Fixes and Post Now for Testing
 
 ### TL;DR

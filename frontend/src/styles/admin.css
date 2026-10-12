@@ -6033,33 +6033,9 @@
   font-weight: 700;
   text-align: right;
 }
-.scholars-certificate-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 14px;
-  padding: 14px;
-  border: 1px solid #cfe5d6;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #f4fbf6 0%, #fffaf0 100%);
-}
-.scholars-certificate-copy h4 {
-  margin: 4px 0 5px;
-}
-.scholars-certificate-copy p,
-.scholars-certificate-copy small {
-  display: block;
-  margin: 0;
-  color: #65756b;
-  font-size: 9px;
-  line-height: 1.55;
-}
-.scholars-certificate-copy small {
-  margin-top: 6px;
-  color: #176f3a;
-  font-weight: 700;
-}
-.scholars-certificate-card > button {
+.scholars-certification-context { margin: 9px 0; color: #45614d; font-size: 11px; }
+.scholars-certification-download {
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -6075,13 +6051,13 @@
   font-weight: 700;
   cursor: pointer;
 }
-.scholars-certificate-card > button:hover:not(:disabled),
-.scholars-certificate-card > button:focus-visible {
+.scholars-certification-download:hover:not(:disabled),
+.scholars-certification-download:focus-visible {
   background: #0f6c35;
   outline: 2px solid rgba(22, 129, 66, 0.2);
   outline-offset: 2px;
 }
-.scholars-certificate-card > button:disabled {
+.scholars-certification-download:disabled {
   cursor: wait;
   opacity: 0.65;
 }
@@ -6092,10 +6068,8 @@
   font-size: 9px;
 }
 @media (max-width: 520px) {
-  .scholars-certificate-card {
-    grid-template-columns: 1fr;
-  }
-  .scholars-certificate-card > button {
+  .scholars-certification-download {
+    margin-left: 0;
     width: 100%;
   }
 }
