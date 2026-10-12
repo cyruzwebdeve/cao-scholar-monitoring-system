@@ -32,7 +32,7 @@ Updated: 2026-10-12 (Asia/Manila). This register covers the October 11 QA findin
 
 Existing private-school individual PDF action moved to the Scholar drawer header beside status badges as Download Certification, available across tabs. Private-only eligibility/PDF content retained; no new Applicant/general certificate action. Lint/build and synthetic keyboard/PDF-content/mobile checks passed. Frontend-only release `9010a59` pushed; new drawer header/button assets verified live, old card absent and API/database healthy. No migration. Verify Scholars → View details for a private scholar → Download Certification; authenticated acceptance pending.
 
-The drawer caption/amount and matching tooltip phrase were removed on 2026-10-12 following user feedback; certificate eligibility/PDF content retained. Frontend checks/publication in progress.
+The drawer caption/amount and matching tooltip phrase were removed on 2026-10-12 following user feedback; certificate eligibility/PDF content retained. Lint/build passed; release `099a17f` pushed and caption/tooltip removal verified in live frontend assets; API/database healthy.
 
 ## Verification baseline
 
