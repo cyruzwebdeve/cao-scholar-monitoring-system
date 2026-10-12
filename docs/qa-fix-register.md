@@ -30,7 +30,7 @@ Updated: 2026-10-12 (Asia/Manila). This register covers the October 11 QA findin
 
 ## Individual scholar certification placement — 2026-10-12
 
-Existing private-school individual PDF action moved to the Scholar drawer header beside status badges as Download Certification, available across tabs. Private-only eligibility/PDF content retained; no new Applicant/general certificate action. Lint/build and synthetic keyboard/PDF-content/mobile checks passed. Frontend-only local change; not deployed. Verify Scholars → View details for a private scholar → Download Certification.
+Existing private-school individual PDF action moved to the Scholar drawer header beside status badges as Download Certification, available across tabs. Private-only eligibility/PDF content retained; no new Applicant/general certificate action. Lint/build and synthetic keyboard/PDF-content/mobile checks passed. Frontend-only release `9010a59` pushed; new drawer header/button assets verified live, old card absent and API/database healthy. No migration. Verify Scholars → View details for a private scholar → Download Certification; authenticated acceptance pending.
 
 ## Verification baseline
 

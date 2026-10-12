@@ -220,4 +220,4 @@
 
 2026-10-12 | Moved existing private-scholar PDF Download Certification to the individual Scholar drawer header beside status badges, available across tabs; removed duplicate Overview card and retained private-only rules/tuition content. Lint/build, keyboard real-PDF/content and mobile browser checks passed. Frontend-only local change; no API/database/configuration change or deployment.
 
-2026-10-12 | Authorized frontend deployment of individual Scholar drawer Download Certification placement for testing. Existing private-school PDF/eligibility retained; lint/build and synthetic keyboard/PDF-content/mobile checks passed. No backend/API/database/migration change; publication verification in progress.
+2026-10-12 | Authorized frontend deployment of individual Scholar drawer Download Certification placement for testing. Existing private-school PDF/eligibility retained; lint/build and synthetic keyboard/PDF-content/mobile checks passed. No backend/API/database/migration change. Release 9010a59 pushed; new drawer header button assets verified live and API/database healthy. Authenticated certificate acceptance pending.
