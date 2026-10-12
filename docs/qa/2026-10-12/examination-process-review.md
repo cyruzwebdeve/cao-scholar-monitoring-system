@@ -19,7 +19,7 @@ current-result projections, primary-period selection and expired status/access.
 231 backend checks and 70 frontend checks passed; one existing database test
 skipped, lint/build and six synthetic browser runs passed. No
 new migration. New exact-review/expired frontend assets are live and API/database
-health is good; backend provider confirmation is pending. Use the
+health is good; the user confirmed successful Hostinger backend deployment. Use the
 [acceptance checklist](examination-acceptance-checklist.md). The findings/reproductions
 below preserve the pre-fix review evidence;
 production/database-concurrency acceptance and additional policy decisions remain.
