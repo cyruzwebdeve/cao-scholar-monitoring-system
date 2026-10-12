@@ -277,7 +277,7 @@ export default function ResultsManagement({ token }) {
       const response = await fetch(`${API_BASE}/scholars/${selected.id}/accept`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reviewReason: decisionReason.trim() }),
+        body: JSON.stringify({ reviewReason: decisionReason.trim(), examId: selected.examId, resultId: selected.resultId, applicationId: selected.applicationId, academicPeriodId: selected.academicPeriodId, updatedAt: selected.resultUpdatedAt }),
       });
       const payload = await response.json();
       if (!response.ok) {

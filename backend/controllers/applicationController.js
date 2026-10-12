@@ -29,6 +29,8 @@ const { getApplicationAvailability } = require('../services/applicationAvailabil
 const { canAccessOnlineExamination, getExaminationSettings, isExaminationScheduleOpen } = require('../services/examinationAccess');
 const { buildApplicantGuidance } = require('../services/applicantGuidance');
 const { resolveExaminationProgress } = require('../services/examinationProgress');
+const { findPrimaryActivePeriod } = require('../services/academicPeriod');
+const { isExaminationApplicationEligible, isCurrentExaminationApplicant } = require('../services/examinationEligibility');
 const { evaluateEligibility, serializeAssessment } = require('../services/eligibilityRecommendation');
 const { PRIORITY_PROOFS, selectedPriorityCriteria } = require('../services/priorityEligibility');
 const { createBillingReference } = require('../services/billingReference');
@@ -107,13 +109,7 @@ const serializeAcademicPeriod = (period) => ({
 });
 
 const getActiveAcademicPeriodRecord = async (client = prisma) => {
-  const period = await client.academic_periods.findFirst({
-    where: { is_active: true, is_primary: true },
-    orderBy: { updated_at: 'desc' },
-  }) || await client.academic_periods.findFirst({
-    where: { is_active: true },
-    orderBy: [{ updated_at: 'desc' }, { id: 'desc' }],
-  });
+  const period = await findPrimaryActivePeriod(client);
   return period || {
     id: Number(CURRENT_SCHOOL_YEAR.replace('-', '')),
     school_year: CURRENT_SCHOOL_YEAR,
@@ -1433,11 +1429,15 @@ const processPayrollSelection = async (req, res) => {
 const getOnlineExamQuestions = async (req, res) => {
   try {
     const applicantId = req.user.id;
-    const [activePeriod, examinationSettings, applicant] = await Promise.all([
+    const [activePeriod, examinationSettings, applicant, application] = await Promise.all([
       getActiveAcademicPeriodRecord(),
       getExaminationSettings(prisma),
-      prisma.applicants.findUnique({ where: { id: applicantId }, select: { municipality: true } }),
+      prisma.applicants.findUnique({ where: { id: applicantId }, select: { municipality: true, school_year: true, deleted_at: true } }),
+      prisma.application_submissions.findFirst({ where: { applicant_id: applicantId }, orderBy: { submitted_at: 'desc' } }),
     ]);
+    if (!isCurrentExaminationApplicant(applicant, activePeriod.school_year, STALE_DEFAULT_SCHOOL_YEAR) || !isExaminationApplicationEligible(application)) {
+      return res.status(403).json({ message: 'Your application is not available for examination. Contact CAO.' });
+    }
     const exam = await prisma.exams.findFirst({
       where: {
         is_active: true,
@@ -1453,6 +1453,7 @@ const getOnlineExamQuestions = async (req, res) => {
       where: { applicant_id: applicantId, exam_id: exam.id }, select: { id: true },
     })) : false;
     if (completed) return res.status(409).json({ message: 'This examination has already been submitted.' });
+    if (examSlot?.online_started_at) assertAttemptOpen(examSlot);
     if (!canAccessOnlineExamination({ completed, settings: examinationSettings, exam, examSlot })) {
       return res.status(403).json({ message: 'The secured question view is unavailable until Online Examination is active and CAO marks your attendance as Present.' });
     }
@@ -1484,8 +1485,9 @@ const submitOnlineExam = async (req, res) => {
     }
     const applicant = await prisma.applicants.findUnique({
       where: { id: applicantId },
-      select: { email: true, first_name: true, municipality: true },
+      select: { email: true, first_name: true, municipality: true, school_year: true, deleted_at: true },
     });
+    if (!isCurrentExaminationApplicant(applicant, activePeriod.school_year, STALE_DEFAULT_SCHOOL_YEAR)) return res.status(403).json({ message: 'Your application is not available for this academic year.' });
     const exam = await prisma.exams.findFirst({
       where: {
         is_active: true,
@@ -1522,12 +1524,14 @@ const submitOnlineExam = async (req, res) => {
     const passingScore = configuration.passingScore;
     const data = { score, passing_score: passingScore, passed: score >= passingScore, online_configuration_id: configurationId, delivery_mode: 'online', updated_at: new Date() };
     const result = await prisma.$transaction(async (tx) => {
+      const application = await tx.application_submissions.findFirst({ where: { applicant_id: applicantId }, orderBy: { submitted_at: 'desc' } });
+      if (!isExaminationApplicationEligible(application)) throw new AttemptError('Your application is no longer available for examination submission. Contact CAO.');
       const recorded = await tx.results.create({ data: { exam_slot_id: slot.id, applicant_id: applicantId, exam_id: exam.id, ...data } });
       const updated = await tx.application_submissions.updateMany({
-        where: { applicant_id: applicantId, status: { not: 'Withdrawn' } },
+        where: { id: application.id, applicant_id: applicantId, status: application.status },
         data: { status: APPLICATION_STATUSES.EXAMINED },
       });
-      if (updated.count === 0) {
+      if (updated.count !== 1) {
         throw new AttemptError('Your application is no longer available for examination submission. Contact CAO.');
       }
       return recorded;
@@ -1582,8 +1586,7 @@ const getMyApplication = async (req, res) => {
       },
       select: { id: true },
     });
-    const [result, scholar, scholarRequirement, payrollClaim, scheduledExam, eligibilityAssessment, examSlots, examinationSettings] = applicantId ? await Promise.all([
-      prisma.results.findFirst({ where: { applicant_id: applicantId }, orderBy: { created_at: 'desc' } }),
+    const [scholar, scholarRequirement, payrollClaim, scheduledExam, eligibilityAssessment, examSlots, examinationSettings] = applicantId ? await Promise.all([
       prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }),
       prisma.scholar_requirements.findFirst({ where: { applicant_id: applicantId, billing_period_id: activePeriod.id } }),
       prisma.payroll_claims.findFirst({ where: { applicant_id: applicantId, payroll_batch_id: { in: activePayrollBatches.map(({ id }) => id) } }, orderBy: { updated_at: 'desc' } }),
@@ -1600,7 +1603,10 @@ const getMyApplication = async (req, res) => {
       prisma.eligibility_assessments.findFirst({ where: { applicant_id: applicantId }, orderBy: { generated_at: 'desc' } }),
       prisma.exam_slots.findMany({ where: { applicant_id: applicantId }, orderBy: { updated_at: 'desc' } }),
       getExaminationSettings(prisma),
-    ]) : [null, null, null, null, null, null, null, await getExaminationSettings(prisma)];
+    ]) : [null, null, null, null, null, null, await getExaminationSettings(prisma)];
+    const result = scholar?.result_id
+      ? await prisma.results.findFirst({ where: { id: scholar.result_id, applicant_id: applicantId } })
+      : !scholar && scheduledExam ? await prisma.results.findFirst({ where: { applicant_id: applicantId, exam_id: scheduledExam.id } }) : null;
     const exam = result
       ? await prisma.exams.findUnique({ where: { id: result.exam_id }, select: { title: true, exam_date: true, academic_year: true } })
       : null;
@@ -1664,6 +1670,7 @@ const getMyApplication = async (req, res) => {
         access: {
           allowed: canAccessOnlineExamination({
             completed: Boolean(result),
+            applicationEligible: isExaminationApplicationEligible(application) && isCurrentExaminationApplicant(applicant, activePeriod.school_year, STALE_DEFAULT_SCHOOL_YEAR),
             settings: examinationSettings,
             exam: scheduledExam,
             examSlot,
@@ -1966,19 +1973,19 @@ const getApplicantManagement = async (req, res) => {
     const applicantIds = applicants.map(({ id }) => id);
     const [accounts, slots, results, exams, scholarAccounts, applications] = await Promise.all([
       prisma.control_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, control_number: true, username: true, last_login_at: true } }),
-      prisma.exam_slots.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, exam_id: true, appeared: true, appeared_at: true, forfeited_at: true } }),
+      prisma.exam_slots.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, exam_id: true, appeared: true, appeared_at: true, forfeited_at: true, online_started_at: true, online_deadline_at: true } }),
       prisma.results.findMany({ where: { applicant_id: { in: applicantIds } }, orderBy: { created_at: 'desc' }, select: { id: true, applicant_id: true, exam_id: true, score: true, passing_score: true, passed: true, remarks: true, delivery_mode: true, published_at: true, published_by: true, recorded_by: true, created_at: true, updated_at: true } }),
       prisma.exams.findMany({
         orderBy: { updated_at: 'desc' },
         select: { id: true, title: true, exam_date: true, exam_end_date: true, venue: true, municipality: true, academic_year: true, is_active: true, updated_at: true },
       }),
-      prisma.scholar_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, scholar_id: true, is_active: true } }),
-      prisma.application_submissions.findMany({ where: { applicant_id: { in: applicantIds }, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' }, select: { id: true, applicant_id: true, status: true, identity: true, address: true, school_plan: true, family: true, eligibility: true, submitted_at: true } }),
+      prisma.scholar_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, scholar_id: true, result_id: true, is_active: true } }),
+      prisma.application_submissions.findMany({ where: { applicant_id: { in: applicantIds } }, orderBy: { submitted_at: 'desc' }, select: { id: true, applicant_id: true, status: true, identity: true, address: true, school_plan: true, family: true, eligibility: true, submitted_at: true } }),
     ]);
     const accountByApplicant = new Map(accounts.map((account) => [account.applicant_id, account]));
     const slotByAssignment = new Map(slots.map((slot) => [`${slot.applicant_id}:${slot.exam_id}`, slot]));
-    const resultByApplicant = new Map();
-    results.forEach((result) => { if (!resultByApplicant.has(result.applicant_id)) resultByApplicant.set(result.applicant_id, result); });
+    const resultByAssignment = new Map(results.map((result) => [`${result.applicant_id}:${result.exam_id}`, result]));
+    const resultById = new Map(results.map((result) => [result.id, result]));
     const applicationByApplicant = new Map();
     applications.forEach((application) => { if (!applicationByApplicant.has(application.applicant_id)) applicationByApplicant.set(application.applicant_id, application); });
     const examById = new Map(exams.map((exam) => [exam.id, exam]));
@@ -1995,12 +2002,12 @@ const getApplicantManagement = async (req, res) => {
       stats: { total: applicants.length, scheduled: scheduledApplicantCount, completed: results.length, passed: results.filter(({ passed }) => passed).length },
       applicants: applicants.map((applicant) => {
         const account = accountByApplicant.get(applicant.id);
-        const result = resultByApplicant.get(applicant.id);
+        const scholar = scholarByApplicant.get(applicant.id);
         const scheduledExam = scheduledExamByMunicipality.get(normalizeMunicipality(applicant.municipality));
+        const result = scholar?.is_active ? resultById.get(scholar.result_id) : resultByAssignment.get(`${applicant.id}:${scheduledExam?.id}`);
         const resultExam = examById.get(result?.exam_id);
         const exam = resultExam || scheduledExam;
         const slot = exam ? slotByAssignment.get(`${applicant.id}:${exam.id}`) : null;
-        const scholar = scholarByApplicant.get(applicant.id);
         const application = applicationByApplicant.get(applicant.id);
         const identity = application?.identity || {};
         const address = application?.address || {};
@@ -2048,6 +2055,8 @@ const getApplicantManagement = async (req, res) => {
           lastLogin: account?.last_login_at || null,
           ...resolveExaminationProgress({ result, scholar, examSlot: slot, fallbackStatus: applicant.status, applicationStatus: application?.status }),
           appearedAt: slot?.appeared_at || null,
+          applicationId: application?.id || null,
+          academicPeriodId: activePeriod.id,
           resultId: result?.id || null,
           resultUpdatedAt: result?.updated_at || null,
           resultPublishedAt: result?.published_at || null,
@@ -2230,45 +2239,48 @@ const saveExaminationManagement = async (req, res) => {
 const acceptApplicantAsScholar = async (req, res) => {
   try {
     const applicantId = Number(req.params.applicantId);
-    const activePeriod = await getActiveAcademicPeriodRecord();
-    const reviewReason = String(req.body?.reviewReason || '').trim();
-    if (!Number.isInteger(applicantId) || applicantId <= 0) return res.status(400).json({ message: 'A valid applicant is required.' });
+    const review = req.body || {};
+    const reviewReason = String(review.reviewReason || '').trim();
+    if (!Number.isSafeInteger(applicantId) || applicantId <= 0) return res.status(400).json({ message: 'A valid applicant is required.' });
     if (reviewReason.length > 2000) return res.status(400).json({ message: 'The decision reason must not exceed 2,000 characters.' });
+    if (!['examId', 'resultId', 'applicationId', 'academicPeriodId'].every((key) => Number.isSafeInteger(review[key]) && review[key] > 0) || typeof review.updatedAt !== 'string' || !Number.isFinite(+new Date(review.updatedAt))) return res.status(400).json({ message: 'Reload Results Management and review the exact result before accepting.' });
+    const decision = await prisma.$transaction(async (transaction) => {
+      const activePeriod = await findPrimaryActivePeriod(transaction);
+      if (!activePeriod || activePeriod.id !== review.academicPeriodId) throw new AttemptError('The primary period changed. Reload Results Management before deciding.');
+      const [applicant, latestResult, application, existingScholar, exam, slot] = await Promise.all([
+        transaction.applicants.findFirst({
+          where: { id: applicantId, deleted_at: null },
+          select: { id: true, email: true, first_name: true, school_year: true, municipality: true, deleted_at: true },
+        }),
+        transaction.results.findFirst({ where: { id: review.resultId, applicant_id: applicantId, exam_id: review.examId } }),
+        transaction.application_submissions.findFirst({ where: { applicant_id: applicantId }, orderBy: { submitted_at: 'desc' } }),
+        transaction.scholar_accounts.findFirst({ where: { applicant_id: applicantId } }),
+        transaction.exams.findUnique({ where: { id: review.examId } }),
+        transaction.exam_slots.findUnique({ where: { applicant_id_exam_id: { applicant_id: applicantId, exam_id: review.examId } } }),
+      ]);
+      if (!isCurrentExaminationApplicant(applicant, activePeriod.school_year, STALE_DEFAULT_SCHOOL_YEAR)) throw new AttemptError('The applicant is unavailable in the primary academic year.');
+      if (!isExaminationApplicationEligible(application) || application.id !== review.applicationId) throw new AttemptError('The application changed or is unavailable. Reload before deciding.');
+      if (!exam || exam.academic_year !== activePeriod.school_year || normalizeMunicipality(exam.municipality) !== normalizeMunicipality(applicant.municipality) || !slot || slot.exam_id !== exam.id || slot.applicant_id !== applicantId) throw new AttemptError('Use the applicant’s assigned examination in the primary academic year.');
+      const scheduledExam = await transaction.exams.findFirst({ where: { academic_year: activePeriod.school_year, municipality: { equals: String(applicant.municipality || '').trim(), mode: 'insensitive' } }, orderBy: { updated_at: 'desc' } });
+      if (scheduledExam?.id !== exam.id) throw new AttemptError('The assigned examination changed. Reload before deciding.');
+      if (!latestResult || latestResult.id !== review.resultId || latestResult.exam_id !== review.examId || latestResult.applicant_id !== applicantId || latestResult.exam_slot_id !== slot.id || +new Date(latestResult.updated_at) !== +new Date(review.updatedAt)) throw new AttemptError('The reviewed result changed. Reload before deciding.');
+      if (existingScholar?.is_active) return { scholar: existingScholar, alreadyAccepted: true };
+      if (!latestResult.passed) throw new AttemptError('Only applicants with a passing reviewed result can be accepted.', 400);
+      if (!latestResult.published_at) throw new AttemptError('Publish the reviewed examination result before scholarship acceptance.');
 
-    const [applicant, latestResult, application, existingScholar] = await Promise.all([
-      prisma.applicants.findFirst({
-        where: { id: applicantId, deleted_at: null },
-        select: { id: true, email: true, first_name: true, school_year: true },
-      }),
-      prisma.results.findFirst({ where: { applicant_id: applicantId }, orderBy: { created_at: 'desc' } }),
-      prisma.application_submissions.findFirst({ where: { applicant_id: applicantId, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' } }),
-      prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId } }),
-    ]);
-    if (!applicant) return res.status(404).json({ message: 'Applicant record not found.' });
-    if (!application) return res.status(400).json({ message: 'A submitted application is required before a scholarship decision can be recorded.' });
-    if (!latestResult?.passed) return res.status(400).json({ message: 'Only applicants whose latest examination result is passing can be accepted as scholars.' });
+      const assessment = evaluateEligibility({ application, result: latestResult });
+      if (assessment.requiresOverrideReason && !reviewReason) {
+        const error = new AttemptError('Add a decision reason before accepting an applicant whose recommendation requires review or does not meet the configured criteria.', 400);
+        error.assessment = assessment;
+        throw error;
+      }
 
-    if (existingScholar?.is_active) {
-      return res.status(200).json({ message: 'Applicant is already an active scholar.', scholar: existingScholar });
-    }
+      const schoolYear = applicant.school_year === STALE_DEFAULT_SCHOOL_YEAR || !applicant.school_year
+        ? activePeriod.school_year
+        : applicant.school_year;
+      const yearPrefix = String(schoolYear).split('-')[0];
+      const scholarId = existingScholar?.scholar_id || `PGCEAP-${yearPrefix}-${String(applicantId).padStart(5, '0')}`;
 
-    if (!latestResult.published_at) return res.status(409).json({ message: 'Publish the reviewed examination result before scholarship acceptance.' });
-
-    const assessment = evaluateEligibility({ application, result: latestResult });
-    if (assessment.requiresOverrideReason && !reviewReason) {
-      return res.status(400).json({
-        code: 'ELIGIBILITY_OVERRIDE_REASON_REQUIRED',
-        message: 'Add a decision reason before accepting an applicant whose recommendation requires review or does not meet the configured criteria.',
-        eligibilityRecommendation: assessment,
-      });
-    }
-
-    const schoolYear = applicant.school_year === STALE_DEFAULT_SCHOOL_YEAR || !applicant.school_year
-      ? activePeriod.school_year
-      : applicant.school_year;
-    const yearPrefix = String(schoolYear).split('-')[0];
-    const scholarId = existingScholar?.scholar_id || `PGCEAP-${yearPrefix}-${String(applicantId).padStart(5, '0')}`;
-    const scholar = await prisma.$transaction(async (transaction) => {
       const savedScholar = existingScholar
         ? await transaction.scholar_accounts.update({
           where: { id: existingScholar.id },
@@ -2304,8 +2316,10 @@ const acceptApplicantAsScholar = async (req, res) => {
         create: { applicant_id: applicantId, billing_period_id: activePeriod.id, updated_by: req.user.id },
         update: { updated_by: req.user.id },
       });
-      return savedScholar;
-    });
+      return { scholar: savedScholar, applicant, schoolYear, assessment };
+    }, { isolationLevel: 'Serializable' });
+    if (decision.alreadyAccepted) return res.json({ message: 'Applicant is already an active scholar.', scholar: decision.scholar });
+    const { scholar, applicant, schoolYear, assessment } = decision;
     const emailDelivery = await sendScholarApprovedEmail({
       to: applicant.email,
       firstName: applicant.first_name,
@@ -2325,6 +2339,8 @@ const acceptApplicantAsScholar = async (req, res) => {
       notification: { scholarApprovalEmailSent: emailDelivery.sent },
     });
   } catch (error) {
+    if (error instanceof AttemptError) return res.status(error.status).json({ message: error.message, ...(error.assessment ? { code: 'ELIGIBILITY_OVERRIDE_REASON_REQUIRED', eligibilityRecommendation: error.assessment } : {}) });
+    if (['P2002', 'P2034'].includes(error?.code)) return res.status(409).json({ message: 'The examination decision changed concurrently. Reload and review before retrying.' });
     console.error(error);
     return res.status(500).json({ message: 'Server error accepting applicant as a scholar.' });
   }

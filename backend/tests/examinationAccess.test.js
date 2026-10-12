@@ -51,3 +51,13 @@ test('examination settings are loaded from the singleton record', async () => {
   assert.equal(result.isEnabled, true);
   assert.equal(result.deliveryMode, 'online');
 });
+
+test('expired or incomplete started attempts and unavailable applications cannot advertise online access', () => {
+  const now = new Date('2026-09-12T02:00:00Z');
+  const context = { settings: { isEnabled: true, deliveryMode: 'online' }, exam: { is_active: true, exam_date: now }, examSlot: { appeared: true }, now };
+  assert.equal(canAccessOnlineExamination(context), true);
+  assert.equal(canAccessOnlineExamination({ ...context, applicationEligible: false }), false);
+  assert.equal(canAccessOnlineExamination({ ...context, examSlot: { appeared: true, online_started_at: new Date(+now - 3600000), online_deadline_at: now } }), false);
+  assert.equal(canAccessOnlineExamination({ ...context, examSlot: { appeared: true, online_started_at: now } }), false);
+  assert.equal(canAccessOnlineExamination({ ...context, examSlot: { appeared: true, online_started_at: now, online_deadline_at: new Date(+now + 2700000) } }), true);
+});

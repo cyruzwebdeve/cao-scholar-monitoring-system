@@ -42,3 +42,12 @@ test('paper and online guidance preserve the remaining examination action', () =
     assert.match(guidance.actions[0].description, /complete/i);
   }
 });
+
+test('expired unsubmitted attempts have a distinct state without overriding a terminal decision or completed result', () => {
+  const now = new Date('2026-10-12T00:00:00Z');
+  const examSlot = { appeared: true, online_started_at: new Date(+now - 3600000), online_deadline_at: now };
+  const progress = resolveExaminationProgress({ examSlot, applicationStatus: 'Applied', applicantFacing: true, now });
+  assert.equal(progress.status, 'Attempt expired'); assert.equal(progress.attemptExpired, true);
+  assert.equal(resolveExaminationProgress({ examSlot, applicationStatus: 'Withdrawn', now }).status, 'Withdrawn');
+  assert.equal(resolveExaminationProgress({ examSlot, result: { passed: true, published_at: now }, applicantFacing: true, now }).status, 'Passed');
+});

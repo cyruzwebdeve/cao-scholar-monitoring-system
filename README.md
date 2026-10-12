@@ -112,10 +112,11 @@ and enforces the setting for every new submission.
 
 ## Production deployment
 
-The repository includes production configuration for a Vercel frontend,
-Render API, Prisma Postgres database, and Vercel Blob file storage. Follow the
-[deployment guide](docs/deployment-guide.md) for the required services,
-environment variables, first deployment, and post-deployment checks.
+The current frontend and API run on Hostinger as separate projects, backed
+by the existing managed PostgreSQL database and private/public Vercel Blob
+stores. Follow the [deployment guide](docs/deployment-guide.md) for build roots,
+environment variables, migration sequencing, release checks and recovery.
+Retained Vercel frontend/Render API files are legacy hosting configurations.
 
 ## Repository safety
 

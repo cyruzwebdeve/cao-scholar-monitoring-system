@@ -9,7 +9,7 @@ const prisma = {};
 const prismaPath = require.resolve('../config/prisma');
 require.cache[prismaPath] = { id: prismaPath, filename: prismaPath, loaded: true, exports: prisma };
 const mailerPath = require.resolve('../services/mailer');
-require.cache[mailerPath] = { id: mailerPath, filename: mailerPath, loaded: true, exports: { sendExamSubmittedEmail: async () => { emailReceipts.push({ result, status: application.status }); return { sent: false }; } } };
+require.cache[mailerPath] = { id: mailerPath, filename: mailerPath, loaded: true, exports: { sendScholarApprovedEmail: async () => ({ sent: false }), sendExamSubmittedEmail: async () => { emailReceipts.push({ result, status: application.status }); return { sent: false }; } } };
 process.env.JWT_SECRET = randomBytes(32).toString('hex');
 const { defaultConfiguration, createExamTicket } = require('../services/onlineExamConfiguration');
 const { objectiveConfiguration } = require('./fixtures/objectiveExam');
@@ -48,11 +48,11 @@ beforeEach(() => {
     applicants: { findFirst: async () => applicant, findUnique: async () => applicant, findMany: async () => [applicant] },
     exams: { findFirst: async () => exam, findMany: async () => [exam], findUnique: async () => exam },
     exam_slots: { findUnique: async () => slot, findMany: async () => [slot], updateMany: async ({ where, data }) => { if (where.online_started_at === null && slot.online_started_at) return { count: 0 }; writes.push({ table: 'exam_slots', data }); slot = { ...slot, ...data }; return { count: 1 }; }, update: async ({ data }) => { writes.push({ table: 'exam_slots', data }); slot = { ...slot, ...data }; return slot; } },
-    results: { findFirst: async () => result, findMany: async () => result ? [result] : [], create: async ({ data }) => { if (result?.exam_slot_id === data.exam_slot_id) throw Object.assign(new Error('Duplicate examination result'), { code: 'P2002' }); writes.push({ table: 'results', data }); result = { id: 2, created_at: new Date(), ...data }; return result; } },
+    results: { findFirst: async ({ where = {} } = {}) => result && (!where.id || where.id === result.id) && (!where.exam_id || where.exam_id === result.exam_id) ? result : null, findMany: async () => result ? [result] : [], create: async ({ data }) => { if (result?.exam_slot_id === data.exam_slot_id) throw Object.assign(new Error('Duplicate examination result'), { code: 'P2002' }); writes.push({ table: 'results', data }); result = { id: 2, created_at: new Date(), ...data }; return result; } },
     application_submissions: { findFirst: async () => application, findMany: async () => [application], updateMany: async ({ where, data }) => { if (!application || (where.status?.not && application.status === where.status.not)) return { count: 0 }; writes.push({ table: 'application_submissions', data }); Object.assign(application, data); return { count: 1 }; } },
-    scholar_accounts: { findFirst: async () => scholar, findMany: async () => scholar ? [scholar] : [] },
-    scholar_requirements: { findFirst: async () => null, findMany: async () => [] },
-    eligibility_assessments: { findFirst: async () => null },
+    scholar_accounts: { findFirst: async () => scholar, findMany: async () => scholar ? [scholar] : [], create: async ({ data }) => { writes.push({ table: 'scholar_accounts', data }); scholar = { id: 1, ...data }; return scholar; }, update: async ({ data }) => { writes.push({ table: 'scholar_accounts', data }); scholar = { ...scholar, ...data }; return scholar; } },
+    scholar_requirements: { findFirst: async () => null, findMany: async () => [], upsert: async ({ create }) => { writes.push({ table: 'scholar_requirements', data: create }); return { id: 1, ...create }; } },
+    eligibility_assessments: { findFirst: async () => null, create: async ({ data }) => { writes.push({ table: 'eligibility_assessments', data }); return { id: 1, ...data }; } },
     payroll_batches: { findMany: async () => [] },
     payroll_claims: { findFirst: async () => null },
     schools: { findMany: async () => [] },
@@ -73,18 +73,21 @@ beforeEach(() => {
   // Serialize synthetic transactions and restore their state on rollback. This
   // exercises controller use of the transaction client, not PostgreSQL itself.
   let pending = Promise.resolve();
-  prisma.$transaction = (callback) => {
+  prisma.$transaction = (callback, options) => {
     const operation = pending.then(async () => {
+      if (options) assert.equal(options.isolationLevel, 'Serializable');
+      const previousScholar = scholar;
       const previousResult = result;
       const previousApplication = application && { ...application };
       const previousWrites = writes.length;
       transactionEvents.push('begin');
-      const tx = { results: { ...prisma.results }, application_submissions: { ...prisma.application_submissions } };
+      const tx = { ...prisma, results: { ...prisma.results }, application_submissions: { ...prisma.application_submissions } };
       try {
         const value = await callback(tx);
         transactionEvents.push('commit');
         return value;
       } catch (error) {
+        scholar = previousScholar;
         result = previousResult;
         application = previousApplication;
         writes.length = previousWrites;
@@ -284,14 +287,14 @@ test('examination-only staff can load results without Applicants section access'
 });
 
 test('paper score stays hidden before publication and does not enable early scholarship acceptance', async () => {
-  result = { id: 2, applicant_id: 7, exam_id: 3, delivery_mode: 'paper', score: 14, passing_score: 14, passed: true, published_at: null };
+  result = { id: 2, applicant_id: 7, exam_id: 3, exam_slot_id: 9, updated_at: new Date(), delivery_mode: 'paper', score: 14, passing_score: 14, passed: true, published_at: null };
   let portal = response();
   await getMyApplication({ user: { id: 7 } }, portal);
   assert.equal(portal.body.examination.status, 'Result under review');
   assert.equal(portal.body.examination.score, null);
   assert.equal(portal.body.examination.passingScore, null);
   const accepted = response();
-  await acceptApplicantAsScholar({ params: { applicantId: '7' }, body: {}, user: { id: 1 } }, accepted);
+  await acceptApplicantAsScholar({ params: { applicantId: '7' }, body: reviewedDecision(), user: { id: 1 } }, accepted);
   assert.equal(accepted.statusCode, 409);
   result.published_at = new Date();
   portal = response();
@@ -542,4 +545,88 @@ test('lifecycle reporting ends with separate certification/payroll lists and ret
   assert.deepEqual(res.body.lists, { certificationLists: 1, payrollLists: 2, certificationEntries: 1, payrollEntries: 2 });
   assert.equal(res.body.audit.actionCounts[0].action, 'PAYROLL_LIST_GENERATED');
   assert.equal(res.body.audit.recent[0].id, '5');
+});
+
+const reviewedDecision = () => ({ applicationId: 1, academicPeriodId: 1, examId: 3, resultId: result?.id || 2, updatedAt: result?.updated_at?.toISOString() || new Date().toISOString(), reviewReason: 'Synthetic eligibility review' });
+const publishedResult = () => ({ id: 2, applicant_id: 7, exam_id: 3, exam_slot_id: 9, score: 20, passing_score: 14, passed: true, published_at: new Date(), updated_at: new Date(), created_at: new Date() });
+const acceptReviewed = async (body = reviewedDecision()) => { const res = response(); await acceptApplicantAsScholar({ params: { applicantId: '7' }, body, user: { id: 1 } }, res); return res; };
+
+test('withdrawn, rejected, declined, missing and unknown-state applications cannot retrieve questions or start time', async () => {
+  slot.appeared = true;
+  for (const status of ['Withdrawn', 'Rejected', 'Declined', 'Unknown', null]) {
+    application = status ? { id: 1, applicant_id: 7, status } : null;
+    const res = response(); await getOnlineExamQuestions({ user: { id: 7 } }, res);
+    assert.equal(res.statusCode, 403); assert.equal(slot.online_started_at, undefined); assert.equal(writes.length, 0);
+  }
+});
+
+test('online submission preserves terminal and unknown application decisions and rolls back all writes', async () => {
+  const req = await openAtomicTestAttempt();
+  const initialWrites = writes.length;
+  for (const status of ['Rejected', 'Declined', 'Withdrawn', 'Unknown']) {
+    application.status = status;
+    const res = response(); await submitOnlineExam(req, res);
+    assert.equal(res.statusCode, 409); assert.equal(application.status, status); assert.equal(result, null);
+    assert.equal(writes.length, initialWrites); assert.equal(emailReceipts.length, 0);
+  }
+});
+
+test('a zero-row exact application update rolls back a submitted result instead of confirming success', async () => {
+  const req = await openAtomicTestAttempt(); const initialWrites = writes.length;
+  prisma.application_submissions.updateMany = async ({ where }) => { assert.equal(where.id, 1); assert.equal(where.status, 'Applied'); return { count: 0 }; };
+  const res = response(); await submitOnlineExam(req, res);
+  assert.equal(res.statusCode, 409); assert.equal(result, null); assert.equal(writes.length, initialWrites); assert.equal(emailReceipts.length, 0);
+});
+
+test('acceptance commits the exact published review with its eligibility snapshot and requirements atomically', async () => {
+  result = publishedResult();
+  const res = await acceptReviewed(); assert.equal(res.statusCode, 201); assert.equal(scholar.result_id, result.id);
+  assert.deepEqual(transactionEvents, ['begin', 'commit']);
+  assert.deepEqual(writes.map(w => w.table), ['scholar_accounts', 'eligibility_assessments', 'scholar_requirements']);
+  const snapshot = writes.find(w => w.table === 'eligibility_assessments').data;
+  assert.equal(snapshot.application_id, 1); assert.equal(snapshot.result_id, 2); assert.equal(snapshot.academic_period_id, 1);
+  const repeated = await acceptReviewed(); assert.equal(repeated.statusCode, 200); assert.equal(writes.length, 3);
+});
+
+test('acceptance rejects underspecified, mismatched result/application/period and historical-exam reviews', async () => {
+  result = publishedResult();
+  for (const delta of [null, { resultId: 999 }, { applicationId: 99 }, { academicPeriodId: 99 }, { examId: 99 }, { updatedAt: new Date(Date.now() - 10000).toISOString() }]) {
+    const res = await acceptReviewed(delta ? { ...reviewedDecision(), ...delta } : {});
+    assert.equal(res.statusCode, delta ? 409 : 400); assert.equal(scholar, null); assert.equal(writes.length, 0);
+  }
+  const currentExam = exam; exam = { ...exam, academic_year: '2025-2026' };
+  const res = await acceptReviewed(); assert.equal(res.statusCode, 409); assert.equal(writes.length, 0); exam = currentExam;
+});
+
+test('acceptance rereads the result inside the transaction and rejects a competing correction', async () => {
+  result = publishedResult(); const review = reviewedDecision(); const transaction = prisma.$transaction;
+  prisma.$transaction = (callback, options) => { result = { ...result, score: 0, passed: false, published_at: null, updated_at: new Date(+result.updated_at + 1) }; return transaction(callback, options); };
+  const res = await acceptReviewed(review); assert.equal(res.statusCode, 409); assert.equal(scholar, null); assert.equal(writes.length, 0);
+});
+
+test('acceptance rejects terminal application states and retains the eligibility override requirement', async () => {
+  result = publishedResult();
+  for (const status of ['Rejected', 'Declined', 'Withdrawn']) { application.status = status; const res = await acceptReviewed(); assert.equal(res.statusCode, 409); assert.equal(writes.length, 0); }
+  application.status = 'Examined'; const res = await acceptReviewed({ ...reviewedDecision(), reviewReason: '' });
+  assert.equal(res.statusCode, 400); assert.equal(res.body.code, 'ELIGIBILITY_OVERRIDE_REASON_REQUIRED'); assert.equal(writes.length, 0);
+});
+
+test('acceptance rollback and serialization conflicts do not leave scholar or decision writes', async (t) => {
+  result = publishedResult(); t.mock.method(console, 'error', () => {});
+  prisma.eligibility_assessments.create = async () => { throw new Error('Synthetic assessment failure'); };
+  const failed = await acceptReviewed(); assert.equal(failed.statusCode, 500); assert.equal(scholar, null); assert.equal(writes.length, 0);
+  prisma.$transaction = async () => { throw Object.assign(new Error('Synthetic serialization conflict'), { code: 'P2034' }); };
+  const conflicted = await acceptReviewed(); assert.equal(conflicted.statusCode, 409); assert.equal(writes.length, 0);
+});
+
+test('current schedule projection ignores a historical result and expired attempt guidance matches server denial', async () => {
+  result = { ...publishedResult(), exam_id: 999 };
+  const portal = response(); await getMyApplication({ user: { id: 7 } }, portal);
+  assert.equal(portal.body.examination.completed, false); assert.equal(portal.body.examination.score, null);
+  const management = response(); await getApplicantManagement({}, management); assert.equal(management.body.applicants[0].resultId, null); assert.equal(management.body.applicants[0].examId, 3); assert.equal(management.body.applicants[0].applicationId, 1); assert.equal(management.body.applicants[0].academicPeriodId, 1);
+  result = null; slot = { ...slot, appeared: true, online_started_at: new Date(Date.now() - 60 * 60 * 1000), online_deadline_at: new Date(Date.now() - 15 * 60 * 1000), online_configuration_id: 1 };
+  const expired = response(); await getMyApplication({ user: { id: 7 } }, expired);
+  assert.equal(expired.body.examination.status, 'Attempt expired'); assert.equal(expired.body.examination.access.allowed, false);
+  assert.equal(expired.body.guidance.actions[0].route, null); assert.match(expired.body.guidance.headline, /expired/);
+  const questions = response(); await getOnlineExamQuestions({ user: { id: 7 } }, questions); assert.equal(questions.statusCode, 410);
 });

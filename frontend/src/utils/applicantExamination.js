@@ -13,6 +13,7 @@ export const getApplicantExaminationSummary = (examination = {}) => {
       ? 'CAO has recorded your paper examination score. Your examination result is under review.'
       : 'Your examination submission was recorded. CAO will publish the reviewed result.',
   };
+  if (examination.attemptExpired || examination.status === 'Attempt expired') return { title: 'Attempt expired', description: 'Your examination was not submitted before its deadline. Contact CAO for guidance; reopening does not restart the timer.' };
   if (examination.attendance?.status === 'Present') return {
     title: 'For review',
     description: examination.deliveryMode === 'paper'

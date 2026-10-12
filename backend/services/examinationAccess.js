@@ -1,3 +1,4 @@
+const { onlineAttemptState } = require('./examinationAttemptState');
 const DEFAULT_EXAMINATION_SETTINGS = Object.freeze({
   isEnabled: false,
   deliveryMode: 'paper',
@@ -35,12 +36,15 @@ const isExaminationScheduleOpen = (exam, now = new Date()) => {
 
 const canAccessOnlineExamination = ({
   completed = false,
+  applicationEligible = true,
   settings,
   exam,
   examSlot,
   now = new Date(),
 } = {}) => Boolean(
   !completed
+  && applicationEligible
+  && ['not_started', 'active'].includes(onlineAttemptState(examSlot, now))
   && settings?.isEnabled
   && settings?.deliveryMode === 'online'
   && examSlot?.appeared

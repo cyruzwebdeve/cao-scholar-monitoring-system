@@ -100,6 +100,8 @@ const buildApplicantGuidance = ({
         ? 'The qualifying examination was bypassed after CAO verified a priority eligibility proof.'
         : hasResult
           ? result.published_at ? `Your official examination outcome is ${result.passed ? 'Passed' : 'Did not pass'}.` : result.delivery_mode === 'paper' ? 'CAO recorded your paper score. Your examination result is under review.' : 'Your examination submission has been recorded.'
+        : progress.attemptExpired
+          ? 'Your timed attempt expired without a recorded submission. Contact CAO.'
         : attendanceReview
           ? 'Attendance is Present. Your application is For review; no examination result has been recorded.'
         : examScheduled
@@ -145,6 +147,9 @@ const buildApplicantGuidance = ({
   if (!hasResult && !isScholar) {
     if (['rejected', 'declined', 'withdrawn'].includes(String(progress.status).toLowerCase())) {
       return { state: 'waiting', headline: `Application status: ${progress.status}`, description: 'Attendance does not change the recorded application decision. Contact CAO if you need clarification.', actions: [], timeline };
+    }
+    if (progress.attemptExpired) {
+      return { state: 'waiting', headline: 'Your examination attempt expired', description: 'The examination was not submitted before its saved deadline. Contact CAO for guidance; reopening does not restart the timer.', actions: [makeAction({ id: 'expired-examination', type: 'waiting', title: 'Contact CAO about your expired attempt', description: 'Late answers cannot be submitted. CAO must review any examination incident.' })], timeline };
     }
     if (attendanceConfirmed && (examinationDeliveryMode === 'paper' || !examScheduled)) {
       return {

@@ -1,4 +1,6 @@
 const prisma = require('../config/prisma');
+const { findPrimaryActivePeriod } = require('../services/academicPeriod');
+const { isExaminationApplicationEligible } = require('../services/examinationEligibility');
 
 const fault = (status, message) => Object.assign(new Error(message), { status });
 const serializeResult = (result) => ({
@@ -32,7 +34,7 @@ const createExaminationResultController = (client = prisma) => {
       let timestamp = new Date();
       const result = await client.$transaction(async (tx) => {
         const [period, exam, applicant, slot, scholar, application] = await Promise.all([
-          tx.academic_periods.findFirst({ where: { is_active: true }, orderBy: { updated_at: 'desc' } }),
+          findPrimaryActivePeriod(tx),
           tx.exams.findUnique({ where: { id: examId } }),
           tx.applicants.findUnique({ where: { id: applicantId } }),
           tx.exam_slots.findUnique({ where: { applicant_id_exam_id: { applicant_id: applicantId, exam_id: examId } } }),
@@ -41,7 +43,7 @@ const createExaminationResultController = (client = prisma) => {
         ]);
         if (!period || !exam || exam.academic_year !== period.school_year) throw fault(409, 'Select an examination in the active academic year.');
         if (!applicant || applicant.deleted_at || !slot || slot.exam_id !== examId || slot.applicant_id !== applicantId) throw fault(404, 'The applicant is not assigned to this examination.');
-        if (!application || /^(withdrawn|rejected|declined)$/i.test(application.status)) throw fault(409, 'This application is unavailable for examination result changes.');
+        if (!isExaminationApplicationEligible(application)) throw fault(409, 'This application is unavailable for examination result changes.');
         if (scholar) throw fault(409, 'Results are locked after scholarship acceptance.');
         const existing = await tx.results.findFirst({ where: { applicant_id: applicantId, exam_id: examId } });
         let saved;

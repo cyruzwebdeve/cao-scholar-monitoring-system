@@ -8,12 +8,12 @@ const { resolveExaminationProgress } = require('../services/examinationProgress'
 const { buildApplicantGuidance } = require('../services/applicantGuidance');
 const response = () => ({ locals: {}, statusCode: 200, status(n) { this.statusCode = n; return this; }, json(body) { this.body = body; return this; } });
 const fixture = () => {
-  let state = { result: null, application: { id: 1, status: 'Applied' }, slot: { id: 3, applicant_id: 7, exam_id: 9, appeared: true }, mode: 'paper', scholar: null, year: '2026-2027', failStatus: false };
+  let state = { result: null, application: { id: 1, status: 'Applied' }, slot: { id: 3, applicant_id: 7, exam_id: 9, appeared: true }, mode: 'paper', scholar: null, year: '2026-2027', failStatus: false, periods: [{ school_year: '2026-2027', is_primary: true }] };
   const client = { $transaction: async (fn, options) => {
     assert.equal(options.isolationLevel, 'Serializable');
     const draft = structuredClone(state);
     const tx = {
-      academic_periods: { findFirst: async () => ({ school_year: '2026-2027' }) },
+      academic_periods: { findFirst: async ({ where }) => where.is_primary ? draft.periods.find(p => p.is_primary) || null : draft.periods[0] || null },
       exams: { findUnique: async () => ({ id: 9, academic_year: draft.year }) },
       applicants: { findUnique: async () => ({ id: 7 }) },
       exam_slots: { findUnique: async () => draft.slot },
@@ -129,4 +129,18 @@ test('an existing unscored result can be corrected but cannot be published empty
   assert.equal((await f.call('correct', { ...f.revision(), score: 0, remarks: 'Filled missing paper score' })).statusCode, 200);
   assert.equal(f.state.result.review_history.at(-1).previousScore, null);
   assert.equal(f.state.result.score, 0);
+});
+
+test('paper record, correction and publication use the primary period even when a secondary year was updated later', async () => {
+  const f = fixture(); f.state.periods = [{ school_year: '2027-2028', is_primary: false }, { school_year: '2026-2027', is_primary: true }];
+  assert.equal((await f.call('record')).statusCode, 201);
+  assert.equal((await f.call('correct', { ...f.revision(), score: 15, remarks: 'Synthetic checked correction' })).statusCode, 200);
+  assert.equal((await f.call('publish', f.revision())).statusCode, 200);
+});
+
+test('paper result mutations reject terminal and unknown application states without writes', async () => {
+  for (const status of ['Withdrawn', 'Rejected', 'Declined', 'Unknown']) {
+    const f = fixture(); f.state.application.status = status;
+    assert.equal((await f.call('record')).statusCode, 409); assert.equal(f.state.result, null);
+  }
 });

@@ -5,6 +5,140 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-12 - Deploy Examination Boundary Fixes for Acceptance Testing
+
+### TL;DR
+- Authorized matching frontend/backend release of the six examination boundary fixes, including exact reviewed-result acceptance, eligible application states, primary-period consistency and expired guidance.
+- Includes the local QA-11 Hostinger runbook and dated verification/review records plus an operator acceptance checklist; original October 11 QA report/screenshots remain excluded.
+- Completed local validation: 231 backend and 70 frontend checks passed, one existing database skip; lint/build and six synthetic browser runs passed.
+- No new migration, environment-value change or historical conversion. Main/Hostinger publication and public verification are in progress; backend revision still needs provider evidence.
+
+### Objective, behavior, roles and implementation
+Publish the user-authorized examination fixes through the existing main-branch Hostinger pipeline and provide concrete test steps. CAO decision staff must accept the exact reviewed current result/application/period revision, with validation and writes in Serializable isolation. Applicants with terminal/unavailable states cannot start/submit; paper mutations use primary-period selection; expired attempts show non-actionable CAO guidance. Detailed source/data flow is recorded in the implementation entry below. Include matching frontend/backend services, controllers, projection/summary UI and regression tests, the QA-11 documentation/comments, dated reports and the new docs/qa/2026-10-12/examination-acceptance-checklist.md. No previously local QA screenshot/report unrelated to this release is staged.
+
+### Impacts
+- **API:** acceptance requires exact review identifiers; matching frontend is mandatory. Missing review returns 400 and stale/context conflicts 409. Current projections and expired/application-state guards change as documented below; route permissions are retained.
+- **Database:** no new migration, seed, data conversion, deadline reset or deletion. Existing publication/attempt fields remain required; historical records are preserved.
+- **Configuration/deployment:** existing independent Hostinger frontend/backend builds on main; no secrets, environment values, dependencies or provider settings changed. QA-11 environment-example edits are comments only.
+- **Security/privacy/accessibility:** existing gate/role/section controls retained. Public verification uses assets/health only, no production workflow mutation. Synthetic data used in local checks. Clear expired text and existing native controls retained; no broad accessibility certification.
+- **Product scope:** workflow ends at official payroll-list generation; legacy payout retirement and historical data retained without extension.
+
+### Validation, limitations, rollback and next work
+Remote main baseline verified as 4f5fbfb; completed checks remain valid because application code has not changed since them. No need to rerun production migrations or seed records. Publication/public asset and health verification will be recorded after push. These observations do not establish protected hosted acceptance or actual PostgreSQL concurrent decisions; confirm backend commit through Hostinger and use the acceptance checklist with dedicated records/staging for global-setting, historical/terminal fixture and concurrency scenarios. Roll back matching frontend/backend together without schema rollback, preserving history; rollback would restore the documented guard weaknesses. Next: finish both builds, refresh tabs and record authenticated acceptance results.
+
+## 2026-10-12 - Fix Six Examination Process Boundary Gaps
+
+### TL;DR
+- Scholarship acceptance now requires the exact reviewed application, primary period, exam, result and revision; validation and scholar/decision/requirements writes share a Serializable transaction.
+- Current applicant/result views no longer substitute an older examination result; accepted scholars retain their referenced historical result. Rejected/declined/withdrawn/unknown states cannot enter or submit examinations.
+- Paper review shares primary-period selection with scheduling/online workflows; expired unsubmitted attempts show Attempt expired and CAO guidance without a start action or invented score.
+- Validation passed: 231 backend checks, one existing database skip, 70 frontend checks, lint/build and six synthetic browser runs. Local only; no migration, data conversion or deployment. Matching frontend/backend release required.
+
+### Objective and previous/new behavior
+Resolve EXAM-01 through EXAM-06 from the dated beginning-to-end review. Previously acceptance read an unbound latest result before its write transaction, allowing stale or historical decisions; online submission excluded only Withdrawn and could overwrite Rejected; question access lacked application-state validation; paper mutations chose the newest active period rather than the primary; expired attempts still advertised access and For review.
+
+Acceptance requests now include applicationId, academicPeriodId, examId, resultId and updatedAt alongside reviewReason. The controller rereads the active primary/fallback period, exact result, latest application, applicant, existing scholar, exam and slot within a Serializable transaction. It checks the supplied revision, current year/municipality/assignment, current schedule identity, publication and passing state before evaluating eligibility and writing. The transaction writes scholar activation, immutable eligibility decision and requirements together. Existing result correction/publication already use Serializable isolation; overlapping incompatible decisions must abort, and P2034/P2002 return a clear 409/reload rather than automatic replay. Ordinary repeat acceptance of the same accepted record remains idempotent. Existing eligibility override reasons, route roles/sections and post-commit approval mail remain.
+
+### Roles, implementation and data flow
+CAO staff use the existing Results UI, which sends all exact review identifiers loaded with the result. Missing review fields return 400; stale/context/serialization conflicts return 409 and require fresh review. Portal/staff current examination projections use the current municipal schedule's result instead of the latest all-year result. Active scholars use scholar_accounts.result_id to retain their accepted result; priority accounts without a result remain accepted. Historical result rows are retained, not converted or deleted; existing all-record summary aggregates are unchanged.
+
+The shared examinationEligibility helper allows only Pending, Applied, Submitted, For review, Examined and Passed_Exam application-stage states (case-normalized). Online question access checks the latest application and current/nondeleted applicant before starting time/exposing questions. Paper record/correct/publish and online submission share the application-state rule. Submission rereads the exact latest application inside its transaction, updates that ID only while its status still matches, and requires exactly one changed row; unavailable/conflicting writes roll back the result and send no receipt. Existing current-year/legacy-default applicant targeting is preserved; this is not authorization to reuse a prior year's exam.
+
+The academicPeriod helper centralizes active-primary-first selection with the existing deterministic active fallback. Paper result mutations now use this selector too. The online attempt-state helper distinguishes not-started, active, expired and unavailable started attempts. The shared access predicate denies expired/incomplete attempts or unavailable applications. Progress/guidance and the frontend summary show Attempt expired with contact-CAO instructions; completed results, accepted scholars and terminal decisions retain precedence. Question loading preserves its specific 410 expired-attempt response. Expiry does not reset time, auto-submit answers, create a zero result or declare a failed examination.
+
+### Changed areas and impacts
+Changed applicationController, examinationResultController, examinationAccess, examinationProgress and applicantGuidance. Added academicPeriod, examinationEligibility and examinationAttemptState services. Updated ResultsManagement and applicantExamination summary utility; extended backend examination integration/result/access/progress tests, added academicPeriod tests and extended frontend summary tests. Updated both change logs, fix register and the examination review's current fix status. Prior QA-11 and verification documentation edits remain local and are not deployed.
+
+- **API:** acceptance body requires the five exact review fields; older clients must reload/use the matching frontend. Applicant/staff examination projections now use current assignments; management adds applicationId/academicPeriodId and progress adds attemptExpired. Expired/unavailable access is denied. No endpoint, role or section permission additions.
+- **Database:** no schema/migration, seed, repair, deadline reset, historical conversion/deletion or production query. Acceptance now uses Serializable isolation; shared exact-application guards protect writes. Existing unique slot/result and scholar constraints retained.
+- **Configuration/dependencies:** no environment values, packages, timeouts, configured bank keys, schedule dates, global delivery settings or thresholds changed.
+- **Security/privacy:** no real applicant records, passwords, tokens or private files used in validation/documentation. Server checks remain authoritative; unpublished score privacy and tester gate unchanged. No expansion of staff access.
+- **Accessibility:** existing native controls retained; expired status has clear text and no examination link, sampled 390px layout has no horizontal overflow. No full-app accessibility claim.
+- **Deployment:** local only; deploy matching frontend/backend, with no new migration, then refresh old tabs. This task did not push or deploy.
+- **Product scope:** scholarship decision remains separate from examination pass/publication. Workflow still ends at official payroll-list generation. Legacy payout routes remain disabled; historical payment data and unrelated retained legacy interfaces are unchanged. Operational logs remain system records, not monetary audits.
+
+### Validation and results
+Root npm test passed 231 backend checks, one existing opt-in school catalog database migration skip, and 70 frontend checks (301 passes; zero failures). New regressions exercise transaction reads/writes/revision/context, corrected-result rejection, historical/mismatched exam/application/period rejection, exact review success/repeat, terminal states, override reasons, rollback/serialization feedback, withdrawn question access, zero-row exact submission rollback, current projection and expired guidance, multiple-active-period paper record/correct/publish and frontend expired-card precedence. Existing score privacy, online grading/version/deadline/draft, list-processing and permission checks remain green.
+
+Frontend lint/build and whitespace checks passed; build generated all 11 route fallbacks and retained the existing large ExcelJS chunk warning. Six synthetic Chromium runs passed: existing paper entry/correction/publication/privacy; objective bank correction; persisted timer/expiry; same-browser answer/draft cleanup; new SuperAdmin paper-through-acceptance UI with captured exact review body; expired applicant status/guidance without a start link at 390px. Final runs had no page errors in checked flows. Initial browser checks exposed the still-For-review frontend summary, which was corrected and regression-tested; a SuperAdmin navigation fixture required a valid applicant-directory payload and was corrected without changing that directory. One initial backend expectation was updated to supply the new exact review contract so it continued checking publication privacy.
+
+### Limitations, rollback and recommended next work
+Synthetic transaction facades test controller use, rollback and deterministic interleavings; real PostgreSQL SSI/concurrent correction/acceptance behavior still requires controlled staging verification. No authenticated hosted acceptance/private provider inspection or real mail/exam/scholar write performed. The original review's additional no-show, global-setting interruption and schedule-midnight incident policies are not changed by this fix. Existing all-record aggregate counters remain historical aggregates; current exam rows do not reuse older results. Existing post-commit mail behavior remains; delivery health is separate from transaction integrity.
+
+Rollback must restore matching frontend/backend contracts together and requires no database rollback; doing so restores the reviewed guard weaknesses. Preserve historical results/decisions and additive attempt fields. Next: deploy when requested, refresh tabs, confirm both Hostinger builds, then run dedicated paper/online workflows and acceptance/competing-correction scenarios in staging followed by controlled authenticated hosted tests. Do not reset real attempts or change real scores for verification.
+
+## 2026-10-12 - Review Examination Process from Scheduling to Scholarship Decision
+
+### TL;DR
+- Traced ordinary paper/online examination assignment, activation, attendance, attempts, scoring, publication and separate scholarship acceptance.
+- Six synthetic boundary probes reproduced gaps in acceptance revision/year integrity, rejected/withdrawn application handling, primary-period selection and expired dashboard access.
+- Added a dated review with evidence, severity, fix order and policy questions; original QA regression passes do not cover these new boundaries.
+- Review only: no application/configuration/database change, fix, deployment, real applicant operation or email; authenticated hosted acceptance remains unverified.
+
+### Objective, previous/new behavior and affected workflows
+Respond to the request to check examinations from beginning to end, extending the earlier original-QA regressions into boundary transitions. No behavior changed. CAO scheduling/result/decision staff and applicants receive an evidence-based description of the ordinary path and remaining state-integrity risks; scholarship acceptance stays separate from examination pass/publication.
+
+### Implementation, files and data flow
+Read scheduling/municipality assignment, access/timed attempt, result mutation/publication, applicant/staff projection, eligibility and acceptance controllers/services/UI. Temporary review probes invoke existing controllers against synthetic database/email facades and deterministic interleavings. Added docs/qa/2026-10-12/examination-process-review.md; updated QA register and both change logs. The report links source areas and distinguishes reproduced gaps from no-show/global-setting/calendar-window policy observations.
+
+### Impacts
+- **API/database/configuration/deployment:** no endpoint, contract, schema, migration, seed, setting value, dependency, hosting or script change. No fixes or deployment performed; no direct production database query or mutation.
+- **Security/privacy:** no real credentials, personal information or private documents used/documented; local synthetic records and stubbed mail only. Reviewed existing role/section access and state guards without granting new access.
+- **Accessibility:** no UI change or new accessibility testing claim; previous sampled browser results remain in the earlier verification report.
+- **Product scope:** examination review ends at the scholar decision/requirements handoff; overall workflow still ends at official payroll-list generation. Legacy payout retirement, historical records and operational logs unchanged.
+
+### Validation, limitations, rollback and next work
+Six boundary probes completed successfully, meaning they reproduced undesired current behavior: stale-result acceptance after correction, old-result current-period acceptance, Rejected overwritten to Examined, Withdrawn question access/start, secondary-period paper rejection and expired-but-advertised portal access. A temporary harness relocation initially caused a module-path error; corrected paths produced the final six reproductions. This is neither a passing desired-behavior regression suite nor evidence of actual affected production records. Earlier same-baseline 285-check/browser results are referenced rather than relabeled as full process acceptance. No authenticated hosted workflow/private provider inspection, real PostgreSQL race or full calendar incident policy was tested. Rollback removes documentation only. Recommended next work: authorize and implement result-bound transactional acceptance/current-period checks, shared application-state eligibility, consistent primary resolution and explicit expired state; then add regressions and staging/controlled hosted acceptance.
+
+## 2026-10-12 - Verify QA-01 through QA-11 Fixes
+
+### TL;DR
+- Fresh regression verification passed: 216 backend checks, 69 frontend checks, one existing opt-in database skip; frontend lint/build passed.
+- Nine synthetic browser runs passed across paper scoring/privacy, strict marking, timer/drafts, tester access/contrast, list displays and connection/receipt recovery; QA-11 documentation checks passed.
+- Live fix assets, five public client routes and API/database health verified; protected hosted workflows and private provider settings remain acceptance work.
+- Added the dated per-QA verification report and updated the register; no application/configuration/database change, deployment or production record mutation.
+
+### Objective, behavior and affected roles
+Respond to the request to verify every QA fix against current code and deployed evidence. Previous entries described release-time results; this adds fresh combined verification without changing behavior. Deployment operators, CAO and applicant/scholar workflow reviewers receive a per-QA evidence matrix that separates synthetic regression passes, public asset/health observations and authenticated acceptance still needed.
+
+### Implementation, changed areas and impacts
+Ran the root test launcher, frontend lint/build, local synthetic Chromium workflows with intercepted API fixtures, source/command/link assertions and read-only public HTTP/asset checks. Added docs/qa/2026-10-12/fix-verification.md and updated docs/qa-fix-register.md and both change logs. An old temporary QA-04 harness expectation was aligned with the safe QA-10 503 message; application code was untouched.
+
+- **API/database/configuration/deployment:** no endpoint, schema, migration, seed, environment-value, script, dependency or hosting change; no deployment. Public health performs its existing connectivity probe; no direct production database query or record mutation was performed.
+- **Security/privacy:** synthetic users/answers used locally; no real credential, personal information or private document location recorded. No gate bypass or new access. Public inspection does not prove protected authorization/workflow behavior.
+- **Accessibility:** sampled tester contrast 12.54:1, keyboard controls/mobile layouts passed; axe gate sample zero violations, 23 passing rules and one incomplete contrast review. No full-app certification.
+- **Scope:** supported workflow ends at official payroll-list generation; legacy retirement and historical records unchanged. No monetary-audit process introduced.
+
+### Validation, limitations, rollback and next work
+All 285 executed automated checks passed; one existing opt-in school catalog database migration case skipped. Frontend lint/build and all 11 route fallbacks passed; existing large ExcelJS chunk warning remains. Nine fresh browser script runs passed. Public index-BKe9Wwze.js and related fix chunks/CSS contain expected markers; five direct routes and API health returned HTTP 200, database connected. Full per-QA coverage and evidence are in the dated report. No authenticated live account or private Hostinger dashboard available; synthetic transaction tests do not establish PostgreSQL isolation, public health does not expose backend revision/migration completion, and the live saved question bank was not read. QA-11 remains local documentation. Rollback only removes documentation; no data rollback needed. Next: controlled authenticated acceptance with dedicated records and private provider-setting review, with deliberate faults confined to local/staging.
+
+## 2026-10-12 - QA-11: Document Current Hostinger Deployment and Recovery
+
+### TL;DR
+- Replaced retired Vercel-frontend/Render-API instructions with the existing separate Hostinger frontend/backend layout, public origins and source-backed commands.
+- Operators now have migration/start sequencing, environment names, retained Blob/mail dependencies, controlled release checks and compatible rollback guidance.
+- Corrected the former automatic-bootstrap claim: standard Hostinger builds generate the application client and deploy migrations; account bootstrap is a separate explicitly authorized new-install operation.
+- Documentation/source/link/whitespace review passed. No runtime, environment value, API, database or hosting changes; private provider settings were not inspected and nothing was deployed.
+
+### Objective and previous/new behavior
+Resolve QA-11: the old deployment guide and README described retired Vercel/Render application hosting, which could send operators to the wrong providers or build/account-creation procedures. The replacement describes the current Hostinger domains and independent deployment roots using repository scripts and recorded release evidence. It distinguishes known source behavior and public/user-reported evidence from private provider settings that still need operator confirmation. No application behavior changes.
+
+### Affected users, implementation and changed areas
+Deployment operators and future maintainers receive a current runbook; applicants, scholars and CAO staff have no interface or workflow change. Rewrote docs/deployment-guide.md; updated README.md's production paragraph, backend/.env.example comments, docs/qa-fix-register.md and both change logs. The runbook traces frontend build-time API origin and route fallbacks, backend client generation/migration-before-start flow, direct/runtime database connections, authorized private storage and post-write lifecycle mail. It explicitly separates ordinary deployment from bootstrap, preserves historical records and requires appropriate rollback/schema compatibility.
+
+### Impacts
+- **API/database:** no endpoint, contract, schema, migration, seed, data repair or record change. Documented existing health limitations and migration behavior; no database commands executed.
+- **Configuration/dependencies/deployment:** no setting values, scripts, dependencies, ports, domains or provider configurations changed. Environment-example edits are comments only. Legacy render.yaml and frontend/vercel.json retained and identified as retired application-hosting configurations; Blob remains an active dependency. No commit push or deployment performed for this documentation change.
+- **Security/privacy:** no credentials, real personal data or private document locations added. Guidance keeps secrets backend-only, preserves tester/account authorization and avoids unsafe production seeds/resets. No access-control change.
+- **Accessibility:** no application UI change; headings, tables and descriptive local links organize operator instructions.
+- **Product scope:** official payroll-list generation remains the endpoint. Legacy payout retirement and historical data are unchanged; no monetary-audit workflow introduced.
+
+### Validation and results
+Reviewed package scripts, backend build/migration/server/configuration/bootstrap sources, frontend API/fallback sources, mailer/storage code and prior deployment evidence. Automated documentation assertions passed for local links, standard build/start mapping, migration direct-URL preference, absence of automatic bootstrap in the standard build, supported bootstrap roles and removal of retired-provider provisioning instructions. Whitespace checks passed. No application suite or build rerun was necessary for this documentation/comment-only change; no live fault injection or protected workflow used.
+
+### Limitations, rollback and recommended next work
+Hostinger dashboard fields, account ownership, backup retention/recovery controls and private environment values were not inspected. Commands are established by current source; the operator must compare them with existing provider settings rather than treating this as a fresh private-settings audit. Public health cannot prove backend revision, migration completion, storage/mail success or authenticated workflow correctness. Rollback restores only documentation/comments and requires no data rollback. Next: publish this documentation when requested, confirm private project/build/backup settings during the next operational review, and finish controlled authenticated acceptance for the already deployed fixes using the QA register.
+
 ## 2026-10-12 - Deploy QA-10 for Testing
 
 ### TL;DR

@@ -20,3 +20,11 @@ test('online attendance still instructs the applicant to submit their own examin
   assert.match(summary.description, /Complete the online examination/);
   assert.match(getApplicantExaminationSummary({ deliveryMode: 'online', completed: true }).description, /submission was recorded/);
 });
+
+test('expired attempts replace the Present instruction without replacing completed results or terminal decisions', () => {
+  const expired = { deliveryMode: 'online', attendance: { status: 'Present' }, attemptExpired: true, status: 'Attempt expired' };
+  assert.equal(getApplicantExaminationSummary(expired).title, 'Attempt expired');
+  assert.match(getApplicantExaminationSummary(expired).description, /Contact CAO/);
+  assert.equal(getApplicantExaminationSummary({ ...expired, completed: true }).title, 'Result under review');
+  assert.equal(getApplicantExaminationSummary({ ...expired, status: 'Withdrawn' }).title, 'Withdrawn');
+});
