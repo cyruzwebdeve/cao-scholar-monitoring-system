@@ -5,6 +5,22 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-12 - Remove Scholar Certification Caption
+
+### TL;DR
+- Removed the private-school tuition/amount caption below the individual Scholar drawer status badges, as requested; shortened the button tooltip so the same phrase does not reappear there.
+- Download Certification remains in the header with its existing private-school eligibility and unchanged PDF content; no backend, database or migration change.
+- Source/whitespace and frontend lint/build checks passed; testing-site publication verification is in progress.
+
+### Objective, behavior, roles and implementation
+Simplify the displayed drawer header for CAO staff. Previously the header repeated Individual private-school tuition certification and PHP 5,000.00 beneath the badges and in the button tooltip. Removed that paragraph and its unused CSS rule; tooltip now says Download individual certification. Changed ScholarsManagement.jsx, admin.css, fix register and both change logs. The existing button/generator/feedback remain.
+
+### Impacts, validation and deployment
+Frontend copy/style only: no API contract, authorization, backend, schema, migration, record write, dependency, configuration value or hosting change. PDF details and private-school eligibility retained; no tuition policy/data conversion. Native button/status accessibility remains, with less repeated text; no full accessibility audit. No real personal data/private document used. Workflow still ends at official payroll-list generation, with legacy payment retirement/history unchanged. Verify source contains no old caption/class, lint/build/whitespace, then publish through the previously authorized testing pipeline and check the public asset. Original local October 11 QA artifacts remain excluded.
+
+### Limits, rollback and next work
+No hosted authenticated PDF generated for this copy-only change; prior placement/PDF/browser checks remain applicable because generation is untouched. Rollback restores only the paragraph/tooltip/style, requiring no database rollback. Next: refresh the testing site and confirm the status badges/button appear without the caption. Public health cannot identify backend revision; this release changes no backend code.
+
 ## 2026-10-12 - Deploy Scholar Drawer Certification Placement for Testing
 
 ### TL;DR
