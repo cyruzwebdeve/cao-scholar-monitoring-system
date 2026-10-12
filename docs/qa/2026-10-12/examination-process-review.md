@@ -3,7 +3,7 @@
 Date: 2026-10-12 (Asia/Manila). Initial review baseline `4f5fbfb` (QA-10 release
 `709e770`). The review itself changed no application code or production records.
 Subsequent authorized local implementation is recorded in Fix status below;
-nothing was deployed.
+release `105eec6` was subsequently pushed for acceptance testing.
 
 **Initial review outcome:** the ordinary paths have passing regression/browser evidence, but
 six additional boundary gaps were reproduced with synthetic controller probes.
@@ -12,13 +12,16 @@ not be described as successful production acceptance.
 
 ## Fix status after authorized implementation
 
-EXAM-01 through EXAM-06 are implemented locally. See the dated detailed change
+EXAM-01 through EXAM-06 are implemented in release `105eec6`, pushed for acceptance testing. See the dated detailed change
 entry and [fix register](../../qa-fix-register.md): exact reviewed-result and
 application/period-bound Serializable acceptance, shared terminal-state guards,
 current-result projections, primary-period selection and expired status/access.
 231 backend checks and 70 frontend checks passed; one existing database test
-skipped, lint/build and six synthetic browser runs passed. No migration or
-deployment. The findings/reproductions below preserve the pre-fix review evidence;
+skipped, lint/build and six synthetic browser runs passed. No
+new migration. New exact-review/expired frontend assets are live and API/database
+health is good; backend provider confirmation is pending. Use the
+[acceptance checklist](examination-acceptance-checklist.md). The findings/reproductions
+below preserve the pre-fix review evidence;
 production/database-concurrency acceptance and additional policy decisions remain.
 
 ## Current process
