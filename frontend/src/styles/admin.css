@@ -8218,7 +8218,7 @@
 .billing-source-table .billing-queue-row { grid-template-columns: 72px minmax(0, 1fr) 144px; min-width: 0; column-gap: 12px; }
 .billing-source-table .billing-queue-table-head { min-height: 36px; padding: 0 16px; }
 .billing-source-table .billing-queue-table-head span { font-size: 9px; }
-.billing-source-table .billing-queue-row { grid-template-areas: "control name status" "control school status"; grid-template-rows: auto auto; box-sizing: border-box; align-content: center; align-items: start; row-gap: 4px; min-height: 86px; padding: 14px 16px; }
+.billing-source-table .billing-queue-row { grid-template-areas: "control name status" "control school status"; grid-template-rows: auto auto; box-sizing: border-box; align-content: center; align-items: start; row-gap: 2px; min-height: 64px; padding: 10px 16px; }
 .billing-source-table .billing-queue-row > code { grid-area: control; padding: 3px 0 0; color: #50685a; font-size: 10px; }
 .billing-source-table .billing-queue-name { grid-area: name; min-height: 0; padding: 0; }
 .billing-source-table .billing-queue-name strong { font-size: 12px; line-height: 1.45; white-space: normal; overflow-wrap: anywhere; }

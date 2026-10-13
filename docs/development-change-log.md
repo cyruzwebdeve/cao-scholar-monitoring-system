@@ -5,6 +5,29 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-13 - Tighten Scholar Source Row Spacing
+
+**TL;DR**
+- Billing/Payroll scholar source rows use a 64px minimum height instead of 86px, with less vertical padding.
+- Name/school spacing is reduced; existing text sizes, warning tooltip, selection, and processing rules remain unchanged.
+- Frontend production build and whitespace validation passed. Not deployed in this task.
+
+### Objective and previous/new behavior
+
+Reduce the excess space around the scholar row shown by the user. The desktop source-row rule changes minimum height from 86px to 64px, vertical padding from 14px to 10px, and the name/school grid gap from 4px to 2px. Horizontal spacing is unchanged. Long content and stacked mobile rows can still expand naturally.
+
+### Roles, implementation, and files
+
+Affected users: Billing and Payroll staff. Only the scoped billing-source-table row rule in frontend/src/styles/admin.css changes. No markup, event handling, or data flow changes.
+
+### Impact
+
+API, database/schema/migration, configuration, security, permissions, and privacy: none. Accessibility: existing text sizes, focus controls, and warning-tooltip interactions are retained; row height remains content-driven for wrapped text. Deployment: frontend-only change, not deployed in this task. Historical records, processing eligibility, and list-generation scope remain unchanged.
+
+### Validation, limitations, rollback, and next work
+
+Frontend production build and git diff whitespace validation passed. No new tests for this small spacing adjustment. Mobile container rules retain their existing stacked layout and responsive gaps. Restore the three CSS values to roll back; no data rollback is needed. Verify the compact rows after the next frontend deployment.
+
 ## 2026-10-13 - Replace Requirement Text Badge with Accessible Warning Tooltip
 
 **TL;DR**
