@@ -247,3 +247,5 @@
 2026-10-13 | Deployed warning-icon tooltip release 2588f46 for testing. Public frontend component/styles verified live; old requirement text badge removed. API healthy/database connected. Frontend only; no migration.
 
 2026-10-13 | Reduced Billing/Payroll source-row minimum height 86px to 64px, vertical padding 14px to 10px, and name/school gap 4px to 2px. Processing and typography unchanged; frontend build passed. Not deployed.
+
+2026-10-13 | Deployed compact scholar-row release eea2096. Live Dashboard-BYxBqiDZ.css verified 64px minimum height, 10px vertical padding, and 2px row gap; API healthy/database connected. Frontend only, no migration.

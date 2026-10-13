@@ -10,7 +10,7 @@ and how the result was verified.
 **TL;DR**
 - Billing/Payroll scholar source rows use a 64px minimum height instead of 86px, with less vertical padding.
 - Name/school spacing is reduced; existing text sizes, warning tooltip, selection, and processing rules remain unchanged.
-- Frontend production build and whitespace validation passed. Not deployed in this task.
+- Frontend production build and whitespace validation passed. Release eea2096 deployed; compact row styling verified live.
 
 ### Objective and previous/new behavior
 
