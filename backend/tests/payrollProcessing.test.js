@@ -67,72 +67,51 @@ const generateWithOverride = async ({ role = 'SuperAdmin', overrides = [{ applic
   return res;
 };
 
-test('authorized Payroll override persists its reason without changing document approvals or releasing money', async () => {
-  for (const role of ['SuperAdmin', 'BillingPayrollAdmin']) {
+test('all processing roles generate incomplete Payroll lists without override or document approval', async () => {
+  for (const role of ['SuperAdmin', 'BillingPayrollAdmin', 'RegularAdmin']) {
     const { writes } = setup({ gradeStatus: 'pending' });
-    const res = await generateWithOverride({ role });
+    const res = response();
+    await processPayrollSelection({ body: { academicPeriodId: 10, applicantIds: [1] }, user: { id: 99, role } }, res);
     assert.equal(res.statusCode, 201);
-    assert.equal(res.body.overrideCount, 1);
+    assert.equal(res.body.incompleteRequirementsCount, 1);
+    assert.equal(res.body.overrideCount, undefined);
     assert.equal(writes[0].data.status, 'generated');
-    assert.equal(writes[0].data.prepared_by, 99);
     assert.equal(writes[1].data[0].claim_status, 'listed');
-    assert.equal(writes[1].data[0].claim_amount, 3000);
-    assert.match(writes[1].data[0].notes, /^Payroll eligibility override: Approved exception/);
-    assert.match(res.locals.auditDescription, /1 requirement-readiness overrides/);
+    assert.match(writes[1].data[0].notes, /Requirements incomplete at list generation/);
+    assert.match(res.locals.auditDescription, /1 with incomplete requirements/);
     assert.equal((await prisma.application_submissions.findMany())[0].initial_docs.requirements.grades.status, 'pending');
   }
 });
 
-test('Payroll override also permits a missing requirement while retaining the normal eligibility gate', async () => {
-  setup();
+test('Payroll accepts missing requirements without creating approvals', async () => {
+  const { writes } = setup();
   const [application] = await prisma.application_submissions.findMany();
-  delete application.initial_docs.requirements.grades;
-  assert.equal((await generate()).statusCode, 409);
-  assert.equal((await generateWithOverride()).statusCode, 201);
+  application.initial_docs.requirements = {};
+  assert.equal((await generate()).statusCode, 201);
+  assert.equal(writes.length, 2);
+  assert.deepEqual(application.initial_docs.requirements, {});
 });
 
-test('RegularAdmin cannot authorize Payroll overrides, including by direct API request', async () => {
-  const { writes } = setup({ gradeStatus: 'pending' });
-  assert.equal((await generateWithOverride({ role: 'RegularAdmin' })).statusCode, 403);
-  assert.equal(writes.length, 0);
-});
-
-test('Payroll rejects malformed, duplicate, unselected, and invalid-reason overrides without writes', async () => {
-  for (const overrides of [
-    {}, [null], [{ applicantId: 2, reason: 'A documented exception.' }],
-    [{ applicantId: '1', reason: 'A documented exception.' }],
-    [{ applicantId: 1, reason: 'short' }], [{ applicantId: 1, reason: ' '.repeat(20) }],
-    [{ applicantId: 1, reason: 'x'.repeat(501) }], [{ applicantId: 1, reason: {} }],
-    [{ applicantId: 1, reason: 'A documented exception.' }, { applicantId: 1, reason: 'A documented exception.' }],
-  ]) {
+test('retired Payroll overrides return reload guidance without writes', async () => {
+  for (const overrides of [{}, [null], [{ applicantId: 1, reason: 'Old exception request.' }]]) {
     const { writes } = setup({ gradeStatus: 'pending' });
-    assert.equal((await generateWithOverride({ overrides })).statusCode, 400);
+    const res = await generateWithOverride({ overrides });
+    assert.equal(res.statusCode, 400);
+    assert.match(res.body.message, /overrides have been removed/);
     assert.equal(writes.length, 0);
   }
 });
 
-test('Payroll overrides never bypass hard blockers, even alongside incomplete requirements', async () => {
-  for (const options of [
-    { schoolType: 'private', periodSchoolId: 1 },
-    { schoolType: 'unclassified', periodSchoolId: 1 },
-    { alreadyProcessed: true }, { inactive: true }, { unavailable: true },
-  ]) {
+test('incomplete requirements never bypass account, classification, route, or duplicate blockers', async () => {
+  for (const options of [{ schoolType: 'private', periodSchoolId: 1 }, { schoolType: 'unclassified', periodSchoolId: 1 }, { alreadyProcessed: true }, { inactive: true }, { unavailable: true }]) {
     const { writes } = setup({ gradeStatus: 'pending', ...options });
     if (options.inactive) prisma.scholar_accounts.findMany = async () => [{ applicant_id: 1, is_active: false }];
     if (options.unavailable) prisma.applicants.findMany = async () => [];
-    const res = await generateWithOverride();
+    const res = await generate();
     assert.equal(res.statusCode, 409);
-    assert.ok(res.body.ineligible[0].overrideErrors.length);
+    assert.ok(res.body.ineligible[0].reasons.length);
     assert.equal(writes.length, 0);
   }
-});
-
-test('a now-eligible scholar does not persist a stale Payroll override', async () => {
-  const { writes } = setup();
-  const res = await generateWithOverride();
-  assert.equal(res.statusCode, 201);
-  assert.equal(res.body.overrideCount, 0);
-  assert.equal(writes[1].data[0].notes, 'Included in the official public-scholar payroll list');
 });
 
 const list = async () => {
@@ -208,8 +187,7 @@ test('genuinely Private scholars still require tuition receipt and cannot genera
   assert.equal(record.documentsTotal, 6);
   const res = await generate();
   assert.equal(res.statusCode, 409);
-  assert.deepEqual(res.body.ineligible[0].reasons.map(({ code }) => code), ['REQUIREMENT_MISSING', 'PRIVATE_SCHOOL_BILLING_ROUTE']);
-  assert.equal(res.body.ineligible[0].reasons[0].requirement, 'tuition_receipt');
+  assert.deepEqual(res.body.ineligible[0].reasons.map(({ code }) => code), ['PRIVATE_SCHOOL_BILLING_ROUTE']);
   assert.equal(writes.length, 0);
 });
 
@@ -223,13 +201,37 @@ test('both listing and generation block duplicate list membership for the proces
   assert.equal(writes.length, 0);
 });
 
-test('Public semester requirements still need approval before generating payroll', async () => {
-  const { writes } = setup({ gradeStatus: 'pending' });
-  assert.equal((await list()).processEligible, false);
-  const res = await generate();
-  assert.equal(res.statusCode, 409);
-  assert.equal(res.body.ineligible[0].reasons[0].requirement, 'grades');
-  assert.equal(writes.length, 0);
+test('management listing exposes incomplete requirements as warnings and permits normal processing', async () => {
+  setup({ gradeStatus: 'pending' });
+  const record = await list();
+  assert.equal(record.processEligible, true);
+  assert.equal(record.documentStatus, 'Review');
+  assert.equal(record.processingWarnings[0].requirement, 'grades');
+  assert.deepEqual(record.billingEligibilityReasons, []);
+  assert.equal((await generate()).statusCode, 201);
+});
+
+test('Private certification accepts missing tuition receipt and pending grades without overrides', async () => {
+  const { writes } = setup({ schoolType: 'private', periodSchoolId: 1, gradeStatus: 'pending' });
+  const res = response();
+  await processBillingSelection({ body: { academicPeriodId: 10, applicantIds: [1] }, user: { id: 99, role: 'RegularAdmin' } }, res);
+  assert.equal(res.statusCode, 201);
+  assert.equal(res.body.incompleteRequirementsCount, 1);
+  assert.equal(writes[0].data.total_amount, 5000);
+  assert.match(writes[1].data[0].notes, /Receipt of Tuition Fee has not been uploaded/);
+  assert.equal((await prisma.application_submissions.findMany())[0].initial_docs.requirements.grades.status, 'pending');
+});
+
+test('Billing retains all hard blockers even when requirements are missing', async () => {
+  for (const options of [{ inactive: true }, { unavailable: true }, { alreadyProcessed: true }, { schoolType: 'public' }]) {
+    const { writes } = setup({ schoolType: 'private', periodSchoolId: 1, gradeStatus: 'pending', ...options });
+    if (options.inactive) prisma.scholar_accounts.findMany = async () => [{ applicant_id: 1, is_active: false }];
+    if (options.unavailable) prisma.applicants.findMany = async () => [];
+    const res = response();
+    await processBillingSelection({ body: { academicPeriodId: 10, applicantIds: [1] }, user: { id: 99, role: 'SuperAdmin' } }, res);
+    assert.equal(res.statusCode, 409);
+    assert.equal(writes.length, 0);
+  }
 });
 
 test('actual Billing controller retains Private PHP 5,000 certification generation with all six approved files', async () => {
@@ -242,10 +244,10 @@ test('actual Billing controller retains Private PHP 5,000 certification generati
   assert.equal(writes[1].data[0].claim_amount, 5000);
 });
 
-test('actual Billing controller refuses missing school classification even with a requested override', async () => {
+test('actual Billing controller refuses missing school classification', async () => {
   const { writes } = setup({ applicantSchoolId: null, periodSchoolId: null, plannedSchool: 'UNKNOWN SCHOOL' });
   const res = response();
-  await processBillingSelection({ body: { academicPeriodId: 10, applicantIds: [1], billingOverrides: [{ applicantId: 1, reason: 'Attempted school lookup bypass.' }] }, user: { id: 99, role: 'SuperAdmin' } }, res);
+  await processBillingSelection({ body: { academicPeriodId: 10, applicantIds: [1] }, user: { id: 99, role: 'SuperAdmin' } }, res);
   assert.equal(res.statusCode, 409);
   assert.equal(res.body.ineligible[0].reasons[0].code, 'SCHOOL_CLASSIFICATION_MISSING');
   assert.equal(writes.length, 0);
@@ -329,5 +331,37 @@ test('actual Scholar tuition upload rejects Public current-period catalog classi
   await uploadMyRequirement({ body: { requirement: 'tuition_receipt', fileName: 'test.pdf', fileData: 'data:application/pdf;base64,JVBERi0xLjQK' }, user: { id: 1, email: 'scholar@example.com' } }, res);
   assert.equal(res.statusCode, 400);
   assert.match(res.body.message, /Only Private/);
+  assert.equal(writes.length, 0);
+});
+
+
+test('Private list generation works without a requirement row and records missing documents without approvals', async () => {
+  const { writes } = setup({ schoolType: 'private', periodSchoolId: 1 });
+  prisma.scholar_requirements.findMany = async () => [];
+  const [application] = await prisma.application_submissions.findMany();
+  application.initial_docs.requirements = {};
+  prisma.$transaction = async (callback) => callback({
+    payroll_batches: { create: async ({ data }) => { writes.push({ type: 'batch', data }); return { id: 51, ...data }; } },
+    payroll_claims: { createMany: async ({ data }) => { writes.push({ type: 'memberships', data }); return { count: data.length }; } },
+    scholar_requirements: {
+      updateMany: async () => ({ count: 0 }),
+      createMany: async ({ data }) => { writes.push({ type: 'requirements', data }); return { count: data.length }; },
+    },
+  });
+  const res = response();
+  await processBillingSelection({ body: { academicPeriodId: 10, applicantIds: [1] }, user: { id: 99, role: 'SuperAdmin' } }, res);
+  assert.equal(res.statusCode, 201);
+  assert.equal(res.body.incompleteRequirementsCount, 1);
+  assert.match(writes[1].data[0].notes, /Requirements incomplete/);
+  assert.deepEqual(Object.keys(writes[2].data[0]).sort(), ['applicant_id', 'billing_period_id', 'billing_reference', 'updated_by']);
+  assert.deepEqual(application.initial_docs.requirements, {});
+});
+
+test('Billing rejects retired override requests without generating a list', async () => {
+  const { writes } = setup({ schoolType: 'private', periodSchoolId: 1 });
+  const res = response();
+  await processBillingSelection({ body: { academicPeriodId: 10, applicantIds: [1], billingOverrides: [{ applicantId: 1, reason: 'Old override.' }] }, user: { id: 99, role: 'SuperAdmin' } }, res);
+  assert.equal(res.statusCode, 400);
+  assert.match(res.body.message, /overrides have been removed/);
   assert.equal(writes.length, 0);
 });

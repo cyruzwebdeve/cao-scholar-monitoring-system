@@ -5,6 +5,73 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-13 - Deploy Simplified Billing and Payroll Listing for Testing
+
+**TL;DR**
+- Prepare the tested Billing/Payroll release for Hostinger: incomplete requirements are warnings, and individual override authorization is removed.
+- Both frontend and backend need deployment; no database migration is required.
+- Validation: 312 tests passed with one opt-in database test skipped, lint/build passed, and four synthetic desktop/mobile browser scenarios passed.
+- Deployment is pending GitHub push and live verification; existing unrelated QA artifacts are excluded from this release.
+
+### Objective and behavior
+
+Deploy the user-approved simplified listing flow for testing. Active correctly routed scholars can be listed without individual override reasons while document approvals remain unchanged. Duplicate, inactive-account, classification, route, and active-period checks remain. Historical lists and operational logs are retained.
+
+### Roles, implementation, and files
+
+Authorized Billing/Payroll staff use the existing normal and bulk queue controls. Hostinger builds separate frontend/backend roots from main. This release includes the application controller, shared list evaluator, BillingPayrollManagement UI, processing helper, admin styles, regression tests, change logs, and the dated listing verification checklist.
+
+### Impact
+
+API behavior and new warning metadata are described in the implementation entry below. No new API endpoint, database schema/migration, configuration, or new personal fields. Existing authorization/section guards remain. Accessible normal queue controls and visible warning text replace the override modal. Legacy list storage remains retained; payment release/claiming remains outside scope. This deployment requires both services; health alone cannot identify the backend revision.
+
+### Validation, limitations, rollback, and next work
+
+Local regression, lint, production build, and fixture-based browser checks passed. Production changes are limited to deploying code; no test scholars or real list records are created through public verification. Verify the public frontend assets and API/database health after push, and confirm the exact backend revision in Hostinger. Use docs/qa/2026-10-13/billing-payroll-listing-checklist.md for authenticated testing with synthetic scholars. Roll back frontend/backend together if needed; retain already generated historical lists. Deployment results will be recorded after verification.
+
+## 2026-10-13 - Remove Billing and Payroll Requirement Overrides
+
+**TL;DR**
+- Active scholars can enter their correctly routed certification/payroll list even when applicable requirements are missing or unapproved; no individual override authorization or reason is needed.
+- Staff retain bulk queue controls; incomplete requirements appear as warnings, while account, classification, routing, period, and duplicate checks remain enforced.
+- Document approvals, historical list records, and operational Activity Logs are preserved; the workflow still ends at list generation.
+- Validation: 312 regression tests passed, one opt-in database test skipped; frontend lint and production build passed. Four local desktop/mobile browser scenarios passed. This change has not been deployed.
+
+### Objective and reason
+
+Remove repeated override clicks while permitting scholars with incomplete requirements to enter official lists, as explicitly requested. The earlier proposal to require all approvals before listing was superseded by this instruction.
+
+### Previous and new behavior
+
+Previously, missing/unapproved requirements blocked normal processing; Super Admin or Billing / Payroll Admin could queue each exception through a reason dialog. Now document readiness is informational for list generation. Authorized processing staff, including Regular Admin with the existing section access, can queue these scholars individually or through the existing Move all control. Incomplete requirements remain marked and are counted in the generation response and success notice. Inactive/unavailable scholars, unknown school classifications, wrong school routes, inactive processing periods, and existing period memberships remain blocked. Pending documents remain pending.
+
+### Roles, implementation, and data flow
+
+The shared list eligibility evaluator separates missing/unapproved-document warnings from hard blockers. Scholar Management returns processingWarnings independently of processing eligibility and existing document status. Billing and Payroll controllers re-evaluate saved records before generating lists, record outstanding-document descriptions in new membership notes, and include incompleteRequirementsCount in their responses and operational log descriptions. The frontend removes override state, labels, dialog, and request fields. Bulk queueing is retained; refresh recalculates queued eligibility. The period selector still clears the queue. Billing details editing keeps its shared modal layout under appropriately named styles.
+
+### Changed areas
+
+- Backend lifecycle integrity service and application controller: list eligibility, retired request handling, list notes, responses, and Activity Logs.
+- Frontend BillingPayrollManagement, processingVisibility helper, and admin styles: normal queueing, warnings, retained editor, removed override controls.
+- Backend lifecycle/payroll regressions and frontend processing/identity regressions: updated policy expectations and direct-controller safeguards.
+- Verification checklist: docs/qa/2026-10-13/billing-payroll-listing-checklist.md.
+
+### API, database, configuration, security, privacy, accessibility, and deployment
+
+API: existing processing routes and access guards remain. Nonempty or malformed billingOverrides/payrollOverrides return HTTP 400 with refresh guidance; empty arrays from older clients remain compatible. overrideCount is replaced with incompleteRequirementsCount. Scholar Management adds processingWarnings. Database: no schema migration or historical data rewrite; new list membership notes preserve outstanding requirements at generation. Missing Private requirement rows can be created with the existing period/reference fields without creating approvals. Configuration: no changes. Security: document-completion gating is deliberately relaxed, while authentication, role/section access, server routing, inactive-account and duplicate guards remain. Privacy: existing authenticated response scope remains; no new personal fields or external services. Accessibility: warnings use visible text, and normal keyboard-operable queue controls remain; no extra confirmation modal is introduced. Deployment: frontend and backend must be released together; no deployment performed in this task.
+
+### Scope and historical data
+
+Legacy payroll_batches/payroll_claims storage and Private batch status values are retained for list/history compatibility. They continue to represent list records in this workflow; fund release, claiming, disbursement, reconciliation, and monetary auditing remain disabled/outside scope. Historical override reasons and Activity Logs are retained. The separate scholarship-acceptance eligibility override is unchanged.
+
+### Validation and results
+
+The full fixture-based regression suites passed: 242 backend plus 70 frontend tests; one real-database catalog migration test intentionally skipped. Tests cover missing/pending documents, processing roles, warning metadata, unchanged approvals, generation without a Private requirement row, retired override requests, and retained hard blockers. Frontend lint, production build, and diff whitespace validation passed. The build retains the existing large-chunk advisory. Four Chromium scenarios passed (Billing and Payroll at 1280px and 390px) using synthetic records and intercepted API requests: absent override controls, incomplete-document queueing, bulk transfer, inactive-account blocking, period queue reset, normal generation payloads, success warnings, and retained Billing details editing. No production data was changed.
+
+### Limitations, rollback, and next work
+
+Requirements can remain incomplete after listing: staff must follow up through the existing document review workflow. This change does not represent approval of those documents or alter grant amounts. Tests use synthetic records and database facades; hosted authenticated workflows and real-database concurrency are not verified here. Roll back frontend and backend together to restore per-scholar overrides; retain any lists already generated rather than deleting history. Release both components together and perform the checklist with synthetic/test scholars. A future incomplete-requirements filter could simplify follow-up if staff request it.
+
 ## 2026-10-12 - Remove Scholar Certification Caption
 
 ### TL;DR

@@ -1,37 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canOverrideForProcessing, canQueueForProcessing, isVisibleInProcessingMode } from '../src/utils/processingVisibility.js';
+import { canQueueForProcessing, isVisibleInProcessingMode } from '../src/utils/processingVisibility.js';
 
 const publicScholar = { schoolType: 'Public', processRoute: 'payroll', processEligible: true };
 const privateScholar = { schoolType: 'Private', processRoute: 'billing', processEligible: true };
 const unclassifiedScholar = { schoolType: 'Unclassified', processRoute: 'payroll', processEligible: false };
 
-const incompleteScholar = { ...publicScholar, status: 'Active', processEligible: false, billingEligibilityReasons: [{ code: 'REQUIREMENT_MISSING' }, { code: 'REQUIREMENT_NOT_APPROVED' }] };
-
-test('only authorized roles can override incomplete Public payroll requirements', () => {
-  for (const role of ['SuperAdmin', 'BillingPayrollAdmin']) {
-    assert.equal(canOverrideForProcessing(incompleteScholar, 'payroll', role), true);
+test('incomplete requirements can queue through normal processing for both school routes', () => {
+  for (const [record, mode] of [[publicScholar, 'payroll'], [privateScholar, 'billing']]) {
+    assert.equal(canQueueForProcessing({ ...record, processingWarnings: [{ code: 'REQUIREMENT_MISSING' }] }, mode), true);
+    assert.equal(canQueueForProcessing({ ...record, processEligible: false }, mode), false);
   }
-  for (const role of ['RegularAdmin', 'Scholar', undefined]) {
-    assert.equal(canOverrideForProcessing(incompleteScholar, 'payroll', role), false);
-  }
-  assert.equal(canQueueForProcessing(incompleteScholar, 'payroll'), false);
-});
-
-test('override cannot bypass classification, route, inactive, archived, or duplicate membership', () => {
-  for (const changes of [
-    { schoolType: 'Private' }, { schoolType: 'Unclassified' }, { schoolType: null },
-    { processRoute: 'billing' }, { status: 'Inactive' }, { isArchivedPeriod: true },
-    { inPayroll: true }, { billed: true }, { processEligible: true },
-    { billingEligibilityReasons: [] }, { billingEligibilityReasons: undefined },
-    { billingEligibilityReasons: [{ code: 'REQUIREMENT_MISSING' }, { code: 'ALREADY_PROCESSED_FOR_PERIOD' }] },
-  ]) {
-    assert.equal(canOverrideForProcessing({ ...incompleteScholar, ...changes }, 'payroll', 'SuperAdmin'), false);
-  }
-});
-
-test('Private certification retains authorized requirement overrides', () => {
-  assert.equal(canOverrideForProcessing({ ...incompleteScholar, ...privateScholar, processEligible: false }, 'billing', 'BillingPayrollAdmin'), true);
 });
 
 test('Payroll retains all five rows when three become Unclassified', () => {
@@ -71,7 +50,7 @@ test('valid Public payroll and Private certification eligibility is retained', (
   assert.equal(canQueueForProcessing(privateScholar, 'payroll'), false);
 });
 
-test('archived, incomplete, and already-listed scholars cannot move into a new queue', () => {
+test('archived, blocked, and already-listed scholars cannot move into a new queue', () => {
   for (const overrides of [{ isArchivedPeriod: true }, { processEligible: false }, { inPayroll: true }, { processRoute: 'billing' }]) {
     assert.equal(canQueueForProcessing({ ...publicScholar, ...overrides }, 'payroll'), false);
   }

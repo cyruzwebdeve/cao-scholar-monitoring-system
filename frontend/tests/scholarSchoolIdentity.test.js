@@ -69,7 +69,7 @@ test('Billing and Payroll source rows share name-and-school-only identity and re
   assert.doesNotMatch(rows, /record.email|<small>|isPayroll && <ScholarSchoolIdentity/);
   assert.match(rows, /aria-pressed=\{isSelected\}/);
   assert.match(rows, /\{statusLabel\}<\/span>/);
-  assert.match(rows, /openProcessingOverride\(record\)/);
+  assert.doesNotMatch(rows, /openProcessingOverride|Override available/);
   assert.match(rows, /openBillingEditor\(record\)/);
 });
 

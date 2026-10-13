@@ -4,7 +4,7 @@ const test = require('node:test');
 const {
   ONLINE_REQUIREMENTS,
   evaluateBillingEligibility,
-  evaluateBillingOverride,
+  evaluateListEligibility,
   getSchoolProcessRoute,
   getRequirementSnapshot,
   isPayableClaim,
@@ -101,47 +101,24 @@ test('[FAILED] only a pending billed claim can enter payroll', () => {
   assert.equal(isPayableClaim(null), false);
 });
 
-test('[SUCCESS] requirement blockers can be overridden with an accountable reason', () => {
-  const eligibility = evaluateBillingEligibility({
-    isActive: true,
-    alreadyBilled: false,
-    initialDocs: { requirements: {} },
-    requirement: { folder_physical_submitted: false },
-  });
-  const override = evaluateBillingOverride({
-    eligibility,
-    reason: '  Approved for emergency processing by the CAO director.  ',
-  });
-
-  assert.equal(override.allowed, true);
-  assert.equal(override.reason, 'Approved for emergency processing by the CAO director.');
+test('list generation treats missing and unapproved documents as warnings without approving them', () => {
+  for (const schoolType of ['Private', 'Public']) {
+    const documents = approvedDocuments();
+    delete documents.requirements.valid_id;
+    documents.requirements.grades.status = 'Pending';
+    const result = evaluateListEligibility({ isActive: true, schoolType, initialDocs: documents, requireSchoolClassification: true });
+    assert.equal(result.eligible, true);
+    assert.deepEqual(result.reasons, []);
+    assert.deepEqual(result.warnings.map(({ code }) => code), ['REQUIREMENT_MISSING', 'REQUIREMENT_NOT_APPROVED']);
+    assert.equal(documents.requirements.grades.status, 'Pending');
+  }
 });
 
-test('[FAILED] billing override cannot bypass an inactive or already-billed scholar', () => {
-  const eligibility = evaluateBillingEligibility({
-    isActive: false,
-    alreadyBilled: true,
-    initialDocs: approvedDocuments(),
-    requirement: { folder_physical_submitted: true },
-  });
-  const override = evaluateBillingOverride({ eligibility, reason: 'Approved as an exceptional case.' });
-
-  assert.equal(override.allowed, false);
-  assert.deepEqual(
-    new Set(override.hardBlockers.map(({ code }) => code)),
-    new Set(['SCHOLAR_INACTIVE', 'ALREADY_BILLED']),
-  );
-});
-
-test('[FAILED] billing override requires a meaningful reason', () => {
-  const eligibility = evaluateBillingEligibility({
-    isActive: true,
-    alreadyBilled: false,
-    initialDocs: { requirements: {} },
-    requirement: { folder_physical_submitted: false },
-  });
-
-  assert.equal(evaluateBillingOverride({ eligibility, reason: 'urgent' }).allowed, false);
+test('list generation retains hard blockers even when every document is missing', () => {
+  const result = evaluateListEligibility({ isActive: false, alreadyProcessedForPeriod: true, schoolType: 'Unknown', requireSchoolClassification: true });
+  assert.equal(result.eligible, false);
+  assert.deepEqual(result.reasons.map(({ code }) => code), ['SCHOOL_CLASSIFICATION_MISSING', 'SCHOLAR_INACTIVE', 'ALREADY_PROCESSED_FOR_PERIOD']);
+  assert.equal(result.warnings.length, 5);
 });
 
 test('a missing classification never invents a Private tuition requirement and blocks list generation', () => {
@@ -152,7 +129,7 @@ test('a missing classification never invents a Private tuition requirement and b
     assert.equal(result.eligible, false);
     assert.equal(result.snapshot.onlineTotal, 5);
     assert.deepEqual(result.reasons.map(({ code }) => code), ['SCHOOL_CLASSIFICATION_MISSING']);
-    assert.equal(evaluateBillingOverride({ eligibility: result, reason: 'Attempted classification bypass.' }).allowed, false);
+    assert.equal(evaluateListEligibility({ isActive: true, initialDocs: documents, schoolType, requireSchoolClassification: true }).eligible, false);
   }
 });
 

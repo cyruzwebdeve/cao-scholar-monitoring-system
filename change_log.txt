@@ -223,3 +223,7 @@
 2026-10-12 | Authorized frontend deployment of individual Scholar drawer Download Certification placement for testing. Existing private-school PDF/eligibility retained; lint/build and synthetic keyboard/PDF-content/mobile checks passed. No backend/API/database/migration change. Release 9010a59 pushed; new drawer header button assets verified live and API/database healthy. Authenticated certificate acceptance pending.
 
 2026-10-12 | Removed individual Scholar drawer private-school tuition/amount caption and matching tooltip phrase; retained Download Certification, private-only eligibility and PDF content. Frontend copy/style only; no API/database/migration change. Lint/build and whitespace passed; release 099a17f pushed, caption/tooltip removal and retained header button verified in live assets, API/database healthy.
+
+2026-10-13 | Removed Billing/Payroll requirement overrides. Active correctly routed scholars with incomplete requirements can use normal/bulk list generation, with visible warnings and saved requirement notes. Kept document approvals, historical records, and account/classification/route/period/duplicate safeguards. No migration or deployment; 312 tests passed, one opt-in database test skipped, frontend lint/build passed.
+
+2026-10-13 | Prepared simplified Billing/Payroll listing release for Hostinger testing. Frontend and backend deployment required; no migration. Local regression/lint/build/browser checks passed; push and live verification pending.
