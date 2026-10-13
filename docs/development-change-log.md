@@ -5,6 +5,38 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-14 - Photo-Specific Document Capture Tips
+
+**TL;DR**
+- Admins see tips beneath captured-photo previews on the phone and in the initial-requirements intake; advice follows the selected photo, retake, applied crop and rotation.
+- Basic pixel checks suggest improvements for dim lighting, uneven lighting, low contrast, little visible detail, soft detail and small images. Up to three tips appear per photo.
+- Analysis runs locally in the browser with no new API, external image service, persistence or dependency. Tips never block upload or approve documents.
+- Five new metric test cases, the full frontend test suite (17 test modules), lint/build and isolated phone/desktop browser workflows passed. Deployment verification is recorded below.
+
+### Objective, previous and new behavior
+
+Help staff improve document photos using advice based on the captured image rather than a fixed checklist. Previously previews provided capture/crop controls without photo-specific guidance. They now show a compact tips card that checks the current preview and offers concrete retake advice, or reports that basic checks found no obvious warning. Staff must still inspect small text and all page edges before confirming the initial set. These checks are advisory and do not determine document validity or approval.
+
+### Affected roles, implementation and data flow
+
+Provincial and Regular Admins with initial-requirements access are affected. `CapturePhotoTips.jsx` analyzes the existing image data URI asynchronously, drops obsolete results when the source changes or the preview unmounts, and gives a manual-inspection fallback if analysis fails. `capturePhotoQuality.js` samples a canvas at a maximum 384-pixel long side, computes luminance percentiles, a 3×3 lighting grid, edge density and Laplacian variance, and considers the original preview dimensions. Application-specific heuristic thresholds produce up to three tips. White low-detail images are not automatically described as glare. The selected preview in `InitialRequirementCapture.jsx` and the pending phone photo in `PhoneCapturePage.jsx` share this component. Existing pairing, PDF assembly and manual confirmation remain intact.
+
+Canvas pixel access uses the standard [Canvas getImageData API](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/getImageData); the [OpenCV Laplacian reference](https://docs.opencv.org/4.5.1/d4/d86/group__imgproc__filter.html) explains the underlying derivative operator. These sources do not validate the application's quality thresholds.
+
+### Files and system impacts
+
+Added `frontend/src/CapturePhotoTips.jsx`, `frontend/src/utils/capturePhotoQuality.js` and `frontend/tests/capturePhotoQuality.test.js`; updated both intake components and `frontend/src/styles/document-capture.css`. Added `docs/qa/2026-10-14/photo-tips-acceptance-checklist.md`.
+
+API, database, configuration and dependencies: no changes. Security/authorization: no changes. Privacy: image analysis stays on the device; this feature introduces no image transfer, analytics, stored quality score or third-party service. Existing authorized phone transfer and final upload retain their established behavior. Accessibility: a polite status announcement, text explanations, and a non-color indication of each warning; layout was checked at 390-pixel phone and 1280-pixel desktop widths. Payroll-list scope and legacy payment code: no changes. Deployment: frontend only, no migration; user authorized deployment after verification.
+
+### Validation and results
+
+Five deterministic metric test cases passed, covering sharp, small, dark, blank/low-detail, low-contrast, soft-detail and unevenly lit samples plus invalid sample rejection. The full frontend suite passed all 17 test modules. Frontend lint and production build passed; the existing large-chunk build advisory remains. Isolated Chromium fixtures using synthetic photos and mocked pairing responses passed at phone/desktop widths: dim/detail warnings appeared, retake cleared prior advice, clear samples cleared warnings, small photos and applied crop produced size advice, phone Upload remained enabled and the card stayed within the viewport. Network inspection found only the existing pairing requests, with no analysis endpoint. A stale Vite optimized-dependency response initially prevented fixture rendering; restarting the local QA server resolved it. Temporary fixtures were removed. No real Scholar records or production documents were used during these checks.
+
+### Limitations, rollback and next work
+
+Heuristics can produce false positives/negatives and are evaluated on the processed preview, not the camera's original raw file. They cannot read text, verify readability, identify missing page edges, reliably detect glare/perspective, or validate document content. PDF-only selections have no image preview tips. Physical camera behavior and hosted authenticated uploads still need staff acceptance testing using the checklist. Calibrate advice with representative non-sensitive document captures before treating it as stronger quality screening. Revert the frontend feature files/imports/styles to roll back; no data rollback is required. Tips should remain advisory.
+
 ## 2026-10-14 - Phone Upload Label and Success Feedback
 
 **TL;DR**
