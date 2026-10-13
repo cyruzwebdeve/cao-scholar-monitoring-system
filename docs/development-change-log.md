@@ -11,7 +11,7 @@ and how the result was verified.
 - Billing/Payroll source and target panels now share heading, name, school, control-number, column-label, and footer typography with compact row spacing.
 - Queued scholars keep their school name and use the existing warning-icon tooltip instead of incomplete-requirements text; selection remains indicated by highlighting and aria-pressed.
 - Existing processing rules, request payloads, grant amounts, document approvals, and stored data are unchanged.
-- Verification: 70 frontend tests, lint/build, and eight synthetic desktop/mobile browser scenarios passed; Hostinger deployment pending push/live verification.
+- Verification: 70 frontend tests, lint/build, and eight synthetic desktop/mobile browser scenarios passed; Releases 2527dd7 and final alignment 3b51509 deployed; matched panel UI/styles verified live.
 
 ### Objective and previous/new behavior
 

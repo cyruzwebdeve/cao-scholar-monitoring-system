@@ -15,6 +15,8 @@ Frontend layout only: no database migration or backend behavior change.
 
 ## Matching source and target panels
 
+Final release 3b51509: component/styles verified live; API/database healthy.
+
 - Queue one test scholar while another remains in the source panel; compare 12px names, 7px school subtitles, 10px control numbers/footer text, and 9px column labels.
 - On desktop, confirm header/table-header/footer alignment and compact 64px minimum rows. Long content and Billing's Edit action may require taller rows.
 - In the queue, incomplete scholars should show a warning icon and retain the school subtitle. Hover, focus, or tap the icon to reveal the tooltip.

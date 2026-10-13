@@ -253,3 +253,5 @@
 2026-10-13 | Matched Billing/Payroll source and target panel typography, headers, footers, and compact row spacing. Queued scholars retain school subtitles and use warning-icon tooltips. Processing unchanged; 70 frontend tests, lint/build, and eight browser scenarios passed. Frontend deployment pending.
 
 2026-10-13 | Aligned source-row content to the top to match queued identities in the matching-panel release. Frontend build passed; processing unchanged.
+
+2026-10-13 | Deployed matching-panel UI (2527dd7, final alignment 3b51509) for testing. Public component/shared typography/compact row styles verified live; queue uses warning icon and school subtitle. API healthy/database connected. No backend change or migration.
