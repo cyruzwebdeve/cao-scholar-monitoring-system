@@ -12,3 +12,10 @@ Release 532b506: frontend stylesheet verified live; API/database healthy.
 8. Use synthetic/test records for any list generation. Incomplete requirements should still be allowed without override reasons; document approvals should remain unchanged.
 
 Frontend layout only: no database migration or backend behavior change.
+
+## Matching source and target panels
+
+- Queue one test scholar while another remains in the source panel; compare 12px names, 7px school subtitles, 10px control numbers/footer text, and 9px column labels.
+- On desktop, confirm header/table-header/footer alignment and compact 64px minimum rows. Long content and Billing's Edit action may require taller rows.
+- In the queue, incomplete scholars should show a warning icon and retain the school subtitle. Hover, focus, or tap the icon to reveal the tooltip.
+- Select a queued scholar, focus its warning icon, and confirm it stays selected. Use Return selected and confirm it moves back to the source list.

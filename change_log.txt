@@ -249,3 +249,5 @@
 2026-10-13 | Reduced Billing/Payroll source-row minimum height 86px to 64px, vertical padding 14px to 10px, and name/school gap 4px to 2px. Processing and typography unchanged; frontend build passed. Not deployed.
 
 2026-10-13 | Deployed compact scholar-row release eea2096. Live Dashboard-BYxBqiDZ.css verified 64px minimum height, 10px vertical padding, and 2px row gap; API healthy/database connected. Frontend only, no migration.
+
+2026-10-13 | Matched Billing/Payroll source and target panel typography, headers, footers, and compact row spacing. Queued scholars retain school subtitles and use warning-icon tooltips. Processing unchanged; 70 frontend tests, lint/build, and eight browser scenarios passed. Frontend deployment pending.

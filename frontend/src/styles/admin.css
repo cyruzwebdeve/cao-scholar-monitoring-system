@@ -6975,7 +6975,7 @@
 .billing-payment-reference input { width: 100%; height: 34px; box-sizing: border-box; padding: 0 10px; border: 1px solid #cedad1; border-radius: 7px; background: #fff; color: #35483b; font: inherit; font-size: 9px; outline: 0; }
 .billing-payment-reference input:focus { border-color: #48a970; box-shadow: 0 0 0 2px rgba(31, 146, 82, 0.1); }
 .billing-payment-reference p { max-width: 42%; margin: 0 0 9px; overflow: hidden; color: #8b978f; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
-.billing-target-footer { min-height: 52px !important; }
+.billing-target-footer { min-height: 48px !important; }
 .billing-target-footer > div { display: flex; gap: 13px; }
 .billing-target-footer > button { min-height: 31px; padding: 0 11px; border: 1px solid #148149; border-radius: 7px; background: #188c50; color: #fff; font: inherit; font-size: 8px; font-weight: 900; cursor: pointer; }
 .billing-target-footer > button:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -8211,13 +8211,13 @@
 
 /* Keep scholar identity in one column, with independent processing/document badges. */
 .billing-source-panel { container-type: inline-size; }
-.billing-source-panel .billing-transfer-header { min-height: 64px; padding: 0 16px; }
-.billing-source-panel .billing-transfer-header > div > small { color: #66766c; font-size: 10px; }
-.billing-source-panel .billing-transfer-header button { min-height: 32px; font-size: 10px; }
+.billing-transfer-panel .billing-transfer-header { min-height: 64px; box-sizing: border-box; align-items: flex-start; padding: 14px 16px; }
+.billing-transfer-panel .billing-transfer-header > div > small { color: #66766c; font-size: 10px; }
+.billing-transfer-panel .billing-transfer-header button { min-height: 32px; font-size: 10px; }
 .billing-source-table .billing-queue-table-head,
 .billing-source-table .billing-queue-row { grid-template-columns: 72px minmax(0, 1fr) 144px; min-width: 0; column-gap: 12px; }
-.billing-source-table .billing-queue-table-head { min-height: 36px; padding: 0 16px; }
-.billing-source-table .billing-queue-table-head span { font-size: 9px; }
+.billing-transfer-panel .billing-queue-table-head { min-height: 36px; padding: 0 16px; }
+.billing-transfer-panel .billing-queue-table-head span { font-size: 9px; }
 .billing-source-table .billing-queue-row { grid-template-areas: "control name status" "control school status"; grid-template-rows: auto auto; box-sizing: border-box; align-content: center; align-items: start; row-gap: 2px; min-height: 64px; padding: 10px 16px; }
 .billing-source-table .billing-queue-row > code { grid-area: control; padding: 3px 0 0; color: #50685a; font-size: 10px; }
 .billing-source-table .billing-queue-name { grid-area: name; min-height: 0; padding: 0; }
@@ -8228,11 +8228,12 @@
 .billing-source-table .billing-queue-ready { box-sizing: border-box; display: inline-flex; align-items: center; width: fit-content; max-width: 100%; min-height: 24px; padding: 4px 8px !important; border: 1px solid #d4e9dc; border-radius: 6px; font-size: 10px; font-weight: 600; line-height: 1.4; }
 .billing-source-table .billing-queue-ready { color: #20683e; background: #eef8f2; }
 .billing-source-table .billing-queue-ready.archived { color: #59685f; border-color: #e0e5e2; background: #f3f5f4; }
-.billing-source-status > .billing-requirements-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; min-height: 28px; padding: 0; border: 1px solid #efdbb6; border-radius: 6px; color: #a36b11; background: #fff8eb; cursor: help; }
+.billing-source-status > .billing-requirements-icon,
+.billing-queued-identity > .billing-requirements-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; min-height: 28px; padding: 0; border: 1px solid #efdbb6; border-radius: 6px; color: #a36b11; background: #fff8eb; cursor: help; }
 .billing-requirements-icon:focus-visible { outline: 2px solid #a36b11; outline-offset: 2px; }
 .billing-requirements-tooltip { position: fixed; z-index: 400; width: 176px; max-width: calc(100vw - 16px); box-sizing: border-box; padding: 8px 10px; border: 1px solid #dce5df; border-radius: 7px; color: #fff; background: #2d4134; box-shadow: 0 4px 14px rgba(17,47,28,.16); font-size: 11px; font-weight: 500; line-height: 1.5; }
 .billing-source-status > button { min-height: 28px; font-size: 10px; }
-.billing-source-panel > footer { min-height: 48px; padding: 0 16px; color: #65766b; font-size: 10px; }
+.billing-transfer-panel > footer { min-height: 48px; padding: 0 16px; color: #65766b; font-size: 10px; }
 @container (max-width: 420px) {
   .billing-source-table .billing-queue-table-head { display: none; }
   .billing-source-table .billing-queue-row { grid-template-columns: minmax(0, 1fr) 144px; grid-template-areas: "control status" "name status" "school school"; row-gap: 6px; }
@@ -8244,3 +8245,17 @@
   .billing-source-table .billing-queue-row { grid-template-columns: minmax(0, 1fr); grid-template-areas: "control" "name" "school" "status"; }
   .billing-source-table .billing-source-status { display: flex; flex-wrap: wrap; padding-top: 4px; }
 }
+
+/* Source and queue share a compact type scale while retaining their own columns. */
+.billing-target-table .billing-queue-table-head,
+.billing-target-table .billing-queue-row { grid-template-columns: 72px minmax(170px, 1fr) 76px 58px 82px; column-gap: 10px; min-width: 530px; }
+.billing-target-table .billing-queue-row { min-height: 64px; box-sizing: border-box; padding: 10px 16px; align-items: start; font-size: 10px; line-height: 1.45; }
+.billing-target-table .billing-queue-row > code { padding: 3px 0 0; color: #50685a; font-size: 10px; }
+.billing-target-table .billing-queue-row > span { padding-top: 3px; }
+.billing-target-table .billing-row-amount { padding-top: 3px; font-size: 10px; }
+.billing-queued-identity { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.billing-queued-identity > .billing-queue-name { min-width: 0; flex: 1; padding: 0; border: 0; border-radius: 6px; color: #53645a; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.billing-queued-identity > .billing-queue-name:focus-visible { outline: 2px solid #32a565; outline-offset: 1px; }
+.billing-queued-identity > .billing-queue-name strong { display: block; color: #2f4436; font-size: 12px; line-height: 1.45; white-space: normal; overflow-wrap: anywhere; }
+.billing-queued-identity > .billing-queue-name small { display: block; margin-top: 2px; color: #68796f; font-size: 7px; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }
+.billing-queue-row.selected .billing-queued-identity > .billing-queue-name strong { color: #16864c; }

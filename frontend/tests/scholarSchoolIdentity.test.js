@@ -73,7 +73,7 @@ test('Billing and Payroll source rows share name-and-school-only identity and re
   assert.match(rows, /openBillingEditor\(record\)/);
 });
 
-test('Billing and Payroll share tighter source spacing without changing target-queue spacing', async () => {
+test('Billing and Payroll retain source and target queue controls while sharing source spacing', async () => {
   const source = await readFile(new URL('../src/BillingPayrollManagement.jsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/styles/admin.css', import.meta.url), 'utf8');
   assert.match(source, /className="billing-queue-table billing-source-table"/);

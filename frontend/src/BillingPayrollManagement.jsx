@@ -559,7 +559,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
 
         <article className="billing-transfer-panel billing-target-panel">
           <header className="billing-transfer-header">
-            <div><strong>{isPayroll ? 'For Payroll' : 'For Billing'}</strong><small>Incomplete requirements do not block list generation. Document approvals remain unchanged.</small></div>
+            <div><strong>{isPayroll ? 'For Payroll' : 'For Billing'}</strong><small>Incomplete requirements can still be listed.</small></div>
             <button type="button" className="billing-queue-export" onClick={() => setExportOpen(true)} disabled={!queuedRecords.length}><Download size={14} />Export CSV</button>
           </header>
           <div className="billing-queue-table billing-target-table">
@@ -568,7 +568,10 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
               {!queuedRecords.length && <div className="billing-queue-empty"><ReceiptText size={20} /><strong>No scholars queued</strong><span>Use the transfer controls to add scholars.</span></div>}
               {queuedRecords.map((record) => <div className={`billing-queue-row ${queueSelection.includes(record.applicantId) ? 'selected' : ''}`} key={record.id}>
                 <code>{record.controlNumber || '—'}</code>
-                <button type="button" className="billing-queue-name" aria-pressed={queueSelection.includes(record.applicantId)} title={record.processingWarnings?.map(({ message }) => message).join(" ") || undefined} onClick={() => toggleSelection(setQueueSelection, record.applicantId)}><strong>{record.name}</strong><small>{queueSelection.includes(record.applicantId) ? 'Selected' : record.processingWarnings?.length ? 'Requirements incomplete' : record.school}</small></button>
+                <div className="billing-queued-identity">
+                  <button type="button" className="billing-queue-name" aria-pressed={queueSelection.includes(record.applicantId)} onClick={() => toggleSelection(setQueueSelection, record.applicantId)}><strong>{record.name}</strong><small>{record.school}</small></button>
+                  {record.processingWarnings?.length > 0 && <RequirementsWarning name={record.name} />}
+                </div>
                 <span>{record.schoolYear}</span>
                 <span>{record.semester}</span>
                 <strong className="billing-row-amount">{formatAmount(record.claimAmount)}</strong>

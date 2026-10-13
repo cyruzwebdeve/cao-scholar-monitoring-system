@@ -5,6 +5,34 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-13 - Match Scholar Source and Processing Queue Presentation
+
+**TL;DR**
+- Billing/Payroll source and target panels now share heading, name, school, control-number, column-label, and footer typography with compact row spacing.
+- Queued scholars keep their school name and use the existing warning-icon tooltip instead of incomplete-requirements text; selection remains indicated by highlighting and aria-pressed.
+- Existing processing rules, request payloads, grant amounts, document approvals, and stored data are unchanged.
+- Verification: 70 frontend tests, lint/build, and eight synthetic desktop/mobile browser scenarios passed; Hostinger deployment pending push/live verification.
+
+### Objective and previous/new behavior
+
+Address the user's side-by-side comparison. Previously the source showed 12px names/64px minimum rows while the target showed 9px names/53px minimum rows and replaced the school subtitle with incomplete-requirements text. Both panels now use 11px titles, 12px names, 7px school text, 10px control numbers/footer text, and 9px column labels. Headers/table headings/desktop footers share 64/36/48px sizing. Target rows use the same 64px minimum and 10px vertical padding as source rows. The queued name/school button and separate warning icon avoid nested buttons and keep selection independent of tooltip access. Header guidance is shortened to fit naturally.
+
+### Roles, implementation, data flow, and files
+
+Affected users: authorized Billing/Payroll staff. BillingPayrollManagement adds a queued-identity wrapper, consistently displays saved school names, and reuses RequirementsWarning for incomplete queued records. admin.css shares panel chrome typography, retains separate route-specific columns, and styles the queued identity/amount/date cells and focus/selection states. The existing frontend school-identity test title is clarified; assertions are unchanged. No server or processing request changes.
+
+### Impact
+
+API, database/schema/migration, configuration, security, permissions, and privacy: none. Accessibility: queued warnings retain labeled keyboard-operable buttons and hover/focus/tap tooltips; independent scholar selection retains aria-pressed, visible focus, and row highlighting. Name/school text wraps without truncating the identity. The user's requested 7px school text is retained. Deployment: frontend-only release; no migration/backend revision confirmation needed. Historical records and retired payment workflows are unchanged; scope still ends with list generation.
+
+### Validation and results
+
+All 70 existing frontend tests passed; lint and production build passed with the existing large-chunk advisory. Eight Chromium scenarios passed for Billing/Payroll at 1280, 500, 390, and 320px using synthetic scholars and intercepted APIs. Checked equal name/school/header/footer font sizes, equal desktop header/table-header/footer heights and Payroll row heights, queued warning icons/tooltips, selection unaffected by warning focus, returning selected records, bulk queueing, inactive blocking, period clearing, retained Billing editor, and unchanged generation payloads. Local screenshots were inspected. No production records were modified.
+
+### Limitations, rollback, and next work
+
+Rows may grow when names/schools wrap; Billing source rows can be taller because they also contain the Edit action. Target academic/amount columns keep their existing horizontal scrolling on narrow screens. Source responsive stacked records remain. Roll back the frontend commit to restore the earlier presentation; no data rollback is needed. Verify public bundles after push and use the dated layout checklist for authenticated testing. Deployment results will be recorded after verification.
+
 ## 2026-10-13 - Tighten Scholar Source Row Spacing
 
 **TL;DR**

@@ -27,12 +27,21 @@ export default function RequirementsWarning({ name }) {
     if (!position) return undefined;
     const close = () => setPosition(null);
     const onKeyDown = (event) => { if (event.key === 'Escape') close(); };
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
+    // Keyboard focus can scroll the queue to reveal the warning button.
+    const onViewportChange = () => {
+      if (document.activeElement !== trigger.current) { close(); return; }
+      const rect = trigger.current.getBoundingClientRect();
+      setPosition({
+        left: Math.max(8, Math.min(rect.right - 176, window.innerWidth - 184)),
+        top: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 48)),
+      });
+    };
+    window.addEventListener('scroll', onViewportChange, true);
+    window.addEventListener('resize', onViewportChange);
     window.addEventListener('keydown', onKeyDown);
     return () => {
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', onViewportChange, true);
+      window.removeEventListener('resize', onViewportChange);
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [position]);
