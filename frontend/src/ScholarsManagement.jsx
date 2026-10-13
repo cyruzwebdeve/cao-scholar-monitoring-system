@@ -1,3 +1,4 @@
+import InitialRequirementCapture from './InitialRequirementCapture';
 import ContinuingRequirementsSettings from './ContinuingRequirementsSettings';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -590,6 +591,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
               <section className="scholars-detail-section"><h4>Scholar information</h4><dl><div><dt>Email address</dt><dd>{selected.email || 'Not provided'}</dd></div><div><dt>School year</dt><dd>{selected.schoolYear || '2026-2027'}</dd></div><div><dt>Issued</dt><dd>{formatScholarDate(selected.issuedAt)}</dd></div></dl></section>
               <section className="scholars-detail-section"><h4>Education and location</h4><dl><div><dt>School</dt><dd>{selected.school}</dd></div><div><dt>Course</dt><dd>{selected.course || 'Not specified'}</dd></div><div><dt>Year level</dt><dd>{selected.yearLevel || 'Not specified'}</dd></div><div><dt>Municipality</dt><dd>{selected.municipality}</dd></div><div><dt>Barangay</dt><dd>{selected.barangay}</dd></div></dl></section>
 
+              {canUploadScholarRequirements && <InitialRequirementCapture key={`${selected.applicantId}:${selected.academicPeriodId}`} scholar={selected} token={token} onSaved={() => loadScholars({ academicPeriodId: selected.academicPeriodId })} />}
               <section className="scholars-detail-section"><h4>Document submissions · {selected.schoolYear} · {selected.semester}</h4>{documentNotice && <p className={`scholars-document-notice ${documentNoticeTone}`} role={documentNoticeTone === 'error' ? 'alert' : 'status'}>{documentNotice}</p>}<div className="scholars-document-list">{[...(selected.initialDocuments || selected.documents).map((document) => ({ ...document, submissionWave: 'initial' })), ...(selected.continuingOpen ? selected.continuingDocuments || [] : []).map((document) => ({ ...document, submissionWave: 'continuing' }))].map((document) => {
                 const isReviewable = canReviewDocuments && document.submitted && document.fileName && document.applicationId && document.requirementKey;
                 const isUploading = uploadingRequirement === document.requirementKey;

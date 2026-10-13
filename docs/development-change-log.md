@@ -5,6 +5,51 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-14 - Camera-First Initial Requirements Intake
+
+**TL;DR**
+- Authorized Admins can capture the complete initial set directly in the Scholar drawer, replacing printer scanning and manual file lookup with guided camera intake.
+- Public five/Private six requirements have separate previews and records; staff explicitly confirm readability, completeness, replacement and approval before uploading.
+- Multipage PDFs, margin cropping, rotation, retake, page ordering and scanned-file fallback are supported; successful uploads are retained when a later upload fails.
+- No backend, database migration or dependency changes. Drafts stay in memory and camera tracks stop on exit/backgrounding.
+- Frontend tests, lint/build and synthetic desktop/mobile camera checks passed. Physical-device capture quality and hosted authenticated uploads require the acceptance trial below.
+
+### Objective and previous/new behavior
+
+Replace the receive-hard-copy → printer scan → locate/upload each file routine with receive-hard-copy → open the correct Scholar → capture each requirement → review/confirm the initial set. The drawer's Capture initial requirements action guides staff through applicable document categories. Live camera prefers an outward-facing camera, while Take photo uses the phone camera chooser where supported. Staff can also select an existing JPG/PNG/PDF. Existing individual Upload/Replace controls remain as the correction/fallback route.
+
+### Roles, implementation and data flow
+
+Only staff already permitted to upload initial requirements see the intake action; unknown school classification disables capture. Scholar identity and academic period remain visible in intake; the component is keyed by applicant/period so drafts cannot carry to another record. Public initial documents exclude tuition receipt; Private initial documents include it. Existing approved initial files can be retained, while a missing/pending/rejected requirement needs a capture or file. Each new capture/file resets confirmation.
+
+Live frames and selected photos are normalized through canvas into JPEG pixels up to 2200px on the longest side. Staff review page previews, trim each margin with labeled sliders, rotate, remove/retake and reorder pages. Up to ten pages per requirement become one A4 PDF; the generated data URL is normalized to the existing backend contract. All pending documents are prepared and checked against the 6 MB per-document limit before any upload begins. Photo draft memory is bounded; PDF fallback uses the same existing 6 MB limit. No draft is written to localStorage, IndexedDB, a server or an external processing service before confirmation.
+
+Staff must check the final confirmation that every requirement (including retained originals) is readable, complete and ready for approval, and that captures replace existing files for the selected period. Requests then use the existing Admin initial-upload endpoint sequentially with the selected applicant and period. The backend's existing staff-upload autoapproval/version retention remains unchanged. Each successful response clears only that draft and locks that successful category within the current intake. A failure keeps remaining drafts for retry and refreshes the Scholar record; confirmed successes are skipped. There is no atomic bulk upload transaction. Network ambiguity after a server commit can create another retained version on retry, so verify the drawer before repeating an interrupted upload.
+
+Camera permission is requested only on an explicit live-camera action, with no microphone request. Tracks stop on changing requirements, leaving the intake/drawer, changing browser visibility or navigating away. Late camera resolutions are stopped after cancellation/unmount. Closing intake prompts before discarding drafts; a page reload/close receives a browser draft warning. Leaving Overview or closing the drawer discards drafts, as explained in the intake. Pending HTTP work is aborted on unmount, but a server request already committed cannot be undone.
+
+### Changed areas and impacts
+
+- Frontend: new InitialRequirementCapture component, documentCapture canvas/PDF utility, scoped capture styles, Scholar drawer integration and readiness regression checks.
+- API: no new endpoint or changed contract. Existing authenticated `/scholars/:applicantId/requirements/:requirementKey` remains authoritative for role, active Scholar, selected period and Private receipt guards.
+- Database/configuration: no migration, new environment setting, dependency or storage change. Original/continuing document sets, replacement archives and operational upload logs remain intact.
+- Security/privacy: camera/photo/PDF work is local until confirmation; no cross-account session transfer or public capture link. Existing private storage and ownership controls apply after upload. No emails or notifications are sent by this intake. Physical camera permission/device support depends on the browser.
+- Accessibility: labeled controls, native photo/file inputs and trim sliders, keyboard focus, named previews, pressed states for category/page selection, busy/status messages, disabled unavailable controls. Controls wrap inside the responsive drawer.
+- Deployment: frontend-only main-branch release for Hostinger; no new backend revision/migration required for camera intake. Existing schedule migration confirmation remains separate.
+- Product scope: no change to list eligibility or legacy payment code; workflow still ends with official payroll-list generation.
+
+### Validation and results
+
+Frontend regression suite passed, including new incomplete/approved-retained/successful-retry readiness checks. Frontend lint and production build passed; the existing large-chunk advisory remains. Diff whitespace checks passed. Synthetic Chromium runs for Public at 1280px and Private at 390px passed fake live camera capture, native-photo input, crop/rotation, retake, multipage PDF page count and exact upload data URL contract, role-visible initial intake, selected applicant/period scope, mandatory confirmation, simulated third-file failure, successful-file skipping on retry, permission denial fallback and camera-track cleanup on drawer close. The mobile screenshot was reviewed for fit and readability. No real hosted documents, official lists or production uploads were mutated during verification.
+
+### Limitations, rollback and recommended next work
+
+This is guided capture, not OCR, automatic edge detection, perspective correction or proof of authenticity. Cropping is manual and staff must assess lighting, focus, missing pages and legibility. Phone camera/file-picker behavior and PDF preview vary by browser/OS; live camera needs a secure context and permission ([MDN camera reference](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia), [MDN capture attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/capture)). Use an authorized phone login rather than sharing a desktop session. Drafts are intentionally temporary and not recoverable after leaving the intake/drawer. Maintain original hard copies under existing CAO policy; this feature does not authorize their disposal.
+
+Rollback the frontend integration/component/styles/utilities to remove intake; existing uploaded documents remain readable through the established preview/replacement flow, with no database rollback. Confirm readability and capture time on the actual CAO phone/webcam before replacing the printer routine operationally. Use `docs/qa/2026-10-14/camera-intake-acceptance-checklist.md` for testing.
+
+Deployment: push/live artifact verification pending; results will be recorded here.
+
 ## 2026-10-14 - Continuing Requirements Panel Layout
 
 **TL;DR**
