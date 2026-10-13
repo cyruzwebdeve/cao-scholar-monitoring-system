@@ -14,6 +14,7 @@ const clientRoutes = [
   'forgot-password',
   'login',
   'privacy-policy',
+  'phone-capture',
   'reset-password',
   'scholar-dashboard',
   'terms-of-service',

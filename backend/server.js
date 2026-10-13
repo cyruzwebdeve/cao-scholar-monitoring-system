@@ -104,7 +104,11 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend server running on port ${PORT}`);
 });
 
+const captureCleanup = setInterval(() => { require('./controllers/phoneCaptureController').purgeExpired().catch((error) => console.error('Capture expiry cleanup failed:', error.code || error.name)); }, 60_000);
+captureCleanup.unref();
+
 const shutdown = (signal) => {
+  clearInterval(captureCleanup);
   console.log(`${signal} received. Closing the API server.`);
   server.close(async () => {
     await prisma.$disconnect();

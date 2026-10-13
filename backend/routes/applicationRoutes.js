@@ -1,3 +1,5 @@
+const phoneCapture = require('../controllers/phoneCaptureController');
+const { rateLimit } = require('express-rate-limit');
 const { getContinuingSchedule, saveContinuingSchedule } = require('../controllers/continuingScheduleController');
 const { examinationResultController } = require('../controllers/examinationResultController');
 const express = require('express');
@@ -77,6 +79,14 @@ const router = express.Router();
 const privateResponse = (req, res, next) => { res.set('Cache-Control', 'no-store, private'); next(); };
 
 router.use(auditSuccessfulMutation);
+
+const phoneCaptureWriteLimit = rateLimit({ windowMs: 15 * 60 * 1000, limit: 180, message: { message: 'Too many capture changes. Wait before retrying.' } });
+const phoneCaptureAccess = [authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('scholars'), privateResponse];
+router.post('/phone-capture/sessions', ...phoneCaptureAccess, phoneCaptureWriteLimit, phoneCapture.create);
+router.get('/phone-capture/sessions/:id', ...phoneCaptureAccess, phoneCapture.get);
+router.post('/phone-capture/sessions/:id/pages', ...phoneCaptureAccess, phoneCaptureWriteLimit, phoneCapture.send);
+router.post('/phone-capture/sessions/:id/received', ...phoneCaptureAccess, phoneCaptureWriteLimit, phoneCapture.acknowledge);
+router.delete('/phone-capture/sessions/:id', ...phoneCaptureAccess, phoneCaptureWriteLimit, phoneCapture.close);
 
 router.get('/academic-periods/active', getActiveAcademicPeriod);
 router.get('/application-settings', getApplicationSettings);

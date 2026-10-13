@@ -334,3 +334,18 @@ model continuing_requirement_schedules {
   updated_by Int
   updated_at DateTime @updatedAt @db.Timestamp(6)
 }
+
+// Temporary authenticated transfer queue, removed on receipt/cancel/expiry.
+model phone_capture_sessions {
+  id String @id @db.Uuid
+  owner_admin_id Int
+  applicant_id Int
+  academic_period_id Int
+  context Json
+  pages Json @default("[]")
+  revision Int @default(0)
+  expires_at DateTime @db.Timestamp(6)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  @@index([expires_at])
+  @@index([owner_admin_id])
+}

@@ -37,3 +37,14 @@
 .document-capture fieldset:disabled .capture-file { opacity:.55; cursor:default; }
 @media(max-width:480px) { .document-capture { padding:12px; } .capture-actions > * { flex:1 1 120px; } }
 .document-capture fieldset > p { font-size:11px; line-height:1.7; }
+.laptop-phone-capture { margin:12px 0; padding:10px; border:1px solid #d6e4db; border-radius:8px; background:white; }
+.phone-pairing { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
+.phone-pairing img { width:160px; height:160px; flex-shrink:0; }
+.phone-pairing > div { flex:1 1 160px; font-size:11px; }
+.phone-pairing p { line-height:1.6; font-size:11px; overflow-wrap:anywhere; }
+.phone-pairing a { color:#168c51; text-decoration:underline; }
+.phone-capture-page { max-width:580px; padding:16px; margin:auto; }
+.phone-capture-page h2 { font-size:20px; margin:0 0 12px; }
+.phone-capture-page p { font-size:12px; line-height:1.7; }
+.phone-requirement { display:flex; flex-direction:column; gap:8px; font-size:12px; }
+.phone-requirement select { width:100%; padding:10px; border:1px solid #d6e4db; border-radius:7px; font:inherit; }

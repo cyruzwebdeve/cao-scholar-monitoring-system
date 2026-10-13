@@ -16,7 +16,6 @@ import {
   Save,
   Search,
   TriangleAlert,
-  Upload,
   UsersRound,
   X,
 } from 'lucide-react';
@@ -87,7 +86,6 @@ const scholarExportColumns = [
   { key: 'documentStatus', label: 'Documents', group: 'Record status' },
 ];
 
-const adminInitialRequirementKeys = new Set(['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form', 'tuition_receipt']);
 
 function ScholarBadge({ value, type }) {
   return <span className={`scholar-admin-badge ${type} ${value.toLowerCase().replace(/\s+/g, '-')}`}>{type === 'status' ? <BadgeCheck size={13} /> : <FileCheck2 size={13} />}{value}</span>;
@@ -122,7 +120,6 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const [documentSaving, setDocumentSaving] = useState(false);
   const [documentNotice, setDocumentNotice] = useState('');
   const [documentNoticeTone, setDocumentNoticeTone] = useState('success');
-  const [uploadingRequirement, setUploadingRequirement] = useState('');
   const [openingRequirement, setOpeningRequirement] = useState('');
   const [certificateDownloading, setCertificateDownloading] = useState(false);
   const [certificateNotice, setCertificateNotice] = useState('');
@@ -244,47 +241,6 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     } finally {
       setDocumentSaving(false);
     }
-  };
-
-  const uploadScholarRequirement = (document, file) => {
-    if (!file || !selected || uploadingRequirement) return;
-    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type) || file.size > 6 * 1024 * 1024) {
-      setDocumentNotice('Use a PDF, JPG, or PNG file smaller than 6 MB.');
-      setDocumentNoticeTone('error');
-      return;
-    }
-    setUploadingRequirement(document.requirementKey);
-    setDocumentNotice('');
-    const reader = new FileReader();
-    reader.onerror = () => {
-      setUploadingRequirement('');
-      setDocumentNotice('Unable to read the selected requirement file.');
-      setDocumentNoticeTone('error');
-    };
-    reader.onload = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/scholars/${selected.applicantId}/requirements/${document.requirementKey}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
-          body: JSON.stringify({
-            academicPeriodId: selected.academicPeriodId,
-            fileName: file.name,
-            fileData: String(reader.result || ''),
-          }),
-        });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message || 'Unable to upload the scholar requirement.');
-        setDocumentNotice(body.message || 'Scholar requirement uploaded successfully.');
-        setDocumentNoticeTone('success');
-        await loadScholars({ academicPeriodId: selected?.academicPeriodId });
-      } catch (error) {
-        setDocumentNotice(error.message || 'Unable to upload the scholar requirement.');
-        setDocumentNoticeTone('error');
-      } finally {
-        setUploadingRequirement('');
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   const openScholarDocument = async (document) => {
@@ -594,16 +550,13 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
               {canUploadScholarRequirements && <InitialRequirementCapture key={`${selected.applicantId}:${selected.academicPeriodId}`} scholar={selected} token={token} onSaved={() => loadScholars({ academicPeriodId: selected.academicPeriodId })} />}
               <section className="scholars-detail-section"><h4>Document submissions · {selected.schoolYear} · {selected.semester}</h4>{documentNotice && <p className={`scholars-document-notice ${documentNoticeTone}`} role={documentNoticeTone === 'error' ? 'alert' : 'status'}>{documentNotice}</p>}<div className="scholars-document-list">{[...(selected.initialDocuments || selected.documents).map((document) => ({ ...document, submissionWave: 'initial' })), ...(selected.continuingOpen ? selected.continuingDocuments || [] : []).map((document) => ({ ...document, submissionWave: 'continuing' }))].map((document) => {
                 const isReviewable = canReviewDocuments && document.submitted && document.fileName && document.applicationId && document.requirementKey;
-                const isUploading = uploadingRequirement === document.requirementKey;
-                const isAdminManaged = document.submissionWave === 'initial' && adminInitialRequirementKeys.has(document.requirementKey);
-                const canUploadThisRequirement = canUploadScholarRequirements && isAdminManaged;
                 return <div key={`${document.submissionWave}:${document.label}`} className="scholars-document-entry">
                   <span>{document.label}<small>{<>{document.submissionWave === 'initial' ? document.legacy ? 'Initial · Previously recorded' : 'Initial · CAO upload' : 'Continuing · Scholar upload'}{document.submitted ? ' · Attached' : ''}</>}</small></span>
                   <div className="scholars-document-actions">
                     <strong className={document.submitted ? document.status.toLowerCase() : 'not-submitted'}>{document.submitted ? document.status : 'Not submitted'}</strong>
                     {isReviewable && <button type="button" className="scholars-document-view" onClick={() => openDocumentReview(document)} aria-label={`View and review ${document.label}`}><Eye size={12} />View</button>}
                     {!isReviewable && canViewScholarDocuments && document.submitted && document.fileName && document.applicationId && <button type="button" className="scholars-document-view" onClick={() => openScholarDocument(document)} disabled={Boolean(openingRequirement)} aria-label={`View ${document.label}`}><Eye size={12} />{openingRequirement === document.requirementKey ? 'Opening…' : 'View'}</button>}
-                    {canUploadThisRequirement && <label className={`scholars-document-upload ${isUploading ? 'disabled' : ''}`}><Upload size={12} />{isUploading ? 'Uploading…' : document.fileName ? 'Replace' : 'Upload'}<input type="file" accept="application/pdf,image/jpeg,image/png" disabled={Boolean(uploadingRequirement)} onChange={(event) => { uploadScholarRequirement(document, event.target.files?.[0]); event.target.value = ''; }} /></label>}
+
                   </div>
                 </div>;
               })}</div></section>

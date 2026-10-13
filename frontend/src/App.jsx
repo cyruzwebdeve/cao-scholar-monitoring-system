@@ -11,6 +11,7 @@ const Dashboard = lazy(() => import('./Dashboard'));
 const ExamPage = lazy(() => import('./ExamPage'));
 const LandingPage = lazy(() => import('./LandingPage'));
 const LegalPage = lazy(() => import('./LegalPage'));
+const PhoneCapturePage = lazy(() => import('./PhoneCapturePage'));
 const LoginPage = lazy(() => import('./LoginPage'));
 const PasswordRecoveryPage = lazy(() => import('./PasswordRecoveryPage'));
 const ScholarDashboard = lazy(() => import('./ScholarDashboard'));
@@ -179,6 +180,7 @@ function App() {
         {authChecking ? (
           <div className="route-loading" role="status" aria-live="polite"><span className="route-loading-mark" />Checking your session...</div>
         ) : <Routes>
+        <Route path="/phone-capture" element={<PhoneCapturePage key={user ? `${user.role}:${user.id}` : 'login'} token={authToken} user={user} onLogin={handleLogin} onLogout={handleLogout} />} />
         <Route path="/examination" element={authToken && user?.role === 'Applicant' ? <ExamPage token={authToken} /> : <Navigate to={getHomeRedirect()} replace />} />
         <Route path="/exam" element={authToken && user?.role === 'Applicant' ? <ExamPage token={authToken} /> : <Navigate to={getHomeRedirect()} replace />} />
         <Route path="/forgot-password" element={<PasswordRecoveryPage mode="forgot" />} />

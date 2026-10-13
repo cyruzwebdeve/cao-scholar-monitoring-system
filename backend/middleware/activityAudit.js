@@ -2,6 +2,8 @@ const prisma = require('../config/prisma');
 const { recordActivitySafely } = require('../services/activityLog');
 
 const ACTIONS = {
+  'POST /phone-capture/sessions': ['PHONE_CAPTURE_SESSION_CREATED', 'applicants', 'Started a temporary initial-document phone capture connection.'],
+  'DELETE /phone-capture/sessions/:id': ['PHONE_CAPTURE_SESSION_CLOSED', 'applicants', 'Closed a temporary phone capture connection.'],
   'PUT /scholars/continuing-schedules/:id': ['CONTINUING_SUBMISSION_SCHEDULE_UPDATED', 'continuing_requirement_schedules', 'Published a continuing-requirements submission schedule.'],
   'POST /examinations/:examId/results/:applicantId': ['PAPER_EXAMINATION_RESULT_RECORDED', 'results', 'Recorded a paper examination result.'],
   'PUT /examinations/:examId/results/:applicantId': ['EXAMINATION_RESULT_CORRECTED', 'results', 'Corrected an examination score and reset publication.'],

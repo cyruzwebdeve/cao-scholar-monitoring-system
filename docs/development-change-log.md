@@ -5,6 +5,52 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-14 - Authenticated Phone-to-Laptop Capture Pairing
+
+**TL;DR**
+- Admin can pair a phone from the laptop intake using a locally generated QR code; the phone signs in with the same Admin account and sends photos into the correct Scholar/period draft.
+- Phone transfer never approves requirements. Laptop confirmation is disabled until the phone connection ends; reviewed documents then use the existing approval/upload flow.
+- Removed the separate document-row Upload/Replace buttons and their duplicate handler; viewing/status stay available and corrections use the intake's capture/file controls.
+- Added one bounded temporary transfer table, owner/role checks, 20-minute expiry, receipt/cancel cleanup, CAS/retry protection and expiry cleanup. One database migration is required.
+- Backend/frontend regression suites, lint/build and two isolated browser workflows passed. Public artifact verification and provider migration confirmation are recorded below.
+
+### Objective and previous/new behavior
+
+Allow staff to keep the Scholar drawer on a laptop while using a phone's rear camera, avoiding a second independent upload workflow. Previously capture could only occur in the current browser/device, and individual document rows duplicated Upload/Replace controls. Now Use phone camera creates a session bound to the initiating Admin, Scholar and academic period; QR points to `/phone-capture?session=...`. Sign-in stays on that route and preserves the session query. The phone can switch Admin accounts without retaining the previous preview/context; the route remounts intake when the authenticated account changes. The QR contains no login token or document data and alone grants no access.
+
+### Roles, implementation and data flow
+
+Existing initial-upload roles apply: Provincial/Regular Admin with Scholars access. The phone and laptop must use the same Admin account. Backend requests authenticate each time, match session owner and recheck active Scholar/period before accessing a queue. Public initial scope has five keys; Private has six. QR rendering uses the local qrcode package, not an external QR service ([upstream browser API](https://github.com/soldair/node-qrcode)).
+
+A UUID session and private context/queued JPEGs are stored in `phone_capture_sessions`, with a fixed 20-minute expiry and revision. Phone frames/photos are normalized locally, previewed, assigned a category and sent with a UUID page ID. Sending only queues a temporary photo: it does not mutate initial documents, review decisions, continuing submissions or list membership. Each photo must be a JPEG with a signature and below 4 MB; queue total is bounded at 32 MB encoded, ten pending pages per category, and three live sessions per Admin. Creating a new pairing for the same owner/Scholar/period replaces the old pairing and its undelivered queue; other Scholar sessions are untouched.
+
+The laptop polls every three seconds while visible/not processing. It imports pages into the existing intake, enforcing applicable categories, page and draft-size limits; existing PDF drafts or already-uploaded categories hold incoming pages for staff resolution. UUID receipt tracking prevents replay from duplicating drafts. Draft updates use a synchronous local reference so transfer does not overwrite local edits. The server acknowledgement deletes only imported temporary pages. Concurrent send/ack uses revision compare-and-swap with bounded retries so pending pages are not overwritten. After receipt, editing/cropping/ordering remains on the laptop. Staff must end the phone connection, review the complete set and check the approval confirmation before the original initial upload endpoint is called. Partial final-upload retry remains unchanged.
+
+The phone polls metadata every ten seconds; server-supplied remaining time drives expiry, avoiding reliance on the phone clock. Cancellation/deletion prevents future access; phone notices closure/expiry on its next poll and stops camera tracks. Camera cleanup/permission behavior remains as in direct intake. Laptop unmount attempts authenticated session deletion; fixed expiry is the fallback when a browser cannot send cleanup. API janitor removes expired queues every minute while running, and create/expired access also purges expired rows. Temporary drafts received on the laptop remain in tab memory and are lost on leaving intake/reload as previously explained.
+
+### Changed areas and impacts
+
+- Backend: phoneCaptureController, guarded application routes, operational activity mappings for pairing creation/closure, periodic server cleanup, phone session regression tests.
+- Database: additive `phone_capture_sessions` UUID/context/pages/revision/expiry table, indexes and Scholar/period foreign keys. Migration `20261014020000_phone_capture_sessions`; application/legacy/cleaned schema definitions synchronized. No existing record/file migration or deletion.
+- API: authenticated POST `/phone-capture/sessions`, GET/DELETE `/phone-capture/sessions/:id`, POST `/pages` and `/received`. Responses are private/no-store; wrong-owner IDs return 404; expired sessions return 410. Mutations have a dedicated 180-per-15-minute rate limit in addition to existing API/auth limits.
+- Frontend: LaptopPhoneCapture, PhoneCapturePage, InitialRequirementCapture draft/pairing integration, ScholarsManagement row simplification, App route, capture styles and static route fallback generation.
+- Configuration/dependencies: qrcode 1.5.4 added to frontend lock/package files; no new environment variable. Existing API base and Admin authentication remain. Production build generates `/phone-capture` static fallback.
+- Security/privacy: UUIDs are identifiers, not bearer authorization. No account/token sharing via QR; photos are temporarily stored in the same managed database and accessible only to the initiating authenticated Admin with Scholars access. Receipt/cancel/expiry removes active queue rows/images. Existing database backup-retention policy is unchanged. QR/context is not recorded in activity descriptions. No public document link or third-party image processing; no microphone, mail or notification feature added.
+- Accessibility: named QR image and alternative link, native capture input/selects, login on the pairing route, account switching, status messages, responsive controls and explicit disabled approval while paired. Physical QR scanning/camera quality remain a device trial.
+- Deployment: frontend/backend release; apply the new migration before pairing tests. Existing permanent document storage/version policy remains authoritative. Legacy monetary operations remain retired; no payment-release, disbursement or monetary-audit workflow added.
+
+### Validation and results
+
+Full regression suites passed: 296 backend + 74 frontend = 370 checks, with one optional real-database test skipped. Coverage includes session owner isolation, Public/Private category scope, idempotent send, metadata/image separation, selective receipt cleanup, CAS retry, limits, expiry/cancel/purge, same-record pairing replacement and actual HTTP role/section authentication. Frontend lint/build and diff whitespace checks passed; existing large-chunk advisory remains. Two isolated browser workflows (Public laptop 1280px/phone 390px; Private laptop 1024px/phone 390px) passed QR generation/alternative URL, login preserving the pairing URL, photo transfer into per-category laptop drafts, duplicate delivery/ack cleanup, confirmation disabled while paired, final PDF upload after closure, phone closure notice and removal of row upload controls. No real hosted photos or official lists were mutated. Real PostgreSQL migration/locking and physical QR/camera quality were not exercised locally.
+
+### Limitations, rollback and next work
+
+Polling gives near-real-time transfer, not live video streaming. Browser tabs must remain open; drafts are not durable after receipt. A failed acknowledgement can retry safely within the same laptop session. Undelivered pages expire; restarting the same pairing intentionally discards that old queue. If a category already has a PDF or ten pages, resolve it on the laptop before continuing. The phone sends photos only; the laptop's Choose file remains the PDF fallback. Receiving the full set does not authenticate the paper's content: staff still check legibility, completeness and identity. The expiry janitor depends on the API being running; expired access is still denied and stale rows purge after service resumes. Database backups may retain historical row versions under existing policy.
+
+Before rollback, close/purge temporary sessions and preserve permanent documents. Keep the additive table during a code rollback and clean any stale queues; older code cannot run the new cleanup job. Roll back frontend/backend together; no permanent Scholar data rollback required. Follow `docs/qa/2026-10-14/phone-pairing-acceptance-checklist.md`, confirm Hostinger migration success and test physical phone/laptop connectivity.
+
+Deployment: code push/live verification pending; results will be recorded here.
+
 ## 2026-10-14 - Camera-First Initial Requirements Intake
 
 **TL;DR**
