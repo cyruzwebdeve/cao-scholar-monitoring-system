@@ -2,6 +2,8 @@
 
 Date: 2026-10-13 (Asia/Manila)
 
+Release 90832a5 deployed: frontend labels verified live, API/database healthy, backend deployment success confirmed by the user. No migration; attendance timing unchanged.
+
 ## Attendance findings
 
 - Admin save: PUT /examinations/:examId/attendance/:applicantId persists appeared/appeared_at and returns Present after success.

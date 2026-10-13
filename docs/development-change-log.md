@@ -11,7 +11,7 @@ and how the result was verified.
 - Confirmed attendance saves immediately and the next applicant API read returns Present plus its recorded timestamp, for paper and online examinations.
 - Separate-browser applicant dashboards are not instant: a visible dashboard refreshes every 120 seconds; shared-browser attendance revision events trigger immediate refetch.
 - Renamed current user-facing Super Admin/Super Administrator labels and role-related messages to Provincial Admin while preserving internal role identifiers, accounts, permissions, and last-admin protections.
-- Verification: 312 tests passed, one opt-in database test skipped; targeted examination integration, lint/build, and two controlled browser-context scenarios passed. Not deployed in this task.
+- Verification: 312 tests passed, one opt-in database test skipped; targeted examination integration, lint/build, and two controlled browser-context scenarios passed. Release 90832a5 deployed; frontend labels verified live and backend success confirmed by the user.
 
 ### Objective and previous/new behavior
 
