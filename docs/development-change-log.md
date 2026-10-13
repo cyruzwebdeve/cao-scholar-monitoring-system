@@ -5,6 +5,29 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-13 - Match Scholar List and Processing Queue Heading Sizes
+
+**TL;DR**
+- List of Scholars now shares the 11px heading size used by For Payroll/For Billing.
+- Billing and Payroll staff get consistent panel-title sizing; processing behavior and data are unchanged.
+- Verification: shared CSS rule confirmed and frontend production build passed. Prepared for the user-requested Hostinger frontend deployment; live verification pending.
+
+### Objective and behavior
+
+Match the source-panel heading to the target-panel heading, as requested in the screenshot. Previously the source heading had a 13px override; removing it makes both headings inherit the existing shared 11px rule.
+
+### Roles, implementation, and files
+
+Affected users: Billing and Payroll staff. Changed frontend/src/styles/admin.css by removing the source-specific heading-size override. No markup or data flow changes.
+
+### Impact
+
+API, database/schema/migration, configuration, security, permissions, and privacy: no impact. Accessibility: both titles retain their existing text, color, weight, and structure with consistent sizing. Deployment: frontend-only change, not deployed in this task. Existing historical records and disabled legacy payment workflows are unaffected.
+
+### Validation, limitations, rollback, and next work
+
+Confirmed both titles use the shared 11px CSS declaration; frontend production build passed. No new tests for this small styling correction. Restore the source override to roll back. Live visual verification can follow the next frontend deployment.
+
 ## 2026-10-13 - Polish Billing and Payroll Scholar List Layout
 
 **TL;DR**

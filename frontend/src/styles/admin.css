@@ -8212,7 +8212,6 @@
 /* Keep scholar identity in one column, with independent processing/document badges. */
 .billing-source-panel { container-type: inline-size; }
 .billing-source-panel .billing-transfer-header { min-height: 64px; padding: 0 16px; }
-.billing-source-panel .billing-transfer-header > div > strong { font-size: 13px; }
 .billing-source-panel .billing-transfer-header > div > small { color: #66766c; font-size: 10px; }
 .billing-source-panel .billing-transfer-header button { min-height: 32px; font-size: 10px; }
 .billing-source-table .billing-queue-table-head,
