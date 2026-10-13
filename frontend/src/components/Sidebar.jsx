@@ -74,7 +74,7 @@ function Sidebar({ onLogout, activeSection, onSectionChange, role, sectionAccess
           <p className="brand-title">Admin Panel</p>
           <p className="brand-subtitle">
             {role === 'SuperAdmin'
-              ? 'Super Admin Workspace'
+              ? 'Provincial Admin Workspace'
               : role === 'BillingPayrollAdmin'
                 ? 'Billing Admin Workspace'
                 : 'Administrator Workspace'}

@@ -18,7 +18,7 @@ export const billingSchoolSelection = (record, catalog) => {
 
 export const resolveBillingSchoolId = async (selection) => {
   if (selection.schoolId === SAVED_SCHOOL_VALUE) {
-    throw new Error('This saved school is not in School Catalog. Ask the Super Administrator to save its classification there, then refresh.');
+    throw new Error('This saved school is not in School Catalog. Ask the Provincial Admin to save its classification there, then refresh.');
   }
   if (selection.schoolClassification === 'Unclassified') {
     throw new Error('Save this school\'s Public or Private classification in School Catalog first, then refresh.');

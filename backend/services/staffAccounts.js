@@ -1,7 +1,7 @@
 const { getAllowedSectionsForRole, normalizeSectionAccess } = require('./sectionAccess');
 
 const STAFF_ROLE_CONFIG = Object.freeze({
-  SuperAdmin: Object.freeze({ databaseRole: 'superadmin', isSuperAdmin: true, label: 'Super Administrator' }),
+  SuperAdmin: Object.freeze({ databaseRole: 'superadmin', isSuperAdmin: true, label: 'Provincial Admin' }),
   RegularAdmin: Object.freeze({ databaseRole: 'admin', isSuperAdmin: false, label: 'Administrator' }),
   BillingPayrollAdmin: Object.freeze({ databaseRole: 'billing', isSuperAdmin: false, label: 'Billing / Payroll Admin' }),
 });
@@ -38,14 +38,14 @@ const serializeStaff = (admin, currentUserId = null) => {
 
 const assertAccessChangeAllowed = ({ actorId, target, nextRole, nextIsActive, otherActiveSuperAdmins }) => {
   if (target.id === actorId && (nextRole !== 'SuperAdmin' || !nextIsActive)) {
-    const error = new Error('You cannot remove your own Super Administrator access or deactivate your own account.');
+    const error = new Error('You cannot remove your own Provincial Admin access or deactivate your own account.');
     error.statusCode = 400;
     throw error;
   }
 
   const removesSuperAdminAccess = target.is_super_admin && (nextRole !== 'SuperAdmin' || !nextIsActive);
   if (removesSuperAdminAccess && otherActiveSuperAdmins < 1) {
-    const error = new Error('At least one active Super Administrator account must remain.');
+    const error = new Error('At least one active Provincial Admin account must remain.');
     error.statusCode = 400;
     throw error;
   }

@@ -31,7 +31,7 @@ const getDefaultSectionForRole = (role, sectionAccess) => {
 };
 
 const getRoleLabel = (role) => {
-  if (role === 'SuperAdmin') return 'Super Administrator';
+  if (role === 'SuperAdmin') return 'Provincial Admin';
   if (role === 'BillingPayrollAdmin') return 'Billing / Payroll Admin';
   if (role === 'RegularAdmin') return 'Administrator';
   return 'Administrator';
@@ -221,7 +221,7 @@ function App() {
                           <span>{getRoleSubtitle(user?.role)}</span>
                         </div>
                         <div className="dashboard-page-user-avatar" aria-hidden="true">
-                          {user?.role === 'SuperAdmin' ? 'S' : user?.role === 'RegularAdmin' ? 'A' : 'B'}
+                          {user?.role === 'SuperAdmin' ? 'P' : user?.role === 'RegularAdmin' ? 'A' : 'B'}
                         </div>
                       </div>
                     </div>

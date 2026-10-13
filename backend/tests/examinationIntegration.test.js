@@ -127,6 +127,8 @@ test('actual attendance mutation writes only attendance, then both dashboards de
     assert.equal(portal.statusCode, 200);
     assert.equal(portal.body.examination.status, 'For review');
     assert.equal(portal.body.examination.completed, false);
+    assert.equal(portal.body.examination.attendance.status, 'Present');
+    assert.deepEqual(portal.body.examination.attendance.appearedAt, res.body.attendance.appearedAt);
     assert.equal(portal.body.examination.access.allowed, deliveryMode === 'online');
   }
   assert.ok(writes.every(({ table }) => table === 'exam_slots'));

@@ -5,6 +5,36 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-13 - Verify Attendance Synchronization and Rename Provincial Admin Display
+
+**TL;DR**
+- Confirmed attendance saves immediately and the next applicant API read returns Present plus its recorded timestamp, for paper and online examinations.
+- Separate-browser applicant dashboards are not instant: a visible dashboard refreshes every 120 seconds; shared-browser attendance revision events trigger immediate refetch.
+- Renamed current user-facing Super Admin/Super Administrator labels and role-related messages to Provincial Admin while preserving internal role identifiers, accounts, permissions, and last-admin protections.
+- Verification: 312 tests passed, one opt-in database test skipped; targeted examination integration, lint/build, and two controlled browser-context scenarios passed. Not deployed in this task.
+
+### Objective and previous/new behavior
+
+The user requested verification of attendance reaching the applicant dashboard immediately and a Super Admin naming change. Attendance synchronization was inspected and tested without changing its timing. The administrator saves attendance through the existing PUT endpoint, updates the local record, reloads management records, then emits localStorage/custom attendance revision events. ApplicantDashboard reads the saved examination attendance from applications/me and subscribes to those local events and the two-minute visible-page refresh helper. Those events do not cross isolated browsers/devices. Returning to a visible page can refresh after the existing 60-second minimum age, and manual reload fetches immediately.
+
+Previously the privileged role was labeled Super Admin/Super Administrator in the app shell, sidebar, staff selector/stat/password confirmation, settings guidance, dashboard display, and relevant API messages. These now say Provincial Admin. The visible avatar initial changes from S to P. Accounts' saved personal/display names are not rewritten.
+
+### Roles, implementation, data flow, and files
+
+Affected users: applicants checking examination attendance and staff viewing the renamed privileged role. Role display changes cover frontend App, Dashboard, StaffManagement, SettingsManagement, Sidebar, and the billing-school-selection message. Backend staff role configuration/serialization, staff access errors, and a document-review error now use Provincial Admin. Staff-account tests follow the new serialized display label. The existing examination integration test explicitly verifies both the saved attendance status and timestamp returned by the applicant API. Attendance frontend/controller/helper implementation is unchanged. The dated verification report records the findings.
+
+### API, database, configuration, security, privacy, accessibility, and deployment
+
+API: staff roleLabel/error text changes; wire role remains SuperAdmin and attendance routes/responses are unchanged. Database/schema/migration/data: no impact; database superadmin/is_super_admin fields and existing accounts are retained. Configuration: none. Security: existing role/section guards, full-access defaults, self-protection, and final-active-admin protections are unchanged. Privacy: no new fields or external services; all verification used synthetic fixture records. Accessibility: existing controls remain, with updated visible labels/role initial. Deployment: frontend/backend both need releasing for consistent display/error text; no migration. No deployment performed in this task. Existing historical documents, operational logs, bootstrap identity defaults, and retired payment workflows are unchanged.
+
+### Validation and results
+
+The full regression suites passed (242 backend plus 70 frontend tests; one opt-in real-database migration test skipped). Frontend lint and production build passed, retaining the existing large-chunk advisory. The targeted real-controller examination integration suite passed after adding status/timestamp read-back assertions for both modes. Chromium tested the actual applicant component with intercepted APIs and a controlled clock: after an attendance save in an isolated browser context, the applicant remained Pending before the next poll and became Present at 120 seconds. A same-context sibling's localStorage revision triggered an immediate refetch. Sidebar browser rendering showed Provincial Admin Workspace while using the unchanged SuperAdmin role. No live credentials or production records were used.
+
+### Limitations, rollback, and recommended next work
+
+Hosted authenticated attendance changes were not executed. Timing tests used intercepted browser APIs and backend database facades; successful network requests and visible-page scheduling are assumed. Network latency and hidden tabs can extend the observed delay. No instant server-push channel exists in this path. Recommend a short examination-specific refresh interval (such as five seconds during the active attendance/start window) if near-immediate cross-device reflection is required; true push would require a separate SSE/WebSocket implementation. Neither is introduced by this verification request. Roll back display strings/service labels to restore the former title; no data rollback is needed. Deploy frontend/backend together when requested, then verify with synthetic applicants/staff.
+
 ## 2026-10-13 - Match Scholar Source and Processing Queue Presentation
 
 **TL;DR**

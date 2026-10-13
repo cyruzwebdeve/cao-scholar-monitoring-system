@@ -119,7 +119,7 @@ const metricIconByLabel = {
 const sectionViews = {
   Dashboard: {
     eyebrow: 'System overview',
-    title: 'Super admin command center',
+    title: 'Provincial Admin command center',
     description: 'Track the full scholarship workflow, access control, and operational priorities from one place.',
     metrics: [
       { label: 'Open Applications', value: '184', icon: '📝', tone: 'emerald' },
@@ -438,7 +438,7 @@ const sectionViews = {
     primaryTitle: 'Recent events',
     primaryLink: 'Open audit log',
     primaryItems: [
-      { name: 'Super Admin Login', detail: 'Dashboard access granted', status: 'Approved', time: '2 min ago' },
+      { name: 'Provincial Admin Login', detail: 'Dashboard access granted', status: 'Approved', time: '2 min ago' },
       { name: 'Role Update', detail: 'Staff permissions changed', status: 'Needs Review', time: '24 min ago' },
       { name: 'Payroll-list Generation', detail: 'Official payroll list generated', status: 'Approved', time: 'Today' },
     ],

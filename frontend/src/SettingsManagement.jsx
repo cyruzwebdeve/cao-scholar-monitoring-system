@@ -412,7 +412,7 @@ export default function SettingsManagement({ token, user }) {
               <button type="button" className="secondary" disabled={availabilitySaving || (!availability.opensAt && !availability.closesAt)} onClick={clearApplicationSchedule}><RotateCcw size={14} />Clear schedule</button>
               <button type="submit" disabled={availabilityLoading || availabilitySaving}><Save size={14} />{availabilitySaving ? 'Saving…' : 'Save application setting'}</button>
             </div>
-          ) : <p className="settings-availability-readonly">Only Super Administrators and Administrators can change application availability.</p>}
+          ) : <p className="settings-availability-readonly">Only Provincial Admins and Administrators can change application availability.</p>}
         </form>
       </section>
 
@@ -490,7 +490,7 @@ export default function SettingsManagement({ token, user }) {
             {requirementsDeadline && <p className="settings-availability-summary">Selected deadline: <strong>{formatApplicationDateTime(philippineDateTimeToIso(requirementsDeadline))}</strong></p>}
           </div>
 
-          {canManageApplications ? <div className="settings-availability-actions"><button type="button" className="secondary" disabled={!requirementsDeadline || requirementsDeadlineSaving} onClick={() => setRequirementsDeadlineDrafts((current) => ({ ...current, [requirementsPeriod.id]: '' }))}><RotateCcw size={14} />Clear deadline</button><button type="submit" disabled={!requirementsPeriod || requirementsDeadlineSaving}><Save size={14} />{requirementsDeadlineSaving ? 'Saving…' : 'Save requirements deadline'}</button></div> : <p className="settings-availability-readonly">Only Super Administrators and Administrators can change the requirements deadline.</p>}
+          {canManageApplications ? <div className="settings-availability-actions"><button type="button" className="secondary" disabled={!requirementsDeadline || requirementsDeadlineSaving} onClick={() => setRequirementsDeadlineDrafts((current) => ({ ...current, [requirementsPeriod.id]: '' }))}><RotateCcw size={14} />Clear deadline</button><button type="submit" disabled={!requirementsPeriod || requirementsDeadlineSaving}><Save size={14} />{requirementsDeadlineSaving ? 'Saving…' : 'Save requirements deadline'}</button></div> : <p className="settings-availability-readonly">Only Provincial Admins and Administrators can change the requirements deadline.</p>}
         </form>
 
         <div className="settings-deadline-directory">

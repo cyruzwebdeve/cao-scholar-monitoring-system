@@ -13,7 +13,7 @@ test('maps every supported staff role to its database representation', () => {
   assert.deepEqual(getRoleConfig('SuperAdmin'), {
     databaseRole: 'superadmin',
     isSuperAdmin: true,
-    label: 'Super Administrator',
+    label: 'Provincial Admin',
   });
   assert.equal(getRoleConfig('RegularAdmin').databaseRole, 'admin');
   assert.equal(getRoleConfig('BillingPayrollAdmin').databaseRole, 'billing');
@@ -51,7 +51,7 @@ test('serializes staff without exposing password hashes or authentication versio
   assert.equal(Object.hasOwn(staff, 'auth_version'), false);
 });
 
-test('prevents a Super Administrator from removing their own access', () => {
+test('prevents a Provincial Admin from removing their own access', () => {
   assert.throws(() => assertAccessChangeAllowed({
     actorId: 1,
     target: { id: 1, is_super_admin: true },
@@ -61,7 +61,7 @@ test('prevents a Super Administrator from removing their own access', () => {
   }), /cannot remove your own/i);
 });
 
-test('protects the final active Super Administrator while allowing safe access changes', () => {
+test('protects the final active Provincial Admin while allowing safe access changes', () => {
   assert.throws(() => assertAccessChangeAllowed({
     actorId: 9,
     target: { id: 1, is_super_admin: true },

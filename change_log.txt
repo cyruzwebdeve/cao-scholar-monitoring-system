@@ -255,3 +255,5 @@
 2026-10-13 | Aligned source-row content to the top to match queued identities in the matching-panel release. Frontend build passed; processing unchanged.
 
 2026-10-13 | Deployed matching-panel UI (2527dd7, final alignment 3b51509) for testing. Public component/shared typography/compact row styles verified live; queue uses warning icon and school subtitle. API healthy/database connected. No backend change or migration.
+
+2026-10-13 | Verified attendance API read-back and applicant refresh: isolated browsers can wait up to the next 120-second visible-page poll; shared-browser revision events refetch immediately. Renamed user-facing privileged-role labels/messages to Provincial Admin, preserving SuperAdmin wire role and permissions. 312 tests passed/one skipped, lint/build and controlled browser checks passed. No migration; not deployed.

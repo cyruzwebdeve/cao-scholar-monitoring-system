@@ -127,7 +127,7 @@ const changeStaffPassword = async (req, res) => {
       prisma.admins.findUnique({ where: { id: req.user.id } }),
       prisma.admins.findUnique({ where: { id } }),
     ]);
-    if (!actor || !actor.is_active || !actor.is_super_admin) return res.status(403).json({ message: 'Super Administrator access is required.' });
+    if (!actor || !actor.is_active || !actor.is_super_admin) return res.status(403).json({ message: 'Provincial Admin access is required.' });
     if (!target) return res.status(404).json({ message: 'Staff account not found.' });
 
     const currentPasswordMatches = await bcrypt.compare(req.body.currentPassword, actor.password_hash);

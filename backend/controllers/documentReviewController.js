@@ -91,7 +91,7 @@ const reviewDocument = async (req, res) => {
     const priorityProof = definition.category === 'priority';
     const scholar = await prisma.scholar_accounts.findFirst({ where: { applicant_id: application.applicant_id } });
     if (!scholar?.is_active && !priorityProof) return res.status(403).json({ message: 'Only accepted scholar documents can be reviewed.' });
-    if (priorityProof && decision === 'approved' && scholar && !scholar.is_active) return res.status(409).json({ message: 'An inactive scholar record already exists. A Super Administrator must review it before this proof can trigger automatic acceptance.' });
+    if (priorityProof && decision === 'approved' && scholar && !scholar.is_active) return res.status(409).json({ message: 'An inactive scholar record already exists. A Provincial Admin must review it before this proof can trigger automatic acceptance.' });
     if (priorityProof && !isDeclaredPriorityProof({ eligibility: application.eligibility, proofKey: requirementKey })) {
       return res.status(409).json({ message: 'This proof does not match a declared eligibility criterion.' });
     }

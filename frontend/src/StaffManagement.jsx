@@ -26,7 +26,7 @@ const emptyData = {
 const roleOptions = [
   ['RegularAdmin', 'Administrator'],
   ['BillingPayrollAdmin', 'Billing / Payroll Admin'],
-  ['SuperAdmin', 'Super Administrator'],
+  ['SuperAdmin', 'Provincial Admin'],
 ];
 
 const sectionOptions = [
@@ -310,7 +310,7 @@ function StaffManagement({ token, onLogout }) {
     ['Staff accounts', data.stats.total, UsersRound, 'green', 'All administrator accounts'],
     ['Active staff', data.stats.active, UserCheck, 'blue', 'Accounts with portal access'],
     ['Inactive staff', data.stats.inactive, UserX, 'orange', 'Access currently disabled'],
-    ['Super admins', data.stats.superAdmins, ShieldCheck, 'violet', 'Active full-access accounts'],
+    ['Provincial admins', data.stats.superAdmins, ShieldCheck, 'violet', 'Active full-access accounts'],
   ];
 
   return (
@@ -391,7 +391,7 @@ function StaffManagement({ token, onLogout }) {
         <ModalShell eyebrow="SECURITY" title={`Set a new password for ${passwordTarget.fullName}`} onClose={() => !saving && setPasswordTarget(null)}>
           <form className="staff-password-form" onSubmit={submitPassword}>
             <div className="staff-security-note"><ShieldCheck size={19} /><p>Passwords cannot be viewed. Setting a new one will sign this account out on all devices.</p></div>
-            <PasswordField label="Your current Super Admin password" value={passwordForm.currentPassword} onChange={(value) => setPasswordForm((current) => ({ ...current, currentPassword: value }))} autoComplete="current-password" />
+            <PasswordField label="Your current Provincial Admin password" value={passwordForm.currentPassword} onChange={(value) => setPasswordForm((current) => ({ ...current, currentPassword: value }))} autoComplete="current-password" />
             <PasswordField label="New staff password" value={passwordForm.newPassword} onChange={(value) => setPasswordForm((current) => ({ ...current, newPassword: value }))} autoComplete="new-password" />
             <PasswordField label="Confirm new password" value={passwordForm.confirmPassword} onChange={(value) => setPasswordForm((current) => ({ ...current, confirmPassword: value }))} autoComplete="new-password" />
             <small className="staff-password-hint">Use at least 12 characters with uppercase, lowercase, and a number.</small>
