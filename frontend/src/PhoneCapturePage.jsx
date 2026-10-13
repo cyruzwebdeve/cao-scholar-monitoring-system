@@ -28,7 +28,7 @@ export default function PhoneCapturePage({ token, user, onLogin, onLogout }) {
         const response = await fetch(`${API_BASE}/phone-capture/sessions/${sessionId}`, { headers: authHeaders(token), cache: 'no-store' });
         const body = await response.json();
         if (!response.ok) { if (active) { generation.current += 1; stream.current?.getTracks().forEach((track) => track.stop()); stream.current = null; setCamera(false); setExpired(true); setError(body.message || 'Capture connection unavailable.'); } return; }
-        if (active) { setSession(body.session); setExpired(false); setError(''); setKey((current) => body.session.requirementKeys.includes(current) ? current : body.session.requirementKeys[0]); }
+        if (active) { setSession(body.session); if (body.session.accepting === false) { generation.current += 1; stream.current?.getTracks().forEach((track) => track.stop()); stream.current = null; setCamera(false); } setExpired(body.session.accepting === false); setError(''); setKey((current) => body.session.requirementKeys.includes(current) ? current : body.session.requirementKeys[0]); }
       } catch { if (active) setError('Unable to reach the laptop session. Reconnect and retry.'); }
     };
     load(); const timer = window.setInterval(() => { if (!document.hidden) load(); }, 10_000);

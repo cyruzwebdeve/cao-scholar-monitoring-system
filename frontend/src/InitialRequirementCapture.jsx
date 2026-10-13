@@ -33,10 +33,10 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   }, []);
   useEffect(() => { if (camera && video.current) video.current.srcObject = stream.current; }, [camera]);
   useEffect(() => {
-    if (!Object.keys(drafts).length) return;
+    if (!Object.keys(drafts).length && !phoneConnected) return;
     const warn = (event) => { event.preventDefault(); event.returnValue = ''; };
     window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn);
-  }, [drafts]);
+  }, [drafts, phoneConnected]);
   const edit = (next) => { storeDrafts({ ...draftsRef.current, [key]: next }); setConfirmed(false); };
   const choose = (nextKey) => { stopCamera(); setKey(nextKey); setPageIndex(0); setCrop([0, 0, 0, 0]); setNotice(''); };
   const startCamera = async () => {
@@ -122,7 +122,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const ready = captureReady(documents, drafts, saved);
   const selected = documents.find((item) => item.requirementKey === key);
   const page = draft.pages?.[pageIndex];
-  const close = () => { if (Object.keys(drafts).length && !window.confirm('Discard the captured documents that have not been uploaded?')) return; stopCamera(); storeDrafts({}); receivedPages.current.clear(); setSaved({}); setConfirmed(false); setOpen(false); };
+  const close = () => { if ((Object.keys(drafts).length || phoneConnected) && !window.confirm('Discard received drafts and any phone photos that have not been uploaded?')) return; stopCamera(); storeDrafts({}); receivedPages.current.clear(); setSaved({}); setConfirmed(false); setOpen(false); };
   if (!open) return <button type="button" className="capture-start" disabled={!['Public', 'Private'].includes(scholar.schoolType)} onClick={() => setOpen(true)}><Camera size={15} />Capture initial requirements</button>;
   return <section className="document-capture" aria-label="Initial document camera intake" aria-busy={working}>
     <header><div><h4>Capture initial requirements</h4><p>{scholar.name} · {scholar.controlNumber || scholar.scholarId}<br />{scholar.schoolYear} · {scholar.semester}</p></div><button type="button" disabled={working} onClick={close} aria-label="Close camera intake"><X size={16} /></button></header>

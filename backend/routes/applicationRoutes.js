@@ -85,6 +85,7 @@ const phoneCaptureAccess = [authenticate, checkRole(['SuperAdmin', 'RegularAdmin
 router.post('/phone-capture/sessions', ...phoneCaptureAccess, phoneCaptureWriteLimit, phoneCapture.create);
 router.get('/phone-capture/sessions/:id', ...phoneCaptureAccess, phoneCapture.get);
 router.post('/phone-capture/sessions/:id/pages', ...phoneCaptureAccess, phoneCaptureWriteLimit, phoneCapture.send);
+router.post('/phone-capture/sessions/:id/freeze', ...phoneCaptureAccess, phoneCaptureWriteLimit, phoneCapture.freeze);
 router.post('/phone-capture/sessions/:id/received', ...phoneCaptureAccess, phoneCaptureWriteLimit, phoneCapture.acknowledge);
 router.delete('/phone-capture/sessions/:id', ...phoneCaptureAccess, phoneCaptureWriteLimit, phoneCapture.close);
 

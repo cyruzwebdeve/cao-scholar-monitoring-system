@@ -64,6 +64,7 @@ const send = safe(async (req, res) => {
   let file; try { file = parseDataUrl(imageData); } catch { throw failure('Use a valid JPEG capture.', 400); }
   if (file.contentType !== 'image/jpeg' || file.buffer.length > 4 * 1024 * 1024 || file.buffer[0] !== 0xff || file.buffer[1] !== 0xd8) throw failure('Use a JPEG photo below 4 MB.', 400);
   await mutate(req, (session) => {
+    if (session.context.accepting === false) throw failure('The laptop has ended capture. Review the received pages there.', 409);
     if (!session.context.requirementKeys.includes(requirementKey)) throw failure('This requirement does not apply to this scholar.', 400);
     if (session.pages.some((page) => page.id === pageId)) return session.pages; // Safe retry after a lost response.
     if (session.pages.filter((page) => page.requirementKey === requirementKey).length >= 10 || session.pages.reduce((bytes, page) => bytes + page.imageData.length, 0) + imageData.length > 32 * 1024 * 1024) throw failure('Capture queue is full. Receive pages on the laptop before sending more.', 409);
@@ -71,11 +72,27 @@ const send = safe(async (req, res) => {
   });
   return res.json({ message: 'Photo sent to the laptop for review. No requirement was approved.' });
 });
+const freeze = safe(async (req, res) => {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const session = await loadSession(req);
+    const updated = await prisma.phone_capture_sessions.updateMany({ where: { id: session.id, owner_admin_id: req.user.id, revision: session.revision, expires_at: { gt: new Date() } }, data: { context: { ...session.context, accepting: false }, revision: { increment: 1 } } });
+    if (updated.count === 1) return res.json({ pages: session.pages, message: 'New transfers stopped. Receive all pending pages before closing.' });
+  }
+  throw failure('Capture queue changed. Try ending the connection again.', 409);
+});
 const acknowledge = safe(async (req, res) => {
   const ids = req.body.pageIds;
   if (!Array.isArray(ids) || ids.length > 60 || ids.some((id) => !validId(id))) throw failure('Select valid received pages.', 400);
   await mutate(req, (session) => session.pages.filter((page) => !ids.includes(page.id)));
   return res.json({ message: 'Received temporary pages removed.' });
 });
-const close = safe(async (req, res) => { const session = await loadSession(req); await prisma.phone_capture_sessions.deleteMany({ where: { id: session.id, owner_admin_id: req.user.id } }); res.locals.auditTargetId = session.applicant_id; return res.json({ message: 'Phone connection closed.' }); });
-module.exports = { create, get, send, acknowledge, close, purgeExpired };
+const close = safe(async (req, res) => {
+  const session = await loadSession(req);
+  const discard = req.query.discard === '1';
+  if (!discard && session.context.accepting !== false) throw failure('Stop new transfers and receive pending pages before closing, or explicitly cancel intake.', 409);
+  const removed = await prisma.phone_capture_sessions.deleteMany({ where: { id: session.id, owner_admin_id: req.user.id, ...(discard ? {} : { revision: session.revision }) } });
+  if (removed.count !== 1) throw failure('Capture queue changed. Retry ending the connection.', 409);
+  res.locals.auditTargetId = session.applicant_id;
+  return res.json({ message: discard ? 'Capture cancelled; queued temporary photos discarded.' : 'Phone connection closed.' });
+});
+module.exports = { create, get, send, freeze, acknowledge, close, purgeExpired };
