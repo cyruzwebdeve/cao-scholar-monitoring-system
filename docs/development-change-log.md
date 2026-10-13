@@ -5,6 +5,27 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-14 - Phone Upload Label and Success Feedback
+
+**TL;DR**
+- Phone capture action now reads “Upload”; successful transfer says “Photo sent. Review and approve it in the System.”
+- Successful phone transfers use a green notification background, border and text; failures and camera guidance do not receive success styling.
+- Frontend-only copy/style change for Admins. Temporary transfer and final approval behavior remain unchanged; validation/deployment status below.
+
+### Objective, previous/new behavior and affected users
+
+Use the requested wording and make successful phone capture processing visually clear. Previously the action read “Send to laptop” and its plain notification referenced review on the laptop. Admins now see “Upload” and System review wording, with green feedback only after a successful response.
+
+### Implementation and impacts
+
+Updated `frontend/src/PhoneCapturePage.jsx` with explicit success-state styling, resetting that state before processing, camera failure and account switching. Updated the preview's alternative text and scoped success CSS in `frontend/src/styles/document-capture.css`. Updated the phone pairing acceptance checklist to match the new action and notification.
+
+API, database, configuration, dependencies, security, privacy and record retention: no impact. The renamed action still transfers a temporary photo for review; it does not approve an initial requirement. Final set approval, pairing ownership/expiry and payroll-list workflow remain unchanged. Accessibility: existing status announcements retained and success feedback includes readable text rather than color alone. No legacy payment code changes. Deployment: frontend-only; no migration. Deployment authorized; main-branch push and live verification will be recorded below.
+
+### Validation, limitations and rollback
+
+Frontend lint and production build passed; diff whitespace checks passed. The existing large-chunk build advisory remains. No new behavioral tests for this copy/presentation change. Roll back the component and CSS edits to restore previous wording/appearance; no data rollback required. Publish when requested and verify a successful phone upload displays green feedback while a failed transfer does not.
+
 ## 2026-10-14 - Authenticated Phone-to-Laptop Capture Pairing
 
 **TL;DR**
