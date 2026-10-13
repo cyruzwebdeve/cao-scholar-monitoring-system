@@ -11,7 +11,7 @@ and how the result was verified.
 - Billing/Payroll staff see aligned control numbers, scholar names, secondary school names, and consistent processing/document-status badges.
 - Narrow panels switch to stacked records without clipping the source list or requiring horizontal scrolling.
 - Processing rules, requirement warnings, selection, bulk actions, and billing editing are unchanged; this is a frontend stylesheet release only.
-- Verification: 70 frontend tests passed, lint/build passed, and eight synthetic desktop/mobile browser scenarios passed. Hostinger deployment is pending push/live verification.
+- Verification: 70 frontend tests passed, lint/build passed, and eight synthetic desktop/mobile browser scenarios passed. Release 532b506 was pushed and its new stylesheet verified live; API/database health passed.
 
 ### Objective, previous and new behavior
 
@@ -31,7 +31,7 @@ Frontend lint and production build passed; the existing large-chunk advisory rem
 
 ### Limitations, rollback, and next work
 
-The target queue retains its existing horizontal table scrolling on small screens. Source rows may become taller for long names/school names, with the panel body remaining scrollable. Authenticated hosted visual testing remains for the user after deployment. Roll back the stylesheet commit if needed; no data rollback is required. Verify the published frontend assets and use docs/qa/2026-10-13/billing-payroll-layout-checklist.md for staff testing. Deployment results will be recorded after public asset and health checks.
+The target queue retains its existing horizontal table scrolling on small screens. Source rows may become taller for long names/school names, with the panel body remaining scrollable. Authenticated hosted visual testing remains for the user after deployment. Roll back the stylesheet commit if needed; no data rollback is required. Verify the published frontend assets and use docs/qa/2026-10-13/billing-payroll-layout-checklist.md for staff testing. Deployment result: release 532b506 pushed to main. Public entry index-Bjr2jQAr.js references Dashboard-BgbXZ9Fu.css, matching the local build; the published stylesheet contains the source-panel container rules and new desktop/mobile grid areas. API health returned HTTP 200, healthy, with database connected. No backend revision confirmation is needed for this frontend-only change.
 
 ## 2026-10-13 - Deploy Simplified Billing and Payroll Listing for Testing
 

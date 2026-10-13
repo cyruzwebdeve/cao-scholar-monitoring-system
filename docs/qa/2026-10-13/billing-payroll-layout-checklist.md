@@ -1,6 +1,8 @@
 # Billing and Payroll Layout Verification — 2026-10-13
 
-1. Hard-refresh Billing and Payroll after frontend deployment.
+Release 532b506: frontend stylesheet verified live; API/database healthy.
+
+1. Hard-refresh Billing and Payroll.
 2. On desktop, confirm each control number aligns with the scholar name, the school appears beneath the name, and status badges occupy their own column.
 3. Confirm the scholar name is more prominent than the school and both can wrap without overlapping status labels.
 4. Confirm green readiness and amber **Requirements incomplete** badges remain distinguishable and readable.
