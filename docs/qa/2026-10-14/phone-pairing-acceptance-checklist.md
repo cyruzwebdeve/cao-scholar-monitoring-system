@@ -1,6 +1,6 @@
 # Phone-to-laptop pairing — acceptance checklist (2026-10-14)
 
-Initial release `9a99e7d` frontend verified live; user confirmed its backend/migration deployment. Final-photo handoff follow-up deployment is being verified. Backend migration `20261014020000_phone_capture_sessions` required. Use dedicated test Scholars/sample documents; final laptop confirmation actually uploads and approves initial requirements.
+Final code release `b25d398` frontend and phone static route verified live. User confirmed successful backend deployment and the earlier `9a99e7d` migration. The final release safely receives photos queued just before closure. Backend migration `20261014020000_phone_capture_sessions` required. Use dedicated test Scholars/sample documents; final laptop confirmation actually uploads and approves initial requirements.
 
 1. Confirm Hostinger backend build/migration succeeded; hard-refresh laptop/phone browsers.
 2. On the laptop, open Scholars → Scholar → test record → Overview → Capture initial requirements → Use phone camera. Check Scholar and academic period beside the QR.
