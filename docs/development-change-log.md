@@ -11,7 +11,7 @@ and how the result was verified.
 - Billing/Payroll source rows show a compact amber warning icon instead of the persistent incomplete-requirements text badge.
 - Hover, keyboard focus, and tap reveal “Incomplete requirements”; Escape, focus exit, and scrolling dismiss it.
 - Requirement readiness and processing permissions/data remain unchanged; tooltips do not authorize exceptions or open alerts.
-- Verification: 70 frontend tests, lint/build, and eight synthetic desktop/mobile browser scenarios passed. Not deployed in this task.
+- Verification: 70 frontend tests, lint/build, and eight synthetic desktop/mobile browser scenarios passed. Release 2588f46 deployed; public tooltip component/styles verified live.
 
 ### Objective and previous/new behavior
 
