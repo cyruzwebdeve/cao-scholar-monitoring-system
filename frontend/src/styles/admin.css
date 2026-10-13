@@ -8222,7 +8222,7 @@
 .billing-source-table .billing-queue-row > code { grid-area: control; padding: 3px 0 0; color: #50685a; font-size: 10px; }
 .billing-source-table .billing-queue-name { grid-area: name; min-height: 0; padding: 0; }
 .billing-source-table .billing-queue-name strong { font-size: 12px; line-height: 1.45; white-space: normal; overflow-wrap: anywhere; }
-.billing-source-table .processing-school-identity { grid-area: school; padding: 0; color: #68796f; font-size: 11px; line-height: 1.5; }
+.billing-source-table .processing-school-identity { grid-area: school; padding: 0; color: #68796f; font-size: 7px; line-height: 1.5; }
 .billing-source-table .processing-school-identity strong { font-weight: 400; }
 .billing-source-table .billing-source-status { grid-area: status; align-self: start; min-width: 0; gap: 6px; }
 .billing-source-table .billing-queue-ready,

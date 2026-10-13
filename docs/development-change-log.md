@@ -5,6 +5,29 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-13 - Set Scholar List School Names to 7px
+
+**TL;DR**
+- School names beneath scholar names now use 7px in Billing and Payroll source lists.
+- Scholar-name and status-badge sizing, processing behavior, and data remain unchanged.
+- Shared source-school rule verified; frontend production build passed. Not deployed in this task.
+
+### Objective and behavior
+
+Apply the user's requested 7px size to the school-name text shown in the screenshot. Previously this secondary text used 11px; it now uses 7px while retaining wrapping and its existing color/weight.
+
+### Roles, implementation, and files
+
+Affected users: Billing and Payroll staff. Only frontend/src/styles/admin.css changes application presentation: the source-list processing-school-identity font-size. No markup or data-flow changes.
+
+### Impact
+
+API, database/schema/migration, configuration, security, permissions, and privacy: none. Accessibility: secondary school text is smaller at the user's explicit request; browser zoom and text wrapping remain supported. Deployment: frontend-only adjustment, not deployed in this task. Historical data and the approved list-generation scope remain unaffected.
+
+### Validation, limitations, rollback, and next work
+
+Confirmed the scoped shared rule uses 7px; frontend production build passed. No new tests for this small styling change. The small text may require zoom for readability. Restore 11px to roll back. Live visual verification can follow deployment.
+
 ## 2026-10-13 - Match Scholar List and Processing Queue Heading Sizes
 
 **TL;DR**
