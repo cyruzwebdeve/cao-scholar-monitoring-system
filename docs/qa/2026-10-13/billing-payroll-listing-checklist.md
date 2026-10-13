@@ -1,6 +1,6 @@
 # Billing and Payroll Listing Verification — 2026-10-13
 
-Use synthetic/test scholars in an approved test environment. These changes are not deployed by this task.
+Use synthetic/test scholars in an approved test environment. Release de44a06 is deployed for testing: frontend verified live, API/database healthy, and backend success confirmed by the user.
 
 1. Open Billing as an authorized staff member. An active Private-school scholar with missing or pending documents should show **Requirements incomplete** and remain selectable. No Override button, dialog, or required reason should appear.
 2. Use **Move all** to queue the visible processable scholars, then generate the certification list. Confirm the incomplete-requirements notice and the unchanged PHP 5,000 Private amount.

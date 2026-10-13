@@ -8,10 +8,10 @@ and how the result was verified.
 ## 2026-10-13 - Deploy Simplified Billing and Payroll Listing for Testing
 
 **TL;DR**
-- Prepare the tested Billing/Payroll release for Hostinger: incomplete requirements are warnings, and individual override authorization is removed.
+- Release de44a06 was pushed to main for Hostinger testing: incomplete requirements are warnings, and individual override authorization is removed.
 - Both frontend and backend need deployment; no database migration is required.
 - Validation: 312 tests passed with one opt-in database test skipped, lint/build passed, and four synthetic desktop/mobile browser scenarios passed.
-- Deployment is pending GitHub push and live verification; existing unrelated QA artifacts are excluded from this release.
+- Frontend verified live; API/database health passed. The user confirmed Hostinger backend deployment success for de44a06. Existing unrelated QA artifacts were excluded from the release.
 
 ### Objective and behavior
 
@@ -27,7 +27,7 @@ API behavior and new warning metadata are described in the implementation entry 
 
 ### Validation, limitations, rollback, and next work
 
-Local regression, lint, production build, and fixture-based browser checks passed. Production changes are limited to deploying code; no test scholars or real list records are created through public verification. Verify the public frontend assets and API/database health after push, and confirm the exact backend revision in Hostinger. Use docs/qa/2026-10-13/billing-payroll-listing-checklist.md for authenticated testing with synthetic scholars. Roll back frontend/backend together if needed; retain already generated historical lists. Deployment results will be recorded after verification.
+Local regression, lint, production build, and fixture-based browser checks passed. Production changes are limited to deploying code; no test scholars or real list records are created through public verification. Verify the public frontend assets and API/database health after push, and confirm the exact backend revision in Hostinger. Use docs/qa/2026-10-13/billing-payroll-listing-checklist.md for authenticated testing with synthetic scholars. Roll back frontend/backend together if needed; retain already generated historical lists. Deployment result: de44a06 pushed successfully. The public entry bundle index-D0BZVVCw.js references administrative Dashboard-CkiBwHbh.js, which contains incompleteRequirementsCount and the new requirement guidance, with no Authorize override, Override available, billingOverrides, or payrollOverrides strings. The API returned HTTP 200, healthy, with database connected. The user confirmed backend deployment success for de44a06; the health endpoint itself does not expose the backend revision. Authenticated hosted list generation remains for the user to verify with the checklist.
 
 ## 2026-10-13 - Remove Billing and Payroll Requirement Overrides
 
