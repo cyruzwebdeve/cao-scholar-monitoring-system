@@ -1,6 +1,6 @@
 # Camera intake — acceptance checklist (2026-10-14)
 
-Release pending push. Frontend-only, no new migration. Use dedicated test Scholars and synthetic sample documents; confirmation really uploads and approves the selected initial files.
+Frontend release `0a995dd` pushed and verified live on Hostinger, including the capture controls/styles and PDF generator asset. Frontend-only, no new migration. Use dedicated test Scholars and synthetic sample documents; confirmation really uploads and approves the selected initial files.
 
 1. Hard-refresh the deployed site. Log in as an authorized Admin on the phone/desktop used by CAO. Open Scholars → Scholar → the test record's drawer → Overview → Capture initial requirements.
 2. Check the displayed Scholar and school year/semester before capture. Public has five categories; Private has six including tuition receipt. Scholar/Billing-only accounts must not gain the Admin intake action.

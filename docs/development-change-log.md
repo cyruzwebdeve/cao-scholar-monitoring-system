@@ -48,7 +48,7 @@ This is guided capture, not OCR, automatic edge detection, perspective correctio
 
 Rollback the frontend integration/component/styles/utilities to remove intake; existing uploaded documents remain readable through the established preview/replacement flow, with no database rollback. Confirm readability and capture time on the actual CAO phone/webcam before replacing the printer routine operationally. Use `docs/qa/2026-10-14/camera-intake-acceptance-checklist.md` for testing.
 
-Deployment: push/live artifact verification pending; results will be recorded here.
+Deployment: frontend code release `0a995dd` pushed to main and verified live on Hostinger. Entry `/assets/index-Cm1PnmYY.js`, Admin `Dashboard-BknymIeQ.js` and stylesheet `Dashboard-Bqe0vOoN.css` expose camera intake, native phone capture, crop/retake/page ordering and explicit upload/approve actions. The generated-PDF MIME contract is present; `jspdf.es.min-CUBsX9lU.js` is served with HTTP 200. No new migration or backend change. Public artifact checks do not claim authenticated hosted document uploads or real-camera image quality.
 
 ## 2026-10-14 - Continuing Requirements Panel Layout
 
