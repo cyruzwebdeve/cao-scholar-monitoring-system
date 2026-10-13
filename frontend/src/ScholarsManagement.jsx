@@ -1,3 +1,4 @@
+import ContinuingRequirementsSettings from './ContinuingRequirementsSettings';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BadgeCheck,
@@ -26,6 +27,7 @@ import { saveProcessingHandoff } from './utils/processingHandoff';
 import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 import certificateHeader from './assets/certificate-header.png';
 import './styles/document-reviews.css';
+import './styles/scholars-management.css';
 
 import { requirementScope, requirementScopeQuery } from './utils/requirementWaves';
 
@@ -100,6 +102,8 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const [barangay, setBarangay] = useState('All Barangays');
   const [documentStatus, setDocumentStatus] = useState('All Documents');
   const [selected, setSelected] = useState(null);
+  const [sectionTab, setSectionTab] = useState('directory');
+  const [schedulePeriodId, setSchedulePeriodId] = useState(null);
   const [drawerTab, setDrawerTab] = useState('overview');
   const [page, setPage] = useState(1);
   const [exportOpen, setExportOpen] = useState(false);
@@ -124,7 +128,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const pageSize = 10;
   const canEditBilling = user?.role === 'SuperAdmin'
     || !Array.isArray(user?.sectionAccess)
-    || user.sectionAccess.includes('billing');
+    || user.sectionAccess.includes(selected?.processRoute === 'payroll' ? 'payroll' : 'billing');
   const canReviewDocuments = ['SuperAdmin', 'BillingPayrollAdmin'].includes(user?.role)
     && (user?.role === 'SuperAdmin' || !Array.isArray(user?.sectionAccess) || user.sectionAccess.includes('documentReviews'));
   const canUploadScholarRequirements = ['SuperAdmin', 'RegularAdmin'].includes(user?.role)
@@ -140,6 +144,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   };
 
   const loadScholars = useCallback(async ({ showLoader = false, academicPeriodId } = {}) => {
+    academicPeriodId ||= schedulePeriodId;
     if (showLoader) setLoading(true);
     try {
       const response = await fetch(`${API_BASE}/scholars/management${academicPeriodId ? `?academicPeriodId=${academicPeriodId}` : ""}`, { headers: authHeaders(token) });
@@ -159,7 +164,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, schedulePeriodId]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(loadScholars, 0);
@@ -238,23 +243,6 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     } finally {
       setDocumentSaving(false);
     }
-  };
-
-  const [openingContinuing, setOpeningContinuing] = useState(false);
-  const openContinuingSubmission = async () => {
-    if (!selected || openingContinuing) return;
-    setOpeningContinuing(true);
-    try {
-      const response = await fetch(`${API_BASE}/scholars/${selected.applicantId}/continuing-requirements/open`, {
-        method: 'PUT', headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ academicPeriodId: selected.academicPeriodId }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message || 'Unable to open continuing submission.');
-      setDocumentNotice(body.message); setDocumentNoticeTone('success');
-      await loadScholars({ academicPeriodId: selected?.academicPeriodId });
-    } catch (error) { setDocumentNotice(error.message); setDocumentNoticeTone('error'); }
-    finally { setOpeningContinuing(false); }
   };
 
   const uploadScholarRequirement = (document, file) => {
@@ -427,7 +415,8 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to update billing and payroll details.');
-      const destinationMode = 'billing';
+      const destinationMode = selected.processRoute;
+      if (!['payroll', 'billing'].includes(destinationMode)) throw new Error('Correct the school classification before preparing a session.');
       const handoffSaved = saveProcessingHandoff({ periodId: selectedPeriod.id, applicantId: selected.applicantId, mode: destinationMode });
       if (onSectionChange && handoffSaved) {
         setSelected(null);
@@ -542,6 +531,8 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     <div className="scholars-management">
       <header className="scholars-admin-heading"><div><span className="scholars-admin-eyebrow">SCHOLAR RECORDS</span><h2>Scholars Management</h2><p>Manage scholar accounts, review documents, and track status updates.</p></div><button type="button" className="scholars-export" onClick={() => setExportOpen(true)} disabled={!filtered.length}><Download size={15} />Export CSV</button></header>
 
+      <nav className="continuing-section-tabs" aria-label="Scholars sections"><button type="button" aria-pressed={sectionTab === 'directory'} onClick={() => setSectionTab('directory')}>Scholar directory</button><button type="button" aria-pressed={sectionTab === 'continuing'} onClick={() => setSectionTab('continuing')}>Continuing Requirements</button></nav>
+      {sectionTab === 'continuing' ? <ContinuingRequirementsSettings token={token} periods={academicPeriods} scholars={scholars} canEdit={canUploadScholarRequirements} onPeriodChange={async (periodId) => { setSchedulePeriodId(periodId); await loadScholars({ academicPeriodId: periodId }); }} /> : <>
       <div className="scholars-admin-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !scholars.length) ? '—' : value}</strong><small>{detail}</small></div><i><Icon size={20} /></i></article>)}</div>
 
       {loadError && <div className="scholars-admin-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadScholars({ showLoader: true })}>Retry</button></div>}
@@ -576,6 +567,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
         </div>
         {!!filtered.length && <footer className="scholars-table-footer"><span>Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}</span><nav className="scholars-pagination" aria-label="Scholar pages"><button type="button" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" key={item} aria-label={`Page ${item}`} className={item === currentPage ? 'active' : ''} aria-current={item === currentPage ? 'page' : undefined} onClick={() => setPage(item)}>{item}</button> : <span key={item}>…</span>)}<button type="button" aria-label="Next page" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>›</button></nav></footer>}
       </section>
+      </>}
     </div>
     {exportOpen && <CsvExportModal title="Export scholar records" description="Choose which scholar fields to include. The current directory filters will be preserved." columns={scholarExportColumns} rowCount={filtered.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `scholars-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(filtered, columns) })} />}
 
@@ -598,7 +590,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
               <section className="scholars-detail-section"><h4>Scholar information</h4><dl><div><dt>Email address</dt><dd>{selected.email || 'Not provided'}</dd></div><div><dt>School year</dt><dd>{selected.schoolYear || '2026-2027'}</dd></div><div><dt>Issued</dt><dd>{formatScholarDate(selected.issuedAt)}</dd></div></dl></section>
               <section className="scholars-detail-section"><h4>Education and location</h4><dl><div><dt>School</dt><dd>{selected.school}</dd></div><div><dt>Course</dt><dd>{selected.course || 'Not specified'}</dd></div><div><dt>Year level</dt><dd>{selected.yearLevel || 'Not specified'}</dd></div><div><dt>Municipality</dt><dd>{selected.municipality}</dd></div><div><dt>Barangay</dt><dd>{selected.barangay}</dd></div></dl></section>
 
-              <section className="scholars-detail-section"><h4>Document submissions · {selected.schoolYear} · {selected.semester}</h4>{documentNotice && <p className={`scholars-document-notice ${documentNoticeTone}`} role={documentNoticeTone === 'error' ? 'alert' : 'status'}>{documentNotice}</p>}<div className="scholars-document-list">{[...(selected.initialDocuments || selected.documents).map((document) => ({ ...document, submissionWave: 'initial' })), ...(selected.continuingDocuments || []).map((document) => ({ ...document, submissionWave: 'continuing' }))].map((document) => {
+              <section className="scholars-detail-section"><h4>Document submissions · {selected.schoolYear} · {selected.semester}</h4>{documentNotice && <p className={`scholars-document-notice ${documentNoticeTone}`} role={documentNoticeTone === 'error' ? 'alert' : 'status'}>{documentNotice}</p>}<div className="scholars-document-list">{[...(selected.initialDocuments || selected.documents).map((document) => ({ ...document, submissionWave: 'initial' })), ...(selected.continuingOpen ? selected.continuingDocuments || [] : []).map((document) => ({ ...document, submissionWave: 'continuing' }))].map((document) => {
                 const isReviewable = canReviewDocuments && document.submitted && document.fileName && document.applicationId && document.requirementKey;
                 const isUploading = uploadingRequirement === document.requirementKey;
                 const isAdminManaged = document.submissionWave === 'initial' && adminInitialRequirementKeys.has(document.requirementKey);
@@ -613,7 +605,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
                   </div>
                 </div>;
               })}</div></section>
-              <section className="scholars-detail-section"><h4>Continuing submission</h4><p>{selected.continuingOpen ? 'Open for Scholar uploads in this academic period.' : 'Not open yet. CAO records the initial set before the Scholar uploads continuing documents.'}</p>{canUploadScholarRequirements && !selected.continuingOpen && <button type="button" className="scholars-document-view" disabled={openingContinuing} onClick={openContinuingSubmission}>{openingContinuing ? 'Opening…' : 'Open continuing submission'}</button>}</section>
+              <section className="scholars-detail-section"><h4>Continuing submission</h4><p>{selected.continuingSubmission?.state === 'waiting_initial' ? 'Waiting for approval of all initial requirements.' : selected.continuingSubmission?.state === 'scheduled' ? `Opens on ${new Date(selected.continuingSubmission.opensAt).toLocaleString()}.` : selected.continuingSubmission?.state === 'late_scheduled' ? `Late submissions open on ${new Date(selected.continuingSubmission.lateOpensAt).toLocaleString()}.` : selected.continuingSubmission?.isOpen ? `Uploads open${selected.continuingSubmission.state === 'late_open' ? ' for late submission' : ''}${selected.continuingSubmission.deadline ? ` until ${new Date(selected.continuingSubmission.deadline).toLocaleString()}` : ''}.` : 'Uploads closed. Configure the period schedule in Continuing Requirements.'}</p></section>
               {selected.documentHistory?.length > 0 && <section className="scholars-detail-section"><h4>Previous document versions</h4>{selected.documentHistory.map((document) => <div className="scholars-document-entry" key={`${document.academicPeriodId}:${document.submissionWave}:${document.versionId}`}><span>{document.fileName}<small>{document.submissionWave} · {document.periodLabel || "Earlier submission"} · {document.status}</small></span><button type="button" className="scholars-document-view" onClick={() => openScholarDocument(document)}>View previous file</button></div>)}</section>}
               {selected.notes && <section className="scholars-detail-section"><h4>Account notes</h4><p className="scholars-notes">{selected.notes}</p></section>}
             </div>
@@ -622,22 +614,22 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
               <section className="scholars-detail-section scholars-finance-details">
                 <header className="scholars-billing-form-heading">
                   <i><ReceiptText size={17} /></i>
-                  <div><span>BILLING PREPARATION</span><h4>Set up processing session</h4><p>Select the academic period and confirm the scholar's billing status before continuing.</p></div>
+                  <div><span>{selected.processRoute === 'payroll' ? 'PAYROLL PREPARATION' : 'BILLING PREPARATION'}</span><h4>Set up processing session</h4><p>Select the academic period before preparing the official list.</p></div>
                 </header>
                 <form className="scholars-billing-edit-form" onSubmit={saveBillingMetadata}>
                   <div className="scholars-billing-fields">
                     <label><span>School year</span><select aria-label="School year" value={billingForm.schoolYear} disabled={!canEditBilling || billingPeriodLoading} onChange={(event) => { const schoolYear = event.target.value; const matchingPeriods = activeBillingPeriods.filter((period) => period.schoolYear === schoolYear); const nextPeriod = matchingPeriods.find((period) => period.semester === billingForm.semester) || matchingPeriods[0]; selectBillingPeriod(nextPeriod); }}><option value="">School Year</option>{billingSchoolYears.map((schoolYear) => <option key={schoolYear}>{schoolYear}</option>)}</select></label>
                     <label><span>Semester</span><select aria-label="Semester" value={billingForm.semester} disabled={!canEditBilling || billingPeriodLoading || !billingForm.schoolYear} onChange={(event) => selectBillingPeriod(activeBillingPeriods.find((period) => period.schoolYear === billingForm.schoolYear && period.semester === event.target.value))}><option value="">Semester</option>{billingSemesters.map((semester) => <option key={semester}>{semester}</option>)}</select></label>
-                    <label><span>Billing reference</span><input aria-label="Billing reference" value={selected.billingReference || ''} placeholder="Generated after processing" readOnly aria-readonly="true" /><small>Assigned automatically by Process Billing.</small></label>
-                    <label><span>Billing status</span><select aria-label="Billing status" disabled={!canEditBilling || selected.billed || selected.inPayroll} value={billingForm.billingStatus} onChange={(event) => setBillingForm((current) => ({ ...current, billingStatus: event.target.value }))}>{selected.billed && <option>Billed</option>}<option>Not billed yet</option><option>Ready for billing</option><option>On hold</option></select><small>Editable until this period is processed.</small></label>
+                    {selected.processRoute === 'billing' && <label><span>Billing reference</span><input aria-label="Billing reference" value={selected.billingReference || ''} placeholder="Generated after processing" readOnly aria-readonly="true" /><small>Assigned automatically by Process Billing.</small></label>}
+                    <label><span>{selected.processRoute === 'payroll' ? 'Payroll preparation status' : 'Billing status'}</span><select aria-label="Processing status" disabled={!canEditBilling || selected.billed || selected.inPayroll} value={billingForm.billingStatus} onChange={(event) => setBillingForm((current) => ({ ...current, billingStatus: event.target.value }))}>{selected.billed && <option>Billed</option>}<option value="Not billed yet">{selected.processRoute === 'payroll' ? 'Not listed yet' : 'Not billed yet'}</option><option value="Ready for billing">{selected.processRoute === 'payroll' ? 'Ready for payroll' : 'Ready for billing'}</option><option>On hold</option></select><small>Editable until this period is processed.</small></label>
                   </div>
                   {billingEditError && <p role="alert">{billingEditError}</p>}
-                  {canEditBilling && !selected.billed && !selected.inPayroll && <footer><button type="submit" disabled={billingSaving || billingPeriodLoading || !billingForm.schoolYear || !billingForm.semester}><Save size={12} />{billingSaving ? 'Preparing…' : 'Prepare & open Billing'}</button></footer>}
+                  {canEditBilling && !selected.billed && !selected.inPayroll && <footer><button type="submit" disabled={billingSaving || billingPeriodLoading || !billingForm.schoolYear || !billingForm.semester}><Save size={12} />{billingSaving ? 'Preparing…' : selected.processRoute === 'payroll' ? 'Prepare & open Payroll' : 'Prepare & open Billing'}</button></footer>}
                 </form>
               </section>
               <section className="scholars-finance-summary">
                 <article className={selected.billed ? 'complete' : 'pending'}><i><ReceiptText size={19} /></i><div><span>Billing status</span><strong>{selected.billingStatus || (selected.billed ? 'Billed' : 'Not billed yet')}</strong><small>{selected.billed ? 'Included in a billing record' : 'Waiting for billing processing'}</small></div></article>
-                <article className={selected.inPayroll ? 'complete' : 'pending'}><i><CircleDollarSign size={19} /></i><div><span>Payroll status</span><strong>{selected.payrollStatus || (selected.inPayroll ? 'Included in payroll list' : 'Not included yet')}</strong><small>{selected.inPayroll ? 'Included in the official payroll list' : selected.billed ? 'Ready for payroll-list preparation' : 'Billing must be completed first'}</small></div></article>
+                <article className={selected.inPayroll ? 'complete' : 'pending'}><i><CircleDollarSign size={19} /></i><div><span>Payroll status</span><strong>{selected.payrollStatus || (selected.inPayroll ? 'Included in payroll list' : 'Not included yet')}</strong><small>{selected.processRoute !== 'payroll' ? 'Private scholars use the certification list' : selected.inPayroll ? 'Included in the official payroll list' : 'Ready for payroll-list preparation'}</small></div></article>
               </section>
               {(selected.billed || selected.inPayroll) && <section className="scholars-new-cycle-guidance"><CalendarRange size={18} /><div><strong>Need another processing cycle?</strong><span>The completed {selected.billingSchoolYearSemester || selected.schoolYearSemester} session remains locked. Select another active School Year and Semester above to prepare a fresh session with no reference.</span>{activeBillingPeriods.length <= 1 && (canOpenSettings ? <button type="button" onClick={openNewCycleSetup}>Set up the next academic period</button> : <small>Ask an administrator with Settings access to activate the next academic period.</small>)}</div></section>}
               {!!selected.financialHistory?.filter((record) => !record.isActivePeriod).length && <section className="scholars-detail-section"><h4>Previous period history</h4><div className="scholars-finance-history">{selected.financialHistory.filter((record) => !record.isActivePeriod).map((record) => <article key={`${record.academicPeriodId}-${record.dateProcessed}`}><div><strong>{record.schoolYear} · {record.semester}</strong><span>{record.billingStatus} · {record.payrollStatus}</span></div><div><strong>{record.payReference || 'No payroll-list reference'}</strong><span>{record.dateProcessed ? formatScholarDate(record.dateProcessed) : 'Not processed'}</span></div></article>)}</div></section>}

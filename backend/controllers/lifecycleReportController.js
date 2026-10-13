@@ -1,3 +1,5 @@
+const { loadContinuingSchedule, evaluateContinuingSchedule, projectContinuingAccess } = require('../services/continuingSchedule');
+const { resolveScholarSchool, loadSchoolHistory, normalizeSchoolName } = require('../services/scholarSchool');
 const prisma = require('../config/prisma');
 const { isCertificationBatch } = require('../services/payrollListScope');
 const { getEffectiveRequirements } = require('../services/requirementWaves');
@@ -24,14 +26,14 @@ const getLifecycleReport = async (req, res) => {
 
     const applicants = await prisma.applicants.findMany({
       where: { school_year: period.school_year, deleted_at: null },
-      select: { id: true },
+      select: { id: true, school_id: true },
     });
     const applicantIds = applicants.map(({ id }) => id);
     const [applications, scholars, requirements, exams, periodBatches, actionGroups, recentActivity] = await Promise.all([
       prisma.application_submissions.findMany({
         where: { applicant_id: { in: applicantIds } },
         orderBy: { submitted_at: 'desc' },
-        select: { applicant_id: true, initial_docs: true },
+        select: { applicant_id: true, initial_docs: true, school_plan: true },
       }),
       prisma.scholar_accounts.findMany({
         where: { applicant_id: { in: applicantIds } },
@@ -77,12 +79,22 @@ const getLifecycleReport = async (req, res) => {
     const certificationBatchIds = new Set(periodBatches.filter(isCertificationBatch).map(({ id }) => id));
     const certificationEntries = claims.filter(({ payroll_batch_id }) => certificationBatchIds.has(payroll_batch_id));
     const payrollEntries = claims.filter(({ payroll_batch_id }) => !certificationBatchIds.has(payroll_batch_id));
-    const requirementsCleared = scholars.filter((scholar) => evaluateBillingEligibility({
-      isActive: scholar.is_active,
-      alreadyBilled: false,
-      initialDocs: getEffectiveRequirements(applicationByApplicant.get(scholar.applicant_id)?.initial_docs, period.id, availablePeriods.find((item) => item.is_primary && item.is_active)?.id || period.id),
-      requirement: applicationByApplicant.get(scholar.applicant_id)?.initial_docs?.requirementSets ? undefined : requirementByApplicant.get(scholar.applicant_id),
-    }).eligible).length;
+    const schedule = await loadContinuingSchedule(prisma, period.id);
+    const catalog = schedule ? await prisma.schools.findMany({ select: { id: true, name: true, school_type: true } }) : [];
+    const histories = schedule ? await loadSchoolHistory(prisma, applicantIds) : new Map();
+    const legacyPeriodId = availablePeriods.find((item) => item.is_primary && item.is_active)?.id || period.id;
+    const requirementsCleared = scholars.filter((scholar) => {
+      const application = applicationByApplicant.get(scholar.applicant_id);
+      const requirement = requirementByApplicant.get(scholar.applicant_id);
+      const school = schedule ? resolveScholarSchool({ applicant: applicants.find((item) => item.id === scholar.applicant_id), requirement, application,
+        schoolById: new Map(catalog.map((item) => [item.id, item])), schoolByName: new Map(catalog.map((item) => [normalizeSchoolName(item.name), item])), schoolHistory: histories.get(scholar.applicant_id) }) : null;
+      const access = evaluateContinuingSchedule({ schedule, period, docs: application?.initial_docs, applicantId: scholar.applicant_id, schoolType: school?.school_type, legacyPeriodId });
+      return evaluateBillingEligibility({ isActive: scholar.is_active, alreadyBilled: false,
+        initialDocs: getEffectiveRequirements(projectContinuingAccess(application?.initial_docs, period.id, access), period.id, legacyPeriodId),
+        requirement: application?.initial_docs?.requirementSets || access.visible && schedule ? undefined : requirement,
+        ...(schedule ? { schoolType: school?.school_type, requireSchoolClassification: true } : {}),
+      }).eligible;
+    }).length;
     return res.json({
       period: { id: period.id, schoolYear: period.school_year, semester: period.semester, isActive: period.is_active },
       periods: availablePeriods.map((item) => ({ id: item.id, schoolYear: item.school_year, semester: item.semester, isActive: item.is_active })),

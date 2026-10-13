@@ -5,6 +5,56 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-14 - Continuing Requirement Schedules and Late-Submission Windows
+
+**TL;DR**
+- Admin can publish one continuing schedule per school year/semester, plus a separate late window for all or selected active scholars.
+- Scheduled uploads automatically become available after all five Public or six Private initial documents are approved; no individual opening click is required.
+- Public processing sessions open Payroll. Incomplete requirements remain warnings; existing list membership prevents duplicate inclusion in the same period.
+- Original/continuing documents and their histories remain separate. One additive schedule-table migration is required; no document or legacy monetary records are deleted.
+- Verification: 360 automated checks passed, one optional database migration check skipped; lint/build and synthetic desktop/mobile browser scenarios passed. Hostinger deployment status is recorded below.
+
+### Objective and previous/new behavior
+
+Remove repeated individual opening clicks and provide a controlled way to accept late continuing documents in their original academic semester. Previously CAO opened each scholar manually; the academic-period deadline blocked late Scholar uploads and the preparation drawer always opened Billing. The new Scholars → Continuing Requirements tab publishes regular opening/closing timestamps, optional late timestamps, and all/selected Scholar scope. The original regular deadline remains stored separately from the late deadline. Without a published schedule, legacy manual opening/deadline behavior remains compatible, but the manual UI button is replaced by schedule guidance.
+
+### Roles, workflow, implementation and data flow
+
+Provincial/Regular Admins with Scholars access publish schedules; authorized Billing staff with Scholars access can view them. Initial ownership remains CAO for every initial file (Public five, Private six including tuition receipt). Scholars own continuing grades/registration and Private-only tuition receipts. The service checks persisted initial approvals and the server clock; unknown classification fails closed. Scheduled dates, selected late IDs and an optimistic revision are stored per academic period. Stale saves return 409, invalid/inactive periods and unavailable selected Scholars are rejected. Time inputs use the browser's labeled local timezone and transmit timezone-qualified ISO values.
+
+Regular access requires approved initial files and an inclusive opening/deadline interval. Late access additionally requires the all/selected authorization; the late window must begin after the regular deadline. Initial approval is evaluated on each read/upload: approval after the opening time opens access automatically while a permitted window remains active. Later revoked initial approval closes scheduled upload access without deleting files. Read projections expose the continuing wave after opening; actual uploads recheck the period/window and approval within the existing document transaction. Existing version/history and private storage behavior are retained. No per-Scholar timer job or bulk mutation is needed.
+
+Scholars can select another still-active submission period in the requirements panel, including an earlier semester's late window; the primary dashboard's exam/payroll context remains unchanged. Admin period summaries and generation/reporting warnings use the scheduled wave rather than treating initial grades as continuing completion. Portal refresh remains two minutes and Admin directory refresh five minutes; reload is appropriate for immediate testing.
+
+Payroll generation is independent of submission deadlines and document completeness. Additional lists for previously unlisted Public scholars in the same semester use the existing generator. Already-listed scholars can complete documents during an authorized window without another payroll entry. The drawer resolves Public→Payroll and Private→Billing and verifies destination section access. Existing hard account/classification/route/duplicate guards remain. Existing legacy billing metadata storage is retained for preparation compatibility; legacy disbursement/payment endpoints remain retired. No fund-release or monetary-audit workflow is introduced.
+
+### Changed system areas and impacts
+
+- Backend: continuing schedule controller/service, application routes/controller, lifecycle report controller, operational activity mapping, and schedule/ownership/payroll regression fixtures.
+- Frontend: ContinuingRequirementsSettings, ScholarsManagement, ScholarDashboard and their schedule/period-selector styles.
+- API: authenticated GET/PUT `/scholars/continuing-schedules/:id`; optional `requirementPeriodId` on the owner's application response; schedule/access metadata in Scholar responses. Upload/list endpoint contracts remain compatible.
+- Database: additive `continuing_requirement_schedules` table, primary period key, timestamp/range/scope constraints, selected applicant IDs, revision and updating actor. Migration `20261014010000_continuing_requirement_schedules`; application, legacy and cleaned schema definitions updated. No file/history migration or destructive data change.
+- Configuration: no new environment variables or dependencies. Published continuing schedules govern continuing uploads; older Settings deadlines remain the fallback for periods without one. No production schedule is seeded automatically.
+- Security/privacy: role and Scholars-section checks, owner-only uploads, active-scholar validation, stale-save protection, server-side date/scope enforcement. Selected IDs appear only in authorized Admin configuration responses; Scholar status reveals only their own late authorization. Existing private document storage is unchanged. No mail/notification sends added.
+- Accessibility: labeled controls, keyboard native inputs/checkboxes, status/error regions, disabled unavailable actions, and responsive single-column date fields. Section buttons use pressed state.
+- Deployment: push main for separate Hostinger frontend/backend builds; backend must apply the new migration before schedule testing. Provider revision/migration confirmation is required because public health exposes no release ID.
+
+### Validation and results
+
+Full suites passed: 288 backend + 72 frontend = 360 checks; one optional real-database catalog migration check skipped. New checks cover Public/Private initial completeness, exact time boundaries, late all/selected authorization, preserved original deadlines, legacy compatibility, scope projection, stale/invalid schedule saves, inactive periods, real Express role guards, real upload controllers without manual opening, selected-period portal behavior and list-warning independence. Frontend lint/build, backend syntax checks and diff whitespace checks passed; the existing large-chunk build advisory remains.
+
+Synthetic Chromium scenarios at 1280px and 390px verify date publishing/timezone conversion, selected late scope, saved-schedule reload, absence of the individual opening button, Public Payroll navigation, Scholar late upload scope, closed-window blocking and pending-initial blocking. Browser APIs use synthetic fixtures; no hosted Scholar documents, real list generation or live scheduling were mutated. Real PostgreSQL migration execution/concurrency and production blob-upload behavior were not exercised locally.
+
+### Limitations, rollback and recommended next work
+
+A late window is one configurable interval per period; additional windows replace its configuration, preserving the original regular deadline but not a separate full schedule-version archive. Operational mutation logs remain available. Selected scopes are capped at 500; inactive academic periods cannot accept uploads. Activate an earlier genuine semester to accept its late files rather than creating a fictitious period. Legacy initial documents continue using the existing first-period association rules. Unknown school classification or missing initial approvals requires correction before scheduled uploads; list generation still permits incomplete documents.
+
+Keep the additive table on rollback and pause writes before restoring an older release. Back up schedules/documents first; older code cannot enforce the new late-window rules and can use older per-period deadlines/manual flags. Prefer a forward correction. Existing document-wave rollback precautions still apply. Follow the linked acceptance checklist and confirm Hostinger migration success before hosted authenticated testing.
+
+Deployment: release push and live artifact verification pending at the time of this entry; subsequent results will be appended here.
+
+Acceptance checklist: `docs/qa/2026-10-14/continuing-schedules-acceptance-checklist.md`.
+
 ## 2026-10-14 - Separate Admin Initial and Scholar Continuing Requirements
 
 **TL;DR**

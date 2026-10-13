@@ -830,3 +830,6 @@
 .scholar-requirement-item strong { display: block; color: #2f4436; font-size: 12px; }
 .scholar-requirement-item small { display: block; margin-top: 4px; color: #68796f; font-size: 10px; overflow-wrap: anywhere; }
 .scholar-requirement-item > span { flex-shrink: 0; color: #50685a; font-size: 10px; }
+
+.scholar-continuing-period { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; font-size:13px; font-weight:600; }
+.scholar-continuing-period select { width:100%; padding:10px; border:1px solid #cfddd4; border-radius:8px; background:white; color:#254b36; font:inherit; }

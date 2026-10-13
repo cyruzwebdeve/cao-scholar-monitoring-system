@@ -9,7 +9,7 @@ delete process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN;
 const prisma = {};
 const prismaPath = require.resolve('../config/prisma');
 require.cache[prismaPath] = { id: prismaPath, filename: prismaPath, loaded: true, exports: prisma };
-const { uploadMyRequirement, uploadScholarRequirementByAdmin, openContinuingRequirements } = require('../controllers/applicationController');
+const { uploadMyRequirement, uploadScholarRequirementByAdmin, openContinuingRequirements, updateScholarBillingMetadata } = require('../controllers/applicationController');
 delete process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN;
 const { reviewDocument, approvePendingDocuments, streamDocument } = require('../controllers/documentReviewController');
 const { getWaveSet, getEffectiveRequirements, getScopedDocument } = require('../services/requirementWaves');
@@ -230,4 +230,48 @@ test('missing explicit academic period is rejected before any wave is written', 
   setup(); const res = response();
   await uploadScholarRequirementByAdmin({ params: { applicantId: '7', requirementKey: 'grades' }, body: file(), user: { id: 9 } }, res);
   assert.equal(res.statusCode, 400); assert.equal(writes, 0);
+});
+
+test('Scheduled period opens automatically after all initial approvals without per-scholar opening', async () => {
+  setup({ schoolType: 'public' });
+  prisma.continuing_requirement_schedules = { findUnique: async () => ({ opens_at: new Date(Date.now() - 60000), closes_at: new Date(Date.now() + 60000), late_scope: 'all', late_applicant_ids: [] }) };
+  for (const key of ['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form']) assert.equal((await adminUpload(key)).statusCode, 200);
+  assert.equal((await scholarUpload('grades')).statusCode, 200);
+  assert.equal(getWaveSet(application.initial_docs, 10, 'initial').requirements.grades.status, 'Approved');
+  assert.equal(getWaveSet(application.initial_docs, 10, 'continuing').requirements.grades.status, 'Pending');
+  delete prisma.continuing_requirement_schedules;
+});
+test('Scheduled period rejects incomplete initial set even if legacy manual opening exists', async () => {
+  setup({ schoolType: 'public' }); await open();
+  prisma.continuing_requirement_schedules = { findUnique: async () => ({ opens_at: new Date(Date.now() - 60000), closes_at: new Date(Date.now() + 60000), late_scope: 'all', late_applicant_ids: [] }) };
+  assert.equal((await scholarUpload('grades')).statusCode, 403);
+  delete prisma.continuing_requirement_schedules;
+});
+test('Late schedule admits selected scholar after original deadline and rejects nonselected scholar', async () => {
+  setup({ schoolType: 'public', deadline: new Date(Date.now() - 60000) });
+  for (const key of ['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form']) await adminUpload(key);
+  let ids = [];
+  prisma.continuing_requirement_schedules = { findUnique: async () => ({ opens_at: new Date(Date.now() - 180000), closes_at: new Date(Date.now() - 120000), late_opens_at: new Date(Date.now() - 60000), late_closes_at: new Date(Date.now() + 60000), late_scope: 'selected', late_applicant_ids: ids }) };
+  assert.equal((await scholarUpload('grades')).statusCode, 403);
+  ids = [7]; assert.equal((await scholarUpload('grades')).statusCode, 200);
+  delete prisma.continuing_requirement_schedules;
+});
+test('Schedule mutation routes reject unauthenticated users, scholars, Billing staff and staff lacking Scholars access', async () => {
+  for (const headers of [{}, authHeader(7, 'control'), authHeader(4), authHeader(3)]) {
+    setup(); const res = await fetch(baseUrl + '/scholars/continuing-schedules/10', { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+    assert.equal(res.status, headers.Authorization ? 403 : 401);
+  }
+});
+
+test('Preparation accepts Payroll permission for Public and rejects the wrong destination permission', async () => {
+  for (const type of ['public', 'private']) {
+    setup({ schoolType: type });
+    prisma.payroll_claims = { findFirst: async () => null };
+    let saved = 0;
+    prisma.scholar_requirements.upsert = async ({ create }) => { saved += 1; return create; };
+    const req = { params: { applicantId: '7' }, body: { academicPeriodId: 10, billingStatus: 'Ready for billing' }, user: { id: 11, role: 'RegularAdmin', sectionAccess: [type === 'public' ? 'billing' : 'payroll'] } };
+    let res = response(); await updateScholarBillingMetadata(req, res); assert.equal(res.statusCode, 403); assert.equal(saved, 0);
+    req.user.sectionAccess = [type === 'public' ? 'payroll' : 'billing'];
+    res = response(); await updateScholarBillingMetadata(req, res); assert.equal(res.statusCode, 200); assert.equal(saved, 1);
+  }
 });

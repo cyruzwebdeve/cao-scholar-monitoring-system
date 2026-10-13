@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const { recordActivitySafely } = require('../services/activityLog');
 
 const ACTIONS = {
+  'PUT /scholars/continuing-schedules/:id': ['CONTINUING_SUBMISSION_SCHEDULE_UPDATED', 'continuing_requirement_schedules', 'Published a continuing-requirements submission schedule.'],
   'POST /examinations/:examId/results/:applicantId': ['PAPER_EXAMINATION_RESULT_RECORDED', 'results', 'Recorded a paper examination result.'],
   'PUT /examinations/:examId/results/:applicantId': ['EXAMINATION_RESULT_CORRECTED', 'results', 'Corrected an examination score and reset publication.'],
   'POST /examinations/:examId/results/:applicantId/publish': ['EXAMINATION_RESULT_PUBLISHED', 'results', 'Published an examination result.'],

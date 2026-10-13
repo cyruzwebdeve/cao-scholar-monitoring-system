@@ -388,3 +388,20 @@ test('continuing-wave readiness does not inherit initial grades from legacy peri
   assert.equal(generated.statusCode, 201);
   assert.equal(generated.body.incompleteRequirementsCount, 1);
 });
+
+test('Scholar can select a still-active earlier submission period without moving primary payroll context', async () => {
+  setup();
+  const primary = { id:10, school_year:'2027-2028', semester:'2nd Semester', is_active:true, is_primary:true };
+  const earlier = { ...primary, id:9, semester:'1st Semester', is_primary:false };
+  prisma.academic_periods.findFirst = async ({where}) => where?.id ? where.id === 9 ? earlier : null : primary;
+  prisma.academic_periods.findMany = async () => [primary,earlier];
+  prisma.continuing_requirement_schedules = { findUnique:async()=>({opens_at:new Date(Date.now()-60000),closes_at:new Date(Date.now()+60000),late_scope:'all',late_applicant_ids:[]}) };
+  const res = response(); await getMyApplication({query:{requirementPeriodId:'9'},user:{id:1,email:'scholar@example.com'}},res);
+  assert.equal(res.statusCode,200);assert.equal(res.body.activePeriod.id,10);assert.equal(res.body.requirementWave.academicPeriodId,9);assert.equal(res.body.requirementWave.continuingOpen,true);assert.equal(res.body.continuingPeriods.length,2);
+  const invalid = response();await getMyApplication({query:{requirementPeriodId:'99'},user:{id:1,email:'scholar@example.com'}},invalid);assert.equal(invalid.statusCode,400);
+  delete prisma.continuing_requirement_schedules;
+});
+test('Public payroll generation keeps missing continuing files as warnings after schedule starts',async()=>{
+ const {writes}=setup();prisma.continuing_requirement_schedules={findUnique:async()=>({opens_at:new Date(Date.now()-60000),closes_at:new Date(Date.now()+60000),late_scope:'all',late_applicant_ids:[]})};
+ const res=await generate();assert.equal(res.statusCode,201);assert.equal(res.body.incompleteRequirementsCount,1);assert.match(writes.find((item)=>item.type==='memberships').data[0].notes,/Certificate of Grades/);delete prisma.continuing_requirement_schedules;
+});

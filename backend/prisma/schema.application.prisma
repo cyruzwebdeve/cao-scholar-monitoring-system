@@ -383,3 +383,17 @@ model scholar_notifications {
   @@index([applicant_id, created_at])
   @@index([applicant_id, is_read])
 }
+
+// Per-period upload windows. Payroll-list membership remains independent.
+model continuing_requirement_schedules {
+  academic_period_id Int @id
+  opens_at DateTime @db.Timestamp(6)
+  closes_at DateTime @db.Timestamp(6)
+  late_opens_at DateTime? @db.Timestamp(6)
+  late_closes_at DateTime? @db.Timestamp(6)
+  late_scope String @default("all") @db.VarChar(20)
+  late_applicant_ids Int[] @default([])
+  revision Int @default(1)
+  updated_by Int
+  updated_at DateTime @updatedAt @db.Timestamp(6)
+}

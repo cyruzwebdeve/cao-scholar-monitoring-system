@@ -1,0 +1,16 @@
+const test = require('node:test'); const assert = require('node:assert/strict');
+const prisma = {}; const path = require.resolve('../config/prisma'); require.cache[path] = { id:path, filename:path, loaded:true, exports:prisma };
+const { saveContinuingSchedule } = require('../controllers/continuingScheduleController');
+const response = () => ({ locals:{}, statusCode:200, status(code){this.statusCode=code;return this;}, json(body){this.body=body;return this;} });
+const body = { opensAt:'2026-10-01T00:00:00Z', closesAt:'2026-10-10T00:00:00Z', lateOpensAt:'2026-10-12T00:00:00Z', lateClosesAt:'2026-10-20T00:00:00Z', lateScope:'selected', lateApplicantIds:[7], revision:0 };
+let stored; let active; let count;
+const setup = () => { stored=null; active=true;count=1; Object.assign(prisma, { academic_periods:{findUnique:async()=>({id:10,is_active:active})}, scholar_accounts:{count:async()=>count}, continuing_requirement_schedules:{
+ create:async({data})=>{if(stored)throw Object.assign(new Error('duplicate'),{code:'P2002'});stored={...data,revision:1};return stored;},
+ updateMany:async({where,data})=>{if(!stored || where.revision!==stored.revision)return {count:0};stored={...stored,...data,revision:stored.revision+1};return {count:1};},findUnique:async()=>stored }, $transaction:async(callback)=>callback(prisma) }); };
+const save = async (overrides={}) => {const res=response();await saveContinuingSchedule({params:{id:'10'},body:{...body,...overrides},user:{id:9}},res);return res;};
+test('Publishing preserves regular deadline independently of late dates and stores selected scope',async()=>{setup();const res=await save();assert.equal(res.statusCode,200);assert.equal(res.body.schedule.closes_at.toISOString(),new Date(body.closesAt).toISOString());assert.deepEqual(stored.late_applicant_ids,[7]);});
+test('Reject malformed timezone, reversed ranges and overlapping late windows',async()=>{setup();for(const change of [{opensAt:'2026-10-01T00:00'},{closesAt:body.opensAt},{lateClosesAt:null},{lateOpensAt:body.closesAt},{lateClosesAt:body.lateOpensAt}])assert.equal((await save(change)).statusCode,400);assert.equal(stored,null);});
+test('Reject stale schedule revision and duplicate creation without overwriting deadlines',async()=>{setup();await save();const before=stored;assert.equal((await save()).statusCode,409);assert.equal((await save({revision:4})).statusCode,409);assert.deepEqual(stored,before);assert.equal((await save({revision:1})).body.schedule.revision,2);});
+test('Inactive period and unavailable selected scholars cannot be scheduled',async()=>{setup();active=false;assert.equal((await save()).statusCode,400);active=true;count=0;assert.equal((await save()).statusCode,400);});
+test('Empty selected scope, invalid IDs and missing revision are rejected',async()=>{setup();for(const change of [{lateApplicantIds:[]},{lateApplicantIds:['7']},{lateScope:'public-only'},{revision:undefined}])assert.equal((await save(change)).statusCode,400);});
+test('Removing late dates retains regular schedule; all scope clears selected IDs',async()=>{setup();await save();const res=await save({revision:1,lateOpensAt:null,lateClosesAt:null,lateScope:'all'});assert.equal(res.statusCode,200);assert.equal(stored.late_opens_at,null);assert.equal(stored.late_closes_at,null);assert.deepEqual(stored.late_applicant_ids,[]);});
