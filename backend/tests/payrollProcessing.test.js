@@ -327,8 +327,10 @@ test('billing editor cannot bypass an unclassified saved catalog entry by spoofi
 
 test('actual Scholar tuition upload rejects Public current-period catalog classification', async () => {
   const { writes } = setup({ periodSchoolId: 1 });
+  const [application] = await prisma.application_submissions.findMany();
+  application.initial_docs.requirementWaves = { 10: { continuingOpenedAt: '2026-10-13T00:00:00Z' } };
   const res = response();
-  await uploadMyRequirement({ body: { requirement: 'tuition_receipt', fileName: 'test.pdf', fileData: 'data:application/pdf;base64,JVBERi0xLjQK' }, user: { id: 1, email: 'scholar@example.com' } }, res);
+  await uploadMyRequirement({ body: { academicPeriodId: 10, requirement: 'tuition_receipt', fileName: 'test.pdf', fileData: 'data:application/pdf;base64,JVBERi0xLjQK' }, user: { id: 1, email: 'scholar@example.com' } }, res);
   assert.equal(res.statusCode, 400);
   assert.match(res.body.message, /Only Private/);
   assert.equal(writes.length, 0);
@@ -364,4 +366,25 @@ test('Billing rejects retired override requests without generating a list', asyn
   assert.equal(res.statusCode, 400);
   assert.match(res.body.message, /overrides have been removed/);
   assert.equal(writes.length, 0);
+});
+
+
+test('continuing-wave readiness does not inherit initial grades from legacy period columns', async () => {
+  setup();
+  const [application] = await prisma.application_submissions.findMany();
+  const initial = application.initial_docs.requirements;
+  application.initial_docs.requirementSets = { '10:initial': { academicPeriodId: 10, wave: 'initial', requirements: initial, history: [] } };
+  application.initial_docs.requirementWaves = { 10: { continuingOpenedAt: '2026-10-13T00:00:00Z' } };
+  const requirement = await prisma.scholar_requirements.findFirst();
+  requirement.grade_report_file = 'old-grades.pdf'; requirement.grade_report_review_status = 'approved';
+  requirement.registration_form_file = 'old-registration.pdf'; requirement.registration_form_review_status = 'approved';
+  const record = await list();
+  assert.equal(record.continuingOpen, true);
+  assert.equal(record.initialDocuments.find((item) => item.requirementKey === 'grades').status, 'approved');
+  assert.equal(record.continuingDocuments.find((item) => item.requirementKey === 'grades').submitted, false);
+  assert.equal(record.processingWarnings.filter(({ code }) => code === 'REQUIREMENT_MISSING').length, 2);
+  assert.equal(record.processEligible, true);
+  const generated = await generate();
+  assert.equal(generated.statusCode, 201);
+  assert.equal(generated.body.incompleteRequirementsCount, 1);
 });

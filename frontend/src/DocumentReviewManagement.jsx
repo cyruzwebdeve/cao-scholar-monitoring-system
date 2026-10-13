@@ -19,6 +19,8 @@ import { API_BASE, authHeaders } from './services/api';
 import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 import './styles/document-reviews.css';
 
+import { requirementScope, requirementScopeQuery } from './utils/requirementWaves';
+
 const emptyData = { stats: { total: 0, pending: 0, approved: 0, rejected: 0 }, reviews: [] };
 
 const formatDate = (value, fallback = 'Not available') => {
@@ -64,12 +66,14 @@ export function ReviewModal({ review, preview, previewLoading, previewError, onC
           <aside className="review-details">
             <header><div><span>REVIEW DETAILS</span><h4>Submission information</h4></div><strong className={`review-status ${review.status}`}>{titleCase(review.status)}</strong></header>
             <dl>
+              {review.submissionWave && <div><dt>Submission</dt><dd>{review.submissionWave} · {review.periodLabel || "Earlier submission"}</dd></div>}
               <div><dt>File name</dt><dd>{review.fileName}</dd></div>
               <div><dt>File type</dt><dd>{review.fileType}</dd></div>
               <div><dt>Uploaded</dt><dd>{formatDate(review.uploadedAt)}</dd></div>
               <div><dt>Municipality</dt><dd>{review.municipality}</dd></div>
               {review.reviewedAt && <div><dt>Last reviewed</dt><dd>{formatDate(review.reviewedAt)}{review.reviewerName ? ` by ${review.reviewerName}` : ''}</dd></div>}
             </dl>
+            {review.reviewHistory?.length > 0 && <details><summary>Previous review decisions</summary><ul>{review.reviewHistory.map((entry, index) => <li key={`${entry.reviewedAt}:${index}`}>{titleCase(entry.status)} · {formatDate(entry.reviewedAt)}{entry.reviewNotes ? ` · ${entry.reviewNotes}` : ''}</li>)}</ul></details>}
             {review.reviewNotes && <div className="review-existing-note"><span>Review notes</span><p>{review.reviewNotes}</p></div>}
             <div className="review-guidance"><ShieldCheck size={18} /><div><strong>Reviewer checklist</strong><p>{review.autoAcceptance ? 'Confirm that the proof is authentic, readable, and matches the declared criterion. Approval automatically accepts the applicant and bypasses the examination.' : 'Confirm that the document is readable, current, and matches the scholar record before approval.'}</p></div></div>
           </aside>
@@ -175,15 +179,16 @@ function DocumentReviewManagement({ token }) {
     const pendingByGroup = new Map();
     data.reviews.forEach((item) => {
       if (item.status !== 'pending' || item.autoAcceptance) return;
-      const key = String(item.applicationId || item.applicantId || `${item.controlNumber}-${item.email}`);
+      const key = `${item.applicationId || item.applicantId}:${item.academicPeriodId || 'legacy'}:${item.submissionWave || 'legacy'}`;
       pendingByGroup.set(key, (pendingByGroup.get(key) || 0) + 1);
     });
     const groups = new Map();
     visibleReviews.forEach((item) => {
-      const key = String(item.applicationId || item.applicantId || `${item.controlNumber}-${item.email}`);
+      const key = `${item.applicationId || item.applicantId}:${item.academicPeriodId || 'legacy'}:${item.submissionWave || 'legacy'}`;
       if (!groups.has(key)) {
         groups.set(key, {
           key,
+          applicationId: item.applicationId, academicPeriodId: item.academicPeriodId, periodLabel: item.periodLabel, submissionWave: item.submissionWave,
           scholarName: item.scholarName,
           controlNumber: item.controlNumber,
           email: item.email,
@@ -195,6 +200,7 @@ function DocumentReviewManagement({ token }) {
     return [...groups.values()].map((group) => ({
       ...group,
       pendingTotal: pendingByGroup.get(group.key) || 0,
+      pendingDocuments: data.reviews.filter((item) => item.status === 'pending' && !item.autoAcceptance && `${item.applicationId || item.applicantId}:${item.academicPeriodId || 'legacy'}:${item.submissionWave || 'legacy'}` === group.key).map((item) => ({ requirementKey: item.requirementKey, versionId: item.versionId || null, revision: item.revision || 0 })),
       counts: group.items.reduce((totals, item) => ({
         ...totals,
         [item.status]: (totals[item.status] || 0) + 1,
@@ -216,7 +222,7 @@ function DocumentReviewManagement({ token }) {
     setPreviewError('');
     setPreviewLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/document-reviews/${review.applicationId}/${review.requirementKey}/file`, { headers: authHeaders(token) });
+      const response = await fetch(`${API_BASE}/document-reviews/${review.applicationId}/${review.requirementKey}/file${requirementScopeQuery(review)}`, { headers: authHeaders(token) });
       if (!response.ok) {
         const body = await response.json();
         throw new Error(body.message || 'Unable to open the document.');
@@ -236,7 +242,7 @@ function DocumentReviewManagement({ token }) {
       const response = await fetch(`${API_BASE}/document-reviews/${selected.applicationId}/${selected.requirementKey}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
-        body: JSON.stringify({ decision, notes }),
+        body: JSON.stringify({ decision, notes, ...requirementScope(selected) }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Unable to save the review decision.');
@@ -256,9 +262,10 @@ function DocumentReviewManagement({ token }) {
     setSaving(true);
     setBulkError('');
     try {
-      const response = await fetch(`${API_BASE}/document-reviews/${bulkGroup.key}/approve-pending`, {
+      const response = await fetch(`${API_BASE}/document-reviews/${bulkGroup.applicationId}/approve-pending`, {
         method: 'PUT',
-        headers: authHeaders(token),
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...requirementScope(bulkGroup), documents: bulkGroup.pendingDocuments }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Unable to approve the pending documents.');
@@ -298,7 +305,7 @@ function DocumentReviewManagement({ token }) {
               <article className={`document-review-scholar ${expanded ? 'expanded' : ''}`} key={group.key}>
                 <button type="button" className="document-review-scholar-trigger" onClick={() => setExpandedScholar(expanded ? null : group.key)} aria-expanded={expanded} aria-controls={panelId}>
                   <span className="document-review-scholar-avatar" aria-hidden="true">{initials}</span>
-                  <span className="document-review-scholar-identity"><strong>{group.scholarName}</strong><small>{[group.controlNumber, group.email].filter(Boolean).join(' · ')}</small></span>
+                  <span className="document-review-scholar-identity"><strong>{group.scholarName}</strong><small>{[group.controlNumber, group.submissionWave, group.periodLabel, group.email].filter(Boolean).join(' · ')}</small></span>
                   <span className="document-review-scholar-summary">
                     {group.counts.pending > 0 && <span className="pending">{group.counts.pending} pending</span>}
                     {group.counts.approved > 0 && <span className="approved">{group.counts.approved} approved</span>}

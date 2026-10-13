@@ -17,10 +17,10 @@ test('scholar checklist uses individual requirement records instead of a combine
     .forEach((key) => assert.ok(REQUIREMENT_DEFINITIONS[key]));
 });
 
-test('separates administrator initial requirements from scholar semester uploads', () => {
-  assert.deepEqual(ADMIN_INITIAL_REQUIREMENT_KEYS, ['tax_exemption', 'indigency', 'valid_id']);
+test('admin owns all initial files while Scholar owns the same academic files only in continuing submission', () => {
+  assert.deepEqual(ADMIN_INITIAL_REQUIREMENT_KEYS, ['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form', 'tuition_receipt']);
   assert.deepEqual(SCHOLAR_SEMESTER_REQUIREMENT_KEYS, ['grades', 'registration_form', 'tuition_receipt']);
-  assert.equal(ADMIN_INITIAL_REQUIREMENT_KEYS.some((key) => SCHOLAR_SEMESTER_REQUIREMENT_KEYS.includes(key)), false);
+  assert.equal(SCHOLAR_SEMESTER_REQUIREMENT_KEYS.every((key) => ADMIN_INITIAL_REQUIREMENT_KEYS.includes(key)), true);
 });
 
 test('normalizes new, legacy, approved, and rejected document states', () => {

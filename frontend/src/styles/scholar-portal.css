@@ -823,3 +823,10 @@
     height: 19px;
   }
 }
+
+.scholar-requirement-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #e5ece7; }
+.scholar-requirement-item:last-child { border-bottom: 0; }
+.scholar-requirement-item > div { min-width: 0; }
+.scholar-requirement-item strong { display: block; color: #2f4436; font-size: 12px; }
+.scholar-requirement-item small { display: block; margin-top: 4px; color: #68796f; font-size: 10px; overflow-wrap: anywhere; }
+.scholar-requirement-item > span { flex-shrink: 0; color: #50685a; font-size: 10px; }

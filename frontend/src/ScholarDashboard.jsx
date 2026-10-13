@@ -190,7 +190,9 @@ function ScholarDashboard({ token, user, onLogout }) {
     return () => window.clearTimeout(timeout);
   }, [notice]);
 
-  const uploadedRequirements = application?.initial_docs?.requirements || {};
+  const continuingOpen = portalData.requirementWave?.continuingOpen === true;
+  const uploadedRequirements = portalData.requirementWave?.continuing || {};
+  const initialRequirements = portalData.requirementWave?.initial || application?.initial_docs?.requirements || {};
   const isPrivateScholar = portalData.school?.schoolType === 'Private';
   const visibleRequirementItems = requirementItems.filter(({ key }) => key !== 'tuition_receipt' || isPrivateScholar);
   const uploadableRequirements = visibleRequirementItems;
@@ -201,11 +203,11 @@ function ScholarDashboard({ token, user, onLogout }) {
   const pendingReviewCount = uploadableRequirements.filter(({ key }) => getRequirementReviewStatus(uploadedRequirements[key]) === 'pending').length;
   const rejectedCount = uploadableRequirements.filter(({ key }) => getRequirementReviewStatus(uploadedRequirements[key]) === 'rejected').length;
   const missingCount = uploadableRequirements.length - submittedCount;
-  const attentionCount = missingCount + rejectedCount;
+  const attentionCount = continuingOpen ? missingCount + rejectedCount : 0;
   const onlineRequirementsComplete = approvedCount === uploadableRequirements.length;
-  const requirementsComplete = onlineRequirementsComplete;
+  const requirementsComplete = continuingOpen && onlineRequirementsComplete;
   const requirementsDeadline = portalData.activePeriod?.requirementsDeadline || null;
-  const requirementsSubmissionClosed = portalData.activePeriod?.requirementsSubmission?.isOpen === false;
+  const requirementsSubmissionClosed = !continuingOpen || portalData.activePeriod?.requirementsSubmission?.isOpen === false;
   const payrollList = portalData.payrollList;
   const certificationDate = formatPortalDate(portalData.certificationCreatedAt, 'Not generated', 'Asia/Manila');
   const listDate = isPrivateScholar ? certificationDate : formatPortalDate(payrollList?.generatedAt, payrollList ? 'Date unavailable' : 'Not generated', 'Asia/Manila');
@@ -213,7 +215,7 @@ function ScholarDashboard({ token, user, onLogout }) {
     ? certificationDate !== 'Not generated' ? 'Certification list generated' : 'Awaiting certification-list generation'
     : payrollList ? 'Included in payroll list' : 'Awaiting payroll-list generation';
   const summaryNotifications = application ? [
-    rejectedCount > 0
+    !continuingOpen ? 'CAO is recording your initial requirements. Continuing submission is not open yet.' : rejectedCount > 0
       ? `${rejectedCount} requirement${rejectedCount === 1 ? ' was' : 's were'} returned for correction.`
       : attentionCount > 0
         ? `${attentionCount} scholar-managed requirement${attentionCount === 1 ? '' : 's'} still need your attention.`
@@ -228,7 +230,7 @@ function ScholarDashboard({ token, user, onLogout }) {
   const uploadRequirement = (requirement, file) => {
     if (!file) return;
     if (requirementsSubmissionClosed) {
-      setNotice({ tone: 'error', message: 'The semester-requirements submission deadline has passed. Contact CAO if a correction is required.' });
+      setNotice({ tone: 'error', message: continuingOpen ? 'The continuing-requirements deadline has passed. Contact CAO if a correction is required.' : 'CAO has not opened continuing submission yet.' });
       return;
     }
     if (file.size > 6 * 1024 * 1024) {
@@ -248,6 +250,7 @@ function ScholarDashboard({ token, user, onLogout }) {
           },
           body: JSON.stringify({
             requirement,
+            academicPeriodId: portalData.activePeriod?.id,
             fileName: file.name,
             fileType: file.type,
             fileData: reader.result,
@@ -256,6 +259,7 @@ function ScholarDashboard({ token, user, onLogout }) {
         const body = await response.json();
         if (!response.ok) throw new Error(body.message || 'Upload failed.');
         setApplication(body.application);
+        setPortalData((current) => ({ ...current, requirementWave: { ...current.requirementWave, continuing: body.continuingRequirements || {} } }));
         setRequirementsError('');
         setNotice({ tone: 'success', message: `${file.name} was submitted for Billing staff review.` });
       } catch (error) {
@@ -374,9 +378,9 @@ function ScholarDashboard({ token, user, onLogout }) {
           <article className="scholar-stat-card">
             <div className="scholar-stat-icon blue"><FileCheck2 size={21} /></div>
             <div>
-              <span>Requirements</span>
-              <strong>{approvedCount} of {uploadableRequirements.length} files approved</strong>
-              <small>{requirementsComplete ? 'All requirements cleared' : rejectedCount > 0 ? `${rejectedCount} returned for correction` : pendingReviewCount > 0 ? `${pendingReviewCount} awaiting Billing staff review` : `${missingCount} still need to be uploaded`}</small>
+              <span>Continuing requirements</span>
+              <strong>{continuingOpen ? `${approvedCount} of ${uploadableRequirements.length} files approved` : "Not open yet"}</strong>
+              <small>{!continuingOpen ? 'CAO records the complete initial set' : requirementsComplete ? 'All continuing requirements cleared' : rejectedCount > 0 ? `${rejectedCount} returned for correction` : pendingReviewCount > 0 ? `${pendingReviewCount} awaiting Billing staff review` : `${missingCount} still need to be uploaded`}</small>
             </div>
           </article>
         </section>
@@ -392,13 +396,14 @@ function ScholarDashboard({ token, user, onLogout }) {
           </div>
 
           <div className="scholar-portal-column">
+            <section className="scholar-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">INITIAL SUBMISSION · CAO UPLOAD</p><h2>Initial requirements</h2></div></div><p className="scholar-panel-copy">CAO records these documents. You do not need to upload this initial set again.</p><div className="scholar-requirements-list">{[{ key: 'tax_exemption', label: 'Certificate of Tax Exemption' }, { key: 'indigency', label: 'Barangay Indigency' }, { key: 'valid_id', label: 'Valid ID' }, ...visibleRequirementItems].map(({ key, label }) => <div key={key} className="scholar-requirement-item"><div><strong>{label}</strong><small>{initialRequirements[key]?.fileName || 'Awaiting CAO upload'}</small></div><span>{initialRequirements[key]?.status || 'Not recorded'}</span></div>)}</div></section>
             <section className="scholar-panel scholar-action-panel" id="requirements">
-            <div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{requirementsComplete ? 'REQUIREMENTS COMPLETE' : rejectedCount > 0 ? 'CORRECTION REQUIRED' : 'ACTION NEEDED'}</p><h2>{requirementsComplete ? 'Requirements approved' : rejectedCount > 0 ? 'Review returned documents' : 'Complete your requirements'}</h2></div><FileCheck2 size={21} className="scholar-heading-icon" /></div>
+            <div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{requirementsComplete ? 'REQUIREMENTS COMPLETE' : rejectedCount > 0 ? 'CORRECTION REQUIRED' : 'ACTION NEEDED'}</p><h2>{!continuingOpen ? 'Continuing requirements' : requirementsComplete ? 'Continuing requirements approved' : rejectedCount > 0 ? 'Review returned documents' : 'Upload continuing requirements'}</h2></div><FileCheck2 size={21} className="scholar-heading-icon" /></div>
             <div className={`scholar-requirements-deadline ${requirementsSubmissionClosed ? 'closed' : requirementsDeadline ? 'scheduled' : 'open'}`} role="status">
               <CalendarDays size={17} />
-              <div><strong>{requirementsSubmissionClosed ? 'Submission deadline has passed' : requirementsDeadline ? 'Submission deadline' : 'Submissions are open'}</strong><span>{requirementsDeadline ? formatPortalDateTime(requirementsDeadline) : 'CAO has not set a deadline for this academic period.'}</span></div>
+              <div><strong>{requirementsSubmissionClosed ? continuingOpen ? 'Submission deadline has passed' : 'Continuing submission is not open yet' : requirementsDeadline ? 'Submission deadline' : 'Submissions are open'}</strong><span>{!continuingOpen ? 'CAO will open the second wave when continuing documents are needed.' : requirementsDeadline ? formatPortalDateTime(requirementsDeadline) : 'CAO has not set a deadline for this academic period.'}</span></div>
             </div>
-            <p className="scholar-panel-copy">{requirementsComplete ? 'All scholar-managed semester files have been approved and recorded.' : `Upload your ${isPrivateScholar ? 'semester requirements and Private-school tuition receipt' : 'two semester requirements'}. Initial requirements are recorded by CAO staff.`}</p>
+            <p className="scholar-panel-copy">{requirementsComplete ? 'All continuing files have been approved for this academic period.' : continuingOpen ? `Upload your updated grades, registration form${isPrivateScholar ? ', and Private-school tuition receipt' : ''} for this continuing submission. Initial files are preserved.` : 'CAO uploads all initial documents, including grades, registration form, and applicable tuition receipt. Your continuing upload controls open in the second wave.'}</p>
             <div className="scholar-requirements-list" aria-busy={loadingRequirements}>
               {visibleRequirementItems.map(({ key, label, note }) => {
                 const item = uploadedRequirements[key];

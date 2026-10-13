@@ -1,6 +1,7 @@
 const { PRIORITY_PROOFS } = require('./priorityEligibility');
+const { getWaveSet } = require('./requirementWaves');
 
-const ADMIN_INITIAL_REQUIREMENT_KEYS = Object.freeze(['tax_exemption', 'indigency', 'valid_id']);
+const ADMIN_INITIAL_REQUIREMENT_KEYS = Object.freeze(['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form', 'tuition_receipt']);
 const SCHOLAR_SEMESTER_REQUIREMENT_KEYS = Object.freeze(['grades', 'registration_form', 'tuition_receipt']);
 
 const REQUIREMENT_DEFINITIONS = Object.freeze({
@@ -48,11 +49,20 @@ const serializeReviewRecord = ({ application, applicant, account, requirementKey
   autoAcceptance: REQUIREMENT_DEFINITIONS[requirementKey].category === 'priority',
 });
 
-const buildReviewRecords = ({ applications, applicantsById, accountsByApplicant, reviewersById = new Map() }) => {
+const buildReviewRecords = ({ applications, applicantsById, accountsByApplicant, reviewersById = new Map(), legacyPeriodId = null }) => {
   const records = [];
   applications.forEach((application) => {
-    Object.entries(application.initial_docs?.requirements || {}).forEach(([requirementKey, file]) => {
+    const sets = Object.values(application.initial_docs?.requirementSets || {}).map((set) => getWaveSet(application.initial_docs, set.academicPeriodId, set.wave, legacyPeriodId));
+    if (!sets.length && legacyPeriodId) sets.push(getWaveSet(application.initial_docs, legacyPeriodId, 'initial'));
+    sets.forEach((set) => Object.entries(set.requirements || {}).forEach(([requirementKey, file]) => {
       if (!REQUIREMENT_DEFINITIONS[requirementKey] || !file?.fileName) return;
+      records.push({ ...serializeReviewRecord({ application, applicant: applicantsById.get(application.applicant_id), account: accountsByApplicant.get(application.applicant_id), requirementKey, file, reviewerName: reviewersById.get(Number(file.reviewedBy)) || null }),
+        id: `${application.id}:${set.academicPeriodId}:${set.wave}:${requirementKey}`,
+        academicPeriodId: set.academicPeriodId, submissionWave: set.wave, versionId: file.versionId || null, revision: file.revision || 0, reviewHistory: file.reviewHistory || [],
+      });
+    }));
+    Object.entries(application.initial_docs?.requirements || {}).forEach(([requirementKey, file]) => {
+      if (!REQUIREMENT_DEFINITIONS[requirementKey] || !file?.fileName || (sets.length && REQUIREMENT_DEFINITIONS[requirementKey].category !== 'priority')) return;
       records.push(serializeReviewRecord({
         application,
         applicant: applicantsById.get(application.applicant_id),

@@ -37,6 +37,7 @@ const {
   getMyApplication,
   uploadMyRequirement,
   uploadScholarRequirementByAdmin,
+  openContinuingRequirements,
   createAnnouncement,
   getAnnouncementManagement,
   getLatestPublishedAnnouncement,
@@ -147,6 +148,7 @@ router.put('/payroll/billing-batch/:id/release', authenticate, checkRole(['Billi
 router.get('/scholars/eligible', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('payroll'), retiredPayoutWorkflow);
 router.get('/scholars', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), retiredPayoutWorkflow);
 router.get('/scholars/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars', 'billing', 'payroll'), getScholarManagement);
+router.put('/scholars/:applicantId/continuing-requirements/open', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('scholars'), openContinuingRequirements);
 router.put('/scholars/:applicantId/requirements/:requirementKey', authenticate, documentUploadRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('scholars'), uploadScholarRequirementByAdmin);
 router.put('/scholars/:applicantId/billing-details', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing'), validateScholarBillingDetails, updateScholarBillingDetails);
 router.put('/scholars/:applicantId/billing-metadata', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing'), validateScholarBillingMetadata, updateScholarBillingMetadata);

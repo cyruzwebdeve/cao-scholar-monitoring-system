@@ -27,6 +27,8 @@ import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/data
 import certificateHeader from './assets/certificate-header.png';
 import './styles/document-reviews.css';
 
+import { requirementScope, requirementScopeQuery } from './utils/requirementWaves';
+
 const formatScholarDate = (value) => {
   if (!value) return 'Not available';
   const date = new Date(value);
@@ -82,7 +84,7 @@ const scholarExportColumns = [
   { key: 'documentStatus', label: 'Documents', group: 'Record status' },
 ];
 
-const adminInitialRequirementKeys = new Set(['tax_exemption', 'indigency', 'valid_id']);
+const adminInitialRequirementKeys = new Set(['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form', 'tuition_receipt']);
 
 function ScholarBadge({ value, type }) {
   return <span className={`scholar-admin-badge ${type} ${value.toLowerCase().replace(/\s+/g, '-')}`}>{type === 'status' ? <BadgeCheck size={13} /> : <FileCheck2 size={13} />}{value}</span>;
@@ -137,10 +139,10 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     onSectionChange?.('Settings');
   };
 
-  const loadScholars = useCallback(async ({ showLoader = false } = {}) => {
+  const loadScholars = useCallback(async ({ showLoader = false, academicPeriodId } = {}) => {
     if (showLoader) setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/scholars/management`, { headers: authHeaders(token) });
+      const response = await fetch(`${API_BASE}/scholars/management${academicPeriodId ? `?academicPeriodId=${academicPeriodId}` : ""}`, { headers: authHeaders(token) });
       if (!response.ok) throw new Error('Unable to load scholar records.');
       const payload = await response.json();
       const nextScholars = payload.scholars || [];
@@ -202,7 +204,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     setDocumentPreviewError('');
     setDocumentPreviewLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/document-reviews/${document.applicationId}/${document.requirementKey}/file`, { headers: authHeaders(token) });
+      const response = await fetch(`${API_BASE}/document-reviews/${document.applicationId}/${document.requirementKey}/file${requirementScopeQuery(document)}`, { headers: authHeaders(token) });
       if (!response.ok) {
         const body = await response.json();
         throw new Error(body.message || 'Unable to open the document.');
@@ -223,19 +225,36 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
       const response = await fetch(`${API_BASE}/document-reviews/${documentReview.applicationId}/${documentReview.requirementKey}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
-        body: JSON.stringify({ decision: documentDecision, notes }),
+        body: JSON.stringify({ decision: documentDecision, notes, ...requirementScope(documentReview) }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to save the review decision.');
       setDocumentNotice(body.message || 'Document review saved.');
       setDocumentNoticeTone('success');
       closeDocumentReview();
-      await loadScholars();
+      await loadScholars({ academicPeriodId: selected?.academicPeriodId });
     } catch (error) {
       setDocumentDecisionError(error.message || 'Unable to save the review decision.');
     } finally {
       setDocumentSaving(false);
     }
+  };
+
+  const [openingContinuing, setOpeningContinuing] = useState(false);
+  const openContinuingSubmission = async () => {
+    if (!selected || openingContinuing) return;
+    setOpeningContinuing(true);
+    try {
+      const response = await fetch(`${API_BASE}/scholars/${selected.applicantId}/continuing-requirements/open`, {
+        method: 'PUT', headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ academicPeriodId: selected.academicPeriodId }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to open continuing submission.');
+      setDocumentNotice(body.message); setDocumentNoticeTone('success');
+      await loadScholars({ academicPeriodId: selected?.academicPeriodId });
+    } catch (error) { setDocumentNotice(error.message); setDocumentNoticeTone('error'); }
+    finally { setOpeningContinuing(false); }
   };
 
   const uploadScholarRequirement = (document, file) => {
@@ -268,7 +287,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
         if (!response.ok) throw new Error(body.message || 'Unable to upload the scholar requirement.');
         setDocumentNotice(body.message || 'Scholar requirement uploaded successfully.');
         setDocumentNoticeTone('success');
-        await loadScholars();
+        await loadScholars({ academicPeriodId: selected?.academicPeriodId });
       } catch (error) {
         setDocumentNotice(error.message || 'Unable to upload the scholar requirement.');
         setDocumentNoticeTone('error');
@@ -284,7 +303,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     setOpeningRequirement(document.requirementKey);
     setDocumentNotice('');
     try {
-      const response = await fetch(`${API_BASE}/document-reviews/${document.applicationId}/${document.requirementKey}/file`, { headers: authHeaders(token) });
+      const response = await fetch(`${API_BASE}/document-reviews/${document.applicationId}/${document.requirementKey}/file${requirementScopeQuery(document)}`, { headers: authHeaders(token) });
       if (!response.ok) {
         const body = await response.json();
         throw new Error(body.message || 'Unable to open the scholar requirement.');
@@ -579,13 +598,13 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
               <section className="scholars-detail-section"><h4>Scholar information</h4><dl><div><dt>Email address</dt><dd>{selected.email || 'Not provided'}</dd></div><div><dt>School year</dt><dd>{selected.schoolYear || '2026-2027'}</dd></div><div><dt>Issued</dt><dd>{formatScholarDate(selected.issuedAt)}</dd></div></dl></section>
               <section className="scholars-detail-section"><h4>Education and location</h4><dl><div><dt>School</dt><dd>{selected.school}</dd></div><div><dt>Course</dt><dd>{selected.course || 'Not specified'}</dd></div><div><dt>Year level</dt><dd>{selected.yearLevel || 'Not specified'}</dd></div><div><dt>Municipality</dt><dd>{selected.municipality}</dd></div><div><dt>Barangay</dt><dd>{selected.barangay}</dd></div></dl></section>
 
-              <section className="scholars-detail-section"><h4>Document checklist</h4>{documentNotice && <p className={`scholars-document-notice ${documentNoticeTone}`} role={documentNoticeTone === 'error' ? 'alert' : 'status'}>{documentNotice}</p>}<div className="scholars-document-list">{selected.documents.map((document) => {
+              <section className="scholars-detail-section"><h4>Document submissions · {selected.schoolYear} · {selected.semester}</h4>{documentNotice && <p className={`scholars-document-notice ${documentNoticeTone}`} role={documentNoticeTone === 'error' ? 'alert' : 'status'}>{documentNotice}</p>}<div className="scholars-document-list">{[...(selected.initialDocuments || selected.documents).map((document) => ({ ...document, submissionWave: 'initial' })), ...(selected.continuingDocuments || []).map((document) => ({ ...document, submissionWave: 'continuing' }))].map((document) => {
                 const isReviewable = canReviewDocuments && document.submitted && document.fileName && document.applicationId && document.requirementKey;
                 const isUploading = uploadingRequirement === document.requirementKey;
-                const isAdminManaged = adminInitialRequirementKeys.has(document.requirementKey);
+                const isAdminManaged = document.submissionWave === 'initial' && adminInitialRequirementKeys.has(document.requirementKey);
                 const canUploadThisRequirement = canUploadScholarRequirements && isAdminManaged;
-                return <div key={document.label} className="scholars-document-entry">
-                  <span>{document.label}<small>{document.submitted ? <><Eye size={12} />Document attached</> : isAdminManaged ? 'Initial requirement · CAO upload' : 'Semester requirement · Scholar upload'}</small></span>
+                return <div key={`${document.submissionWave}:${document.label}`} className="scholars-document-entry">
+                  <span>{document.label}<small>{<>{document.submissionWave === 'initial' ? document.legacy ? 'Initial · Previously recorded' : 'Initial · CAO upload' : 'Continuing · Scholar upload'}{document.submitted ? ' · Attached' : ''}</>}</small></span>
                   <div className="scholars-document-actions">
                     <strong className={document.submitted ? document.status.toLowerCase() : 'not-submitted'}>{document.submitted ? document.status : 'Not submitted'}</strong>
                     {isReviewable && <button type="button" className="scholars-document-view" onClick={() => openDocumentReview(document)} aria-label={`View and review ${document.label}`}><Eye size={12} />View</button>}
@@ -594,6 +613,8 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
                   </div>
                 </div>;
               })}</div></section>
+              <section className="scholars-detail-section"><h4>Continuing submission</h4><p>{selected.continuingOpen ? 'Open for Scholar uploads in this academic period.' : 'Not open yet. CAO records the initial set before the Scholar uploads continuing documents.'}</p>{canUploadScholarRequirements && !selected.continuingOpen && <button type="button" className="scholars-document-view" disabled={openingContinuing} onClick={openContinuingSubmission}>{openingContinuing ? 'Opening…' : 'Open continuing submission'}</button>}</section>
+              {selected.documentHistory?.length > 0 && <section className="scholars-detail-section"><h4>Previous document versions</h4>{selected.documentHistory.map((document) => <div className="scholars-document-entry" key={`${document.academicPeriodId}:${document.submissionWave}:${document.versionId}`}><span>{document.fileName}<small>{document.submissionWave} · {document.periodLabel || "Earlier submission"} · {document.status}</small></span><button type="button" className="scholars-document-view" onClick={() => openScholarDocument(document)}>View previous file</button></div>)}</section>}
               {selected.notes && <section className="scholars-detail-section"><h4>Account notes</h4><p className="scholars-notes">{selected.notes}</p></section>}
             </div>
           ) : drawerTab === 'finance' ? (

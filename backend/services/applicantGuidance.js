@@ -1,5 +1,5 @@
 const { getRequirementSnapshot } = require('./lifecycleIntegrity');
-const { ADMIN_INITIAL_REQUIREMENT_KEYS, SCHOLAR_SEMESTER_REQUIREMENT_KEYS } = require('./documentReview');
+const { SCHOLAR_SEMESTER_REQUIREMENT_KEYS } = require('./documentReview');
 const { resolveExaminationProgress } = require('./examinationProgress');
 
 const REJECTED_STATUSES = new Set(['rejected', 'declined']);
@@ -37,6 +37,7 @@ const buildApplicantGuidance = ({
   examSlot,
   schoolType = 'Public',
   requirementSubmission,
+  continuingOpen,
 } = {}) => {
   if (!application) {
     return {
@@ -72,7 +73,7 @@ const buildApplicantGuidance = ({
     schoolType,
   });
   const scholarRequirements = requirementSnapshot.online.filter(({ key }) => SCHOLAR_SEMESTER_REQUIREMENT_KEYS.includes(key));
-  const administratorRequirements = requirementSnapshot.online.filter(({ key }) => ADMIN_INITIAL_REQUIREMENT_KEYS.includes(key));
+  const administratorRequirements = requirementSnapshot.online.filter(({ key }) => ['tax_exemption', 'indigency', 'valid_id'].includes(key));
   const rejectedRequirements = scholarRequirements.filter(({ status }) => REJECTED_STATUSES.has(status));
   const missingRequirements = scholarRequirements.filter(({ submitted }) => !submitted);
   const pendingRequirements = scholarRequirements.filter(({ submitted, approved, status }) => (
@@ -221,6 +222,12 @@ const buildApplicantGuidance = ({
       })],
       timeline,
     };
+  }
+
+  if (continuingOpen === false) {
+    return { state: 'waiting', headline: requirementsComplete ? 'Your initial requirements are recorded' : 'CAO is recording your initial requirements',
+      description: 'CAO uploads the complete initial set. You will upload continuing documents after CAO opens the second submission wave.',
+      actions: [makeAction({ id: 'wait-initial-requirements', type: 'waiting', title: 'No Scholar upload is required yet', description: 'Check the initial checklist and wait for CAO to open continuing submission.' })], timeline };
   }
 
   const actions = [];

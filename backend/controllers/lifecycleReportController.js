@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const { isCertificationBatch } = require('../services/payrollListScope');
+const { getEffectiveRequirements } = require('../services/requirementWaves');
 const { evaluateBillingEligibility } = require('../services/lifecycleIntegrity');
 
 const getPrimaryAcademicPeriod = async () => prisma.academic_periods.findFirst({
@@ -79,8 +80,8 @@ const getLifecycleReport = async (req, res) => {
     const requirementsCleared = scholars.filter((scholar) => evaluateBillingEligibility({
       isActive: scholar.is_active,
       alreadyBilled: false,
-      initialDocs: applicationByApplicant.get(scholar.applicant_id)?.initial_docs,
-      requirement: requirementByApplicant.get(scholar.applicant_id),
+      initialDocs: getEffectiveRequirements(applicationByApplicant.get(scholar.applicant_id)?.initial_docs, period.id, availablePeriods.find((item) => item.is_primary && item.is_active)?.id || period.id),
+      requirement: applicationByApplicant.get(scholar.applicant_id)?.initial_docs?.requirementSets ? undefined : requirementByApplicant.get(scholar.applicant_id),
     }).eligible).length;
     return res.json({
       period: { id: period.id, schoolYear: period.school_year, semester: period.semester, isActive: period.is_active },

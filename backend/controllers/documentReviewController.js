@@ -5,11 +5,13 @@ const { sendScholarApprovedEmail } = require('../services/mailer');
 const { PRIORITY_PROOFS, isDeclaredPriorityProof } = require('../services/priorityEligibility');
 const {
   REQUIREMENT_DEFINITIONS,
-  applyPendingApprovals,
+  normalizeReviewStatus,
   applyReviewDecision,
   buildReviewRecords,
   getRequirementDocument,
 } = require('../services/documentReview');
+
+const { WAVES, getWaveSet, getScopedDocument, mutateRequirementWaves, conflict } = require('../services/requirementWaves');
 
 const parseApplicationId = (value) => {
   const id = Number(value);
@@ -46,8 +48,10 @@ const sameFamily = (left, right) => normalizeFamilyName(left?.fatherName) && nor
 const getDocumentReviews = async (req, res) => {
   try {
     const applications = await getLatestScholarApplications();
+    const primaryPeriod = await getPrimaryAcademicPeriod();
+    const periods = await prisma.academic_periods.findMany({ select: { id: true, school_year: true, semester: true } });
     const applicantIds = applications.map(({ applicant_id }) => applicant_id);
-    const reviewerIds = [...new Set(applications.flatMap((application) => Object.values(application.initial_docs?.requirements || {}))
+    const reviewerIds = [...new Set(applications.flatMap((application) => [...Object.values(application.initial_docs?.requirements || {}), ...Object.values(application.initial_docs?.requirementSets || {}).flatMap((set) => Object.values(set.requirements || {}))])
       .map((file) => Number(file?.reviewedBy))
       .filter(Number.isInteger))];
     const [applicants, accounts, reviewers] = await Promise.all([
@@ -60,7 +64,10 @@ const getDocumentReviews = async (req, res) => {
       applicantsById: new Map(applicants.map((applicant) => [applicant.id, applicant])),
       accountsByApplicant: new Map(accounts.map((account) => [account.applicant_id, account])),
       reviewersById: new Map(reviewers.map((reviewer) => [reviewer.id, reviewer.full_name])),
+      legacyPeriodId: primaryPeriod?.id,
     });
+    const periodById = new Map(periods.map((period) => [period.id, period]));
+    records.forEach((record) => { const period = periodById.get(record.academicPeriodId); record.periodLabel = period ? `${period.school_year} · ${period.semester}` : ''; });
     return res.json({
       stats: {
         total: records.length,
@@ -76,11 +83,48 @@ const getDocumentReviews = async (req, res) => {
   }
 };
 
+const reviewWave = async (req, res, application, primaryPeriod, bulk = false) => {
+  const periodId = Number(req.body.academicPeriodId);
+  const wave = req.body.submissionWave;
+  if (!Number.isInteger(periodId) || periodId <= 0 || !WAVES.has(wave)) return res.status(400).json({ message: 'Refresh and select the document period and submission wave.' });
+  if (!primaryPeriod) return res.status(409).json({ message: 'An active academic period is required.' });
+  const saved = await mutateRequirementWaves(prisma, application.id, primaryPeriod.id, (docs) => {
+    const set = getWaveSet(docs, periodId, wave, primaryPeriod.id);
+    const keys = bulk ? Object.keys(set.requirements).filter((key) => normalizeReviewStatus(set.requirements[key].status) === 'pending') : [req.params.requirementKey];
+    if (!keys.length) throw Object.assign(new Error('This document set has no pending files.'), { statusCode: 409, exactFileConflict: true });
+    if (bulk) {
+      const expected = req.body.documents;
+      if (!Array.isArray(expected) || expected.length > 6 || expected.some((item) => !item || typeof item.requirementKey !== 'string' || !Number.isInteger(item.revision) || item.revision < 0)) throw Object.assign(new Error('Reload the review queue before approving this submission.'), { statusCode: 400 });
+      if (expected.length !== keys.length || new Set(expected.map((item) => item.requirementKey)).size !== expected.length
+        || keys.some((key) => { const file = set.requirements[key]; const item = expected.find((entry) => entry.requirementKey === key); return !item || (item.versionId || undefined) !== file.versionId || item.revision !== (file.revision || 0); })) {
+        throw Object.assign(conflict('A pending file changed. Reload and review the current files before approving them.'), { exactFileConflict: true });
+      }
+    }
+    const reviewedAt = new Date().toISOString();
+    keys.forEach((key) => {
+      const file = set.requirements[key];
+      if (!file?.fileName) throw Object.assign(new Error('Document not found in this submission.'), { statusCode: 404 });
+      if (!bulk && (file.versionId !== (req.body.versionId || undefined) || (file.revision || 0) !== req.body.revision)) {
+        throw Object.assign(conflict('This file or review changed. Reload the document before reviewing it.'), { exactFileConflict: true });
+      }
+      if (file.reviewedAt) (file.reviewHistory ||= []).push({ status: file.status, reviewedAt: file.reviewedAt, reviewedBy: file.reviewedBy, reviewNotes: file.reviewNotes || '' });
+      Object.assign(file, { status: bulk || req.body.decision === 'approved' ? 'Approved' : 'Rejected', reviewedAt, reviewedBy: req.user.id,
+        reviewNotes: bulk ? 'Approved together within this period and submission wave.' : String(req.body.notes || '').trim(), revision: (file.revision || 0) + 1 });
+    });
+    docs.requirementSets[`${periodId}:${wave}`] = set;
+    return { keys, reviewedAt };
+  });
+  res.locals.auditTargetId = application.id;
+  res.locals.auditDescription = `Reviewed ${saved.keys.length} ${wave} documents for academic period ${periodId}.`;
+  return res.json({ message: bulk ? `${saved.keys.length} pending documents approved in this submission.` : 'Document review saved for the selected period and wave.', approvedCount: bulk ? saved.keys.length : undefined });
+};
+
 const reviewDocument = async (req, res) => {
   try {
     const applicationId = parseApplicationId(req.params.applicationId);
     const { requirementKey } = req.params;
     const { decision, notes = '' } = req.body;
+    if (!['approved', 'rejected'].includes(decision) || typeof notes !== 'string' || notes.length > 500) return res.status(400).json({ message: 'A valid decision and notes up to 500 characters are required.' });
     if (!applicationId || !REQUIREMENT_DEFINITIONS[requirementKey]) {
       return res.status(400).json({ message: 'A valid application and requirement are required.' });
     }
@@ -96,6 +140,10 @@ const reviewDocument = async (req, res) => {
       return res.status(409).json({ message: 'This proof does not match a declared eligibility criterion.' });
     }
 
+    const scopedPeriod = await getPrimaryAcademicPeriod();
+    if (!scopedPeriod) return res.status(409).json({ message: 'An active academic period is required for document review.' });
+    if (!priorityProof) return await reviewWave(req, res, application, scopedPeriod);
+
     const updatedDocuments = applyReviewDecision({
       initialDocs: application.initial_docs || {},
       requirementKey,
@@ -107,12 +155,9 @@ const reviewDocument = async (req, res) => {
 
     const activePeriod = await getPrimaryAcademicPeriod();
     const statusField = definition.statusField;
-    const operations = [prisma.application_submissions.update({
-      where: { id: applicationId },
-      data: { initial_docs: updatedDocuments, ...(priorityProof && decision === 'approved' ? { status: 'Priority_Accepted' } : {}) },
-    })];
+    const operations = [];
     if (activePeriod && statusField) {
-      operations.push(prisma.scholar_requirements.updateMany({
+      operations.push((tx) => tx.scholar_requirements.updateMany({
         where: { applicant_id: application.applicant_id, billing_period_id: activePeriod.id },
         data: { [statusField]: decision, updated_by: req.user.id },
       }));
@@ -129,9 +174,9 @@ const reviewDocument = async (req, res) => {
       if (!applicant) return res.status(404).json({ message: 'Applicant record not found.' });
       const yearPrefix = String(activePeriod.school_year).split('-')[0];
       const scholarId = `PGCEAP-${yearPrefix}-${String(applicant.id).padStart(5, '0')}`;
-      operations.push(prisma.scholar_accounts.create({ data: { applicant_id: applicant.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id, notes: `Automatically accepted after verified proof: ${definition.label}.` } }));
-      operations.push(prisma.scholar_requirements.upsert({ where: { applicant_id_billing_period_id: { applicant_id: applicant.id, billing_period_id: activePeriod.id } }, create: { applicant_id: applicant.id, billing_period_id: activePeriod.id, updated_by: req.user.id }, update: { updated_by: req.user.id } }));
-      operations.push(prisma.eligibility_assessments.create({ data: {
+      operations.push((tx) => tx.scholar_accounts.create({ data: { applicant_id: applicant.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id, notes: `Automatically accepted after verified proof: ${definition.label}.` } }));
+      operations.push((tx) => tx.scholar_requirements.upsert({ where: { applicant_id_billing_period_id: { applicant_id: applicant.id, billing_period_id: activePeriod.id } }, create: { applicant_id: applicant.id, billing_period_id: activePeriod.id, updated_by: req.user.id }, update: { updated_by: req.user.id } }));
+      operations.push((tx) => tx.eligibility_assessments.create({ data: {
         applicant_id: applicant.id, application_id: application.id, academic_period_id: activePeriod.id,
         policy_version: 'PGCEAP-PRIORITY-2026.1', policy_name: 'Verified priority eligibility bypass', recommendation: 'VERIFIED_PRIORITY_BYPASS', total_score: null, max_score: 1, threshold_score: 1,
         summary: `${definition.label} proof was approved. The configured priority pathway bypassed the qualifying examination.`,
@@ -141,7 +186,13 @@ const reviewDocument = async (req, res) => {
       } }));
       autoAcceptedScholar = { applicant, scholarId };
     }
-    await prisma.$transaction(operations);
+    await mutateRequirementWaves(prisma, applicationId, activePeriod?.id, async (docs, tx) => {
+      if (JSON.stringify(docs.requirements?.[requirementKey]) !== JSON.stringify(application.initial_docs?.requirements?.[requirementKey])) throw Object.assign(conflict(), { exactFileConflict: true });
+      docs.requirements[requirementKey] = updatedDocuments.requirements[requirementKey];
+      for (const operation of operations) await operation(tx);
+      if (priorityProof && decision === 'approved') await tx.application_submissions.updateMany({ where: { id: applicationId }, data: { status: 'Priority_Accepted' } });
+      return {};
+    });
     if (autoAcceptedScholar) await sendScholarApprovedEmail({ to: autoAcceptedScholar.applicant.email, firstName: autoAcceptedScholar.applicant.first_name, scholarId: autoAcceptedScholar.scholarId, schoolYear: activePeriod.school_year });
     res.locals.auditTargetId = applicationId;
     if (autoAcceptedScholar) {
@@ -159,6 +210,7 @@ const reviewDocument = async (req, res) => {
       },
     });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.error('Error reviewing scholar document:', error);
     return res.status(500).json({ message: 'Server error saving the document review.' });
   }
@@ -174,33 +226,9 @@ const approvePendingDocuments = async (req, res) => {
     const scholar = await prisma.scholar_accounts.findFirst({ where: { applicant_id: application.applicant_id, is_active: true } });
     if (!scholar) return res.status(403).json({ message: 'Only accepted scholar documents can be reviewed.' });
 
-    const approval = applyPendingApprovals({
-      initialDocs: application.initial_docs || {},
-      reviewerId: req.user.id,
-      notes: 'Approved together from the document review queue.',
-    });
-    if (!approval) return res.status(409).json({ message: 'This scholar has no pending documents to approve.' });
-
-    const activePeriod = await getPrimaryAcademicPeriod();
-    const statusUpdates = Object.fromEntries(approval.approvedKeys.map((key) => [REQUIREMENT_DEFINITIONS[key].statusField, 'approved']));
-    const operations = [prisma.application_submissions.update({
-      where: { id: applicationId },
-      data: { initial_docs: approval.updatedDocuments },
-    })];
-    if (activePeriod && Object.keys(statusUpdates).length) {
-      operations.push(prisma.scholar_requirements.updateMany({
-        where: { applicant_id: application.applicant_id, billing_period_id: activePeriod.id },
-        data: { ...statusUpdates, updated_by: req.user.id },
-      }));
-    }
-    await prisma.$transaction(operations);
-    res.locals.auditTargetId = applicationId;
-    return res.json({
-      message: `${approval.approvedKeys.length} pending ${approval.approvedKeys.length === 1 ? 'document was' : 'documents were'} approved successfully.`,
-      approvedCount: approval.approvedKeys.length,
-      approvedKeys: approval.approvedKeys,
-    });
+    return await reviewWave(req, res, application, await getPrimaryAcademicPeriod(), true);
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.error('Error bulk approving scholar documents:', error);
     return res.status(500).json({ message: 'Server error approving the pending documents.' });
   }
@@ -212,7 +240,11 @@ const streamDocument = async (req, res) => {
     const { requirementKey } = req.params;
     if (!applicationId || !REQUIREMENT_DEFINITIONS[requirementKey]) return res.status(400).json({ message: 'Invalid document request.' });
     const application = await prisma.application_submissions.findUnique({ where: { id: applicationId } });
-    const document = getRequirementDocument(application, requirementKey);
+    const wave = req.query?.submissionWave;
+    const periodId = Number(req.query?.academicPeriodId);
+    if (wave && (!WAVES.has(wave) || !Number.isInteger(periodId) || periodId <= 0)) return res.status(400).json({ message: 'Invalid document scope.' });
+    const primaryPeriod = wave ? await getPrimaryAcademicPeriod() : null;
+    const document = wave ? getScopedDocument(application?.initial_docs, periodId, wave, requirementKey, req.query.versionId, primaryPeriod?.id) : getRequirementDocument(application, requirementKey);
     if (!document?.fileName) return res.status(404).json({ message: 'Document not found.' });
     const scholar = await prisma.scholar_accounts.findFirst({ where: { applicant_id: application.applicant_id, is_active: true } });
     if (!scholar && REQUIREMENT_DEFINITIONS[requirementKey].category !== 'priority') return res.status(403).json({ message: 'Only accepted scholar documents can be opened.' });

@@ -5,6 +5,60 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-14 - Separate Admin Initial and Scholar Continuing Requirements
+
+**TL;DR**
+- CAO uploads the complete initial set: tax exemption, indigency, ID, grades, registration form, and tuition receipt for Private-school scholars only.
+- Scholars upload only continuing grades/registration/Private tuition receipts after authorized staff opens the second wave for that scholar and academic period; initial records remain separate and visible.
+- Period/wave records, file versions, and review history are preserved; JSON compare-and-swap retries prevent simultaneous uploads from losing other files, and stale single/bulk reviews are rejected.
+- Verification: 337 tests passed, one opt-in real-database test skipped; lint/build and four synthetic Public/Private desktop/mobile browser scenarios passed. Deployment pending push/live verification; no schema migration.
+
+### Objective and previous/new behavior
+
+Implement the user-approved distinction between submission waves rather than fixed document types. Previously admins could upload only three initial documents, Scholars owned grades/registration/tuition from the outset, and all uploads shared one application requirement map. Files could overwrite prior waves, and parallel writes could lose another document. Now admins can upload five Public/six Private initial requirements. Admin intake continues to approve checked documents immediately, as in the existing workflow. Scholars see a read-only initial checklist and can upload two Public/three Private continuing documents only when CAO opens their continuing submission. CAO may open the second wave in the same academic period or a later one; initial completion is not a new gate on opening the wave or generating lists.
+
+The original initial set is retained with its academic-period identity and referenced by later continuing periods. A deliberately recorded initial update in a later period is stored separately and overrides that period's initial projection. Continuing grades/registration/receipts come only from that period's continuing set, never from the old initial approvals. Previously recorded legacy files retain their uploader/review metadata and are identified as previously recorded rather than attributed to a new admin upload.
+
+### Roles, implementation, and data flow
+
+Provincial Admin and Administrator accounts with Scholars access upload initial files and open continuing submissions. Billing / Payroll Admin and Provincial Admin review permissions remain unchanged. Scholar uploads require an active accepted account and its own application, a real explicitly selected active period, an opened continuing wave, and the existing continuing submission deadline. Private receipt routing is validated against the saved school; Public receipt attempts are rejected. Initial staff intake remains available independently of the Scholar deadline.
+
+The existing application initial_docs JSON now holds requirementSets keyed by academic period/wave, initialRequirementPeriodId, and requirementWaves opening metadata. Each stored file has its upload actor/role/time, version identifier, revision, and review metadata. Replacing a file archives its prior version and review history without deleting its private blob. Legacy originals remain in their original root map and are adopted into the primary-period initial set on the first scoped mutation; deterministic version IDs make legacy previews/reviews addressable. No original upload dates or reviewers are invented. Only unsuccessful new blob uploads are cleaned up.
+
+All affected document writes use a transaction and compare the complete previously read JSON snapshot before saving. Conflicting uploads retry against fresh data. Reviews require the exact period, wave, file version, and review revision; bulk approvals also require the pending-file snapshot. Priority-proof review merges only its own proof and retains existing wave records and acceptance behavior. File previews select their exact set/version, including previous versions, through existing authenticated document streaming.
+
+Scholar Management exposes separate initial/continuing checklists, an Open continuing submission action, and previous file versions. Scholar Dashboard exposes the initial set as read-only and enables only continuing uploads in the second wave. Document Reviews groups each period/wave separately, displays human-readable period labels, and shows prior review decisions. Billing/Payroll warning snapshots, applicant guidance, and lifecycle reports use the applicable wave projection; legacy approval columns cannot clear an empty continuing set. List generation still permits incomplete requirements with warnings, retains fixed grant amounts, and enforces account/classification/route/duplicate gates.
+
+### Files and system areas
+
+- New backend requirementWaves service: scoped records, original-set references, versions/history, and guarded transactional mutations.
+- Application/document-review controllers and application routes: initial/continuing uploads, wave opening, projections, previews, scoped reviews/bulk approval, and priority-proof compatibility.
+- Document-review/applicant-guidance services and lifecycle reporting: wave-aware records, guidance, and requirement completeness.
+- Scholar Management, Scholar Dashboard, Document Reviews, new frontend scope utility, and scholar portal styles: ownership/checklists, scoped requests, period labels, and history.
+- New backend/frontend wave regressions, updated document ownership/payroll fixtures, root summary, detailed log, and the dated testing checklist.
+
+### API, database, configuration, security, privacy, accessibility, and deployment impact
+
+API: existing upload endpoints remain, with explicit academicPeriodId required. Admin uploads always target initial; Scholar uploads always target continuing. Added PUT /scholars/:applicantId/continuing-requirements/open guarded by existing authentication, admin role, and Scholars-section access. Application/management responses add wave/checklist/history metadata. Preview/review requests include academic period and wave; file versions and revisions protect stale decisions. Unscoped priority-proof requests retain their existing purpose. Older cached normal review/upload clients must refresh rather than guessing a set.
+
+Database: no schema migration or new relational table. Scoped document records live in the existing JSON column; legacy scalar requirement rows and list/history storage remain intact. No destructive backfill, historical rewrite, or file deletion. Configuration/dependencies: no new settings, environment variables, or libraries; existing private document blob storage is used. Security: role/section/ownership guards are preserved, no client-supplied file approval is trusted, and concurrency/stale-review controls are strengthened. Privacy: historical files remain private; review queues expose metadata rather than blob URLs/file data, and all verification uses synthetic records. Accessibility: existing file controls/keyboard review dialogs remain; initial ownership and continuing-open/closed states are explicit. Deployment: frontend/backend must be released together; no migration required.
+
+### Scope boundary
+
+This change handles scholar document intake/review and list-preparation warnings. It adds no fund release, claiming, disbursement, reconciliation, or monetary auditing. Legacy payroll/claim storage remains retained for existing list/history compatibility, with retired payment operations still disabled. Activity Logs continue to record operational record changes only.
+
+### Validation and results
+
+Full regression results: 265 backend and 72 frontend tests passed; one opt-in real-database catalog migration test skipped. Wave tests exercise full initial ownership, Private/Public receipts, closed/open continuing access, same-period and next-period separation, initial reuse without copying old academic approvals, parallel admin/admin and admin/Scholar writes, preserved file/review history, exact-version previews, stale single/bulk reviews, deadline behavior, inactive/invalid periods, actual authenticated route guards, and priority-proof compatibility. A Payroll controller regression confirms continuing completeness does not inherit initial approval columns while incomplete records can still be listed. Frontend scope regressions confirm exact set/version requests and unchanged unscoped priority-proof requests.
+
+Frontend lint, production build, JavaScript syntax checks, and diff whitespace validation passed. The build retains its existing large-chunk advisory. Four Chromium scenarios (Public/Private at 1280px/390px) passed with intercepted APIs: all admin initial uploads, read-only initial Scholar checklist, closed/open continuing controls, scoped Scholar grade upload, unchanged initial files, separate review groups, exact-period/file preview, and scoped approval. No production scholar or document records were modified by verification.
+
+### Limitations, rollback considerations, and recommended next work
+
+Legacy files without reliable period provenance are associated with the configured primary period on first scoped mutation while original root data/metadata are retained. Files deleted by older code cannot be reconstructed; version retention applies going forward. Real PostgreSQL contention and production blob uploads were not executed; tests use facades/intercepted APIs. Read-only initial files reused in later periods have no new expiry policy; staff must replace expired/changed documents according to CAO policy. Historical storage grows because replaced files are retained; any retention/deletion policy requires a separate decision. Scholar portals retain the existing two-minute visible-page refresh, so manually reload during immediate testing. Batch intake across files/scholars is not added by this release.
+
+Prefer a forward correction if issues arise. Before reverting to code that does not understand waves, pause document uploads/reviews and preserve a database/storage backup; old replacement handlers can delete blobs referenced by retained sets. Do not flatten, delete, or overwrite wave records as a rollback shortcut. Use the dated acceptance checklist with synthetic accepted scholars after both deployments succeed. Deployment results will be recorded after public verification and provider confirmation.
+
 ## 2026-10-13 - Verify Attendance Synchronization and Rename Provincial Admin Display
 
 **TL;DR**

@@ -36,7 +36,7 @@ const { createBillingReference } = require('../services/billingReference');
 const { resolveBillingAmount } = require('../services/billingGrant');
 const { getOrStartAttempt, assertAttemptOpen, AttemptError } = require('../services/onlineExamAttempt');
 const { assertAutomaticGrading, loadConfiguration, publicConfiguration, scoreConfiguredAnswers, createExamTicket, verifyExamTicket } = require('../services/onlineExamConfiguration');
-const { ADMIN_INITIAL_REQUIREMENT_KEYS, SCHOLAR_SEMESTER_REQUIREMENT_KEYS } = require('../services/documentReview');
+const { INITIAL_KEYS, CONTINUING_KEYS, getWaveSet, getInitialRequirements, getEffectiveRequirements, continuingIsOpen, saveWaveDocument, mutateRequirementWaves } = require('../services/requirementWaves');
 const { resolveRequirementSubmission } = require('../services/requirementSubmission');
 const { serializePayrollListMembership } = require('../services/payrollListScope');
 const { latestCertificationCreatedAt } = require('../services/certificationDate');
@@ -58,15 +58,6 @@ const CURRENT_SCHOOL_YEAR = '2026-2027';
 const STALE_DEFAULT_SCHOOL_YEAR = '2025-2026';
 const DEFAULT_SEMESTER = '1st Semester';
 const PRIORITY_PROOF_FILE_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
-const SCHOLAR_REQUIREMENT_UPLOAD_FIELDS = Object.freeze({
-  tax_exemption: ['cert_tax_exemption_file', 'cert_tax_exemption_review_status'],
-  indigency: ['barangay_indigency_file', 'barangay_indigency_review_status'],
-  valid_id: ['valid_id_photocopy_file', 'valid_id_photocopy_review_status'],
-  grades: ['grade_report_file', 'grade_report_review_status'],
-  registration_form: ['registration_form_file', 'registration_form_review_status'],
-  tuition_receipt: ['tuition_fee_receipt_file', 'tuition_fee_receipt_review_status'],
-});
-
 const storePriorityProof = async ({ applicantPath, eligibility, priorityProof }) => {
   const selected = selectedPriorityCriteria(eligibility);
   if (!selected.length) return { initialDocs: {}, uploadedUrl: null };
@@ -765,6 +756,7 @@ const updateAnnouncement = async (req, res) => {
 
 const getScholarManagement = async (req, res) => {
   try {
+    const primaryPeriod = await getActiveAcademicPeriodRecord();
     const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.query.academicPeriodId);
     if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period.' });
     const scholarAccounts = await prisma.scholar_accounts.findMany({ orderBy: { issued_at: 'desc' } });
@@ -830,7 +822,7 @@ const getScholarManagement = async (req, res) => {
       const requirement = requirementByApplicant.get(applicant.id);
       const application = applicationByApplicant.get(applicant.id);
       const applicationPlan = application?.school_plan || {};
-      const applicationRequirements = application?.initial_docs?.requirements || {};
+      const applicationRequirements = getEffectiveRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id).requirements;
       const school = resolveScholarSchool({ applicant, requirement, application, schoolById, schoolByName, schoolHistory: schoolHistoryByApplicant.get(applicant.id) });
       const resolvedSchoolType = String(school?.school_type || '').trim().toLowerCase();
       const schoolType = resolvedSchoolType === 'private' ? 'Private' : resolvedSchoolType === 'public' ? 'Public' : 'Unclassified';
@@ -878,9 +870,35 @@ const getScholarManagement = async (req, res) => {
       const applicableRequirementFields = schoolType === 'Private'
         ? requirementFields
         : requirementFields.filter(([, , , uploadKey]) => uploadKey !== 'tuition_receipt');
+      const mapDocuments = (wave) => {
+        const inherited = wave === 'initial' ? getInitialRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id) : null;
+        const set = getWaveSet(application?.initial_docs, activePeriod.id, wave, primaryPeriod.id);
+        const files = inherited?.requirements || set.requirements;
+        return applicableRequirementFields.map(([label, , , requirementKey]) => {
+          const file = files[requirementKey];
+          const sourcePeriodId = wave === 'initial' && !set.requirements[requirementKey] ? inherited.originalPeriodId : activePeriod.id;
+          const sourcePeriod = academicPeriodById.get(sourcePeriodId) || activePeriod;
+          return {
+            label, requirementKey, submitted: Boolean(file?.fileName), applicationId: application?.id || null,
+            academicPeriodId: sourcePeriodId, submissionWave: wave, periodLabel: `${sourcePeriod.school_year} · ${sourcePeriod.semester}`, legacy: Boolean((set.requirements[requirementKey] ? set.legacy : inherited?.original.legacy) && !file?.uploadedByRole), versionId: file?.versionId || null, revision: file?.revision || 0, reviewHistory: file?.reviewHistory || [],
+            fileName: file?.fileName || null, fileType: file?.fileType || 'application/octet-stream',
+            uploadedAt: file?.uploadedAt || null, reviewedAt: file?.reviewedAt || null,
+            reviewNotes: file?.reviewNotes || '', status: file?.status || 'Pending',
+          };
+        });
+      };
+      const initialDocuments = mapDocuments('initial');
+      const continuingDocuments = mapDocuments('continuing').filter(({ requirementKey }) => CONTINUING_KEYS.includes(requirementKey));
+      const documentHistory = Object.values(application?.initial_docs?.requirementSets || {}).flatMap((set) => (
+        [...(set.history || []), ...(set.academicPeriodId !== activePeriod.id ? Object.entries(set.requirements || {}).map(([requirementKey, file]) => ({ ...file, requirementKey })) : [])].map((file) => ({
+          applicationId: application.id, academicPeriodId: set.academicPeriodId, submissionWave: set.wave, periodLabel: academicPeriodById.has(set.academicPeriodId) ? `${academicPeriodById.get(set.academicPeriodId).school_year} · ${academicPeriodById.get(set.academicPeriodId).semester}` : "Earlier submission",
+          requirementKey: file.requirementKey, versionId: file.versionId, fileName: file.fileName, fileType: file.fileType,
+          uploadedAt: file.uploadedAt, reviewedAt: file.reviewedAt, status: file.status, reviewNotes: file.reviewNotes, reviewHistory: file.reviewHistory || [],
+        }))
+      ));
       const documents = applicableRequirementFields.map(([label, fileField, statusField, uploadKey]) => {
         const uploadedDocument = uploadKey ? applicationRequirements[uploadKey] : null;
-        const submitted = Boolean(requirement?.[fileField] || uploadedDocument?.fileName);
+        const submitted = Boolean(uploadedDocument?.fileName || (!application?.initial_docs?.requirementSets && !continuingIsOpen(application?.initial_docs, activePeriod.id) && requirement?.[fileField]));
         return {
           label,
           submitted,
@@ -892,7 +910,7 @@ const getScholarManagement = async (req, res) => {
           reviewedAt: uploadedDocument?.reviewedAt || null,
           reviewNotes: uploadedDocument?.reviewNotes || '',
           status: statusField
-            ? uploadedDocument?.status || requirement?.[statusField] || 'pending'
+            ? uploadedDocument?.status || (!application?.initial_docs?.requirementSets && !continuingIsOpen(application?.initial_docs, activePeriod.id) ? requirement?.[statusField] : null) || 'pending'
             : submitted ? 'approved' : 'pending',
         };
       });
@@ -905,8 +923,8 @@ const getScholarManagement = async (req, res) => {
         alreadyProcessedForPeriod: !billed && (payrollClaimsByApplicant.get(applicant.id) || []).some((claim) => (
           claim.academic_period_id === activePeriod.id || payrollBatchById.get(claim.payroll_batch_id)?.billing_period_id === activePeriod.id
         )),
-        initialDocs: application?.initial_docs,
-        requirement,
+        initialDocs: getEffectiveRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id),
+        requirement: application?.initial_docs?.requirementSets ? undefined : requirement,
         schoolType: school?.school_type,
         requireSchoolClassification: true,
       });
@@ -942,7 +960,8 @@ const getScholarManagement = async (req, res) => {
         documentStatus: documentsComplete ? 'Complete' : 'Review',
         documentsSubmitted: submittedDocuments.length,
         documentsTotal: documents.length,
-        documents,
+        documents, initialDocuments, continuingDocuments, documentHistory,
+        continuingOpen: continuingIsOpen(application?.initial_docs, activePeriod.id),
         billingEligible: billingEligibility.eligible,
         billingEligibilityReasons: billingEligibility.reasons,
         processingWarnings: billingEligibility.warnings,
@@ -1089,6 +1108,7 @@ const updateScholarBillingMetadata = async (req, res) => {
 
 const processBillingSelection = async (req, res) => {
   try {
+    const primaryPeriod = await getActiveAcademicPeriodRecord();
     const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
     if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period for billing.' });
     const applicantIds = normalizeApplicantIds(req.body.applicantIds);
@@ -1172,8 +1192,8 @@ const processBillingSelection = async (req, res) => {
       let result = evaluateListEligibility({
         isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
         alreadyBilled: billedIds.has(applicantId),
-        initialDocs: application?.initial_docs,
-        requirement,
+        initialDocs: getEffectiveRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id),
+        requirement: application?.initial_docs?.requirementSets ? undefined : requirement,
         schoolType: school?.school_type,
         requireSchoolClassification: true,
       });
@@ -1279,6 +1299,7 @@ const processBillingSelection = async (req, res) => {
 
 const processPayrollSelection = async (req, res) => {
   try {
+    const primaryPeriod = await getActiveAcademicPeriodRecord();
     const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
     if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period for the payroll list.' });
     const applicantIds = normalizeApplicantIds(req.body.applicantIds);
@@ -1324,8 +1345,8 @@ const processPayrollSelection = async (req, res) => {
         isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
         alreadyBilled: false,
         alreadyProcessedForPeriod: processedIds.has(applicantId),
-        initialDocs: application?.initial_docs,
-        requirement,
+        initialDocs: getEffectiveRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id),
+        requirement: application?.initial_docs?.requirementSets ? undefined : requirement,
         schoolType: school?.school_type,
         requireSchoolClassification: true,
       });
@@ -1599,10 +1620,11 @@ const getMyApplication = async (req, res) => {
       : null;
     const certificationDate = await latestCertificationCreatedAt(prisma, applicantId, selectedSchool?.school_type);
     const guidance = buildApplicantGuidance({
-      application,
+      application: scholar ? { ...application, initial_docs: getEffectiveRequirements(application.initial_docs, activePeriod.id) } : application,
+      continuingOpen: continuingIsOpen(application.initial_docs, activePeriod.id),
       result,
       scholar,
-      scholarRequirement,
+      scholarRequirement: application.initial_docs?.requirementSets ? undefined : scholarRequirement,
       payrollClaim,
       payrollBatch,
       scheduledExam,
@@ -1613,6 +1635,11 @@ const getMyApplication = async (req, res) => {
     });
     return res.json({
       application,
+      requirementWave: {
+        academicPeriodId: activePeriod.id, continuingOpen: continuingIsOpen(application.initial_docs, activePeriod.id),
+        initial: getInitialRequirements(application.initial_docs, activePeriod.id).requirements,
+        continuing: getWaveSet(application.initial_docs, activePeriod.id, 'continuing').requirements,
+      },
       applicant,
       school: selectedSchool ? {
         name: selectedSchool.name,
@@ -1675,189 +1702,132 @@ const getMyApplication = async (req, res) => {
   }
 };
 
+const parseRequirementUpload = (fileName, fileData) => {
+  if (typeof fileName !== 'string' || !fileName.trim() || fileName.length > 255 || typeof fileData !== 'string') {
+    throw Object.assign(new Error('A valid file name and file are required.'), { statusCode: 400 });
+  }
+  if (fileData.length > 8 * 1024 * 1024 + 512) throw Object.assign(new Error('Use a file no larger than 6 MB.'), { statusCode: 413 });
+  let parsed;
+  try { parsed = parseDataUrl(fileData); } catch (error) { throw Object.assign(error, { statusCode: 400 }); }
+  if (!PRIORITY_PROOF_FILE_TYPES.has(parsed.contentType)) throw Object.assign(new Error('Only PDF, JPG, and PNG requirement files are allowed.'), { statusCode: 400 });
+  if (parsed.buffer.length > 6 * 1024 * 1024) throw Object.assign(new Error('Use a file no larger than 6 MB.'), { statusCode: 413 });
+  return parsed;
+};
+const storeRequirementUpload = async ({ applicantId, periodId, wave, key, fileName, fileData, parsed }) => {
+  const token = process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN;
+  if (token || process.env.NODE_ENV === 'production') {
+    const blob = await uploadDataUrl({ dataUrl: fileData, fileName: fileName.trim(), contentType: parsed.contentType,
+      pathSegments: ['scholar-requirements', applicantId, periodId, wave, key], token, access: 'private' });
+    return { fileName: fileName.trim(), fileType: blob.contentType, fileUrl: blob.url, pathname: blob.pathname, storage: 'vercel-blob-private' };
+  }
+  return { fileName: fileName.trim(), fileType: parsed.contentType, fileData, storage: 'database' };
+};
+
 const uploadMyRequirement = async (req, res) => {
+  let uploadedFile;
   try {
-    const { requirement, fileName, fileData } = req.body;
-    const allowed = SCHOLAR_SEMESTER_REQUIREMENT_KEYS;
-    if (!allowed.includes(requirement) || typeof fileName !== 'string' || typeof fileData !== 'string') {
-      return res.status(400).json({ message: 'A valid requirement and file are required.' });
-    }
-    const activePeriod = await getActiveAcademicPeriodRecord();
+    const { requirement: key, fileName, fileData } = req.body || {};
+    if (!CONTINUING_KEYS.includes(key)) return res.status(400).json({ message: 'Scholars upload only continuing grades, registration forms, and applicable tuition receipts.' });
+    if (!Number.isInteger(Number(req.body.academicPeriodId)) || Number(req.body.academicPeriodId) <= 0) return res.status(400).json({ message: 'Refresh and select an active academic period for this submission.' });
+    const parsed = parseRequirementUpload(fileName, fileData);
+    const primaryPeriod = await getActiveAcademicPeriodRecord();
+    const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
+    if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period.' });
     const requirementSubmission = resolveRequirementSubmission(activePeriod);
-    if (!requirementSubmission.isOpen) {
-      return res.status(403).json({
-        message: 'The semester-requirements submission deadline has passed. Contact CAO if a correction is required.',
-        requirementSubmission,
-      });
+    if (!requirementSubmission.isOpen) return res.status(403).json({ message: 'The continuing-requirements submission deadline has passed. Contact CAO if a correction is required.', requirementSubmission });
+    const [scholar, application, applicant, requirementRecord] = await Promise.all([
+      prisma.scholar_accounts.findFirst({ where: { applicant_id: req.user.id, is_active: true } }),
+      prisma.application_submissions.findFirst({ where: { applicant_id: req.user.id, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' } }),
+      prisma.applicants.findUnique({ where: { id: req.user.id } }),
+      prisma.scholar_requirements.findUnique({ where: { applicant_id_billing_period_id: { applicant_id: req.user.id, billing_period_id: activePeriod.id } } }),
+    ]);
+    if (!scholar || !application) return res.status(404).json({ message: 'Active scholar application not found.' });
+    if (!continuingIsOpen(application.initial_docs, activePeriod.id)) return res.status(403).json({ message: 'CAO has not opened continuing submissions for this period yet. Initial documents are uploaded by CAO.' });
+    if (key === 'tuition_receipt') {
+      const school = await loadResolvedScholarSchool(prisma, { applicantId: req.user.id, applicant, requirement: requirementRecord, application });
+      if (schoolClassification(school?.school_type) !== 'Private') return res.status(400).json({ message: 'Only Private-school scholars can upload an Official Receipt of Tuition Fee.' });
     }
-    if (fileData.length > 8 * 1024 * 1024) {
-      return res.status(413).json({ message: 'File is too large. Please upload a file smaller than 6 MB.' });
-    }
-    let parsedFile;
-    try {
-      parsedFile = parseDataUrl(fileData);
-    } catch (error) {
-      return res.status(400).json({ message: error.message });
-    }
-    const allowedFileTypes = ['application/pdf', 'image/jpeg', 'image/png'];
-    if (!allowedFileTypes.includes(parsedFile.contentType)) {
-      return res.status(400).json({ message: 'Only PDF, JPG, and PNG requirement files are allowed.' });
-    }
-    if (parsedFile.buffer.length > 6 * 1024 * 1024) {
-      return res.status(413).json({ message: 'File is too large. Please upload a file smaller than 6 MB.' });
-    }
-    const application = await prisma.application_submissions.findFirst({
-      where: { OR: [{ applicant_id: req.user.id }, { email: req.user.email }] },
-      orderBy: { submitted_at: 'desc' },
+    uploadedFile = await storeRequirementUpload({ applicantId: req.user.id, periodId: activePeriod.id, wave: 'continuing', key, fileName, fileData, parsed });
+    const saved = await mutateRequirementWaves(prisma, application.id, primaryPeriod.id, (docs) => {
+      if (!continuingIsOpen(docs, activePeriod.id)) throw Object.assign(new Error('Continuing submissions are not open.'), { statusCode: 403 });
+      return { document: saveWaveDocument(docs, { periodId: activePeriod.id, wave: 'continuing', key, file: uploadedFile, actorId: req.user.id, actorRole: 'Scholar' }) };
     });
-    if (!application) return res.status(404).json({ message: 'Application not found.' });
-    if (requirement === 'tuition_receipt') {
-      const [applicant, requirementRecord] = await Promise.all([
-        prisma.applicants.findUnique({ where: { id: application.applicant_id }, select: { school_id: true } }),
-        activePeriod ? prisma.scholar_requirements.findUnique({ where: { applicant_id_billing_period_id: { applicant_id: application.applicant_id, billing_period_id: activePeriod.id } } }) : null,
-      ]);
-      const school = await loadResolvedScholarSchool(prisma, { applicantId: application.applicant_id, applicant, requirement: requirementRecord, application });
-      if (schoolClassification(school?.school_type) !== 'Private') {
-        return res.status(400).json({ message: 'Only Private-school scholars can upload an Official Receipt of Tuition Fee.' });
-      }
-    }
-    const documents = application.initial_docs && typeof application.initial_docs === 'object' ? application.initial_docs : {};
-    const existingRequirement = documents.requirements?.[requirement];
-    const token = process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN;
-    let storedFile;
-    if (token || process.env.NODE_ENV === 'production') {
-      const blob = await uploadDataUrl({
-        dataUrl: fileData,
-        fileName,
-        contentType: parsedFile.contentType,
-        pathSegments: ['scholar-requirements', req.user.id, requirement],
-        token,
-        access: 'private',
-      });
-      storedFile = {
-        fileName,
-        fileType: blob.contentType,
-        fileUrl: blob.url,
-        pathname: blob.pathname,
-        storage: 'vercel-blob-private',
-        status: 'Pending',
-        uploadedAt: new Date().toISOString(),
-      };
-    } else {
-      storedFile = {
-        fileName,
-        fileType: parsedFile.contentType,
-        fileData,
-        storage: 'database',
-        status: 'Pending',
-        uploadedAt: new Date().toISOString(),
-      };
-    }
-    documents.requirements = { ...(documents.requirements || {}), [requirement]: storedFile };
-    const updated = await prisma.application_submissions.update({ where: { id: application.id }, data: { initial_docs: documents } });
-    if (existingRequirement?.fileUrl && existingRequirement.fileUrl !== storedFile.fileUrl) {
-      await deleteBlob(existingRequirement.fileUrl, token);
-    }
-    return res.json({ message: 'Requirement uploaded and submitted for Billing staff review.', application: updated });
+    uploadedFile = null;
+    res.locals.auditTargetId = application.id;
+    return res.json({ message: 'Continuing requirement submitted for Billing staff review. Initial files are preserved.', application: saved.application,
+      continuingRequirements: getWaveSet(saved.application.initial_docs, activePeriod.id, 'continuing', primaryPeriod.id).requirements });
   } catch (error) {
+    if (uploadedFile?.fileUrl) await deleteBlob(uploadedFile.fileUrl, process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN);
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.error(error);
-    if (error instanceof BlobStorageConfigurationError) return res.status(error.statusCode).json({ message: error.message });
-    return res.status(500).json({ message: 'Server error uploading requirement.' });
+    return res.status(500).json({ message: 'Server error uploading continuing requirement.' });
   }
 };
 
 const uploadScholarRequirementByAdmin = async (req, res) => {
+  let uploadedFile;
   try {
     const applicantId = Number(req.params.applicantId);
-    const requirementKey = String(req.params.requirementKey || '').trim();
-    const fieldMapping = ADMIN_INITIAL_REQUIREMENT_KEYS.includes(requirementKey)
-      ? SCHOLAR_REQUIREMENT_UPLOAD_FIELDS[requirementKey]
-      : null;
+    const key = String(req.params.requirementKey || '');
+    if (!Number.isInteger(applicantId) || applicantId <= 0 || !INITIAL_KEYS.includes(key)) return res.status(400).json({ message: 'A valid scholar and initial requirement are required.' });
     const { fileName, fileData } = req.body || {};
-    if (!Number.isInteger(applicantId) || applicantId <= 0 || !fieldMapping || typeof fileName !== 'string' || !fileName.trim() || fileName.length > 255 || typeof fileData !== 'string') {
-      return res.status(400).json({ message: 'A valid scholar requirement and file are required.' });
-    }
-    if (fileData.length > 8 * 1024 * 1024) {
-      return res.status(413).json({ message: 'The scholar requirement must be smaller than 6 MB.' });
-    }
-    let parsedFile;
-    try {
-      parsedFile = parseDataUrl(fileData);
-    } catch (error) {
-      return res.status(400).json({ message: error.message });
-    }
-    if (!PRIORITY_PROOF_FILE_TYPES.has(parsedFile.contentType)) {
-      return res.status(400).json({ message: 'Only PDF, JPG, and PNG scholar requirements are allowed.' });
-    }
-    if (parsedFile.buffer.length > 6 * 1024 * 1024) {
-      return res.status(413).json({ message: 'The scholar requirement must be smaller than 6 MB.' });
-    }
-    const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body?.academicPeriodId);
+    if (!Number.isInteger(Number(req.body.academicPeriodId)) || Number(req.body.academicPeriodId) <= 0) return res.status(400).json({ message: 'Refresh and select an active academic period for this submission.' });
+    const parsed = parseRequirementUpload(fileName, fileData);
+    const primaryPeriod = await getActiveAcademicPeriodRecord();
+    const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
     if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period.' });
-    const [scholar, application, scholarRequirement, applicant] = await Promise.all([
-      prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true }, select: { id: true } }),
+    const [scholar, application, requirementRecord, applicant] = await Promise.all([
+      prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }),
       prisma.application_submissions.findFirst({ where: { applicant_id: applicantId, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' } }),
       prisma.scholar_requirements.findUnique({ where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: activePeriod.id } } }),
-      prisma.applicants.findUnique({ where: { id: applicantId }, select: { school_id: true } }),
+      prisma.applicants.findUnique({ where: { id: applicantId } }),
     ]);
-    if (!scholar) return res.status(404).json({ message: 'Active scholar record not found.' });
-    if (!application) return res.status(404).json({ message: 'Scholar application record not found.' });
-
-    if (requirementKey === 'tuition_receipt') {
-      const school = await loadResolvedScholarSchool(prisma, { applicantId, applicant, requirement: scholarRequirement, application });
-      if (schoolClassification(school?.school_type) !== 'Private') {
-        return res.status(400).json({ message: 'A tuition receipt applies only to private-school scholars.' });
-      }
+    if (!scholar || !application) return res.status(404).json({ message: 'Active scholar application not found.' });
+    if (key === 'tuition_receipt') {
+      const school = await loadResolvedScholarSchool(prisma, { applicantId, applicant, requirement: requirementRecord, application });
+      if (schoolClassification(school?.school_type) !== 'Private') return res.status(400).json({ message: 'A tuition receipt applies only to private-school scholars.' });
     }
-    const documents = application.initial_docs && typeof application.initial_docs === 'object' ? application.initial_docs : {};
-    const existing = documents.requirements?.[requirementKey];
-    const token = process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN;
-    let storedFile;
-    if (token || process.env.NODE_ENV === 'production') {
-      const blob = await uploadDataUrl({
-        dataUrl: fileData,
-        fileName: fileName.trim(),
-        contentType: parsedFile.contentType,
-        pathSegments: ['scholar-requirements', applicantId, activePeriod.id, requirementKey],
-        token,
-        access: 'private',
-      });
-      storedFile = { fileName: fileName.trim(), fileType: blob.contentType, fileUrl: blob.url, pathname: blob.pathname, storage: 'vercel-blob-private' };
-    } else {
-      storedFile = { fileName: fileName.trim(), fileType: parsedFile.contentType, fileData, storage: 'database' };
-    }
-    const uploadedAt = new Date().toISOString();
-    documents.requirements = {
-      ...(documents.requirements || {}),
-      [requirementKey]: {
-        ...storedFile,
-        status: 'Approved',
-        uploadedAt,
-        reviewedAt: uploadedAt,
-        reviewedBy: req.user.id,
-        reviewNotes: 'Scanned and uploaded by authorized CAO staff for the scholar record.',
-      },
-    };
-    const [fileField, statusField] = fieldMapping;
-    await prisma.$transaction([
-      prisma.application_submissions.update({ where: { id: application.id }, data: { initial_docs: documents } }),
-      prisma.scholar_requirements.upsert({
-        where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: activePeriod.id } },
-        create: { applicant_id: applicantId, billing_period_id: activePeriod.id, [fileField]: fileName.trim(), [statusField]: 'approved', updated_by: req.user.id },
-        update: { [fileField]: fileName.trim(), [statusField]: 'approved', updated_by: req.user.id },
-      }),
-    ]);
-    if (existing?.fileUrl && existing.fileUrl !== storedFile.fileUrl) await deleteBlob(existing.fileUrl, token);
+    uploadedFile = await storeRequirementUpload({ applicantId, periodId: activePeriod.id, wave: 'initial', key, fileName, fileData, parsed });
+    const saved = await mutateRequirementWaves(prisma, application.id, primaryPeriod.id, (docs) => ({
+      document: saveWaveDocument(docs, { periodId: activePeriod.id, wave: 'initial', key, file: uploadedFile, actorId: req.user.id, actorRole: req.user.role }),
+    }));
+    uploadedFile = null;
     res.locals.auditTargetId = application.id;
-    res.locals.auditDescription = `Uploaded scholar requirement ${requirementKey}.`;
-    return res.json({
-      message: 'Scholar requirement uploaded and approved successfully.',
-      document: { requirementKey, fileName: fileName.trim(), fileType: parsedFile.contentType, status: 'Approved', uploadedAt },
-    });
+    res.locals.auditDescription = `Uploaded initial requirement ${key} for academic period ${activePeriod.id}.`;
+    return res.json({ message: 'Initial requirement uploaded and approved. Other waves and previous files are preserved.', document: {
+      requirementKey: key, academicPeriodId: activePeriod.id, submissionWave: 'initial', fileName: saved.document.fileName,
+      fileType: saved.document.fileType, status: saved.document.status, uploadedAt: saved.document.uploadedAt,
+    } });
   } catch (error) {
+    if (uploadedFile?.fileUrl) await deleteBlob(uploadedFile.fileUrl, process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN);
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.error(error);
-    if (error instanceof BlobStorageConfigurationError) return res.status(error.statusCode).json({ message: error.message });
-    return res.status(500).json({ message: 'Server error uploading the scholar requirement.' });
+    return res.status(500).json({ message: 'Server error uploading the initial requirement.' });
+  }
+};
+
+const openContinuingRequirements = async (req, res) => {
+  try {
+    const applicantId = Number(req.params.applicantId);
+    if (!Number.isInteger(applicantId) || applicantId <= 0) return res.status(400).json({ message: 'A valid scholar is required.' });
+    if (!Number.isInteger(Number(req.body.academicPeriodId)) || Number(req.body.academicPeriodId) <= 0) return res.status(400).json({ message: 'Select an active academic period.' });
+    const primaryPeriod = await getActiveAcademicPeriodRecord();
+    const period = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
+    if (!period) return res.status(400).json({ message: 'Select an active academic period.' });
+    const [scholar, application] = await Promise.all([
+      prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }),
+      prisma.application_submissions.findFirst({ where: { applicant_id: applicantId, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' } }),
+    ]);
+    if (!scholar || !application) return res.status(404).json({ message: 'Active scholar application not found.' });
+    await mutateRequirementWaves(prisma, application.id, primaryPeriod.id, (docs) => {
+      docs.requirementWaves[period.id] ||= { continuingOpenedAt: new Date().toISOString(), openedBy: req.user.id };
+      return {};
+    });
+    res.locals.auditTargetId = application.id;
+    res.locals.auditDescription = `Opened continuing requirements for academic period ${period.id}.`;
+    return res.json({ message: 'Continuing submission is open for this scholar and period. Initial documents remain unchanged.' });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : 'Unable to open continuing submissions.' });
   }
 };
 
@@ -2394,6 +2364,7 @@ module.exports = {
   getMyApplication,
   uploadMyRequirement,
   uploadScholarRequirementByAdmin,
+  openContinuingRequirements,
   createAnnouncement,
   getAnnouncementManagement,
   getLatestPublishedAnnouncement,
