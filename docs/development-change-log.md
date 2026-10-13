@@ -22,7 +22,7 @@ Updated `frontend/src/ScholarsManagement.jsx` and `frontend/src/styles/scholars-
 
 ### Validation, deployment, limitations and rollback
 
-Frontend lint and production build passed; diff whitespace checks passed. The build retains its existing large-chunk advisory. Deployment authorized; this frontend-only release is being pushed to main for Hostinger. No backend change or new migration is required. Live verification will be recorded below. No behavioral tests added for this presentation-only change. Revert the two frontend files to restore the prior tab appearance; no data rollback is required. The shared tab styling keeps future changes aligned with the existing navigation.
+Frontend lint and production build passed; diff whitespace checks passed. The build retains its existing large-chunk advisory. Deployment: release `583dd2f` pushed to main and verified live on Hostinger. Public entry `/assets/index-wsAz-fjV.js`, Admin `Dashboard-B6nFX0dQ.js` and stylesheet `Dashboard-C4uZpTl-.css` contain the shared tabs, exact Scholar label, active green styling and keyboard-focus rule; the previous directory label and standalone tab CSS are absent. This release has no backend changes or new migration. Authenticated hosted interaction was not performed. No behavioral tests added for this presentation-only change. Revert the two frontend files to restore the prior tab appearance; no data rollback is required. The shared tab styling keeps future changes aligned with the existing navigation.
 
 ## 2026-10-14 - Continuing Requirement Schedules and Late-Submission Windows
 
