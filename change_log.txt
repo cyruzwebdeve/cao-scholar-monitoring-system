@@ -239,3 +239,5 @@
 2026-10-13 | Deployed heading-size correction ea83fd4 for testing. Live Dashboard-CD8_2I3X.css verified both source/target headings share 11px; API healthy/database connected. Frontend only, no migration.
 
 2026-10-13 | Set Billing/Payroll source-list school names to the requested 7px. Other typography and processing unchanged; frontend build passed. No migration; not deployed.
+
+2026-10-13 | Deployed 7px school-name release cdb5a99. Live Dashboard-r7w7Pw-9.css verified the scoped 7px rule; API healthy/database connected. Frontend only, no migration.

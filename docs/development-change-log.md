@@ -10,7 +10,7 @@ and how the result was verified.
 **TL;DR**
 - School names beneath scholar names now use 7px in Billing and Payroll source lists.
 - Scholar-name and status-badge sizing, processing behavior, and data remain unchanged.
-- Shared source-school rule verified; frontend production build passed. Not deployed in this task.
+- Shared source-school rule verified; frontend production build passed. Release cdb5a99 deployed and the 7px rule verified live.
 
 ### Objective and behavior
 
