@@ -51,7 +51,7 @@ A late window is one configurable interval per period; additional windows replac
 
 Keep the additive table on rollback and pause writes before restoring an older release. Back up schedules/documents first; older code cannot enforce the new late-window rules and can use older per-period deadlines/manual flags. Prefer a forward correction. Existing document-wave rollback precautions still apply. Follow the linked acceptance checklist and confirm Hostinger migration success before hosted authenticated testing.
 
-Deployment: release push and live artifact verification pending at the time of this entry; subsequent results will be appended here.
+Deployment: code release `96d24e4` pushed to GitHub main. Public Hostinger entry `/assets/index-C8PkNo2x.js`, Admin `Dashboard-gbJkXqz3.js`, and Scholar `ScholarDashboard-BWqGIzEW.js` verified live with schedule controls, Public Payroll action, submission-period selector and late/waiting messages. API health is healthy/database connected; the new schedule route returns 401 without authentication. This verifies route presence and access protection, not the deployed backend commit or table migration. Hostinger backend/migration confirmation remains pending; no hosted authenticated scheduling/uploads/list generation was performed.
 
 Acceptance checklist: `docs/qa/2026-10-14/continuing-schedules-acceptance-checklist.md`.
 

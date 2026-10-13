@@ -1,6 +1,6 @@
 # Continuing submission schedules — acceptance checklist (2026-10-14)
 
-Release: pending push. Backend/migration confirmation pending. Use dedicated test scholars/documents, and avoid generating real official lists merely to exercise a test.
+Code release: `96d24e4`, pushed to main. New Admin and Scholar frontend assets verified live. API/database health is good and the new schedule route requires authentication. Backend revision/migration confirmation remains pending. Use dedicated test scholars/documents, and avoid generating real official lists merely to exercise a test.
 
 1. Confirm Hostinger backend deployment and migration `20261014010000_continuing_requirement_schedules` succeeded, then hard-refresh the Admin site.
 2. Open Scholars → Continuing Requirements; select the actual school year/semester. Set opening/deadline times using the labeled device timezone. Publish and reload the saved schedule; dates should persist.
