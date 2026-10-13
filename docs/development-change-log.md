@@ -11,7 +11,7 @@ and how the result was verified.
 - Reorganized Continuing Requirements into a clear period header, four summary cards, regular/late schedule cards and a compact action footer.
 - Staff get consistent typography, spacing, icons and readable Scholar selection rows; mobile controls stack without clipping.
 - Schedule ownership, deadlines, late permissions and payroll-list eligibility retain their existing rules. No data or backend change.
-- Frontend lint/build and synthetic desktop/mobile workflow checks passed. Frontend deployment authorized; live verification will be recorded below.
+- Frontend lint/build and synthetic desktop/mobile workflow checks passed. Frontend release `09fd4b6` deployed and verified live on Hostinger.
 
 ### Objective and previous/new behavior
 
@@ -23,7 +23,7 @@ Affected users: authorized Admins configuring schedules and staff viewing the Sc
 
 ### Impacts
 
-API, database, configuration, security and privacy: no impact. Scheduling, initial approval, selected late access, requirement uploads and official list generation retain their existing rules. No backend or legacy payment code changes; workflow still ends at list generation. Accessibility: labeled native inputs and checkboxes, keyboard focus outlines, decorative icons hidden from assistive technology, status/error notices, busy state and disabled unavailable controls. Responsive layout: four summary columns and two schedule columns on desktop, two summary columns and stacked schedule/date sections on mobile. Deployment: frontend-only; no new migration. Pushing the authorized release to main for Hostinger; live verification pending.
+API, database, configuration, security and privacy: no impact. Scheduling, initial approval, selected late access, requirement uploads and official list generation retain their existing rules. No backend or legacy payment code changes; workflow still ends at list generation. Accessibility: labeled native inputs and checkboxes, keyboard focus outlines, decorative icons hidden from assistive technology, status/error notices, busy state and disabled unavailable controls. Responsive layout: four summary columns and two schedule columns on desktop, two summary columns and stacked schedule/date sections on mobile. Deployment: frontend-only release `09fd4b6` pushed to main and verified live on Hostinger. Public entry `/assets/index-CCb7fC3D.js`, Admin `Dashboard-wgtlPQDw.js` and stylesheet `Dashboard-DSQFs3oL.css` contain the redesigned header, summary/window cards, action footer and mobile stacking rules. No backend change or new migration. Public verification inspects served artifacts; authenticated hosted interactions were not performed.
 
 ### Validation and results
 
@@ -31,7 +31,7 @@ Frontend lint and production build passed; the existing large-chunk advisory rem
 
 ### Limitations, rollback and next work
 
-Native date-control appearance follows the browser/OS. The selected-Scholar list retains its existing scrolling and scheduling constraints. Revert the component/style edits to restore the previous presentation; no data rollback is needed. Deploy the frontend when requested, then inspect the panel with real authorized staff sessions. Preserve the separately tracked backend schedule-migration confirmation.
+Native date-control appearance follows the browser/OS. The selected-Scholar list retains its existing scrolling and scheduling constraints. Revert the component/style edits to restore the previous presentation; no data rollback is needed. Inspect the deployed panel with real authorized staff sessions. Preserve the separately tracked backend schedule-migration confirmation.
 
 ## 2026-10-14 - Consistent Scholars Section Tabs
 
