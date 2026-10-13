@@ -2,6 +2,8 @@
 
 Date: 2026-10-14 (Asia/Manila)
 
+Release 32b0c35: frontend verified live and API/database healthy; backend deployment confirmation pending.
+
 Use synthetic accepted scholars and non-sensitive sample PDFs/images in an approved test environment. Both frontend/backend deployments must complete. No migration is required.
 
 1. Hard-refresh the Provincial Admin/Administrator dashboard and open Scholars → View details → Overview.

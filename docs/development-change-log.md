@@ -11,7 +11,7 @@ and how the result was verified.
 - CAO uploads the complete initial set: tax exemption, indigency, ID, grades, registration form, and tuition receipt for Private-school scholars only.
 - Scholars upload only continuing grades/registration/Private tuition receipts after authorized staff opens the second wave for that scholar and academic period; initial records remain separate and visible.
 - Period/wave records, file versions, and review history are preserved; JSON compare-and-swap retries prevent simultaneous uploads from losing other files, and stale single/bulk reviews are rejected.
-- Verification: 337 tests passed, one opt-in real-database test skipped; lint/build and four synthetic Public/Private desktop/mobile browser scenarios passed. Deployment pending push/live verification; no schema migration.
+- Verification: 337 tests passed, one opt-in real-database test skipped; lint/build and four synthetic Public/Private desktop/mobile browser scenarios passed. Release 32b0c35 pushed; frontend verified live and API/database health passed. Backend revision confirmation pending; no schema migration.
 
 ### Objective and previous/new behavior
 

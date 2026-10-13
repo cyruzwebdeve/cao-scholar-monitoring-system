@@ -261,3 +261,5 @@
 2026-10-13 | Deployed Provincial Admin role-display release 90832a5. Public frontend labels verified live; API healthy/database connected; user confirmed Hostinger backend success. No migration. Attendance refresh remains the existing 120-second visible-page interval.
 
 2026-10-14 | Implemented separate Admin initial and Scholar continuing document waves per academic period. Admin uploads all initial requirements; Scholar uploads continuing grades/registration/Private receipts after CAO opens the wave. Preserved originals, versions, review history, and list-generation behavior; fixed concurrent-upload loss and stale single/bulk review risk. 337 tests passed, one opt-in database test skipped, lint/build and four browser scenarios passed. No schema migration; deployment pending.
+
+2026-10-14 | Pushed requirement-wave release 32b0c35 for Hostinger testing. Admin/Scholar frontend bundles verified live and API/database health passed; backend revision confirmation pending. No schema migration.
