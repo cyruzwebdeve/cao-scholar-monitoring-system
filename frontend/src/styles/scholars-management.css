@@ -1,7 +1,8 @@
 
-.continuing-section-tabs { display:flex; gap:8px; margin:16px 0; flex-wrap:wrap; }
-.continuing-section-tabs button, .continuing-settings button { border:1px solid #cbdad1; border-radius:8px; padding:10px 16px; background:white; color:#254b36; font:inherit; cursor:pointer; }
-.continuing-section-tabs button[aria-pressed="true"], .continuing-settings button[type="submit"] { background:#19834b; color:white; }
+.scholars-section-tabs { flex-wrap:wrap; max-width:100%; }
+.scholars-section-tabs button:focus-visible { outline:3px solid #008b47; outline-offset:2px; }
+.continuing-settings button { border:1px solid #cbdad1; border-radius:8px; padding:10px 16px; background:white; color:#254b36; font:inherit; cursor:pointer; }
+.continuing-settings button[type="submit"] { background:#19834b; color:white; }
 .continuing-settings { padding:24px; background:white; border:1px solid #d8e5dd; border-radius:12px; }
 .continuing-settings h3 { margin:0 0 8px; }
 .continuing-settings p { color:#586c61; font-size:13px; line-height:1.6; }

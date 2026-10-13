@@ -5,6 +5,25 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-14 - Consistent Scholars Section Tabs
+
+**TL;DR**
+- Renamed the directory tab to “Scholar” and matched both Scholars tabs to the existing Applicants/Examination segmented navigation.
+- Admin users receive consistent typography, spacing, borders and active state; keyboard focus and narrow-screen wrapping remain available.
+- Frontend-only presentation change; no workflow/data impact. Validation and deployment status are recorded below.
+
+### Objective and previous/new behavior
+
+The newly added Scholars tabs used larger standalone buttons than the established Applicants navigation. Reuse the existing `examination-workspace-tabs` class and its active state rather than maintaining a competing button style. The first tab now reads “Scholar”; the Continuing Requirements label and both navigation destinations remain unchanged.
+
+### Implementation, affected areas and impacts
+
+Updated `frontend/src/ScholarsManagement.jsx` and `frontend/src/styles/scholars-management.css`. Both buttons retain their click handlers and pressed-state announcements; a Scholars-specific rule supports wrapping and visible keyboard focus. Schedule form action-button styles remain independent. Affected users: staff using Scholars management. No API, database, configuration, security, privacy or document/history impact. Accessibility: keyboard buttons and visible focus retained. No legacy payment code changes; system scope still ends at official list generation.
+
+### Validation, deployment, limitations and rollback
+
+Frontend lint and production build passed; diff whitespace checks passed. The build retains its existing large-chunk advisory. Deployment authorized; this frontend-only release is being pushed to main for Hostinger. No backend change or new migration is required. Live verification will be recorded below. No behavioral tests added for this presentation-only change. Revert the two frontend files to restore the prior tab appearance; no data rollback is required. The shared tab styling keeps future changes aligned with the existing navigation.
+
 ## 2026-10-14 - Continuing Requirement Schedules and Late-Submission Windows
 
 **TL;DR**
