@@ -5,6 +5,34 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-13 - Polish Billing and Payroll Scholar List Layout
+
+**TL;DR**
+- Billing/Payroll staff see aligned control numbers, scholar names, secondary school names, and consistent processing/document-status badges.
+- Narrow panels switch to stacked records without clipping the source list or requiring horizontal scrolling.
+- Processing rules, requirement warnings, selection, bulk actions, and billing editing are unchanged; this is a frontend stylesheet release only.
+- Verification: 70 frontend tests passed, lint/build passed, and eight synthetic desktop/mobile browser scenarios passed. Hostinger deployment is pending push/live verification.
+
+### Objective, previous and new behavior
+
+Address the user's screenshot: the school name previously spanned beneath the name and status columns and looked heavier than the scholar name, while readiness and incomplete-requirements labels had inconsistent presentation. The source panel now uses explicit grid areas, a clear name/school typography hierarchy, aligned control numbers, and matching green/amber status badges. Panel headers, controls, and footer counts have more readable spacing and sizing. Container queries adapt the layout to panel width rather than relying solely on viewport width: narrow panels stack records and very narrow panels wrap header actions/status badges.
+
+### Roles, implementation, and files
+
+Affected users: authorized Billing and Payroll staff. Existing record markup, queue controls, saved school identity, warnings, and generation requests remain unchanged. Only frontend/src/styles/admin.css changes application behavior, with scoped source-panel styling and responsive container queries. The unused retired override badge style is removed. Target-queue layout is retained. Documentation includes this entry, the root summary, and a dated UI verification checklist.
+
+### Impact
+
+API: none. Database/schema/migration/data: none. Configuration: none. Security/permissions: none. Privacy: no new personal data or requests; verification uses synthetic records. Accessibility: improved hierarchy and visible text labels alongside colors, retained keyboard controls/focus indicators, wrapping long names/schools, and no source-panel horizontal overflow at verified widths. Deployment: frontend stylesheet/build changes only; no backend code or migration. Historical list storage and retired payment-oriented functionality remain retained/disabled as already documented; this visual change does not extend the workflow beyond official list generation.
+
+### Validation and results
+
+Frontend lint and production build passed; the existing large-chunk advisory remains. All 70 existing frontend regression tests passed. Chromium browser checks passed for Billing and Payroll at 1280, 500, 390, and 320 pixel viewports using the application global styles and mocked APIs. Checks cover school placement, source-panel overflow, normal/bulk queueing, inactive-account blocking, period queue clearing, generation payload/warnings, and the retained Billing editor. Screenshots were inspected locally with synthetic data; no production records were modified. Backend tests were not repeated because no backend behavior changed.
+
+### Limitations, rollback, and next work
+
+The target queue retains its existing horizontal table scrolling on small screens. Source rows may become taller for long names/school names, with the panel body remaining scrollable. Authenticated hosted visual testing remains for the user after deployment. Roll back the stylesheet commit if needed; no data rollback is required. Verify the published frontend assets and use docs/qa/2026-10-13/billing-payroll-layout-checklist.md for staff testing. Deployment results will be recorded after public asset and health checks.
+
 ## 2026-10-13 - Deploy Simplified Billing and Payroll Listing for Testing
 
 **TL;DR**

@@ -229,3 +229,5 @@
 2026-10-13 | Prepared simplified Billing/Payroll listing release for Hostinger testing. Frontend and backend deployment required; no migration. Local regression/lint/build/browser checks passed; push and live verification pending.
 
 2026-10-13 | Deployed simplified Billing/Payroll listing release de44a06 for testing. Frontend bundle verified live with new requirement warnings and removed override controls/request fields; API healthy and database connected. User confirmed Hostinger backend deployment success. No migration; authenticated testing checklist retained.
+
+2026-10-13 | Polished Billing/Payroll scholar source-list alignment, name/school hierarchy, matching status badges, and responsive stacked records. Frontend CSS only; processing behavior unchanged. 70 frontend tests, lint/build, and eight desktop/mobile browser scenarios passed; deployment pending.
