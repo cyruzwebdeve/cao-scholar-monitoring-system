@@ -241,3 +241,5 @@
 2026-10-13 | Set Billing/Payroll source-list school names to the requested 7px. Other typography and processing unchanged; frontend build passed. No migration; not deployed.
 
 2026-10-13 | Deployed 7px school-name release cdb5a99. Live Dashboard-r7w7Pw-9.css verified the scoped 7px rule; API healthy/database connected. Frontend only, no migration.
+
+2026-10-13 | Replaced Billing/Payroll incomplete-requirements text badge with an amber warning icon and accessible hover/focus/tap tooltip. Processing unchanged; 70 frontend tests, lint/build, and eight browser scenarios passed. Frontend only; not deployed.

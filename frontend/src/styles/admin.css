@@ -8224,12 +8224,13 @@
 .billing-source-table .billing-queue-name strong { font-size: 12px; line-height: 1.45; white-space: normal; overflow-wrap: anywhere; }
 .billing-source-table .processing-school-identity { grid-area: school; padding: 0; color: #68796f; font-size: 7px; line-height: 1.5; }
 .billing-source-table .processing-school-identity strong { font-weight: 400; }
-.billing-source-table .billing-source-status { grid-area: status; align-self: start; min-width: 0; gap: 6px; }
-.billing-source-table .billing-queue-ready,
-.billing-requirements-warning { box-sizing: border-box; display: inline-flex; align-items: center; width: fit-content; max-width: 100%; min-height: 24px; padding: 4px 8px !important; border: 1px solid #d4e9dc; border-radius: 6px; font-size: 10px; font-weight: 600; line-height: 1.4; }
+.billing-source-table .billing-source-status { grid-area: status; align-self: start; display: flex; flex-wrap: wrap; align-items: center; min-width: 0; gap: 6px; }
+.billing-source-table .billing-queue-ready { box-sizing: border-box; display: inline-flex; align-items: center; width: fit-content; max-width: 100%; min-height: 24px; padding: 4px 8px !important; border: 1px solid #d4e9dc; border-radius: 6px; font-size: 10px; font-weight: 600; line-height: 1.4; }
 .billing-source-table .billing-queue-ready { color: #20683e; background: #eef8f2; }
 .billing-source-table .billing-queue-ready.archived { color: #59685f; border-color: #e0e5e2; background: #f3f5f4; }
-.billing-requirements-warning { color: #86500c; border-color: #efdbb6; background: #fff8eb; }
+.billing-source-status > .billing-requirements-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; min-height: 28px; padding: 0; border: 1px solid #efdbb6; border-radius: 6px; color: #a36b11; background: #fff8eb; cursor: help; }
+.billing-requirements-icon:focus-visible { outline: 2px solid #a36b11; outline-offset: 2px; }
+.billing-requirements-tooltip { position: fixed; z-index: 400; width: 176px; max-width: calc(100vw - 16px); box-sizing: border-box; padding: 8px 10px; border: 1px solid #dce5df; border-radius: 7px; color: #fff; background: #2d4134; box-shadow: 0 4px 14px rgba(17,47,28,.16); font-size: 11px; font-weight: 500; line-height: 1.5; }
 .billing-source-status > button { min-height: 28px; font-size: 10px; }
 .billing-source-panel > footer { min-height: 48px; padding: 0 16px; color: #65766b; font-size: 10px; }
 @container (max-width: 420px) {

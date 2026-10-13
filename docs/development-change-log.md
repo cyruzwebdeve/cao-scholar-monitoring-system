@@ -5,6 +5,34 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-13 - Replace Requirement Text Badge with Accessible Warning Tooltip
+
+**TL;DR**
+- Billing/Payroll source rows show a compact amber warning icon instead of the persistent incomplete-requirements text badge.
+- Hover, keyboard focus, and tap reveal “Incomplete requirements”; Escape, focus exit, and scrolling dismiss it.
+- Requirement readiness and processing permissions/data remain unchanged; tooltips do not authorize exceptions or open alerts.
+- Verification: 70 frontend tests, lint/build, and eight synthetic desktop/mobile browser scenarios passed. Not deployed in this task.
+
+### Objective and previous/new behavior
+
+Reduce visual crowding in the status column as requested. Previously every incomplete scholar displayed a full amber text badge below readiness. Now a small warning icon sits beside the readiness badge when space permits. The text appears only in an informational tooltip; existing warning metadata remains the condition for showing the icon.
+
+### Roles, implementation, data flow, and files
+
+Affected users: authorized Billing and Payroll staff. Added frontend/src/components/RequirementsWarning.jsx with a labeled button and portaled tooltip so the scrollable table does not clip it. The component measures the trigger position, constrains placement to the viewport, supports hover/focus/tap, allows hovering the tooltip, and handles Escape/blur/scroll/resize dismissal. BillingPayrollManagement renders the component for processingWarnings. admin.css styles the icon, focus outline, tooltip, and horizontal status arrangement. No processing requests or server metadata changed.
+
+### Impact
+
+API, database/schema/migration, configuration, security, and permissions: none. Privacy: no new personal fields or requests; the button's accessible label uses the already displayed scholar name. Accessibility: meaningful button label, aria-describedby/tooltip association while open, visible focus styling, keyboard support, hoverable tooltip, and touch access replace reliance on a text badge. Deployment: frontend only; not deployed in this task. Historical records and the approved list-generation scope remain unchanged; no payment-related functionality is added.
+
+### Validation and results
+
+All 70 existing frontend tests passed. Frontend lint and production build passed with the existing large-chunk advisory. Eight Chromium scenarios passed (Billing/Payroll at 1280, 500, 390, and 320px) with synthetic records and intercepted API calls. Checks cover icon presence, hidden tooltip at rest, hover and tooltip hover retention, keyboard focus/blur/Escape, click access, viewport bounds, school alignment/source-panel overflow, bulk queueing, inactive-account blocking, period reset, unchanged generation payloads, and Billing editing. Inspected a local screenshot to confirm the readiness pill and icon align. No production records were changed.
+
+### Limitations, rollback, and next work
+
+Tooltip text summarizes incomplete requirements; individual document review remains in the existing requirement workflow. Status indicators may wrap on narrow panels/long readiness labels. Hover is supplemented by focus/tap for keyboard/touch users. Roll back the component, its render call, and related styles together to restore the text badge; no data rollback needed. Verify the icon and tooltip in authenticated hosted Billing/Payroll after frontend deployment.
+
 ## 2026-10-13 - Set Scholar List School Names to 7px
 
 **TL;DR**

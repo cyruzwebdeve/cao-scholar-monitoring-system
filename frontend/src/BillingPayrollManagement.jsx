@@ -20,6 +20,7 @@ import {
 import { API_BASE, authHeaders } from './services/api';
 import CsvExportModal from './components/CsvExportModal';
 import ScholarSchoolIdentity from './components/ScholarSchoolIdentity';
+import RequirementsWarning from './components/RequirementsWarning';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
 import { clearProcessingHandoff, readProcessingHandoff } from './utils/processingHandoff';
 import { canQueueForProcessing, isVisibleInProcessingMode } from './utils/processingVisibility';
@@ -538,7 +539,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
                   <button type="button" className="billing-queue-name" aria-pressed={isSelected} disabled={!canMove} title={canMove ? `Select ${record.name}` : unavailableReason || `${record.name} cannot be moved again.`} onClick={() => toggleSelection(setSourceSelection, record.applicantId)}><strong>{record.name}</strong></button>
                   <div className="billing-source-status">
                     <span className={`billing-queue-ready ${canMove ? '' : 'archived'}`}>{statusLabel}</span>
-                    {record.processingWarnings?.length > 0 && <span className="billing-requirements-warning" title={record.processingWarnings.map(({ message }) => message).join(" ")}>Requirements incomplete</span>}
+                    {record.processingWarnings?.length > 0 && <RequirementsWarning name={record.name} />}
                     {!isPayroll && !record.isArchivedPeriod && !record.billed && <button type="button" onClick={() => openBillingEditor(record)} aria-label={`Edit billing details for ${record.name}`}><Pencil size={12} />Edit</button>}
                   </div>
                   <ScholarSchoolIdentity record={record} />
