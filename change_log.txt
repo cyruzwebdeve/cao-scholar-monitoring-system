@@ -251,3 +251,5 @@
 2026-10-13 | Deployed compact scholar-row release eea2096. Live Dashboard-BYxBqiDZ.css verified 64px minimum height, 10px vertical padding, and 2px row gap; API healthy/database connected. Frontend only, no migration.
 
 2026-10-13 | Matched Billing/Payroll source and target panel typography, headers, footers, and compact row spacing. Queued scholars retain school subtitles and use warning-icon tooltips. Processing unchanged; 70 frontend tests, lint/build, and eight browser scenarios passed. Frontend deployment pending.
+
+2026-10-13 | Aligned source-row content to the top to match queued identities in the matching-panel release. Frontend build passed; processing unchanged.
