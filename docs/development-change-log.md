@@ -10,7 +10,7 @@ and how the result was verified.
 **TL;DR**
 - List of Scholars now shares the 11px heading size used by For Payroll/For Billing.
 - Billing and Payroll staff get consistent panel-title sizing; processing behavior and data are unchanged.
-- Verification: shared CSS rule confirmed and frontend production build passed. Prepared for the user-requested Hostinger frontend deployment; live verification pending.
+- Verification: shared CSS rule confirmed and frontend production build passed. Release ea83fd4 deployed; shared 11px headings verified in the live stylesheet.
 
 ### Objective and behavior
 

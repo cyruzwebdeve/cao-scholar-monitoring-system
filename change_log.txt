@@ -235,3 +235,5 @@
 2026-10-13 | Deployed scholar-list layout release 532b506 for testing. Hostinger frontend stylesheet verified live (Dashboard-BgbXZ9Fu.css); API healthy/database connected. Frontend only, no backend change or migration.
 
 2026-10-13 | Matched List of Scholars heading to For Payroll/For Billing using their shared 11px size. Frontend styling only; production build passed, no migration, not deployed.
+
+2026-10-13 | Deployed heading-size correction ea83fd4 for testing. Live Dashboard-CD8_2I3X.css verified both source/target headings share 11px; API healthy/database connected. Frontend only, no migration.
