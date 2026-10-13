@@ -5,6 +5,34 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-14 - Continuing Requirements Panel Layout
+
+**TL;DR**
+- Reorganized Continuing Requirements into a clear period header, four summary cards, regular/late schedule cards and a compact action footer.
+- Staff get consistent typography, spacing, icons and readable Scholar selection rows; mobile controls stack without clipping.
+- Schedule ownership, deadlines, late permissions and payroll-list eligibility retain their existing rules. No data or backend change.
+- Frontend lint/build and synthetic desktop/mobile workflow checks passed. Frontend deployment authorized; live verification will be recorded below.
+
+### Objective and previous/new behavior
+
+Replace the newly introduced plain, full-width fieldset form with an interface consistent with the existing Scholars workspace. Summary counts now use labeled cards. Regular and optional late dates have distinct sections, with date pairs aligned on desktop and stacked on mobile. The selected-Scholar picker separates name/control number and displays the selected count. A concise policy notice clarifies that upload deadlines do not block payroll-list generation. The action row groups reload/publish and labels the device timezone. An explicit no-active-period message replaces a blank unavailable selector.
+
+### Roles, implementation and affected areas
+
+Affected users: authorized Admins configuring schedules and staff viewing the Scholars section. Updated `frontend/src/ContinuingRequirementsSettings.jsx` and `frontend/src/styles/scholars-management.css`. Reused existing lucide icons, preserving the period picker, date values, selection IDs, revision, fetch/save logic and navigation. No new dependency. Existing shared section-tab design remains intact. The form still submits the same regular/late timestamps and scope; date semantics and record retention do not change.
+
+### Impacts
+
+API, database, configuration, security and privacy: no impact. Scheduling, initial approval, selected late access, requirement uploads and official list generation retain their existing rules. No backend or legacy payment code changes; workflow still ends at list generation. Accessibility: labeled native inputs and checkboxes, keyboard focus outlines, decorative icons hidden from assistive technology, status/error notices, busy state and disabled unavailable controls. Responsive layout: four summary columns and two schedule columns on desktop, two summary columns and stacked schedule/date sections on mobile. Deployment: frontend-only; no new migration. Pushing the authorized release to main for Hostinger; live verification pending.
+
+### Validation and results
+
+Frontend lint and production build passed; the existing large-chunk advisory remains. Diff whitespace checks passed. Synthetic Chromium checks at 1280px and 390px passed publishing with timezone-qualified timestamps, selected late scope, saved-date reload, Payroll handoff and Scholar late/closed/waiting behavior. Desktop/mobile screenshots were inspected for typography, alignment and control clipping. No hosted document uploads, schedule mutations or official list generation were performed. No new automated test files were added for this presentation change.
+
+### Limitations, rollback and next work
+
+Native date-control appearance follows the browser/OS. The selected-Scholar list retains its existing scrolling and scheduling constraints. Revert the component/style edits to restore the previous presentation; no data rollback is needed. Deploy the frontend when requested, then inspect the panel with real authorized staff sessions. Preserve the separately tracked backend schedule-migration confirmation.
+
 ## 2026-10-14 - Consistent Scholars Section Tabs
 
 **TL;DR**
