@@ -5,6 +5,32 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-15 - Initial Submission Scholar Dashboard Verification
+
+**TL;DR**
+- Verified the existing initial-submission data path and rendered Public/Private Scholar dashboards; no application changes were necessary.
+- Five Public or six Private initial documents show Admin-provided filenames and Approved status after refresh. Initial fields have no Scholar upload controls; continuing files stay separate.
+- Visible dashboards refresh every two minutes; focus/visibility return can refresh after a one-minute age, and page reload fetches immediately. Phone relay alone is temporary and does not finalize initial documents.
+- All 75 selected backend tests and both isolated browser workflows passed. Hosted assets contain the initial-submission UI; authenticated production record verification remains for staff.
+
+### Objective and behavior reviewed
+
+Verify that the new Admin initial-intake workflow is reflected in the Scholar dashboard during the Results drawer deployment. Initial and continuing submissions already use separate period/wave sets. `uploadScholarRequirementByAdmin` stores the initial file through the versioned mutation service; the existing staff-upload policy marks it Approved. `/applications/me` returns initial requirements using `getInitialRequirements` and continuing requirements using `getWaveSet`. The Scholar dashboard renders the initial filenames/statuses without Scholar editing controls; tuition receipts appear for Private-school periods. Continuing uploads open only according to initial approval and the configured schedule/access policy. The phone Upload button transfers a temporary photo to the paired intake; the Admin still ends the phone connection and confirms the reviewed initial set before it is stored as an approved requirement.
+
+### Implementation, files and impacts
+
+Read-only verification covered `frontend/src/ScholarDashboard.jsx`, `frontend/src/utils/dataRefresh.js`, `backend/controllers/applicationController.js`, `backend/services/requirementWaves.js` and the related schedule/phone services and tests. No application behavior, API, database, configuration, dependencies, security controls, privacy or accessibility changes were made for this verification. No production records were modified. Scope remains payroll-list generation, with no legacy payment changes. No additional deployment or migration is needed for initial-submission reflection.
+
+### Validation and results
+
+The 75 selected tests in `requirementWaves.test.js`, `payrollProcessing.test.js`, `continuingSchedule.test.js` and `phoneCapture.test.js` passed using isolated facades. An initial sandbox run could not bind two local listeners; the authorized local-listener run passed. Chromium fixtures with mocked, synthetic Public and Private records verified five/six initial items, awaiting-upload placeholders, absence of initial Scholar upload controls, disabled continuing controls before access, exact Approved statuses/filenames after a simulated two-minute refresh, Private-only tuition receipt and separate continuing files. The browser clock was installed before rendering to track the component's interval accurately. Temporary fixtures/server were removed.
+
+Hostinger served `ScholarDashboard-Bo4uDUyY.js` with INITIAL SUBMISSION/CAO UPLOAD and Awaiting CAO upload markers; API health was healthy/database connected. Served assets establish that the UI is deployed, not that a particular authenticated production record is correct. No production account/session was available for an end-to-end hosted upload.
+
+### Limitations, rollback and next work
+
+Reflection is polling-based, not instantaneous server push. No rollback applies to read-only verification. Staff acceptance: use a test Scholar, capture initial documents, end any paired phone connection, confirm/upload the set, then reload that Scholar's Requirements dashboard or allow up to two minutes while visible. Check filenames and Approved statuses for every initial item, including the tuition receipt only for Private school, and confirm continuing documents remain separate. If production differs, inspect the affected period and API response through an authorized session without sharing credentials or documents.
+
 ## 2026-10-15 - Remove Remarks Box from Results Drawer
 
 **TL;DR**
@@ -18,7 +44,7 @@ Remove the unneeded Remarks display shown in the applicant's Results drawer. Pre
 
 ### Implementation and impacts
 
-Removed the display section and its unused timestamp formatter from `frontend/src/ResultsManagement.jsx`; removed `.rm-remarks` and `.rm-remarks-timestamp` rules from `frontend/src/styles/admin.css`. Existing notes still flow through the unchanged API for score review and CSV export; historical records are retained. API, database, configuration, dependencies, security and privacy: no changes. Accessibility: removes the redundant heading/display and associated timestamp, with no new controls. Deployment: frontend only, no migration; deployment now authorized by the user. Payroll-list scope and legacy payment functionality: no changes.
+Removed the display section and its unused timestamp formatter from `frontend/src/ResultsManagement.jsx`; removed `.rm-remarks` and `.rm-remarks-timestamp` rules from `frontend/src/styles/admin.css`. Existing notes still flow through the unchanged API for score review and CSV export; historical records are retained. API, database, configuration, dependencies, security and privacy: no changes. Accessibility: removes the redundant heading/display and associated timestamp, with no new controls. Deployment: release `a8f436b` pushed and verified live on Hostinger. Entry `/assets/index-DQ5oSNVh.js` references Admin `Dashboard-DR5bxoqN.js`; the removed Remarks fallback and timestamp selector are absent while Review remarks remains. Public API health reported healthy/database connected. Frontend only, no migration. Payroll-list scope and legacy payment functionality: no changes.
 
 ### Validation, limitations, rollback and next work
 

@@ -288,3 +288,4 @@
 2026-10-14 | Deployed photo-tip release 8c0d7dd to Hostinger; public phone/Admin assets and shared guidance/CSS verified live, API/database healthy. Frontend-only, no migration; authenticated camera acceptance remains for staff testing.
 
 2026-10-15 | Removed the Remarks display and Updated timestamp from the Results applicant drawer, plus unused formatter/CSS. Existing notes, score-review inputs and CSV exports retained; no API/database changes. Frontend lint/build and whitespace checks passed; not deployed.
+2026-10-15 | Deployed Remarks-removal release a8f436b; Hostinger Admin assets verified, API/database healthy. Verified existing initial-submission reflection for Public/Private Scholars with 75 backend tests and mocked browser approval-refresh workflows; initial files stay separate from continuing. Dashboard polls every two minutes, not instant; hosted authenticated acceptance remains for staff.
