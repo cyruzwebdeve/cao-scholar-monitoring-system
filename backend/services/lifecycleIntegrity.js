@@ -1,6 +1,6 @@
 const ONLINE_REQUIREMENTS = [
   { key: 'tax_exemption', label: 'Certificate of Tax Exemption', fileField: 'cert_tax_exemption_file', statusField: 'cert_tax_exemption_review_status' },
-  { key: 'indigency', label: 'Barangay Indigency', fileField: 'barangay_indigency_file', statusField: 'barangay_indigency_review_status' },
+  { key: 'indigency', optional: true, label: 'Barangay Indigency (optional)', fileField: 'barangay_indigency_file', statusField: 'barangay_indigency_review_status' },
   { key: 'valid_id', label: 'Photocopy of ID', fileField: 'valid_id_photocopy_file', statusField: 'valid_id_photocopy_review_status' },
   { key: 'grades', label: 'Certificate of Grades', fileField: 'grade_report_file', statusField: 'grade_report_review_status' },
   { key: 'registration_form', label: 'Registration Form', fileField: 'registration_form_file', statusField: 'registration_form_review_status' },
@@ -25,6 +25,7 @@ const getRequirementSnapshot = ({ initialDocs, requirement, schoolType = 'public
     const status = normalizeStatus(uploaded?.status || requirement?.[definition.statusField] || 'pending');
     return {
       key: definition.key,
+      optional: Boolean(definition.optional),
       label: definition.label,
       submitted,
       approved: submitted && APPROVED_STATUSES.has(status),
@@ -34,8 +35,8 @@ const getRequirementSnapshot = ({ initialDocs, requirement, schoolType = 'public
 
   return {
     online,
-    onlineApproved: online.filter(({ approved }) => approved).length,
-    onlineTotal: online.length,
+    onlineApproved: online.filter(({ approved, optional }) => approved && !optional).length,
+    onlineTotal: online.filter(({ optional }) => !optional).length,
   };
 };
 
@@ -48,7 +49,7 @@ const evaluateBillingEligibility = ({ isActive, alreadyBilled, alreadyProcessedF
   }
 
   if (!isActive) reasons.push({ code: 'SCHOLAR_INACTIVE', message: 'Scholar account is not active.' });
-  snapshot.online.forEach((item) => {
+  snapshot.online.filter((item) => !item.optional).forEach((item) => {
     if (!item.submitted) reasons.push({ code: 'REQUIREMENT_MISSING', requirement: item.key, message: `${item.label} has not been uploaded.` });
     else if (!item.approved) reasons.push({ code: 'REQUIREMENT_NOT_APPROVED', requirement: item.key, message: `${item.label} has not been approved by Billing staff.` });
   });

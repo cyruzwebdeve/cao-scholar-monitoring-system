@@ -295,7 +295,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
   const metrics = isPayroll
     ? [
         { label: 'Total Scholars', value: routedRecords.length, detail: 'Accepted scholar accounts', tone: 'green', Icon: UsersRound },
-        { label: 'For Payroll', value: routedRecords.filter((item) => !item.inPayroll).length, detail: 'Public scholars awaiting payroll', tone: 'orange', Icon: Banknote },
+        { label: 'For Payroll', value: routedRecords.filter((item) => !item.inPayroll).length, detail: 'Scholars awaiting payroll', tone: 'orange', Icon: Banknote },
         { label: 'In Payroll', value: routedRecords.filter((item) => item.inPayroll).length, detail: 'Included in payroll records', tone: 'blue', Icon: Banknote },
         { label: 'Generated Lists', value: referencedCount, detail: 'Official payroll-list records', tone: 'violet', Icon: ReceiptText },
       ]
@@ -453,7 +453,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
   return <>
     <div className="billing-management">
       <header className="billing-heading">
-        <div><span>{isPayroll ? 'PAYROLL OPERATIONS' : 'BILLING OPERATIONS'}</span><h2>{isPayroll ? 'Payroll Management' : 'Billing Management'}</h2><p>{isPayroll ? 'Generate the official ₱3,000 payroll list for eligible public-school scholars.' : 'Generate the ₱5,000 tuition certification list for eligible private-school scholars.'}</p></div>
+        <div><span>{isPayroll ? 'PAYROLL OPERATIONS' : 'BILLING OPERATIONS'}</span><h2>{isPayroll ? 'Payroll Management' : 'Billing Management'}</h2><p>{isPayroll ? 'Generate the official payroll list for initial Public/Private, subsequent Public, and late submissions.' : 'Generate tuition certification lists for subsequent regular Private-school submissions.'}</p></div>
         <label className="billing-period-selector"><span>Processing period</span><select value={selectedPeriodId} disabled={loading || !activePeriods.length} onChange={(event) => { setSelectedPeriodId(event.target.value); setQueuedIds([]); setSourceSelection([]); setQueueSelection([]); setOperationNotice(null); setPage(1); }}><option value="" disabled>Select active period</option>{activePeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}{period.isPrimary ? ' (Primary)' : ''}</option>)}</select></label>
       </header>
 

@@ -6,13 +6,13 @@ import AuthPageShell from './components/AuthPageShell';
 import LoginForm from './components/LoginForm';
 import { readCaptureFile, renderCapture } from './utils/documentCapture';
 import './styles/document-capture.css';
-const labels = { tax_exemption: 'Certificate of Tax Exemption', indigency: 'Barangay Indigency', valid_id: 'Photocopy of ID', grades: 'Certificate of Grades', registration_form: 'Registration Form', tuition_receipt: 'Official Receipt of Tuition Fee' };
+const labels = { tax_exemption: 'Certificate of Tax Exemption', indigency: 'Barangay Indigency (optional)', valid_id: 'Photocopy of ID', grades: 'Certificate of Grades', registration_form: 'Registration Form', tuition_receipt: 'Official Receipt of Tuition Fee' };
 export default function PhoneCapturePage({ token, user, onLogin, onLogout }) {
   const sessionId = new URLSearchParams(window.location.search).get('session') || '';
   const [session, setSession] = useState(null), [key, setKey] = useState(''), [photo, setPhoto] = useState(null), [notice, setNotice] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [camera, setCamera] = useState(false), [expired, setExpired] = useState(false);
   const [noticeSuccess, setNoticeSuccess] = useState(false);
   const stream = useRef(null), video = useRef(null), alive = useRef(true), generation = useRef(0);
-  const authorized = token && ['SuperAdmin', 'RegularAdmin'].includes(user?.role) && (user.role === 'SuperAdmin' || !Array.isArray(user.sectionAccess) || user.sectionAccess.includes('scholars'));
+  const authorized = token && ['SuperAdmin', 'RegularAdmin'].includes(user?.role) && (user.role === 'SuperAdmin' || !Array.isArray(user.sectionAccess) || (user.sectionAccess.includes('scholars') || user.sectionAccess.includes('examination')));
   const stop = () => { generation.current += 1; stream.current?.getTracks().forEach((track) => track.stop()); stream.current = null; setCamera(false); };
   useEffect(() => {
     alive.current = true;

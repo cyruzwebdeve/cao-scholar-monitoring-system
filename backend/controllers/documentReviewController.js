@@ -1,7 +1,7 @@
+const { canRecordInitial } = require('../services/passerIntake');
 const { Readable } = require('node:stream');
 const prisma = require('../config/prisma');
 const { parseDataUrl } = require('../services/blobStorage');
-const { sendScholarApprovedEmail } = require('../services/mailer');
 const { PRIORITY_PROOFS, isDeclaredPriorityProof } = require('../services/priorityEligibility');
 const {
   REQUIREMENT_DEFINITIONS,
@@ -40,10 +40,6 @@ const getPrimaryAcademicPeriod = async () => prisma.academic_periods.findFirst({
   where: { is_active: true },
   orderBy: [{ updated_at: 'desc' }, { id: 'desc' }],
 });
-
-const normalizeFamilyName = (value) => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/gi, '').toUpperCase();
-const sameFamily = (left, right) => normalizeFamilyName(left?.fatherName) && normalizeFamilyName(left?.fatherName) === normalizeFamilyName(right?.fatherName)
-  && normalizeFamilyName(left?.motherName) === normalizeFamilyName(right?.motherName);
 
 const getDocumentReviews = async (req, res) => {
   try {
@@ -135,7 +131,6 @@ const reviewDocument = async (req, res) => {
     const priorityProof = definition.category === 'priority';
     const scholar = await prisma.scholar_accounts.findFirst({ where: { applicant_id: application.applicant_id } });
     if (!scholar?.is_active && !priorityProof) return res.status(403).json({ message: 'Only accepted scholar documents can be reviewed.' });
-    if (priorityProof && decision === 'approved' && scholar && !scholar.is_active) return res.status(409).json({ message: 'An inactive scholar record already exists. A Provincial Admin must review it before this proof can trigger automatic acceptance.' });
     if (priorityProof && !isDeclaredPriorityProof({ eligibility: application.eligibility, proofKey: requirementKey })) {
       return res.status(409).json({ message: 'This proof does not match a declared eligibility criterion.' });
     }
@@ -162,45 +157,15 @@ const reviewDocument = async (req, res) => {
         data: { [statusField]: decision, updated_by: req.user.id },
       }));
     }
-    let autoAcceptedScholar = null;
-    if (priorityProof && decision === 'approved' && !scholar) {
-      if (!activePeriod) return res.status(409).json({ message: 'No active academic period is configured.' });
-      const otherScholars = await prisma.scholar_accounts.findMany({ where: { is_active: true, applicant_id: { not: application.applicant_id } }, select: { applicant_id: true } });
-      const otherApplications = otherScholars.length ? await prisma.application_submissions.findMany({ where: { applicant_id: { in: otherScholars.map(({ applicant_id }) => applicant_id) }, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' }, select: { applicant_id: true, family: true } }) : [];
-      if (otherApplications.some((other) => sameFamily(application.family, other.family))) {
-        return res.status(409).json({ message: 'Automatic acceptance is blocked because another active scholar from the same family was found.' });
-      }
-      const applicant = await prisma.applicants.findUnique({ where: { id: application.applicant_id } });
-      if (!applicant) return res.status(404).json({ message: 'Applicant record not found.' });
-      const yearPrefix = String(activePeriod.school_year).split('-')[0];
-      const scholarId = `PGCEAP-${yearPrefix}-${String(applicant.id).padStart(5, '0')}`;
-      operations.push((tx) => tx.scholar_accounts.create({ data: { applicant_id: applicant.id, scholar_id: scholarId, is_active: true, issued_by: req.user.id, notes: `Automatically accepted after verified proof: ${definition.label}.` } }));
-      operations.push((tx) => tx.scholar_requirements.upsert({ where: { applicant_id_billing_period_id: { applicant_id: applicant.id, billing_period_id: activePeriod.id } }, create: { applicant_id: applicant.id, billing_period_id: activePeriod.id, updated_by: req.user.id }, update: { updated_by: req.user.id } }));
-      operations.push((tx) => tx.eligibility_assessments.create({ data: {
-        applicant_id: applicant.id, application_id: application.id, academic_period_id: activePeriod.id,
-        policy_version: 'PGCEAP-PRIORITY-2026.1', policy_name: 'Verified priority eligibility bypass', recommendation: 'VERIFIED_PRIORITY_BYPASS', total_score: null, max_score: 1, threshold_score: 1,
-        summary: `${definition.label} proof was approved. The configured priority pathway bypassed the qualifying examination.`,
-        scorecard: [{ id: requirementKey, label: definition.label, score: 1, maxScore: 1, status: 'verified', explanation: 'Supporting proof was approved by an authorized reviewer.' }],
-        input_snapshot: { applicationId: application.id, priorityCriterion: definition.eligibilityKey, proofKey: requirementKey, proofStatus: 'Approved' },
-        reviewed_by: req.user.id, review_decision: 'auto_accepted', review_reason: String(notes || '').trim() || 'Supporting proof approved.', reviewed_at: new Date(),
-      } }));
-      autoAcceptedScholar = { applicant, scholarId };
-    }
     await mutateRequirementWaves(prisma, applicationId, activePeriod?.id, async (docs, tx) => {
       if (JSON.stringify(docs.requirements?.[requirementKey]) !== JSON.stringify(application.initial_docs?.requirements?.[requirementKey])) throw Object.assign(conflict(), { exactFileConflict: true });
       docs.requirements[requirementKey] = updatedDocuments.requirements[requirementKey];
       for (const operation of operations) await operation(tx);
-      if (priorityProof && decision === 'approved') await tx.application_submissions.updateMany({ where: { id: applicationId }, data: { status: 'Priority_Accepted' } });
       return {};
     });
-    if (autoAcceptedScholar) await sendScholarApprovedEmail({ to: autoAcceptedScholar.applicant.email, firstName: autoAcceptedScholar.applicant.first_name, scholarId: autoAcceptedScholar.scholarId, schoolYear: activePeriod.school_year });
     res.locals.auditTargetId = applicationId;
-    if (autoAcceptedScholar) {
-      res.locals.auditAction = 'PRIORITY_PROOF_APPROVED_AUTO_ACCEPTED';
-      res.locals.auditDescription = `Approved ${definition.label} proof and automatically accepted the applicant with an examination bypass.`;
-    }
     return res.json({
-      message: autoAcceptedScholar ? 'Priority proof approved. The applicant was automatically accepted as a scholar and the examination was bypassed.' : decision === 'approved' ? 'Document approved successfully.' : 'Document rejected and returned for correction.',
+      message: decision === 'approved' ? 'Document approved. Scholar registration follows posted results and initial-document verification.' : 'Document rejected and returned for correction.',
       review: {
         applicationId,
         requirementKey,
@@ -247,7 +212,7 @@ const streamDocument = async (req, res) => {
     const document = wave ? getScopedDocument(application?.initial_docs, periodId, wave, requirementKey, req.query.versionId, primaryPeriod?.id) : getRequirementDocument(application, requirementKey);
     if (!document?.fileName) return res.status(404).json({ message: 'Document not found.' });
     const scholar = await prisma.scholar_accounts.findFirst({ where: { applicant_id: application.applicant_id, is_active: true } });
-    if (!scholar && REQUIREMENT_DEFINITIONS[requirementKey].category !== 'priority') return res.status(403).json({ message: 'Only accepted scholar documents can be opened.' });
+    if (!scholar && REQUIREMENT_DEFINITIONS[requirementKey].category !== 'priority' && !(wave === 'initial' && await canRecordInitial(prisma, application.applicant_id, periodId, application))) return res.status(403).json({ message: 'Only current posted passer or Scholar documents can be opened.' });
 
     const setDocumentHeaders = () => {
       res.setHeader('Content-Type', document.fileType || 'application/octet-stream');

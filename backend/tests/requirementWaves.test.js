@@ -153,7 +153,7 @@ test('archived file streaming selects exact wave and version without returning n
   assert.equal(res.statusCode, 200); assert.ok(res.sent); assert.match(res.sent.toString(), /%PDF/);
 });
 test('inactive scholars and invalid/inactive period selections cannot write any wave', async () => {
-  setup({ inactive: true }); assert.equal((await adminUpload('grades')).statusCode, 404); assert.equal((await open()).statusCode, 404); assert.equal(writes, 0);
+  setup({ inactive: true }); assert.equal((await adminUpload('grades')).statusCode, 409); assert.equal((await open()).statusCode, 404); assert.equal(writes, 0);
   setup(); assert.equal((await adminUpload('grades', 99)).statusCode, 400); assert.equal((await open(99)).statusCode, 400); assert.equal(writes, 0);
 });
 test('continuing deadline applies without blocking authorized initial intake', async () => {
@@ -269,9 +269,40 @@ test('Preparation accepts Payroll permission for Public and rejects the wrong de
     prisma.payroll_claims = { findFirst: async () => null };
     let saved = 0;
     prisma.scholar_requirements.upsert = async ({ create }) => { saved += 1; return create; };
-    const req = { params: { applicantId: '7' }, body: { academicPeriodId: 10, billingStatus: 'Ready for billing' }, user: { id: 11, role: 'RegularAdmin', sectionAccess: [type === 'public' ? 'billing' : 'payroll'] } };
+    const req = { params: { applicantId: '7' }, body: { academicPeriodId: 10, billingStatus: 'Ready for billing' }, user: { id: 11, role: 'RegularAdmin', sectionAccess: ['billing'] } };
     let res = response(); await updateScholarBillingMetadata(req, res); assert.equal(res.statusCode, 403); assert.equal(saved, 0);
-    req.user.sectionAccess = [type === 'public' ? 'payroll' : 'billing'];
+    req.user.sectionAccess = ['payroll'];
     res = response(); await updateScholarBillingMetadata(req, res); assert.equal(res.statusCode, 200); assert.equal(saved, 1);
   }
+});
+
+test('authorized Admin initial capture works for a posted passer without creating a Scholar account', async () => {
+  setup({ inactive: true, schoolType: 'public' }); application.status = 'Examined';
+  const result = { id: 5, passed: true, published_at: '2026-10-16', updated_at: '2026-10-16' };
+  prisma.passer_list_members = { findMany: async () => [{ application_id: 1, result_id: 5, snapshot: { resultUpdatedAt: result.updated_at } }] };
+  prisma.results = { findFirst: async () => result };
+  try {
+    let res = await adminUpload('grades'); assert.equal(res.statusCode, 200); assert.equal(getWaveSet(application.initial_docs, 10, 'initial').requirements.grades.status, 'Approved');
+    assert.equal(await prisma.scholar_accounts.findFirst(), null);
+    result.updated_at = '2026-10-17';
+    prisma.passer_list_members.findMany = async () => [{ application_id: 1, result_id: 5, snapshot: { resultUpdatedAt: '2026-10-16' } }];
+    const before = writes; res = await adminUpload('valid_id'); assert.equal(res.statusCode, 409); assert.equal(writes, before);
+  } finally { delete prisma.passer_list_members; delete prisma.results; }
+});
+test('Passer List and pre-Scholar intake routes deny anonymous, applicant, Billing-only and wrong-section staff', async () => {
+  for (const headers of [{}, authHeader(7,'control'), authHeader(4), authHeader(11)]) {
+    setup();
+    for (const [method,path] of [['POST','/passer-lists'],['POST','/passer-lists/1/post'],['GET','/passers/7/intake'],['PUT','/passers/7/requirements/grades']]) {
+      const res = await fetch(baseUrl+path,{method,headers:{...headers,'Content-Type':'application/json'},...(method==='GET'?{}:{body:'{}'})});
+      assert.equal(res.status, headers.Authorization ? 403 : 401);
+    }
+  }
+});
+
+test('priority-proof approval verifies the file without creating or tagging a Scholar', async () => {
+  setup({ inactive: true }); application.status='Examined';application.eligibility={pwd:'Yes'};
+  application.initial_docs.requirements.priority_pwd={fileName:'TEST-proof.pdf',fileData:file().fileData,status:'Pending'};
+  prisma.scholar_accounts.create=async()=>{throw new Error('Proof approval must not create a Scholar');};
+  const res=response();await reviewDocument({params:{applicationId:'1',requirementKey:'priority_pwd'},body:{decision:'approved',notes:'Verified test proof'},user:{id:9}},res);
+  assert.equal(res.statusCode,200);assert.equal(application.initial_docs.requirements.priority_pwd.status,'Approved');assert.equal(application.status,'Examined');assert.equal(await prisma.scholar_accounts.findFirst(),null);
 });

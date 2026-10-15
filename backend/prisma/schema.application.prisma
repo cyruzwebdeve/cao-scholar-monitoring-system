@@ -412,3 +412,35 @@ model phone_capture_sessions {
   @@index([expires_at])
   @@index([owner_admin_id])
 }
+
+model passer_lists {
+  id Int @id @default(autoincrement())
+  request_key String @unique @db.Uuid
+  academic_period_id Int
+  title String @db.VarChar(160)
+  status String @default("draft") @db.VarChar(20)
+  created_by Int
+  posted_by Int?
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  posted_at DateTime? @db.Timestamp(6)
+  supersedes_id Int?
+  revision_reason String?
+  supersedes passer_lists? @relation("PasserRevisions", fields: [supersedes_id], references: [id], onDelete: Restrict)
+  revisions passer_lists[] @relation("PasserRevisions")
+  members passer_list_members[]
+  @@index([academic_period_id, status])
+}
+
+model passer_list_members {
+  id Int @id @default(autoincrement())
+  list_id Int
+  academic_period_id Int
+  applicant_id Int
+  application_id Int
+  result_id Int
+  exam_id Int
+  snapshot Json
+  list passer_lists @relation(fields: [list_id], references: [id], onDelete: Restrict)
+  @@unique([list_id, applicant_id])
+  @@index([applicant_id, academic_period_id])
+}

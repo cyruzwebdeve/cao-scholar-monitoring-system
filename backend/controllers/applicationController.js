@@ -1,3 +1,5 @@
+const { getPostedPasser, canRecordInitial, initialChecklist, initialApproved } = require('../services/passerIntake');
+const { resolveProcessingRoute } = require('../services/processingRoute');
 const { hasSectionAccess } = require('../services/sectionAccess');
 const { loadContinuingSchedule, evaluateContinuingSchedule, projectContinuingAccess } = require('../services/continuingSchedule');
 const bcrypt = require('bcryptjs');
@@ -16,7 +18,6 @@ const {
 } = require('../services/mailer');
 const {
   evaluateListEligibility,
-  getSchoolProcessRoute,
 } = require('../services/lifecycleIntegrity');
 const {
   assignApplicantToMunicipalityExam,
@@ -825,12 +826,12 @@ const getScholarManagement = async (req, res) => {
       const requirement = requirementByApplicant.get(applicant.id);
       const application = applicationByApplicant.get(applicant.id);
       const applicationPlan = application?.school_plan || {};
-      const applicationRequirements = getEffectiveRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id).requirements;
       const school = resolveScholarSchool({ applicant, requirement, application, schoolById, schoolByName, schoolHistory: schoolHistoryByApplicant.get(applicant.id) });
       const resolvedSchoolType = String(school?.school_type || '').trim().toLowerCase();
       const schoolType = resolvedSchoolType === 'private' ? 'Private' : resolvedSchoolType === 'public' ? 'Public' : 'Unclassified';
       const continuingAccess = evaluateContinuingSchedule({ schedule: continuingSchedule, period: activePeriod, docs: application?.initial_docs, applicantId: applicant.id, schoolType, legacyPeriodId: primaryPeriod.id });
       if (application) application.initial_docs = projectContinuingAccess(application.initial_docs, activePeriod.id, continuingAccess);
+      const applicationRequirements = getEffectiveRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id).requirements;
       const configuredBillingAmount = requirement?.billing_amount === null || requirement?.billing_amount === undefined
         ? 0
         : Number(requirement.billing_amount);
@@ -842,7 +843,7 @@ const getScholarManagement = async (req, res) => {
         : null;
       const billed = Boolean(payrollClaim && currentRecordRoute === 'billing');
       const inPayroll = Boolean(payrollClaim && currentRecordRoute === 'payroll');
-      const processRoute = getSchoolProcessRoute(schoolType);
+      const processRoute = currentRecordRoute || resolveProcessingRoute({ schoolType, docs: application?.initial_docs, period: activePeriod, schedule: continuingSchedule, applicantId: applicant.id, legacyPeriodId: primaryPeriod.id });
       const schoolYear = activePeriod.school_year;
       const semester = activePeriod.semester;
       const billingSchoolYear = requirement?.billing_school_year || schoolYear;
@@ -884,7 +885,7 @@ const getScholarManagement = async (req, res) => {
           const sourcePeriodId = wave === 'initial' && !set.requirements[requirementKey] ? inherited.originalPeriodId : activePeriod.id;
           const sourcePeriod = academicPeriodById.get(sourcePeriodId) || activePeriod;
           return {
-            label, requirementKey, submitted: Boolean(file?.fileName), applicationId: application?.id || null,
+            label: requirementKey === 'indigency' ? 'Barangay Indigency (optional)' : label, optional: requirementKey === 'indigency', requirementKey, submitted: Boolean(file?.fileName), applicationId: application?.id || null,
             academicPeriodId: sourcePeriodId, submissionWave: wave, periodLabel: `${sourcePeriod.school_year} · ${sourcePeriod.semester}`, legacy: Boolean((set.requirements[requirementKey] ? set.legacy : inherited?.original.legacy) && !file?.uploadedByRole), versionId: file?.versionId || null, revision: file?.revision || 0, reviewHistory: file?.reviewHistory || [],
             fileName: file?.fileName || null, fileType: file?.fileType || 'application/octet-stream',
             uploadedAt: file?.uploadedAt || null, reviewedAt: file?.reviewedAt || null,
@@ -905,7 +906,8 @@ const getScholarManagement = async (req, res) => {
         const uploadedDocument = uploadKey ? applicationRequirements[uploadKey] : null;
         const submitted = Boolean(uploadedDocument?.fileName || (!application?.initial_docs?.requirementSets && !continuingIsOpen(application?.initial_docs, activePeriod.id) && requirement?.[fileField]));
         return {
-          label,
+          label: uploadKey === 'indigency' ? 'Barangay Indigency (optional)' : label,
+          optional: uploadKey === 'indigency',
           submitted,
           applicationId: application?.id || null,
           requirementKey: uploadKey,
@@ -919,9 +921,10 @@ const getScholarManagement = async (req, res) => {
             : submitted ? 'approved' : 'pending',
         };
       });
-      const submittedDocuments = documents.filter(({ submitted }) => submitted);
+      const requiredDocuments = documents.filter(({ optional }) => !optional);
+      const submittedDocuments = requiredDocuments.filter(({ submitted }) => submitted);
       const hasReviewItems = submittedDocuments.some(({ status }) => !['approved', 'complete', 'completed'].includes(String(status).toLowerCase()));
-      const documentsComplete = submittedDocuments.length === documents.length && !hasReviewItems;
+      const documentsComplete = submittedDocuments.length === requiredDocuments.length && !hasReviewItems;
       const billingEligibility = evaluateListEligibility({
         isActive: scholar.is_active,
         alreadyBilled: billed,
@@ -964,7 +967,7 @@ const getScholarManagement = async (req, res) => {
         status: scholar.is_active ? 'Active' : 'Inactive',
         documentStatus: documentsComplete ? 'Complete' : 'Review',
         documentsSubmitted: submittedDocuments.length,
-        documentsTotal: documents.length,
+        documentsTotal: requiredDocuments.length,
         documents, initialDocuments, continuingDocuments, documentHistory,
         continuingOpen: continuingAccess.visible, continuingSubmission: continuingAccess,
         billingEligible: billingEligibility.eligible,
@@ -1084,7 +1087,7 @@ const updateScholarBillingMetadata = async (req, res) => {
     ]);
     const school = await loadResolvedScholarSchool(prisma, { applicantId, applicant, application, requirement });
     if (!['Public', 'Private'].includes(schoolClassification(school?.school_type))) return res.status(409).json({ message: 'Correct the school classification before preparing a session.' });
-    if (!hasSectionAccess(req.user, getSchoolProcessRoute(school.school_type))) return res.status(403).json({ message: 'Access Denied. The required processing section is not assigned to your staff account.' });
+    if (!hasSectionAccess(req.user, resolveProcessingRoute({ schoolType: school.school_type, docs: application?.initial_docs, period: selectedPeriod, schedule: await loadContinuingSchedule(prisma, selectedPeriod.id), applicantId, legacyPeriodId: (await getActiveAcademicPeriodRecord()).id }))) return res.status(403).json({ message: 'Access Denied. The required processing section is not assigned to your staff account.' });
 
     const metadata = await prisma.scholar_requirements.upsert({
       where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: selectedPeriod.id } },
@@ -1213,13 +1216,13 @@ const processBillingSelection = async (req, res) => {
         schoolType: school?.school_type,
         requireSchoolClassification: true,
       });
-      if (school && getSchoolProcessRoute(school.school_type) !== 'billing') {
+      if (school && resolveProcessingRoute({ schoolType: school.school_type, docs: application?.initial_docs, period: activePeriod, schedule: continuingSchedule, applicantId, legacyPeriodId: primaryPeriod.id }) !== 'billing') {
         result = {
           ...result,
           eligible: false,
           reasons: [...result.reasons, {
             code: 'PUBLIC_SCHOOL_PAYROLL_ROUTE',
-            message: 'Public-school scholars go directly to Payroll and cannot be added to the Private certification list.',
+            message: 'Initial, Public and late submissions go to Payroll. Billing is for subsequent regular Private submissions.',
           }],
         };
       }
@@ -1320,7 +1323,7 @@ const processPayrollSelection = async (req, res) => {
     if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period for the payroll list.' });
     const continuingSchedule = await loadContinuingSchedule(prisma, activePeriod.id);
     const applicantIds = normalizeApplicantIds(req.body.applicantIds);
-    if (!applicantIds.length) return res.status(400).json({ message: 'Select at least one public-school scholar for the payroll list.' });
+    if (!applicantIds.length) return res.status(400).json({ message: 'Select at least one scholar for the payroll list.' });
     if (applicantIds.length > 500) return res.status(400).json({ message: 'A payroll list cannot exceed 500 scholars.' });
 
     // Older clients must reload rather than authorize a retired exception path.
@@ -1369,8 +1372,8 @@ const processPayrollSelection = async (req, res) => {
         requireSchoolClassification: true,
       });
       const reasons = [...readiness.reasons];
-      if (school && getSchoolProcessRoute(school.school_type) !== 'payroll') {
-        reasons.push({ code: 'PRIVATE_SCHOOL_BILLING_ROUTE', message: 'Private-school scholars remain in Billing for the certification list and cannot be added to Payroll.' });
+      if (school && resolveProcessingRoute({ schoolType: school.school_type, docs: application?.initial_docs, period: activePeriod, schedule: continuingSchedule, applicantId, legacyPeriodId: primaryPeriod.id }) !== 'payroll') {
+        reasons.push({ code: 'PRIVATE_SCHOOL_BILLING_ROUTE', message: 'Subsequent regular Private submissions go to Billing/certification. Initial and late submissions go to Payroll.' });
       }
       if (!applicantById.has(applicantId)) {
         reasons.push({ code: 'APPLICANT_UNAVAILABLE', message: 'The scholar applicant record is unavailable.' });
@@ -1390,7 +1393,7 @@ const processPayrollSelection = async (req, res) => {
 
     const timestamp = new Date();
     const batchNumber = `PAYROLL-${timestamp.toISOString().replace(/\D/g, '').slice(0, 17)}`;
-    const amountByApplicant = new Map(applicantIds.map((applicantId) => [applicantId, resolveBillingAmount('public')]));
+    const amountByApplicant = new Map(applicantIds.map((applicantId) => [applicantId, resolveBillingAmount(resolveScholarSchool({ applicant: applicantById.get(applicantId), requirement: requirementByApplicant.get(applicantId), application: applicationByApplicant.get(applicantId), schoolById, schoolByName, schoolHistory: schoolHistoryByApplicant.get(applicantId) })?.school_type)]));
     const totalAmount = applicantIds.reduce((total, applicantId) => total + amountByApplicant.get(applicantId), 0);
     const batch = await prisma.$transaction(async (transaction) => {
       const createdBatch = await transaction.payroll_batches.create({
@@ -1402,7 +1405,7 @@ const processPayrollSelection = async (req, res) => {
           status: 'generated',
           prepared_by: req.user.id,
           prepared_at: timestamp,
-          remarks: `${activePeriod.school_year} · ${activePeriod.semester} official payroll list for public-school scholars`,
+          remarks: `${activePeriod.school_year} · ${activePeriod.semester} official payroll list for scholars`,
           updated_at: timestamp,
         },
       });
@@ -1414,8 +1417,8 @@ const processPayrollSelection = async (req, res) => {
           claim_amount: amountByApplicant.get(applicantId),
           claim_status: 'listed',
           notes: warningsByApplicant.get(applicantId)?.length
-            ? 'Included in the official public-scholar payroll list. Requirements incomplete at list generation: ' + warningsByApplicant.get(applicantId).map(({ message }) => message).join(' ')
-            : 'Included in the official public-scholar payroll list',
+            ? 'Included in the official scholar payroll list. Requirements incomplete at list generation: ' + warningsByApplicant.get(applicantId).map(({ message }) => message).join(' ')
+            : 'Included in the official scholar payroll list',
           updated_at: timestamp,
         })),
       });
@@ -1423,9 +1426,9 @@ const processPayrollSelection = async (req, res) => {
     });
 
     res.locals.auditTargetId = batch.id;
-    res.locals.auditDescription = `Generated an official payroll list for ${applicantIds.length} public-school scholars; ${incompleteRequirementsCount} with incomplete requirements.`;
+    res.locals.auditDescription = `Generated an official payroll list for ${applicantIds.length} scholars; ${incompleteRequirementsCount} with incomplete requirements.`;
     return res.status(201).json({
-      message: `Official payroll list generated for ${applicantIds.length} public-school scholar${applicantIds.length === 1 ? '' : 's'}.`,
+      message: `Official payroll list generated for ${applicantIds.length} scholar${applicantIds.length === 1 ? '' : 's'}.`,
       incompleteRequirementsCount,
       batch: { id: batch.id, batchNumber: batch.batch_number, totalScholars: batch.total_scholars },
       activePeriod: serializeAcademicPeriod(activePeriod),
@@ -1646,6 +1649,8 @@ const getMyApplication = async (req, res) => {
       ? await prisma.payroll_batches.findUnique({ where: { id: payrollClaim.payroll_batch_id } })
       : null;
     const certificationDate = await latestCertificationCreatedAt(prisma, applicantId, selectedSchool?.school_type);
+    const postedPasser = result?.passed && result?.published_at ? await getPostedPasser(prisma, applicantId, activePeriod.id, result, application.id) : null;
+    const initialVerification = !scholar && postedPasser ? { listId: postedPasser.list_id, verified: initialApproved(application.initial_docs, activePeriod.id, selectedSchool?.school_type), documents: initialChecklist(application.initial_docs, activePeriod.id, selectedSchool?.school_type, activePeriod.id) } : null;
     const guidance = buildApplicantGuidance({
       application: scholar ? { ...application, initial_docs: getEffectiveRequirements(requirementDocs, requirementPeriod.id, activePeriod.id) } : application,
       continuingOpen: continuingAccess.visible,
@@ -1659,8 +1664,10 @@ const getMyApplication = async (req, res) => {
       examSlot,
       schoolType: schoolClassification(requirementSchool?.school_type),
       requirementSubmission: continuingAccess,
+      initialVerification,
     });
     return res.json({
+      initialVerification,
       application,
       requirementWave: {
         academicPeriodId: requirementPeriod.id, periodLabel: `${requirementPeriod.school_year} · ${requirementPeriod.semester}`, schoolType: schoolClassification(requirementSchool?.school_type), continuingOpen: continuingAccess.visible, submission: continuingAccess,
@@ -1683,6 +1690,7 @@ const getMyApplication = async (req, res) => {
         isActive: scholar.is_active,
         notes: scholar.notes,
       } : null,
+      processingRoute: payrollBatch ? (String(payrollBatch.batch_number || '').startsWith('BILL-') || payrollBatch.status === 'billed' ? 'billing' : 'payroll') : resolveProcessingRoute({ schoolType: selectedSchool?.school_type, docs: application.initial_docs, period: activePeriod, schedule: await loadContinuingSchedule(prisma, activePeriod.id), applicantId, legacyPeriodId: activePeriod.id }),
       payrollList: serializePayrollListMembership(payrollClaim, payrollBatch),
       examination: {
         ...resolveExaminationProgress({ result, scholar, examSlot, fallbackStatus: application.status, applicantFacing: true, scheduledExam }),
@@ -1812,15 +1820,16 @@ const uploadScholarRequirementByAdmin = async (req, res) => {
       prisma.scholar_requirements.findUnique({ where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: activePeriod.id } } }),
       prisma.applicants.findUnique({ where: { id: applicantId } }),
     ]);
-    if (!scholar || !application) return res.status(404).json({ message: 'Active scholar application not found.' });
+    if (!application || (!scholar && !await canRecordInitial(prisma, applicantId, activePeriod.id, application))) return res.status(409).json({ message: 'Post the current passing result in a locked Passer List before initial intake.' });
     if (key === 'tuition_receipt') {
       const school = await loadResolvedScholarSchool(prisma, { applicantId, applicant, requirement: requirementRecord, application });
       if (schoolClassification(school?.school_type) !== 'Private') return res.status(400).json({ message: 'A tuition receipt applies only to private-school scholars.' });
     }
     uploadedFile = await storeRequirementUpload({ applicantId, periodId: activePeriod.id, wave: 'initial', key, fileName, fileData, parsed });
-    const saved = await mutateRequirementWaves(prisma, application.id, primaryPeriod.id, (docs) => ({
-      document: saveWaveDocument(docs, { periodId: activePeriod.id, wave: 'initial', key, file: uploadedFile, actorId: req.user.id, actorRole: req.user.role }),
-    }));
+    const saved = await mutateRequirementWaves(prisma, application.id, primaryPeriod.id, async (docs, tx, latestApplication) => {
+      if (!scholar && !await canRecordInitial(tx, applicantId, activePeriod.id, latestApplication)) throw Object.assign(new Error('The posted passer or result changed. Reload before uploading.'), { statusCode: 409 });
+      return { document: saveWaveDocument(docs, { periodId: activePeriod.id, wave: 'initial', key, file: uploadedFile, actorId: req.user.id, actorRole: req.user.role }) };
+    });
     uploadedFile = null;
     res.locals.auditTargetId = application.id;
     res.locals.auditDescription = `Uploaded initial requirement ${key} for academic period ${activePeriod.id}.`;
@@ -2223,7 +2232,7 @@ const acceptApplicantAsScholar = async (req, res) => {
       const [applicant, latestResult, application, existingScholar, exam, slot] = await Promise.all([
         transaction.applicants.findFirst({
           where: { id: applicantId, deleted_at: null },
-          select: { id: true, email: true, first_name: true, school_year: true, municipality: true, deleted_at: true },
+          select: { id: true, email: true, first_name: true, school_id: true, school_year: true, municipality: true, deleted_at: true },
         }),
         transaction.results.findFirst({ where: { id: review.resultId, applicant_id: applicantId, exam_id: review.examId } }),
         transaction.application_submissions.findFirst({ where: { applicant_id: applicantId }, orderBy: { submitted_at: 'desc' } }),
@@ -2241,6 +2250,9 @@ const acceptApplicantAsScholar = async (req, res) => {
       if (!latestResult.passed) throw new AttemptError('Only applicants with a passing reviewed result can be accepted.', 400);
       if (!latestResult.published_at) throw new AttemptError('Publish the reviewed examination result before scholarship acceptance.');
 
+      if (!await getPostedPasser(transaction, applicantId, activePeriod.id, latestResult, application.id)) throw new AttemptError('Post this reviewed passing result in a locked Passer List before acceptance.', 400);
+      const intakeSchool = await loadResolvedScholarSchool(transaction, { applicantId, applicant, application });
+      if (!initialApproved(application.initial_docs, activePeriod.id, intakeSchool?.school_type)) throw new AttemptError('Upload and approve all required initial documents before accepting as Scholar. Barangay Indigency is optional.', 400);
       const assessment = evaluateEligibility({ application, result: latestResult });
       const schoolYear = applicant.school_year === STALE_DEFAULT_SCHOOL_YEAR || !applicant.school_year
         ? activePeriod.school_year

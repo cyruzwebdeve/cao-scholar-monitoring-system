@@ -1,3 +1,4 @@
+const { canRecordInitial } = require('../services/passerIntake');
 const { randomUUID } = require('node:crypto');
 const prisma = require('../config/prisma');
 const { parseDataUrl } = require('../services/blobStorage');
@@ -15,7 +16,8 @@ const loadSession = async (req, client = prisma) => {
     client.academic_periods.findFirst({ where: { id: session.academic_period_id, is_active: true } }),
     client.scholar_accounts.findFirst({ where: { applicant_id: session.applicant_id, is_active: true } }),
   ]);
-  if (!period || !scholar) throw failure('This scholar or academic period is no longer active.', 409);
+  const application = !scholar ? await client.application_submissions.findFirst({ where: { applicant_id: session.applicant_id }, orderBy: { submitted_at: 'desc' } }) : null;
+  if (!period || (!scholar && !await canRecordInitial(client, session.applicant_id, period.id, application))) throw failure('This passer, scholar or academic period is no longer available for intake.', 409);
   return session;
 };
 const safe = (handler) => async (req, res) => {
@@ -34,7 +36,7 @@ const create = safe(async (req, res) => {
     prisma.application_submissions.findFirst({ where: { applicant_id: applicantId, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' } }),
     prisma.scholar_requirements.findUnique({ where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: periodId } } }),
   ]);
-  if (!scholar || !applicant || !period || !application) throw failure('An active scholar, application and period are required.', 400);
+  if (!applicant || !period || !application || (!scholar && !await canRecordInitial(prisma, applicantId, periodId, application))) throw failure('An active scholar, application and period are required.', 400);
   const school = await loadResolvedScholarSchool(prisma, { applicantId, applicant, application, requirement });
   const type = schoolClassification(school?.school_type);
   if (!['Public', 'Private'].includes(type)) throw failure('Correct the school classification first.', 409);

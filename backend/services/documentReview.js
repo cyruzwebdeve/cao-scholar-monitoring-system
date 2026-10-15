@@ -46,7 +46,8 @@ const serializeReviewRecord = ({ application, applicant, account, requirementKey
   reviewerName,
   reviewNotes: file.reviewNotes || '',
   category: REQUIREMENT_DEFINITIONS[requirementKey].category || 'scholar_requirement',
-  autoAcceptance: REQUIREMENT_DEFINITIONS[requirementKey].category === 'priority',
+  autoAcceptance: false,
+  requiresIndividualReview: REQUIREMENT_DEFINITIONS[requirementKey].category === 'priority',
 });
 
 const buildReviewRecords = ({ applications, applicantsById, accountsByApplicant, reviewersById = new Map(), legacyPeriodId = null }) => {

@@ -38,6 +38,7 @@ const buildApplicantGuidance = ({
   schoolType = 'Public',
   requirementSubmission,
   continuingOpen,
+  initialVerification,
 } = {}) => {
   if (!application) {
     return {
@@ -73,7 +74,7 @@ const buildApplicantGuidance = ({
     schoolType,
   });
   const scholarRequirements = requirementSnapshot.online.filter(({ key }) => SCHOLAR_SEMESTER_REQUIREMENT_KEYS.includes(key));
-  const administratorRequirements = requirementSnapshot.online.filter(({ key }) => ['tax_exemption', 'indigency', 'valid_id'].includes(key));
+  const administratorRequirements = requirementSnapshot.online.filter(({ key, optional }) => !optional && ['tax_exemption', 'valid_id'].includes(key));
   const rejectedRequirements = scholarRequirements.filter(({ status }) => REJECTED_STATUSES.has(status));
   const missingRequirements = scholarRequirements.filter(({ submitted }) => !submitted);
   const pendingRequirements = scholarRequirements.filter(({ submitted, approved, status }) => (
@@ -207,6 +208,14 @@ const buildApplicantGuidance = ({
       })],
       timeline,
     };
+  }
+
+  if (!isScholar && initialVerification) {
+    const verified = initialVerification.verified;
+    const decisionIndex = timeline.findIndex((item) => item.id === 'decision');
+    timeline.splice(decisionIndex, 0, makeTimelineItem({ id: 'initial-verification', label: 'Initial document verification', status: verified ? 'completed' : 'current', detail: verified ? 'Required initial documents approved by CAO.' : 'Submit hard copies to CAO. Admin staff capture, upload and verify your initial documents.' }));
+    timeline[decisionIndex + 1].status = verified ? 'current' : 'upcoming';
+    return { state: verified ? 'waiting' : 'action_required', headline: verified ? 'Initial documents verified — awaiting Scholar acceptance' : 'You passed — submit initial requirements to CAO', description: verified ? 'CAO has approved your required initial documents. Staff will complete your official Scholar registration.' : 'Submit your hard copies to CAO for verification. Admins handle all initial uploads; passing does not yet register you as a Scholar. Barangay Indigency is optional.', actions: [makeAction({ id: 'submit-initial-to-cao', type: 'requirements', title: verified ? 'Await official Scholar acceptance' : 'Bring your initial documents to CAO', description: 'Check your initial verification checklist below. Do not upload the initial set yourself.', priority: verified ? 'normal' : 'high' })], timeline };
   }
 
   if (!isScholar) {

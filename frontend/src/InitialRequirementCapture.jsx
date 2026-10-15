@@ -109,7 +109,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
       for (const item of pending) {
         if (!alive.current) return;
         setProgress(`Uploading ${++success} of ${pending.length} documents…`);
-        const response = await fetch(`${API_BASE}/scholars/${scholar.applicantId}/requirements/${item.key}`, { method: 'PUT', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, signal: request.current.signal,
+        const response = await fetch(`${API_BASE}/${scholar.isPasser ? 'passers' : 'scholars'}/${scholar.applicantId}/requirements/${item.key}`, { method: 'PUT', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, signal: request.current.signal,
           body: JSON.stringify({ academicPeriodId: scholar.academicPeriodId, fileName: item.fileName, fileData: item.fileData }) });
         const body = await response.json();
         if (!response.ok) throw new Error(body.message || 'Upload failed. Retry the remaining documents.');
@@ -131,7 +131,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
     {notice && <p role="status" className="capture-notice">{notice}</p>}
     {progress && <p role="status">{progress}</p>}
     <LaptopPhoneCapture scholar={scholar} token={token} busy={working} onPages={receivePhonePages} onConnectionChange={setPhoneConnected} />
-    <div className="capture-checklist">{documents.map((doc) => <button type="button" key={doc.requirementKey} aria-pressed={key === doc.requirementKey} disabled={working} onClick={() => choose(doc.requirementKey)}><span>{doc.label}</span><small>{saved[doc.requirementKey] ? 'Uploaded · Approved' : drafts[doc.requirementKey]?.file ? 'PDF ready' : drafts[doc.requirementKey]?.pages.length ? `${drafts[doc.requirementKey].pages.length} page(s) captured` : doc.submitted && ['approved', 'complete', 'completed'].includes(String(doc.status).toLowerCase()) ? 'Keep existing approved file' : 'Capture needed'}</small></button>)}</div>
+    <div className="capture-checklist">{documents.map((doc) => <button type="button" key={doc.requirementKey} aria-pressed={key === doc.requirementKey} disabled={working} onClick={() => choose(doc.requirementKey)}><span>{doc.label}{doc.optional && !doc.label.includes('optional') ? ' (optional)' : ''}</span><small>{saved[doc.requirementKey] ? 'Uploaded · Approved' : drafts[doc.requirementKey]?.file ? 'PDF ready' : drafts[doc.requirementKey]?.pages.length ? `${drafts[doc.requirementKey].pages.length} page(s) captured` : doc.submitted && ['approved', 'complete', 'completed'].includes(String(doc.status).toLowerCase()) ? 'Keep existing approved file' : doc.optional || doc.requirementKey === 'indigency' ? 'Optional · capture if available' : 'Capture needed'}</small></button>)}</div>
     <fieldset disabled={working || Boolean(saved[key])}>
       <legend>{selected?.label}</legend>
       {saved[key] ? <p><CheckCircle2 size={16} /> Uploaded and approved. Close and reopen intake to capture a correction.</p> : <>

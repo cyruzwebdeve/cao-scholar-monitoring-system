@@ -75,7 +75,7 @@ export function ReviewModal({ review, preview, previewLoading, previewError, onC
             </dl>
             {review.reviewHistory?.length > 0 && <details><summary>Previous review decisions</summary><ul>{review.reviewHistory.map((entry, index) => <li key={`${entry.reviewedAt}:${index}`}>{titleCase(entry.status)} · {formatDate(entry.reviewedAt)}{entry.reviewNotes ? ` · ${entry.reviewNotes}` : ''}</li>)}</ul></details>}
             {review.reviewNotes && <div className="review-existing-note"><span>Review notes</span><p>{review.reviewNotes}</p></div>}
-            <div className="review-guidance"><ShieldCheck size={18} /><div><strong>Reviewer checklist</strong><p>{review.autoAcceptance ? 'Confirm that the proof is authentic, readable, and matches the declared criterion. Approval automatically accepts the applicant and bypasses the examination.' : 'Confirm that the document is readable, current, and matches the scholar record before approval.'}</p></div></div>
+            <div className="review-guidance"><ShieldCheck size={18} /><div><strong>Reviewer checklist</strong><p>{review.requiresIndividualReview ? 'Confirm that the proof is authentic, readable, and matches the declared criterion. Approval verifies this proof only. Initial-document verification and official Scholar acceptance remain separate.' : 'Confirm that the document is readable, current, and matches the scholar record before approval.'}</p></div></div>
           </aside>
         </div>
         <footer>
@@ -94,7 +94,7 @@ export function DecisionModal({ review, decision, saving, error, onClose, onConf
     <div className="review-decision-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !saving && onClose()}>
       <section className="review-decision" role="dialog" aria-modal="true" aria-label={`${titleCase(decision)} document`}>
         <header><i className={decision}>{rejected ? <XCircle size={22} /> : <CheckCircle2 size={22} />}</i><div><span>{rejected ? 'RETURN FOR CORRECTION' : 'CONFIRM APPROVAL'}</span><h3>{rejected ? 'Reject this document?' : 'Approve this document?'}</h3></div></header>
-        <p>{rejected ? 'The applicant or scholar will see your reason for correction.' : review.autoAcceptance ? 'Approving this verified priority proof automatically accepts the applicant as a scholar and bypasses the qualifying examination.' : 'This file will count as an approved requirement across the scholar and administrative dashboards.'}</p>
+        <p>{rejected ? 'The applicant or scholar will see your reason for correction.' : review.requiresIndividualReview ? 'Approving this priority proof does not register a Scholar. Post examination results and verify the initial documents before acceptance.' : 'This file will count as an approved requirement across the scholar and administrative dashboards.'}</p>
         <label><span>{rejected ? 'Reason for rejection' : 'Review note (optional)'}</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} maxLength="500" placeholder={rejected ? 'Explain what needs to be corrected…' : 'Add an internal review note…'} /></label>
         {error && <div className="review-decision-error"><TriangleAlert size={16} />{error}</div>}
         <footer><button type="button" onClick={onClose} disabled={saving}>Cancel</button><button type="button" className={rejected ? 'danger' : 'success'} onClick={() => onConfirm(notes)} disabled={saving || (rejected && notes.trim().length < 3)}>{saving ? 'Saving…' : rejected ? 'Reject and return' : 'Confirm approval'}</button></footer>
@@ -178,7 +178,7 @@ function DocumentReviewManagement({ token }) {
   const groupedReviews = useMemo(() => {
     const pendingByGroup = new Map();
     data.reviews.forEach((item) => {
-      if (item.status !== 'pending' || item.autoAcceptance) return;
+      if (item.status !== 'pending' || item.requiresIndividualReview) return;
       const key = `${item.applicationId || item.applicantId}:${item.academicPeriodId || 'legacy'}:${item.submissionWave || 'legacy'}`;
       pendingByGroup.set(key, (pendingByGroup.get(key) || 0) + 1);
     });
@@ -200,7 +200,7 @@ function DocumentReviewManagement({ token }) {
     return [...groups.values()].map((group) => ({
       ...group,
       pendingTotal: pendingByGroup.get(group.key) || 0,
-      pendingDocuments: data.reviews.filter((item) => item.status === 'pending' && !item.autoAcceptance && `${item.applicationId || item.applicantId}:${item.academicPeriodId || 'legacy'}:${item.submissionWave || 'legacy'}` === group.key).map((item) => ({ requirementKey: item.requirementKey, versionId: item.versionId || null, revision: item.revision || 0 })),
+      pendingDocuments: data.reviews.filter((item) => item.status === 'pending' && !item.requiresIndividualReview && `${item.applicationId || item.applicantId}:${item.academicPeriodId || 'legacy'}:${item.submissionWave || 'legacy'}` === group.key).map((item) => ({ requirementKey: item.requirementKey, versionId: item.versionId || null, revision: item.revision || 0 })),
       counts: group.items.reduce((totals, item) => ({
         ...totals,
         [item.status]: (totals[item.status] || 0) + 1,

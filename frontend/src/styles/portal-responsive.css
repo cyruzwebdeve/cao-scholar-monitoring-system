@@ -123,3 +123,10 @@
     width: calc(100% - 24px);
   }
 }
+
+.passer-initial-status { padding:20px; margin:20px 0; background:white; border:1px solid #dce7df; border-radius:12px; }
+.passer-initial-status h3 { font-size:16px; color:#28583a; }.passer-initial-status p { font-size:12px; line-height:1.7; color:#53695b; }
+.passer-initial-status .scholar-requirement-item { display:flex; gap:12px; justify-content:space-between; border-bottom:1px solid #e4ece6; padding:12px 0; font-size:12px; }.passer-initial-status small { display:block; margin-top:5px; color:#728477; }.passer-initial-status strong { font-weight:600; }
+@media(max-width:480px) { .passer-initial-status { padding:14px; }.passer-initial-status .scholar-requirement-item { flex-direction:column; gap:6px; } }
+
+.applicant-dashboard-main > .passer-initial-status { order:3; text-align:left; }

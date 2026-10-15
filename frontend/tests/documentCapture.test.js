@@ -12,3 +12,9 @@ test('Successful uploads satisfy completion without resending discarded drafts',
  assert.equal(captureReady(docs,{}, {grades:true}),true);
  assert.equal(captureReady([{requirementKey:'tuition_receipt',submitted:false}],{},{}),false);
 });
+
+test('optional Indigency does not block complete initial capture but required files still do',()=>{
+ const initial=[{requirementKey:'valid_id',submitted:true,status:'Approved'},{requirementKey:'indigency',optional:true,submitted:false}];
+ assert.equal(captureReady(initial,{},{}),true);
+ assert.equal(captureReady([{...initial[0],status:'Rejected'},initial[1]],{},{}),false);
+});

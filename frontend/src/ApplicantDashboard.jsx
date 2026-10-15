@@ -87,6 +87,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   const [profile, setProfile] = useState(user);
   const [application, setApplication] = useState(null);
   const [examination, setExamination] = useState(null);
+  const [initialVerification, setInitialVerification] = useState(null);
   const [guidance, setGuidance] = useState(null);
   const [eligibilityAssessment, setEligibilityAssessment] = useState(null);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -121,6 +122,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
         setApplication(body?.application || null);
         setExamination(body?.examination || null);
         setGuidance(body?.guidance || null);
+        setInitialVerification(body?.initialVerification || null);
         setEligibilityAssessment(body?.eligibilityAssessment || null);
         setDashboardError('');
       })
@@ -487,6 +489,8 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
             </button>
           </section>
         </div>
+
+        {initialVerification && <section className="applicant-card passer-initial-status" aria-label="Initial requirement verification"><h3>Initial requirements · CAO upload</h3><p>Submit hard copies to CAO. Admins upload and verify these documents before accepting you as a Scholar.</p><div className="scholar-requirements-list">{initialVerification.documents.map((document) => <div className="scholar-requirement-item" key={document.requirementKey}><div><strong>{document.label}</strong><small>{document.fileName || (document.optional ? 'Optional · provide if available' : 'Awaiting CAO upload')}</small></div><span>{document.status}</span></div>)}</div><p role="status">{initialVerification.verified ? 'Required initial documents verified. Awaiting official Scholar acceptance.' : 'Initial verification in progress. You are an examination passer; Scholar registration is pending.'}</p></section>}
 
         <section className="applicant-bottom-grid">
           <PortalGuidance

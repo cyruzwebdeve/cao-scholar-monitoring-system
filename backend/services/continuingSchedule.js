@@ -4,7 +4,7 @@ const initialApproved = (docs, periodId, schoolType, legacyPeriodId = periodId) 
   const type = String(schoolType || '').toLowerCase();
   if (!['public', 'private'].includes(type)) return false;
   const files = getInitialRequirements(docs, periodId, legacyPeriodId).requirements;
-  return INITIAL_KEYS.filter((key) => type === 'private' || key !== 'tuition_receipt').every((key) =>
+  return INITIAL_KEYS.filter((key) => key !== 'indigency' && (type === 'private' || key !== 'tuition_receipt')).every((key) =>
     files[key]?.fileName && ['approved', 'complete', 'completed'].includes(String(files[key]?.status || '').toLowerCase()));
 };
 const loadContinuingSchedule = (client, periodId) => client.continuing_requirement_schedules

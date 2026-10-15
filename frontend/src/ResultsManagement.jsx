@@ -1,3 +1,5 @@
+import PasserLists from './PasserLists';
+import InitialRequirementCapture from './InitialRequirementCapture';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowUpDown,
@@ -57,6 +59,9 @@ export default function ResultsManagement({ token }) {
   const [municipality, setMunicipality] = useState('All Municipalities');
   const [barangay, setBarangay] = useState('All Barangays');
   const [selected, setSelected] = useState(null);
+  const [view, setView] = useState('results');
+  const [intake, setIntake] = useState(null);
+  const [intakeError, setIntakeError] = useState('');
   const [acceptingScholar, setAcceptingScholar] = useState(false);
   const [acceptError, setAcceptError] = useState('');
   const [reevaluationOpen, setReevaluationOpen] = useState(false);
@@ -178,6 +183,7 @@ export default function ResultsManagement({ token }) {
   };
 
   const openResult = (applicant) => {
+    setIntake(null); setIntakeError('');
     setSelected(applicant);
     setAcceptError('');
     setReevaluationOpen(false);
@@ -186,6 +192,20 @@ export default function ResultsManagement({ token }) {
     setReevaluationRemarks(applicant.notes || '');
     setReevaluationError('');
   };
+
+  const loadIntake = useCallback(async () => {
+    if (!selected || selected.isScholar || selected.status !== 'Passed') return;
+    const response = await fetch(`${API_BASE}/passers/${selected.id}/intake`, { headers: authHeaders(token), cache: 'no-store' });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.message || 'Unable to load initial verification.');
+    return { ...body.intake, isPasser: true };
+  }, [selected, token]);
+  useEffect(() => {
+    let active = true;
+    loadIntake().then((value) => { if (active) { setIntake(value || null); setIntakeError(''); } }).catch((failure) => { if (active) { setIntake(null); setIntakeError(failure.message); } });
+    return () => { active = false; };
+  }, [loadIntake]);
+  const refreshIntake = async () => { try { setIntake(await loadIntake()); setIntakeError(''); } catch (failure) { setIntake(null); setIntakeError(failure.message); } };
 
   const saveReevaluation = async () => {
     if (!selected || selected.isScholar) return;
@@ -301,9 +321,12 @@ export default function ResultsManagement({ token }) {
     <div className="results-management">
       <header className="rm-heading">
         <div><span className="rm-eyebrow">EXAMINATION OUTCOMES</span><h2>Results Management</h2><p>Review examination outcomes and track applicant qualification status.</p></div>
-        <div className="rm-heading-actions"><span className="rm-live"><i />Refreshes every 30 seconds</span><button type="button" className="rm-export" onClick={() => setExportOpen(true)} disabled={!sorted.length}><Download size={15} />Export CSV</button></div>
+        <div className="rm-heading-actions"><span className="rm-live"><i />Refreshes automatically</span><button type="button" className="rm-export" onClick={() => setExportOpen(true)} disabled={!sorted.length}><Download size={15} />Export CSV</button></div>
       </header>
 
+      <nav className="examination-workspace-tabs" aria-label="Results sections"><button type="button" className={view === 'results' ? 'active' : ''} aria-pressed={view === 'results'} onClick={() => setView('results')}>Examination results</button><button type="button" className={view === 'passers' ? 'active' : ''} aria-pressed={view === 'passers'} onClick={() => setView('passers')}>Passer Lists</button></nav>
+      {view === 'passers' && <PasserLists applicants={applicants} token={token} onPosted={async () => { setSelected(null); await loadResults(); }} />}
+      {view === 'results' && <>
       <div className="rm-stats">{stats.map(({ label, value, detail, tone, Icon }) => <article key={label} className={tone}><div><span>{label}</span><strong>{loading || (loadError && !applicants.length) ? '—' : value}</strong><small>{detail}</small></div><i className="rm-stat-icon"><Icon size={20} /></i></article>)}</div>
 
       {loadError && <div className="rm-alert error"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadResults({ showLoader: true })}>Retry</button></div>}
@@ -335,6 +358,7 @@ export default function ResultsManagement({ token }) {
           {!!sorted.length && <footer className="rm-table-footer"><span>Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, sorted.length)} of {sorted.length}</span><nav className="rm-pagination" aria-label="Result pages"><button type="button" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" key={item} aria-label={`Page ${item}`} aria-current={item === currentPage ? 'page' : undefined} className={item === currentPage ? 'active' : ''} onClick={() => setPage(item)}>{item}</button> : <span key={item}>…</span>)}<button type="button" aria-label="Next page" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>›</button></nav></footer>}
         </div>
       </section>
+      </>}
     </div>
     {exportOpen && <CsvExportModal title="Export examination results" description="Choose the applicant, location, and examination fields to include. Current filters and sorting will be preserved." columns={resultExportColumns} rowCount={sorted.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `examination-results-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(sorted, columns) })} />}
 
@@ -351,6 +375,8 @@ export default function ResultsManagement({ token }) {
           <div className="rm-score-summary"><div><span>Recorded score</span><b>{selected.score ?? '—'}</b></div><div><span>Passing score</span><strong>{selected.passingScore ?? 'Not set'}</strong></div></div>
           <section className="rm-detail-section"><h4>Examination details</h4><dl><div><dt>Examination</dt><dd>{selected.examTitle || 'PGCEAP Qualifying Examination'}</dd></div><div><dt>Date</dt><dd>{formatResultDate(selected.date)}</dd></div><div><dt>Academic year</dt><dd>{selected.academicYear || '2026-2027'}</dd></div><div><dt>Venue</dt><dd>{selected.examVenue || selected.municipality || 'Not specified'}</dd></div></dl></section>
           <section className="rm-detail-section"><h4>Applicant location</h4><dl><div><dt>Municipality</dt><dd>{selected.municipality || 'Not specified'}</dd></div><div><dt>Barangay</dt><dd>{selected.barangay || 'Not specified'}</dd></div></dl></section>
+
+          {!selected.isScholar && selected.status === 'Passed' && <section className="rm-detail-section"><h4>Initial verification before Scholar acceptance</h4>{intakeError && <p role="status">{intakeError}</p>}{intake ? <><p role="status">{intake.initialVerified ? 'Required initial documents approved. Ready for Scholar acceptance.' : 'Admin must upload and verify all required initial documents. Barangay Indigency is optional.'}</p><InitialRequirementCapture key={`${selected.id}:${intake.academicPeriodId}`} scholar={intake} token={token} onSaved={refreshIntake} /><ul className="passer-intake-checklist">{intake.initialDocuments.map((document) => <li key={document.requirementKey}><span>{document.label}</span><strong>{document.status}</strong></li>)}</ul></> : !intakeError && <p>Checking posted passer and initial requirements…</p>}</section>}
 
           {reevaluationOpen && (
             <section className="rm-reevaluation-panel">
@@ -371,7 +397,7 @@ export default function ResultsManagement({ token }) {
             {selected.resultId && !selected.resultPublishedAt && !selected.isScholar && !reevaluationOpen && <button type="button" className="rm-save-reevaluation" disabled={publishing || reevaluating} onClick={publishResult}>{publishing ? 'Publishing…' : 'Publish reviewed result'}</button>}
             {reevaluationOpen && <p>Saving keeps the result under review. Correcting a published score hides the outcome until CAO republishes it.</p>}
             {acceptError && <div className="rm-accept-error"><TriangleAlert size={14} />{acceptError}</div>}
-            <button type="button" className={selected.isScholar ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || (selected.resultId && !selected.resultPublishedAt) || publishing || acceptingScholar} onClick={acceptAsScholar}><UserCheck size={16} />{acceptingScholar ? 'Recording decision…' : selected.isScholar ? 'Accepted as Scholar' : selected.status !== 'Passed' ? 'Latest exam result is not passing' : selected.resultId && !selected.resultPublishedAt ? 'Publish result before acceptance' : 'Accept as Scholar'}</button>
+            <button type="button" className={selected.isScholar ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || (selected.resultId && !selected.resultPublishedAt) || publishing || acceptingScholar || (!selected.isScholar && !intake?.initialVerified)} onClick={acceptAsScholar}><UserCheck size={16} />{acceptingScholar ? 'Recording decision…' : selected.isScholar ? 'Accepted as Scholar' : selected.status !== 'Passed' ? 'Latest exam result is not passing' : selected.resultId && !selected.resultPublishedAt ? 'Publish result before acceptance' : !intake?.initialVerified ? 'Verify initial documents before acceptance' : 'Accept as Scholar'}</button>
             <small>{selected.isScholar ? `Scholar account active${selected.scholarId ? ` · ${selected.scholarId}` : ''}.` : selected.status === 'Passed' ? 'A versioned recommendation snapshot and the staff decision will be recorded.' : 'Only applicants whose latest examination result is passing can be accepted.'}</small>
           </footer>
         </aside>

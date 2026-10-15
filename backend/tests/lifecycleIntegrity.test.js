@@ -29,7 +29,7 @@ test('[SUCCESS] public-school payroll readiness does not require a private tuiti
   });
 
   assert.equal(result.eligible, true);
-  assert.equal(result.snapshot.onlineTotal, 5);
+  assert.equal(result.snapshot.onlineTotal, 4);
 });
 
 const approvedDocuments = () => ({
@@ -45,7 +45,7 @@ test('[SUCCESS] an active scholar with all applicable online files is billable',
     schoolType: 'Private',
   });
   assert.equal(result.eligible, true);
-  assert.equal(result.snapshot.onlineApproved, 6);
+  assert.equal(result.snapshot.onlineApproved, 5);
 });
 
 test('[FAILED] pending or missing Billing staff decisions block billing', () => {
@@ -118,7 +118,7 @@ test('list generation retains hard blockers even when every document is missing'
   const result = evaluateListEligibility({ isActive: false, alreadyProcessedForPeriod: true, schoolType: 'Unknown', requireSchoolClassification: true });
   assert.equal(result.eligible, false);
   assert.deepEqual(result.reasons.map(({ code }) => code), ['SCHOOL_CLASSIFICATION_MISSING', 'SCHOLAR_INACTIVE', 'ALREADY_PROCESSED_FOR_PERIOD']);
-  assert.equal(result.warnings.length, 5);
+  assert.equal(result.warnings.length, 4);
 });
 
 test('a missing classification never invents a Private tuition requirement and blocks list generation', () => {
@@ -127,7 +127,7 @@ test('a missing classification never invents a Private tuition requirement and b
   for (const schoolType of [undefined, null, '', 'unknown']) {
     const result = evaluateBillingEligibility({ isActive: true, initialDocs: documents, schoolType, requireSchoolClassification: true });
     assert.equal(result.eligible, false);
-    assert.equal(result.snapshot.onlineTotal, 5);
+    assert.equal(result.snapshot.onlineTotal, 4);
     assert.deepEqual(result.reasons.map(({ code }) => code), ['SCHOOL_CLASSIFICATION_MISSING']);
     assert.equal(evaluateListEligibility({ isActive: true, initialDocs: documents, schoolType, requireSchoolClassification: true }).eligible, false);
   }
@@ -137,16 +137,16 @@ test('explicit Private classification still requires an approved tuition receipt
   const documents = approvedDocuments();
   delete documents.requirements.tuition_receipt;
   const result = evaluateBillingEligibility({ isActive: true, initialDocs: documents, schoolType: 'Private', requireSchoolClassification: true });
-  assert.equal(result.snapshot.onlineTotal, 6);
+  assert.equal(result.snapshot.onlineTotal, 5);
   assert.deepEqual(result.reasons.map(({ requirement }) => requirement), ['tuition_receipt']);
 });
 
-test('strict Public list eligibility uses exactly five requirements', () => {
+test('strict Public list eligibility uses four required documents plus optional Indigency', () => {
   const documents = approvedDocuments();
   delete documents.requirements.tuition_receipt;
   const result = evaluateBillingEligibility({ isActive: true, initialDocs: documents, schoolType: ' PUBLIC ', requireSchoolClassification: true });
   assert.equal(result.eligible, true);
-  assert.equal(result.snapshot.onlineTotal, 5);
+  assert.equal(result.snapshot.onlineTotal, 4);
 });
 
 test('already processed records are blocked by the shared eligibility check', () => {

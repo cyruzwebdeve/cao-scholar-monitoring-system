@@ -40,8 +40,8 @@ beforeEach(() => {
   slot = { id: 9, applicant_id: 7, exam_id: 3, appeared: false };
   exam = { id: 3, title: 'Test examination', municipality: 'Daet', academic_year: '2026-2027', is_active: true, exam_date: new Date(), exam_end_date: new Date() };
   settings = { examination_enabled: true, exam_delivery_mode: 'online' };
-  const applicant = { id: 7, first_name: 'TEST', last_name: 'APPLICANT', municipality: 'Daet', email: 'applicant@example.com', status: 'pending', school_year: '2026-2027' };
-  application = { id: 1, applicant_id: 7, status: 'Applied', school_plan: {}, initial_docs: {} };
+  const applicant = { id: 7, first_name: 'TEST', last_name: 'APPLICANT', municipality: 'Daet', email: 'applicant@example.com', status: 'pending', school_year: '2026-2027', school_id: 1 };
+  application = { id: 1, applicant_id: 7, status: 'Applied', school_plan: {}, initial_docs: { requirements: Object.fromEntries(['tax_exemption', 'valid_id', 'grades', 'registration_form'].map((key) => [key, { fileName: key+'.pdf', status: 'Approved' }])) } };
   Object.assign(prisma, {
     academic_periods: { findFirst: async () => ({ id: 1, school_year: '2026-2027', is_active: true }) },
     application_settings: { findUnique: async () => settings },
@@ -55,7 +55,8 @@ beforeEach(() => {
     eligibility_assessments: { findFirst: async () => null, create: async ({ data }) => { writes.push({ table: 'eligibility_assessments', data }); return { id: 1, ...data }; } },
     payroll_batches: { findMany: async () => [] },
     payroll_claims: { findFirst: async () => null },
-    schools: { findMany: async () => [] },
+    schools: { findMany: async () => [{id:1,name:'TEST SCHOOL',school_type:'public'}] },
+    passer_list_members: { findMany: async () => result ? [{ application_id: 1, result_id: result.id, snapshot: { resultUpdatedAt: result.updated_at }, list_id: 1 }] : [] },
     control_accounts: { findFirst: async () => ({ applicant_id: 7, is_active: true, auth_version: 0 }), findMany: async () => [] },
     activity_logs: { create: async () => ({ id: 1 }) },
     admins: { findUnique: async ({ where }) => ({ id: where.id, is_active: true, auth_version: 0, is_super_admin: where.id === 1, role: where.id === 4 ? 'billing' : 'admin', section_access: where.id === 3 ? ['examination'] : ['settings'] }) },
@@ -647,4 +648,20 @@ test('current schedule projection ignores a historical result and expired attemp
   assert.equal(expired.body.examination.status, 'Attempt expired'); assert.equal(expired.body.examination.access.allowed, false);
   assert.equal(expired.body.guidance.actions[0].route, null); assert.match(expired.body.guidance.headline, /expired/);
   const questions = response(); await getOnlineExamQuestions({ user: { id: 7 } }, questions); assert.equal(questions.statusCode, 410);
+});
+
+test('new acceptance fails closed without a posted passer or approved initial set, even for a published passer', async () => {
+  result = publishedResult();
+  const members = prisma.passer_list_members.findMany;
+  prisma.passer_list_members.findMany = async () => [];
+  let res = await acceptReviewed(); assert.equal(res.statusCode, 400); assert.match(res.body.message, /Passer List/); assert.equal(scholar, null); assert.equal(writes.length, 0);
+  prisma.passer_list_members.findMany = members;
+  delete application.initial_docs.requirements.valid_id;
+  res = await acceptReviewed(); assert.equal(res.statusCode, 400); assert.match(res.body.message, /initial documents/); assert.equal(scholar, null); assert.equal(writes.length, 0);
+});
+test('Private passer acceptance requires an approved tuition receipt, but not optional Indigency', async () => {
+  result = publishedResult(); prisma.schools.findMany = async () => [{ id: 1, name: 'TEST SCHOOL', school_type: 'private' }];
+  let res = await acceptReviewed(); assert.equal(res.statusCode, 400); assert.equal(writes.length, 0);
+  application.initial_docs.requirements.tuition_receipt = { fileName: 'receipt.pdf', status: 'Approved' };
+  res = await acceptReviewed(); assert.equal(res.statusCode, 201); assert.ok(scholar); assert.equal(application.initial_docs.requirements.indigency, undefined);
 });

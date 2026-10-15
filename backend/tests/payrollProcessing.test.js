@@ -12,7 +12,7 @@ const setup = ({ schoolType = 'public', schoolName = 'TEST PUBLIC SCHOOL', appli
   const period = { id: 10, school_year: '2027-2028', semester: '1st Semester', is_active: true };
   const school = { id: 1, name: schoolName, school_type: schoolType, is_active: true };
   const applicant = { id: 1, school_id: applicantSchoolId, first_name: 'TEST', last_name: 'SCHOLAR', email: 'scholar@example.com' };
-  const initialDocs = { requirements: Object.fromEntries(['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form'].map((key) => [key, { fileName: `${key}.pdf`, status: key === 'grades' ? gradeStatus : 'approved' }])) };
+  const initialDocs = { initialRequirementPeriodId: 9, requirements: Object.fromEntries(['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form'].map((key) => [key, { fileName: `${key}.pdf`, status: key === 'grades' ? gradeStatus : 'approved' }])) };
   if (tuitionReceipt) initialDocs.requirements.tuition_receipt = { fileName: 'tuition_receipt.pdf', status: 'approved' };
   const application = { id: 1, applicant_id: 1, school_plan: { school: plannedSchool }, initial_docs: initialDocs };
   const requirement = { applicant_id: 1, billing_period_id: 10, school_id: periodSchoolId };
@@ -127,7 +127,7 @@ test('actual Payroll controller generates PHP 3,000 for Public scholars with fiv
   assert.equal(record.schoolType, 'Public');
   assert.equal(record.schoolId, 1);
   assert.equal(record.processEligible, true);
-  assert.equal(record.documentsTotal, 5);
+  assert.equal(record.documentsTotal, 4);
   const res = await generate();
   assert.equal(res.statusCode, 201);
   assert.equal(writes[0].data.total_amount, 3000);
@@ -184,7 +184,7 @@ test('genuinely Private scholars still require tuition receipt and cannot genera
   const { writes } = setup({ schoolType: 'private', periodSchoolId: 1 });
   const record = await list();
   assert.equal(record.processRoute, 'billing');
-  assert.equal(record.documentsTotal, 6);
+  assert.equal(record.documentsTotal, 5);
   const res = await generate();
   assert.equal(res.statusCode, 409);
   assert.deepEqual(res.body.ineligible[0].reasons.map(({ code }) => code), ['PRIVATE_SCHOOL_BILLING_ROUTE']);
@@ -286,7 +286,7 @@ test('UCN saved school name uses the same persisted Public classification in Cat
   const record = await list();
   assert.equal(record.schoolType, 'Public');
   assert.equal(record.processEligible, true);
-  assert.equal(record.documentsTotal, 5);
+  assert.equal(record.documentsTotal, 4);
   const portal = response();
   await getMyApplication({ user: { id: 1, email: 'scholar@example.com' } }, portal);
   assert.equal(portal.body.school.schoolType, 'Public');
@@ -391,6 +391,8 @@ test('continuing-wave readiness does not inherit initial grades from legacy peri
 
 test('Scholar can select a still-active earlier submission period without moving primary payroll context', async () => {
   setup();
+  const [application] = await prisma.application_submissions.findMany();
+  application.initial_docs.requirementSets = { '9:initial': { requirements: application.initial_docs.requirements } };
   const primary = { id:10, school_year:'2027-2028', semester:'2nd Semester', is_active:true, is_primary:true };
   const earlier = { ...primary, id:9, semester:'1st Semester', is_primary:false };
   prisma.academic_periods.findFirst = async ({where}) => where?.id ? where.id === 9 ? earlier : null : primary;
@@ -404,4 +406,24 @@ test('Scholar can select a still-active earlier submission period without moving
 test('Public payroll generation keeps missing continuing files as warnings after schedule starts',async()=>{
  const {writes}=setup();prisma.continuing_requirement_schedules={findUnique:async()=>({opens_at:new Date(Date.now()-60000),closes_at:new Date(Date.now()+60000),late_scope:'all',late_applicant_ids:[]})};
  const res=await generate();assert.equal(res.statusCode,201);assert.equal(res.body.incompleteRequirementsCount,1);assert.match(writes.find((item)=>item.type==='memberships').data[0].notes,/Certificate of Grades/);delete prisma.continuing_requirement_schedules;
+});
+
+test('initial Private scholar uses Payroll with the Private amount and is excluded from Billing', async () => {
+  const {writes}=setup({schoolType:'private',periodSchoolId:1,tuitionReceipt:true});
+  const [application]=await prisma.application_submissions.findMany();application.initial_docs.initialRequirementPeriodId=10;
+  const record=await list();assert.equal(record.processRoute,'payroll');
+  let res=await generate();assert.equal(res.statusCode,201);assert.equal(writes[1].data[0].claim_amount,5000);
+  res=response();await processBillingSelection({body:{academicPeriodId:10,applicantIds:[1]},user:{id:99,role:'SuperAdmin'}},res);assert.equal(res.statusCode,409);
+});
+test('late Private continuing upload enters Payroll and cannot generate a simultaneous certification list',async()=>{
+  const {writes}=setup({schoolType:'private',periodSchoolId:1});const [application]=await prisma.application_submissions.findMany();
+  application.initial_docs.requirementSets={'9:initial':{requirements:application.initial_docs.requirements},'10:continuing':{requirements:{grades:{fileName:'late.pdf',status:'Pending',uploadedAt:'2026-10-15T10:00:00Z'}}}};
+  prisma.continuing_requirement_schedules={findUnique:async()=>({opens_at:new Date('2026-10-01'),closes_at:new Date('2026-10-10'),late_opens_at:new Date('2026-10-15'),late_closes_at:new Date('2026-10-20'),late_scope:'all',late_applicant_ids:[]})};
+  try {assert.equal((await list()).processRoute,'payroll');assert.equal((await generate()).statusCode,201);assert.equal(writes[1].data[0].claim_amount,5000);const res=response();await processBillingSelection({body:{academicPeriodId:10,applicantIds:[1]},user:{id:99,role:'SuperAdmin'}},res);assert.equal(res.statusCode,409);} finally {delete prisma.continuing_requirement_schedules;}
+});
+
+test('existing historical certification membership is retained even when new initial submissions route to Payroll', async () => {
+  setup({schoolType:'private',periodSchoolId:1,alreadyProcessed:true});const [application]=await prisma.application_submissions.findMany();application.initial_docs.initialRequirementPeriodId=10;
+  const batches=await prisma.payroll_batches.findMany();batches[0].batch_number='BILL-HISTORICAL';batches[0].status='billed';
+  const record=await list();assert.equal(record.processRoute,'billing');assert.equal(record.billed,true);assert.equal((await generate()).statusCode,409);
 });

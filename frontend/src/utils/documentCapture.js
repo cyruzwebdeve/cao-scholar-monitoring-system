@@ -37,4 +37,4 @@ export const buildCapturePdf = async (pages) => {
   if (pdf.output('arraybuffer').byteLength > MAX_DOCUMENT_BYTES) throw new Error('This document exceeds 6 MB. Remove duplicate pages or recapture more closely.');
   return `data:application/pdf;base64,${pdf.output('datauristring').split(',')[1]}`;
 };
-export const captureReady = (documents, drafts, saved) => documents.every((doc) => saved[doc.requirementKey] || drafts[doc.requirementKey]?.pages?.length || drafts[doc.requirementKey]?.file || (doc.submitted && ['approved', 'complete', 'completed'].includes(String(doc.status).toLowerCase())));
+export const captureReady = (documents, drafts, saved) => documents.every((doc) => doc.optional || doc.requirementKey === 'indigency' || saved[doc.requirementKey] || drafts[doc.requirementKey]?.pages?.length || drafts[doc.requirementKey]?.file || (doc.submitted && ['approved', 'complete', 'completed'].includes(String(doc.status).toLowerCase())));

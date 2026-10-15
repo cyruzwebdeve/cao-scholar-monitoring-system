@@ -99,7 +99,7 @@ test('[FAILED] bulk approval refuses a scholar with no pending supported documen
   assert.equal(result, null);
 });
 
-test('priority proofs require an individual decision and are marked as auto-acceptance reviews', () => {
+test('priority proofs require an individual decision and do not automatically accept Scholars', () => {
   const initialDocs = { requirements: { priority_pwd: { fileName: 'pwd-id.pdf', status: 'Pending' } } };
   assert.equal(applyPendingApprovals({ initialDocs, reviewerId: 9 }), null);
 
@@ -109,7 +109,8 @@ test('priority proofs require an individual decision and are marked as auto-acce
     accountsByApplicant: new Map(),
   });
   assert.equal(record.category, 'priority');
-  assert.equal(record.autoAcceptance, true);
+  assert.equal(record.autoAcceptance, false);
+  assert.equal(record.requiresIndividualReview, true);
   assert.match(record.requirementLabel, /disability/i);
 });
 

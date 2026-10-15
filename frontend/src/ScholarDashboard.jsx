@@ -212,9 +212,10 @@ function ScholarDashboard({ token, user, onLogout }) {
   const requirementsDeadline = continuingSubmission?.deadline || portalData.activePeriod?.requirementsDeadline || null;
   const requirementsSubmissionClosed = loadingRequirements || Boolean(requirementsError) || (requirementPeriodId && Number(requirementPeriodId) !== portalData.requirementWave?.academicPeriodId) || !continuingOpen || continuingSubmission?.isOpen === false;
   const payrollList = portalData.payrollList;
+  const useCertification = portalData.processingRoute === 'billing' || (!portalData.processingRoute && isPrivateScholar && !payrollList);
   const certificationDate = formatPortalDate(portalData.certificationCreatedAt, 'Not generated', 'Asia/Manila');
-  const listDate = isPrivateScholar ? certificationDate : formatPortalDate(payrollList?.generatedAt, payrollList ? 'Date unavailable' : 'Not generated', 'Asia/Manila');
-  const listSubtitle = isPrivateScholar
+  const listDate = useCertification ? certificationDate : formatPortalDate(payrollList?.generatedAt, payrollList ? 'Date unavailable' : 'Not generated', 'Asia/Manila');
+  const listSubtitle = useCertification
     ? certificationDate !== 'Not generated' ? 'Certification list generated' : 'Awaiting certification-list generation'
     : payrollList ? 'Included in payroll list' : 'Awaiting payroll-list generation';
   const summaryNotifications = application ? [
@@ -229,7 +230,7 @@ function ScholarDashboard({ token, user, onLogout }) {
   ] : ['Scholar records are unavailable until loading succeeds.'];
   const unreadScholarNotifications = scholarNotifications.filter(({ isRead }) => !isRead);
   const latestScholarNotification = scholarNotifications[0] || null;
-  const hasActionNotifications = unreadScholarNotifications.length > 0 || attentionCount > 0 || pendingReviewCount > 0 || (isPrivateScholar ? certificationDate === 'Not generated' : !payrollList);
+  const hasActionNotifications = unreadScholarNotifications.length > 0 || attentionCount > 0 || pendingReviewCount > 0 || (useCertification ? certificationDate === 'Not generated' : !payrollList);
   const uploadRequirement = (requirement, file) => {
     if (!file) return;
     if (requirementsSubmissionClosed) {
@@ -377,7 +378,7 @@ function ScholarDashboard({ token, user, onLogout }) {
         {application && <>
         <section className="scholar-stat-grid">
           <article className="scholar-stat-card"><div className="scholar-stat-icon green"><CheckCircle2 size={21} /></div><div><span>Scholarship status</span><strong>{portalData.scholar?.isActive ? 'Active Scholar' : 'Scholar record unavailable'}</strong><small>{portalData.scholar?.issuedAt ? `Approved ${formatPortalDate(portalData.scholar.issuedAt)}` : 'Approval date unavailable'}</small></div></article>
-          <article className="scholar-stat-card"><div className="scholar-stat-icon gold"><CircleDollarSign size={21} /></div><div><span>{isPrivateScholar ? 'Certification list' : 'Payroll list'}</span><strong>{listDate}</strong><small>{listSubtitle}</small></div></article>
+          <article className="scholar-stat-card"><div className="scholar-stat-icon gold"><CircleDollarSign size={21} /></div><div><span>{useCertification ? 'Certification list' : 'Payroll list'}</span><strong>{listDate}</strong><small>{listSubtitle}</small></div></article>
           <article className="scholar-stat-card">
             <div className="scholar-stat-icon blue"><FileCheck2 size={21} /></div>
             <div>
@@ -399,7 +400,7 @@ function ScholarDashboard({ token, user, onLogout }) {
           </div>
 
           <div className="scholar-portal-column">
-            <section className="scholar-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">INITIAL SUBMISSION · CAO UPLOAD</p><h2>Initial requirements</h2></div></div><p className="scholar-panel-copy">CAO records these documents. You do not need to upload this initial set again.</p><div className="scholar-requirements-list">{[{ key: 'tax_exemption', label: 'Certificate of Tax Exemption' }, { key: 'indigency', label: 'Barangay Indigency' }, { key: 'valid_id', label: 'Valid ID' }, ...visibleRequirementItems].map(({ key, label }) => <div key={key} className="scholar-requirement-item"><div><strong>{label}</strong><small>{initialRequirements[key]?.fileName || 'Awaiting CAO upload'}</small></div><span>{initialRequirements[key]?.status || 'Not recorded'}</span></div>)}</div></section>
+            <section className="scholar-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">INITIAL SUBMISSION · CAO UPLOAD</p><h2>Initial requirements</h2></div></div><p className="scholar-panel-copy">CAO records these documents. You do not need to upload this initial set again.</p><div className="scholar-requirements-list">{[{ key: 'tax_exemption', label: 'Certificate of Tax Exemption' }, { key: 'indigency', label: 'Barangay Indigency (optional)' }, { key: 'valid_id', label: 'Valid ID' }, ...visibleRequirementItems].map(({ key, label }) => <div key={key} className="scholar-requirement-item"><div><strong>{label}</strong><small>{initialRequirements[key]?.fileName || (key === 'indigency' ? 'Optional · provide if available' : 'Awaiting CAO upload')}</small></div><span>{initialRequirements[key]?.status || 'Not recorded'}</span></div>)}</div></section>
             <section className="scholar-panel scholar-action-panel" id="requirements">
             {portalData.continuingPeriods?.length > 1 && <label className="scholar-continuing-period">Submission school year and semester<select value={requirementPeriodId || portalData.requirementWave?.academicPeriodId || ''} disabled={loadingRequirements || Boolean(uploadingRequirement)} onChange={(event) => setRequirementPeriodId(event.target.value)}>{portalData.continuingPeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}</option>)}</select></label>}
             <p className="scholar-panel-copy">{portalData.requirementWave?.periodLabel}</p>

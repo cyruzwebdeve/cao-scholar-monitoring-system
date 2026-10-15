@@ -5,6 +5,49 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-16 - Retained Passer Lists and Verification before Scholar Acceptance
+
+**TL;DR**
+- Added saved drafts and immediate Post & lock Passer Lists under Results, with immutable posted versions, source references, score snapshots and reasoned linked revisions. Posting publishes passing outcomes without creating Scholar accounts.
+- Admins can capture/upload initial documents for current posted passers before acceptance; applicants see read-only submission instructions and verification status. Required initial approval is enforced on the server before new Scholar registration.
+- Barangay Indigency remains optional and uploadable. Public needs four approved initial documents; Private needs those plus tuition receipt. Existing documents, Scholars and generated list memberships are retained.
+- Initial Public/Private submissions go to Payroll; subsequent regular Public uses Payroll and Private uses Billing/certification; authorized late continuing uploads for both use Payroll. Grant amounts and the payroll-list scope remain unchanged.
+- Validation and deployment evidence are recorded below. One additive database migration is required; no historical record rewrite or deletion is performed.
+
+### Objective and previous/new behavior
+
+Reorder the process to reviewed examination → posted retained passer → Admin initial-document verification → explicit Scholar acceptance → list preparation. Previously passing/published results could create Scholars before documents, initial capture required an existing Scholar, priority-proof approval could auto-accept, Indigency was required, and all Private records routed to certification. Those new-record paths now follow initial verification first. Existing priority Scholars and previous list records remain valid historical records. Proof approval now verifies a proof without creating a Scholar; future applicants use the standard examination/passer/intake decision flow. The user explicitly approved completing/deploying the integration corrections after automatic review initially blocked a combined runtime/schema/test edit.
+
+### Implementation and data flow
+
+`passerListController.js` adds staff-only listing, draft/create-and-post, saved-draft post and pre-Scholar intake endpoints. Transactions validate exact result versions, assignment/current examination, eligible latest application and primary period. Posting publishes selected reviewed passing results and updates their saved snapshots in the same serializable transaction. A unique UUID request key makes repeat submissions reuse the same retained list. Failed results use the existing individual reviewed-result publication action; they are excluded from Passer Lists.
+
+New `passer_lists`/`passer_list_members` retain draft/posted headers, staff/date, original member/source IDs and score snapshots. Posted headers/members cannot be updated/deleted through database triggers; parent row locks serialize member writes against posting. Foreign keys restrict orphaning source records. Linked revisions require a reason and allow one posted direct replacement. Drafts do not revoke an older posted list. Acceptance/intake require a current, unsuperseded membership matching the current published result and application. A corrected score therefore requires a new posted snapshot; the original list remains retained.
+
+`passerIntake.js` supplies the checklist and posted-member checks. Existing camera/PDF/phone facilities are reused for passers via Examination permissions and the same owner-bound phone sessions. Admin uploads still mean staff-reviewed approval and retain file history; uploading a single file does not accept the applicant. The acceptance transaction rereads all required documents and current school classification before Scholar creation. Optional Indigency is excluded from capture readiness, approval gates, missing-file warnings and completion totals but stays visible and stored. Priority proof retains individual review and cannot auto-create an account.
+
+`resolveProcessingRoute` uses the original initial period and current submission period: initial is Payroll; later regular Private is certification and Public is Payroll. Later late routing uses actual continuing-file upload timestamps within an authorized late schedule (all or selected Scholar IDs); this remains stable after closure. Simply opening a late window does not move regular early Private records. Previously generated memberships retain their actual saved route. Session permissions and processing APIs enforce the same destination. Public/Private amounts stay PHP 3,000/PHP 5,000. Continuing incompleteness remains a warning, without a new payroll-generation gate.
+
+### Roles, files and impacts
+
+Affected users: applicants, new passers, Provincial/Regular Admins doing intake, existing decision-authorized Admins, Scholars and Billing/Payroll staff. Results gained a consistent segmented Passer Lists tab, retained-list disclosures, selection/save/post/revision controls and pre-acceptance intake. Applicant portal gained initial instructions/statuses; Scholar portal reads actual processing destination rather than assuming all Private records are certification. Refresh cadence remains polling-based.
+
+Changed application/result, phone-capture and document-review controllers/routes; requirement-wave/continuing/readiness/guidance services; application Prisma schema and migration; Results/PasserLists, applicant/Scholar, document review, capture and Billing/Payroll frontend components/styles; related regression fixtures and new policy/list tests. Matching staff checklist: `docs/qa/2026-10-16/reordered-workflow-acceptance.md`.
+
+API: new passer endpoints, applicant initialVerification and Scholar processingRoute fields; acceptance now rejects absent current posted membership or unapproved required initial files. Database: additive `20261016010000_passer_lists`, no data migration/deletion or grant changes. Configuration/runtime dependencies: none. Prisma client regeneration and backend/frontend deployment required. Security: roles/sections, exact source versions, transactions, immutable posted lists, bounded selections (500), idempotency and foreign keys; Applicant APIs expose only the requesting applicant's checklist, never other passers. Privacy: no new external services; snapshots contain staff-authorized applicant names/scores, not document data. Accessibility: labeled controls, status/error text, keyboard-accessible list disclosures and responsive read-only checklist. Legacy payment functions remain retired; no fund release, claiming, reconciliation or monetary audit workflow was added.
+
+### Validation and limitations
+
+Initial regression failures were reviewed individually before fixture updates: required counts changed with optional Indigency; subsequent-routing fixtures needed an explicit original period; acceptance fixtures now need a posted member and approved initial files. Existing denial, stale-result, transaction and duplicate assertions were retained, with added negative cases. Automatic review rejected two combined edits; the user explicitly approved the concrete correction list before those edits proceeded.
+
+Final validation: backend suite passed 315 tests with one existing opt-in database test skipped (316 total); frontend suite passed all 17 modules, including optional capture readiness. Frontend lint/production build and Prisma generate/validate passed. The existing large-chunk build advisory remains. Embedded PostgreSQL migration checks and both isolated browser workflows passed; whitespace checks passed. No hosted acceptance was performed. New tests cover draft retention, atomic posting/rollback, idempotent requests, stale/failed/wrong-exam selections, revision preservation, no-verified-docs acceptance denial, Private receipt enforcement, pre-Scholar Admin uploads, route permissions, optional Indigency, initial and late Private Payroll and proof-only approval. An isolated browser verified draft→post→Admin capture of four Public files with no Indigency→acceptance, and a mobile Applicant checklist without initial-upload controls. Embedded PostgreSQL applied the migration and verified posted header/member immutability, restricted source deletion, matching periods and reasoned retained revisions. This engine is temporary QA tooling, not an application dependency. No production accounts/documents were used and no production acceptance was performed.
+
+Known limitations: visible Applicant/Scholar updates poll every two minutes or load immediately on reload. List index returns up to 100 current-period lists. Hosted authenticated acceptance remains for staff. Legacy JSON without original-period metadata is interpreted in the primary period; it is not rewritten. Review imported records with ambiguous original periods before first processing. A posted list is never edited in place; use a revision and retain the original. Migration supports PostgreSQL; provider migration success must be confirmed because public health does not expose the revision.
+
+### Rollback and next work
+
+Revert application code as a coordinated frontend/backend rollback if necessary. Retain the new tables, immutable snapshots and existing documents; do not drop posted records. Prior code can ignore additive tables, but restoring old code restores pre-verification acceptance, so assess new pending passers first. Use the staff checklist for hosted Public/Private, failed-result publication, phone intake, late and subsequent-period verification. Deploy and record exact assets/provider migration confirmation after all checks pass.
+
 ## 2026-10-15 - Remove Decision Reason from Results Acceptance
 
 **TL;DR**

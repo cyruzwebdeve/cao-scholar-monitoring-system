@@ -8218,3 +8218,14 @@
 .billing-queued-identity > .billing-queue-name strong { display: block; color: #2f4436; font-size: 12px; line-height: 1.45; white-space: normal; overflow-wrap: anywhere; }
 .billing-queued-identity > .billing-queue-name small { display: block; margin-top: 2px; color: #68796f; font-size: 7px; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }
 .billing-queue-row.selected .billing-queued-identity > .billing-queue-name strong { color: #16864c; }
+
+.passer-lists { margin:20px 0; padding:20px; background:#fff; border:1px solid #d9e5dd; border-radius:12px; color:#344d3d; }
+.passer-list-heading,.passer-selection-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.passer-lists h3 { font-size:15px; margin:0 0 10px; }.passer-lists p { font-size:12px; line-height:1.7; }
+.passer-lists fieldset { border:1px solid #d9e5dd; border-radius:8px; margin:16px 0; padding:14px; }
+.passer-lists fieldset > label { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; font-size:12px; }
+.passer-lists input:not([type=checkbox]),.passer-lists select { border:1px solid #cfddd2; border-radius:6px; padding:9px; font:inherit; width:100%; box-sizing:border-box; }
+.passer-lists button { padding:8px 12px; border:1px solid #cdded2; border-radius:6px; background:white; color:#275e3d; font-size:12px; cursor:pointer; }.passer-lists button:disabled { opacity:.5; cursor:default; }.passer-lists .capture-submit { color:white; background:#19854d; }
+.passer-candidates { max-height:300px; overflow:auto; margin:12px 0; }.passer-candidates label { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #edf2ee; font-size:12px; }.passer-candidates small { display:block; margin-top:4px; color:#6b7d70; }
+.passer-lists details { padding:12px 0; border-top:1px solid #e0e9e3; font-size:12px; }.passer-lists summary { cursor:pointer; font-weight:600; }
+.passer-intake-checklist { padding:0; list-style:none; font-size:11px; }.passer-intake-checklist li { display:flex; gap:10px; justify-content:space-between; padding:9px 0; border-bottom:1px solid #e4ece6; }.passer-intake-checklist strong { flex-shrink:0; }
