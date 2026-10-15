@@ -606,11 +606,27 @@ test('acceptance rereads the result inside the transaction and rejects a competi
   const res = await acceptReviewed(review); assert.equal(res.statusCode, 409); assert.equal(scholar, null); assert.equal(writes.length, 0);
 });
 
-test('acceptance rejects terminal application states and retains the eligibility override requirement', async () => {
+test('acceptance rejects terminal application states and permits staff acceptance without a decision reason', async () => {
   result = publishedResult();
   for (const status of ['Rejected', 'Declined', 'Withdrawn']) { application.status = status; const res = await acceptReviewed(); assert.equal(res.statusCode, 409); assert.equal(writes.length, 0); }
-  application.status = 'Examined'; const res = await acceptReviewed({ ...reviewedDecision(), reviewReason: '' });
-  assert.equal(res.statusCode, 400); assert.equal(res.body.code, 'ELIGIBILITY_OVERRIDE_REASON_REQUIRED'); assert.equal(writes.length, 0);
+  application.status = 'Examined'; const review = reviewedDecision(); delete review.reviewReason;
+  const res = await acceptReviewed(review);
+  assert.equal(res.statusCode, 201);
+  const snapshot = writes.find(w => w.table === 'eligibility_assessments').data;
+  assert.equal(snapshot.review_reason, null); assert.equal(snapshot.review_decision, 'accepted');
+  assert.notEqual(snapshot.recommendation, 'MEETS_CONFIGURED_CRITERIA');
+  assert.ok(snapshot.reviewed_by);
+  assert.equal(res.locals.auditAction, 'ELIGIBILITY_RECOMMENDATION_OVERRIDDEN');
+});
+
+test('reason-free acceptance still rejects failed or unpublished examination results', async () => {
+  for (const overrides of [{ passed: false, score: 5 }, { published_at: null }]) {
+    result = { ...publishedResult(), ...overrides };
+    const review = reviewedDecision(); delete review.reviewReason;
+    const res = await acceptReviewed(review);
+    assert.equal(res.statusCode, overrides.passed === false ? 400 : 409);
+    assert.equal(scholar, null); assert.equal(writes.length, 0);
+  }
 });
 
 test('acceptance rollback and serialization conflicts do not leave scholar or decision writes', async (t) => {

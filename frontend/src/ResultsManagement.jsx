@@ -59,7 +59,6 @@ export default function ResultsManagement({ token }) {
   const [selected, setSelected] = useState(null);
   const [acceptingScholar, setAcceptingScholar] = useState(false);
   const [acceptError, setAcceptError] = useState('');
-  const [decisionReason, setDecisionReason] = useState('');
   const [reevaluationOpen, setReevaluationOpen] = useState(false);
   const [reevaluationScore, setReevaluationScore] = useState('');
   const [reevaluationRemarks, setReevaluationRemarks] = useState('');
@@ -181,7 +180,6 @@ export default function ResultsManagement({ token }) {
   const openResult = (applicant) => {
     setSelected(applicant);
     setAcceptError('');
-    setDecisionReason('');
     setReevaluationOpen(false);
     setPassingScore(String(applicant.passingScore ?? 14));
     setReevaluationScore(String(applicant.score ?? ''));
@@ -264,7 +262,7 @@ export default function ResultsManagement({ token }) {
       const response = await fetch(`${API_BASE}/scholars/${selected.id}/accept`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reviewReason: decisionReason.trim(), examId: selected.examId, resultId: selected.resultId, applicationId: selected.applicationId, academicPeriodId: selected.academicPeriodId, updatedAt: selected.resultUpdatedAt }),
+        body: JSON.stringify({ examId: selected.examId, resultId: selected.resultId, applicationId: selected.applicationId, academicPeriodId: selected.academicPeriodId, updatedAt: selected.resultUpdatedAt }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -372,14 +370,8 @@ export default function ResultsManagement({ token }) {
             {!reevaluationOpen && <button type="button" className="rm-reevaluate-trigger" disabled={selected.isScholar || publishing || ((!selected.resultId) && (deliveryMode !== 'paper' || selected.attendanceStatus !== 'Present' || !selected.examId))} onClick={() => { setReevaluationOpen(true); setReevaluationScore(String(selected.score ?? '')); setReevaluationRemarks(''); setReevaluationError(''); }}><RefreshCw size={16} />{selected.isScholar ? 'Result locked after acceptance' : !selected.resultId ? deliveryMode === 'online' ? 'Online score computed on submission' : selected.attendanceStatus !== 'Present' ? 'Confirm Present attendance before recording' : 'Record paper score' : 'Correct score'}</button>}
             {selected.resultId && !selected.resultPublishedAt && !selected.isScholar && !reevaluationOpen && <button type="button" className="rm-save-reevaluation" disabled={publishing || reevaluating} onClick={publishResult}>{publishing ? 'Publishing…' : 'Publish reviewed result'}</button>}
             {reevaluationOpen && <p>Saving keeps the result under review. Correcting a published score hides the outcome until CAO republishes it.</p>}
-            {!selected.isScholar && selected.status === 'Passed' && (
-              <label className="rm-decision-reason">
-                <span>Decision reason {selected.eligibilityRecommendation?.requiresOverrideReason && <b>* required for override</b>}</span>
-                <textarea rows="3" maxLength="2000" value={decisionReason} onChange={(event) => { setDecisionReason(event.target.value); setAcceptError(''); }} placeholder="Record the human reviewer’s reason, especially when overriding the recommendation." />
-              </label>
-            )}
             {acceptError && <div className="rm-accept-error"><TriangleAlert size={14} />{acceptError}</div>}
-            <button type="button" className={selected.isScholar ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || (selected.resultId && !selected.resultPublishedAt) || publishing || acceptingScholar || (selected.eligibilityRecommendation?.requiresOverrideReason && !decisionReason.trim())} onClick={acceptAsScholar}><UserCheck size={16} />{acceptingScholar ? 'Recording decision…' : selected.isScholar ? 'Accepted as Scholar' : selected.status !== 'Passed' ? 'Latest exam result is not passing' : selected.resultId && !selected.resultPublishedAt ? 'Publish result before acceptance' : 'Accept as Scholar'}</button>
+            <button type="button" className={selected.isScholar ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || (selected.resultId && !selected.resultPublishedAt) || publishing || acceptingScholar} onClick={acceptAsScholar}><UserCheck size={16} />{acceptingScholar ? 'Recording decision…' : selected.isScholar ? 'Accepted as Scholar' : selected.status !== 'Passed' ? 'Latest exam result is not passing' : selected.resultId && !selected.resultPublishedAt ? 'Publish result before acceptance' : 'Accept as Scholar'}</button>
             <small>{selected.isScholar ? `Scholar account active${selected.scholarId ? ` · ${selected.scholarId}` : ''}.` : selected.status === 'Passed' ? 'A versioned recommendation snapshot and the staff decision will be recorded.' : 'Only applicants whose latest examination result is passing can be accepted.'}</small>
           </footer>
         </aside>

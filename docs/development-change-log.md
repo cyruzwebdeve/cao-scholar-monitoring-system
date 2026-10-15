@@ -5,6 +5,34 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-15 - Remove Decision Reason from Results Acceptance
+
+**TL;DR**
+- Removed the Decision reason textarea from the Results applicant drawer and the associated acceptance-button restriction.
+- Admin acceptance no longer requires a free-text reason when the eligibility recommendation differs; the server and recommendation compatibility flag now match the UI.
+- Published passing result, exact record/version checks, authorized staff decision, eligibility snapshot and operational logging remain; previous reasons are preserved and no migration is needed.
+- All 39 selected eligibility/examination integration tests, frontend lint/build and whitespace checks passed. Deployment status is recorded below.
+
+### Objective, previous/new behavior and affected roles
+
+Remove the redundant Decision reason field requested by the user. Previously Admins could enter a reason, and applicants whose recommendation required review or did not meet configured criteria could not be accepted without one. Now Admins can explicitly accept an applicant with a published passing result without typing a reason. Eligibility recommendations remain advisory, with the recommendation and staff identity/time recorded. Failed or unpublished results and stale/mismatched records still cannot be accepted. This is a material acceptance-policy change accompanying the field removal, not merely hiding the textarea.
+
+### Implementation and data flow
+
+`frontend/src/ResultsManagement.jsx` no longer renders the field, stores its state, sends reviewReason, or disables acceptance on its absence. Removed obsolete `.rm-decision-reason` styles from `frontend/src/styles/admin.css`. `backend/controllers/applicationController.js` no longer rejects missing reasons. It still accepts optional bounded reasons from older clients and stores null when omitted, preserving earlier records. Operational event classification uses the actual recommendation rather than the old reason-required flag, and its description records a staff decision without claiming a written explanation. `backend/services/eligibilityRecommendation.js` retains `requiresOverrideReason` for compatibility but returns false. No recommendation score, threshold or publication/authorization checks changed.
+
+### Impacts
+
+API: acceptance permits omitted reasons; recommendation response flag reflects optional reasons. Database: no schema changes or record deletion; new decisions may have null review_reason. Configuration/dependencies: no changes. Security: the mandatory text gate is removed, while existing authentication, authorization, record binding, concurrency and passing/publication guards remain. Privacy: no new data collection. Accessibility: removed label/textarea; action/error feedback remains. Deployment: frontend and backend required, no migration. Payroll-list scope and legacy payment code: no changes.
+
+### Validation and results
+
+Updated `backend/tests/eligibilityRecommendation.test.js` and `backend/tests/examinationIntegration.test.js`. All 39 selected tests passed, including omitted-reason acceptance with a non-meeting/review recommendation, null reason plus reviewer/snapshot/event recording, failed/unpublished denial, terminal-state denial, mismatched/stale records and transactional rollback. Initial sandbox run could not bind the integration facade's loopback listener; the authorized isolated-listener run passed. Frontend lint and production build passed with the existing large-chunk advisory; `git diff --check` passed. No production acceptance was performed.
+
+### Limitations, rollback and next work
+
+Deploy backend alongside frontend to avoid the former mandatory-reason rejection from an older backend. Existing score-correction Review remarks remain a separate workflow. Revert the component/styles, backend gate/compatibility flag and event classification to restore mandatory reasons; decisions already made without reasons retain null historical reasons. Staff acceptance testing: Results → View result should show no Decision reason field; a test applicant with a published passing result should be acceptable without typing a note, while an unpublished/failed result remains blocked. Confirm Hostinger backend release status because public health does not identify the deployed revision.
+
 ## 2026-10-15 - Initial Submission Scholar Dashboard Verification
 
 **TL;DR**

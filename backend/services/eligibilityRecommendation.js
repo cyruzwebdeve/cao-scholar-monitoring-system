@@ -159,7 +159,7 @@ const evaluateEligibility = ({ application, result, generatedAt = new Date() } =
     threshold: POLICY.recommendationThreshold,
     summary,
     requiresHumanDecision: true,
-    requiresOverrideReason: recommendation !== 'MEETS_CONFIGURED_CRITERIA',
+    requiresOverrideReason: false, // Acceptance records the staff decision without requiring a free-text reason.
     missingInputs,
     factors,
     generatedAt: generatedAt.toISOString(),

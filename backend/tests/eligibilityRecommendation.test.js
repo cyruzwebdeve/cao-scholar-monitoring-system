@@ -52,7 +52,7 @@ test('a failed examination remains a hard recommendation blocker', () => {
   });
 
   assert.equal(assessment.recommendation, 'DOES_NOT_MEET_CRITERIA');
-  assert.equal(assessment.requiresOverrideReason, true);
+  assert.equal(assessment.requiresOverrideReason, false);
   assert.match(assessment.summary, /examination result/i);
 });
 

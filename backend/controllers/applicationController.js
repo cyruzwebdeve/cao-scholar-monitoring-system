@@ -2242,12 +2242,6 @@ const acceptApplicantAsScholar = async (req, res) => {
       if (!latestResult.published_at) throw new AttemptError('Publish the reviewed examination result before scholarship acceptance.');
 
       const assessment = evaluateEligibility({ application, result: latestResult });
-      if (assessment.requiresOverrideReason && !reviewReason) {
-        const error = new AttemptError('Add a decision reason before accepting an applicant whose recommendation requires review or does not meet the configured criteria.', 400);
-        error.assessment = assessment;
-        throw error;
-      }
-
       const schoolYear = applicant.school_year === STALE_DEFAULT_SCHOOL_YEAR || !applicant.school_year
         ? activePeriod.school_year
         : applicant.school_year;
@@ -2299,11 +2293,11 @@ const acceptApplicantAsScholar = async (req, res) => {
       scholarId: scholar.scholar_id,
       schoolYear,
     });
-    res.locals.auditAction = assessment.requiresOverrideReason
+    res.locals.auditAction = assessment.recommendation !== 'MEETS_CONFIGURED_CRITERIA'
       ? 'ELIGIBILITY_RECOMMENDATION_OVERRIDDEN'
       : 'APPLICANT_ACCEPTED_AS_SCHOLAR';
-    res.locals.auditDescription = assessment.requiresOverrideReason
-      ? `Accepted an applicant after a documented human override of eligibility policy ${assessment.policyVersion}.`
+    res.locals.auditDescription = assessment.recommendation !== 'MEETS_CONFIGURED_CRITERIA'
+      ? `Accepted an applicant by staff decision despite the recommendation of eligibility policy ${assessment.policyVersion}.`
       : `Accepted an applicant after reviewing eligibility policy ${assessment.policyVersion}.`;
     return res.status(201).json({
       message: 'Applicant accepted as a scholar.',
