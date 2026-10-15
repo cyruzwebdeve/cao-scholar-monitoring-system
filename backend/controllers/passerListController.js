@@ -74,7 +74,7 @@ const create = safe(async (req, res) => {
     }
     const draft = await tx.passer_lists.create({ data: { request_key: body.requestKey, academic_period_id: period.id, title: body.title.trim(), created_by: req.user.id, supersedes_id: body.supersedesId || null, revision_reason: body.supersedesId ? body.revisionReason.trim() : null, members: { create: members } }, include: { members: true } });
     return body.status === 'posted' ? postDraft(tx, draft, req.user.id) : draft;
-  }, { isolationLevel: 'Serializable' });
+  }, { isolationLevel: 'Serializable', maxWait: 10000, timeout: 300000 });
   res.locals.auditTargetId = list.id;
   return res.status(201).json({ list, message: list.status === 'posted' ? 'Passer list posted and locked. Applicants can see their published outcome and initial checklist.' : 'Passer list draft saved. Applicants are not notified until posting.' });
 });
@@ -85,7 +85,7 @@ const post = safe(async (req, res) => {
     const draft = await tx.passer_lists.findUnique({ where: { id }, include: { members: true } });
     if (!draft) throw fail('Passer list not found.', 404);
     return postDraft(tx, draft, req.user.id);
-  }, { isolationLevel: 'Serializable' });
+  }, { isolationLevel: 'Serializable', maxWait: 10000, timeout: 300000 });
   res.locals.auditTargetId = list.id;
   return res.json({ list, message: 'Passer list posted and locked.' });
 });
