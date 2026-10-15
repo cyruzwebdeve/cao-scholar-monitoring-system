@@ -5,6 +5,25 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-15 - Remove Remarks Box from Results Drawer
+
+**TL;DR**
+- Removed the Remarks box and its Updated timestamp from the Results applicant drawer for Admins.
+- Existing stored remarks, CSV export and score-entry/correction review notes are preserved; no data or API changes.
+- Removed the unused timestamp formatter and drawer-specific CSS. Frontend lint/build and whitespace validation passed.
+
+### Objective, previous/new behavior and roles
+
+Remove the unneeded Remarks display shown in the applicant's Results drawer. Previously a field-like read-only box displayed saved remarks and, when available, an update timestamp. Admins now see the applicant location followed by the score-review/actions area without this redundant section. The separate required Review remarks input for recording/correcting a score remains part of the existing review workflow; this change targets the displayed box in the supplied screenshot.
+
+### Implementation and impacts
+
+Removed the display section and its unused timestamp formatter from `frontend/src/ResultsManagement.jsx`; removed `.rm-remarks` and `.rm-remarks-timestamp` rules from `frontend/src/styles/admin.css`. Existing notes still flow through the unchanged API for score review and CSV export; historical records are retained. API, database, configuration, dependencies, security and privacy: no changes. Accessibility: removes the redundant heading/display and associated timestamp, with no new controls. Deployment: frontend only, no migration; deployment now authorized by the user. Payroll-list scope and legacy payment functionality: no changes.
+
+### Validation, limitations, rollback and next work
+
+Frontend lint and production build passed, with the existing large-chunk build advisory. `git diff --check` passed. Source inspection confirmed that score review notes and CSV export remain available and the removed timestamp formatter had no other consumers. No new tests were added for this small presentation-only removal; no authenticated browser session was used. Revert the JSX/formatter and CSS removal to restore the display; no data rollback required. Verify the Results → View result drawer after deployment.
+
 ## 2026-10-14 - Photo-Specific Document Capture Tips
 
 **TL;DR**

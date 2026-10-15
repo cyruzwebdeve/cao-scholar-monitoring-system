@@ -27,19 +27,6 @@ const formatResultDate = (value) => {
   return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const formatResultTimestamp = (value) => {
-  if (!value) return '';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return String(value);
-  return parsed.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-};
-
 const resultExportColumns = [
   { key: 'name', label: 'Applicant', group: 'Applicant' },
   { key: 'control', label: 'Control Number', group: 'Applicant' },
@@ -366,7 +353,6 @@ export default function ResultsManagement({ token }) {
           <div className="rm-score-summary"><div><span>Recorded score</span><b>{selected.score ?? '—'}</b></div><div><span>Passing score</span><strong>{selected.passingScore ?? 'Not set'}</strong></div></div>
           <section className="rm-detail-section"><h4>Examination details</h4><dl><div><dt>Examination</dt><dd>{selected.examTitle || 'PGCEAP Qualifying Examination'}</dd></div><div><dt>Date</dt><dd>{formatResultDate(selected.date)}</dd></div><div><dt>Academic year</dt><dd>{selected.academicYear || '2026-2027'}</dd></div><div><dt>Venue</dt><dd>{selected.examVenue || selected.municipality || 'Not specified'}</dd></div></dl></section>
           <section className="rm-detail-section"><h4>Applicant location</h4><dl><div><dt>Municipality</dt><dd>{selected.municipality || 'Not specified'}</dd></div><div><dt>Barangay</dt><dd>{selected.barangay || 'Not specified'}</dd></div></dl></section>
-          <section className="rm-detail-section"><h4>Remarks</h4><p className="rm-remarks">{selected.notes || 'No remarks were recorded for this result.'}</p>{selected.notes && selected.reevaluatedAt && <span className="rm-remarks-timestamp"><Clock3 size={12} />Updated {formatResultTimestamp(selected.reevaluatedAt)}</span>}</section>
 
           {reevaluationOpen && (
             <section className="rm-reevaluation-panel">

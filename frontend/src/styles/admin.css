@@ -3883,26 +3883,6 @@
   font-weight: 700;
   text-align: right;
 }
-.rm-remarks {
-  margin: 0;
-  padding: 13px;
-  border: 1px solid #e3ebe5;
-  border-radius: 10px;
-  background: #fafcfb;
-  color: #667269;
-  font-size: 11px;
-  line-height: 1.55;
-}
-.rm-remarks-timestamp {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 5px;
-  margin-top: 7px;
-  color: #87938a;
-  font-size: 9px;
-  font-weight: 600;
-}
 .rm-reevaluation-panel {
   margin-top: 20px;
   padding: 16px;

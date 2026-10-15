@@ -286,3 +286,5 @@
 
 2026-10-14 | Added local photo-specific document capture tips for Admin phone and initial-intake previews (lighting, detail, contrast and image size), updating after retake/crop. Advisory only: no OCR, upload gate, API or database change. Five metric cases, all 17 frontend test modules, lint/build and isolated phone/desktop browser workflows passed; frontend deployment authorized.
 2026-10-14 | Deployed photo-tip release 8c0d7dd to Hostinger; public phone/Admin assets and shared guidance/CSS verified live, API/database healthy. Frontend-only, no migration; authenticated camera acceptance remains for staff testing.
+
+2026-10-15 | Removed the Remarks display and Updated timestamp from the Results applicant drawer, plus unused formatter/CSS. Existing notes, score-review inputs and CSV exports retained; no API/database changes. Frontend lint/build and whitespace checks passed; not deployed.
