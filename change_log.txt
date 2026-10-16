@@ -339,3 +339,5 @@
 2026-10-16 | Release 6ed03e1 verified live: redundant grant-summary row markup removed; grant data/exports retained. API/database healthy. No backend change or migration.
 
 2026-10-16 | Replaced late windows/individual authorization with per-period continuing upload Open/Closed access (eligible active periods default open after initial verification). Added cross-list Not yet included filtering and explicit, protected per-period Send to Payroll after a regular list exists. History/lists/grant and duplicate safeguards retained. Migration 20261016030000_period_uploads_payroll_routing required. 329 backend pass/1 existing skip, 81 frontend pass, lint/build, Prisma, two browser flows and exact SQL migration checks passed. Deployment pending.
+
+2026-10-17 | Release 2195a02 frontend verified live; user confirmed backend deployment and migration 20261016030000_period_uploads_payroll_routing successful. New access/routing controls present, retired late controls absent, API/database healthy. Verification read-only; staff checklist available.
