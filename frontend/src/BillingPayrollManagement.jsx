@@ -495,7 +495,6 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
                   <div className="billing-source-status">
                     <span className={`billing-queue-ready ${canMove ? '' : 'archived'}`}>{statusLabel}</span>
                     {record.processingWarnings?.length > 0 && <RequirementsWarning name={record.name} />}
-                    {record.schoolType === 'Private' && <small className="private-grant-summary">{record.preparationStatus}{record.tuitionFeeAssistance != null ? ` · Tuition ${formatAmount(record.tuitionFeeAssistance)} · Allowance ${formatAmount(record.allowance)}` : record.preparationStatus === 'Listed' ? ' · Breakdown not recorded' : ''}</small>}
                   </div>
                   <ScholarSchoolIdentity record={record} />
                 </div>;

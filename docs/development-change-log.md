@@ -5,6 +5,21 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-16 - Remove Crowded Grant Summary from Processing Rows
+
+**TL;DR**
+- Removed the Prepared/Tuition/Allowance summary line from Private Scholar source rows in Billing and Payroll.
+- Staff retain the readiness badge and requirements-warning icon; grant values remain in Scholar preparation records, filters and exports.
+- Presentation-only frontend deployment requested; no data, API, backend or migration change.
+
+### Objective, behavior and implementation
+
+The user reported that the grant summary beneath the status made processing rows crowded. Removed the read-only `private-grant-summary` markup in `frontend/src/BillingPayrollManagement.jsx`. Previously Private rows repeated preparation state and tuition/allowance amounts beneath readiness and warning controls. Now they show the existing concise readiness badge and warning icon with the Scholar identity. This affects staff viewing Billing/Payroll source lists; it does not remove saved grant records, filter fields, export columns or listing checks.
+
+### Impacts and verification
+
+API/backend, database/schema, configuration, dependencies, security and privacy: no impact. Accessibility: existing named selection controls, textual readiness and requirements warning remain; removing the redundant summary does not remove record details from the Scholar drawer. Scope and legacy list storage remain unchanged; no payment-release behavior added. Frontend lint and production build passed with the existing large-chunk advisory; source review confirms tuition/allowance export fields remain. Deployment verification pending. No new tests are needed for removing a redundant presentation line. Rollback restores that markup without data changes. Recommended check after deployment: source rows retain readiness/warnings, and grant amounts remain available in the Scholar drawer and exports. No production record mutation is needed for verification.
+
 ## 2026-10-16 - One Add to Billing Action
 
 **TL;DR**
