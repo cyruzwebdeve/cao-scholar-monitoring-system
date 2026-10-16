@@ -107,7 +107,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const [page, setPage] = useState(1);
   const [exportOpen, setExportOpen] = useState(false);
   const [academicPeriods, setAcademicPeriods] = useState([]);
-  const [billingForm, setBillingForm] = useState({ schoolYear: '', semester: '', billingStatus: 'Not billed yet' });
+  const [billingForm, setBillingForm] = useState({ schoolYear: '', semester: '' });
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingPeriodLoading, setBillingPeriodLoading] = useState(false);
   const [billingEditError, setBillingEditError] = useState('');
@@ -311,7 +311,6 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const formFromScholarPeriod = (record, period) => ({
     schoolYear: period?.schoolYear || record.billingSchoolYear || record.schoolYear || '',
     semester: period?.semester || record.billingSemester || record.semester || '',
-    billingStatus: ['Pending', 'Not applicable', 'Ready for billing', 'On hold', 'Not listed yet'].includes(record.billingStatus) ? 'Not billed yet' : record.billingStatus || 'Not billed yet',
   });
 
   const openBillingTab = () => {
@@ -368,7 +367,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
       const response = await fetch(`${API_BASE}/scholars/${selected.applicantId}/billing-metadata`, {
         method: 'PUT',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ academicPeriodId: selectedPeriod.id, billingStatus: billingForm.billingStatus }),
+        body: JSON.stringify({ academicPeriodId: selectedPeriod.id, billingStatus: 'Not billed yet' }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to update billing and payroll details.');
@@ -576,7 +575,15 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
                     <label><span>School year</span><select aria-label="School year" value={billingForm.schoolYear} disabled={!canEditBilling || billingPeriodLoading} onChange={(event) => { const schoolYear = event.target.value; const matchingPeriods = activeBillingPeriods.filter((period) => period.schoolYear === schoolYear); const nextPeriod = matchingPeriods.find((period) => period.semester === billingForm.semester) || matchingPeriods[0]; selectBillingPeriod(nextPeriod); }}><option value="">School Year</option>{billingSchoolYears.map((schoolYear) => <option key={schoolYear}>{schoolYear}</option>)}</select></label>
                     <label><span>Semester</span><select aria-label="Semester" value={billingForm.semester} disabled={!canEditBilling || billingPeriodLoading || !billingForm.schoolYear} onChange={(event) => selectBillingPeriod(activeBillingPeriods.find((period) => period.schoolYear === billingForm.schoolYear && period.semester === event.target.value))}><option value="">Semester</option>{billingSemesters.map((semester) => <option key={semester}>{semester}</option>)}</select></label>
                     {selected.processRoute === 'billing' && <label><span>Billing reference</span><input aria-label="Billing reference" value={selected.billingReference || ''} placeholder="Generated after processing" readOnly aria-readonly="true" /><small>Assigned automatically by Process Billing.</small></label>}
-                    <label><span>{selected.processRoute === 'payroll' ? 'Payroll preparation status' : 'Billing status'}</span><select aria-label="Processing status" disabled={!canEditBilling || selected.billed || selected.inPayroll} value={billingForm.billingStatus} onChange={(event) => setBillingForm((current) => ({ ...current, billingStatus: event.target.value }))}>{selected.billed && <option>Billed</option>}<option value="Not billed yet">{selected.processRoute === 'payroll' ? 'Not listed yet' : 'Not billed yet'}</option></select><small>Editable until this period is processed.</small></label>
+                    <div className="scholars-processing-status-field">
+                      <span>{selected.processRoute === 'payroll' ? 'Payroll-list status' : 'Billing status'}</span>
+                      <div role="status" aria-live="polite" aria-busy={billingPeriodLoading}>
+                        <strong className={`scholars-processing-status-badge${(selected.processRoute === 'payroll' ? selected.inPayroll : selected.billed) ? ' is-listed' : ''}`}>
+                          {billingPeriodLoading ? 'Loading status…' : selected.processRoute === 'payroll' ? (selected.inPayroll ? 'Included in payroll list' : 'Not listed yet') : selected.billed ? 'Billed' : 'Not billed yet'}
+                        </strong>
+                      </div>
+                      <small>Updates automatically when the official list is generated.</small>
+                    </div>
                   </div>
                   {billingEditError && <p role="alert">{billingEditError}</p>}
                   {canEditBilling && !selected.billed && !selected.inPayroll && <footer><button type="submit" disabled={billingSaving || billingPeriodLoading || !billingForm.schoolYear || !billingForm.semester}><Save size={12} />{billingSaving ? 'Preparing…' : selected.processRoute === 'payroll' ? 'Prepare & open Payroll' : 'Prepare & open Billing'}</button></footer>}

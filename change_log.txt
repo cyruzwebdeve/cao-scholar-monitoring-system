@@ -309,3 +309,7 @@
 2026-10-16 | Release 66cec87 pushed; live frontend verified with Ready for billing and On hold removed from the preparation selector. API/database healthy; backend deployment confirmation requested. No migration.
 
 2026-10-16 | User confirmed Hostinger backend deployment for preparation-status cleanup 66cec87 successful. Frontend previously verified live; no migration required.
+
+2026-10-16 | Replaced Scholar preparation status dropdown with automatic read-only Billing/Payroll list-status badge based on actual period membership. Preparation still saves Not billed yet; no API/schema or deployment change. Frontend lint/build passed.
+
+2026-10-16 | Deploying the automatic read-only Scholar processing-status badge for testing. Frontend lint/build passed; no backend change or migration. Live verification pending.

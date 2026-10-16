@@ -5,6 +5,28 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-16 - Automatic Read-only Processing Status Badge
+
+**TL;DR**
+- Scholar preparation now shows a read-only status badge instead of the one-option dropdown.
+- Billing displays Not billed yet/Billed from actual list membership; Payroll displays Not listed yet/Included in payroll list.
+- Saving preparation does not mark a Scholar billed or listed. Period changes load the selected period's record with a loading announcement.
+- Frontend validation is recorded below; no backend/schema change or deployment is included.
+
+### Objective, previous/new behavior, roles and data flow
+
+At the user's request, replace the redundant status selector with the current record's processing status. Provincial, Regular and Billing/Payroll staff see the badge in the Scholar finance preparation panel. Previously a one-option native selector represented preparation metadata. Now the badge derives from the management API's period-specific billed/inPayroll flags, which reflect official generated list membership. Selecting another academic period already retrieves that period's Scholar projection; the badge announces loading instead of showing the old period as current. Existing refreshes update the same selected record. The badge includes text as well as color, a polite live status region, and a distinct listed style.
+
+Removed billingStatus from editable local form state. The existing preparation request still sends the supported Not billed yet metadata value so preparing a session cannot submit a display-only Billed label or imply official list generation. Existing server processed-period locks and actual list generation remain unchanged.
+
+### Files and impacts
+
+Changed `frontend/src/ScholarsManagement.jsx` and `frontend/src/styles/scholars-management.css`, plus both change logs. API: no endpoint/contract or backend change. Database: no migration, stored-data rewrite or new columns. Configuration/dependencies: no impact. Security/privacy: existing permissions and record access unchanged; no new collection or document exposure. Accessibility: read-only textual badge with live loading/status feedback replaces an unnecessary interactive control; academic-period selectors remain labeled. Deployment: frontend rollout requested; live verification pending. No backend change or migration is required. Scope remains official list generation; retained legacy list storage is unchanged and no payment-release functionality is added.
+
+### Validation, limitations, rollback and next work
+
+Frontend lint and production build passed (existing large-chunk advisory). Source review confirms status derives from selected-period list flags, displayed processed labels never become request metadata, and preparation retains its unprocessed canonical value. No production records were changed. Updates follow existing refresh/period-loading behavior rather than a new real-time channel. Rollback restores the previous frontend component/styles with no database action. After deployment, verify an unlisted and listed Billing record, Payroll membership, changing periods, and that saving preparation alone leaves the record unlisted.
+
 ## 2026-10-16 - Remove the On Hold Preparation Choice
 
 **TL;DR**
