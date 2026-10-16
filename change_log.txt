@@ -335,3 +335,5 @@
 2026-10-16 | Release bb71a81 verified live: Add to billing combines Private grant save and Billing session handoff. API/database healthy. Payroll and late-submission behavior unchanged; no backend change or migration.
 
 2026-10-16 | Removed crowded Prepared/Tuition/Allowance summary from Billing/Payroll source rows. Readiness and requirements warnings retained; saved grant values, filters and exports unchanged. Frontend lint/build passed; deployment pending. No API/schema impact.
+
+2026-10-16 | Release 6ed03e1 verified live: redundant grant-summary row markup removed; grant data/exports retained. API/database healthy. No backend change or migration.
