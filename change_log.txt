@@ -323,3 +323,5 @@
 2026-10-16 | Moved Private grant creation/update inline into Scholar processing-session preparation; removed Billing/Payroll table grant editors and Edit billing details modal. Saved records, route permissions, receipt access, fixed grant/auto allowance and listed locks retained. Frontend lint/build, 81 frontend cases and two desktop/mobile browser flows passed. No backend/schema change; not deployed.
 
 2026-10-16 | Deploying relocated Scholar-panel Private grant preparation and removal of Billing table editors. Lint/build, 81 frontend cases and two synthetic browser flows passed. Frontend-only release; live verification pending.
+
+2026-10-16 | Release c565741 frontend verified live: grant preparation is inline in the Scholar session panel; legacy Billing table editors removed. New component/styles served; API/database healthy. No backend change or new migration.
