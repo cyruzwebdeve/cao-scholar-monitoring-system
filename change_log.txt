@@ -357,3 +357,5 @@
 2026-10-17 | Retained configurable Billing Excel columns and added explicit column-order controls. Default selection matches Generate's 11-column no-signature template; XLSX rows, widths, currency and totals follow selected order. Other CSV dialogs retain defaults. Serialized XLSX checks, 82 frontend cases and lint/build passed; desktop/mobile picker checks passed. Not deployed.
 
 2026-10-17 | Deploying Billing XLSX export with configurable columns/order, Generate-template styling and removal of Billing signature. Default official templates retained; queue export stays a preparation copy. XLSX, 82 frontend cases, lint/build and desktop/mobile controls passed; live verification pending. No backend change or migration.
+
+2026-10-17 | Release 3876cf1 verified live: Billing Export Excel retains configurable columns/order with shared Generate styling, preparation-copy identification and no signature column. API/database healthy; no backend change or migration. Workflow guide included in repository.
