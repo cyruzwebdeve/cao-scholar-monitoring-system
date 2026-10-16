@@ -5,6 +5,20 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-17 - Keep the Requested Billing and Payroll Filters
+
+**TL;DR**
+- Retained every Scholar and Academic & Date filter, plus Billed?, Payroll list, Billing Reference and Payroll Reference.
+- Removed List inclusion and Grant preparation filters and their unused state/reset logic.
+- Payroll list → Not included yet now finds records absent from both Billing/Payroll for the selected period, including Private candidates for explicit Send to Payroll; existing members remain excluded.
+- No backend/data/migration change. Frontend deployment requested; verification is recorded below.
+
+Objective: reduce the filter panel to the user's specified controls while preserving the new remaining-Scholar workflow. Previously List inclusion and Grant preparation added two extra dropdowns. Now the four requested Billing & Payroll controls remain, with the existing Payroll list selector covering unprocessed-record discovery. Search, Scholar status, School, School year/Semester, School type and processed dates remain visible and unchanged. Grant values and preparation fields still appear in saved records/exports; only their extra filter is removed.
+
+Implementation: updated `frontend/src/BillingPayrollManagement.jsx`, `frontend/src/utils/payrollListStatus.js`, its existing tests and the staff checklist at `docs/qa/2026-10-16/period-upload-payroll-flow.md`. Not included yet requires no Payroll membership, no Billing membership and no server-declared existing membership; in Payroll it exposes unlisted Private candidates from the Billing route without making them queueable until staff explicitly sends them to Payroll. Included and All options retain their existing meaning. The server still owns routing, grant preparation and duplicate checks. Affects staff using Billing/Payroll lists. API, backend, database/schema, configuration, dependencies, security and privacy: no changes. Accessibility retains labeled native controls with two fewer dropdowns. Legacy membership storage and official-list-only scope remain unchanged; no fund-release functionality is introduced.
+
+Validation: frontend lint and production build passed with the existing large-chunk advisory; all 82 frontend regression cases passed. Added regression verifies unlisted Public/Private discovery while excluding both generated Billing and Payroll membership, including server-declared prior membership. Frontend deployment requested; live verification pending. Rollback restores the previous component/helper with no data action. Existing combinations of Billed?/Payroll list still intersect, so contradictory selections can intentionally return no results. Next check after deployment: confirm requested controls remain, removed controls are absent, Not included yet finds unlisted Public/Private candidates, existing members stay excluded and reference/date filters still work.
+
 ## 2026-10-17 - Period Access and Payroll Routing Deployment Confirmed
 
 **TL;DR**

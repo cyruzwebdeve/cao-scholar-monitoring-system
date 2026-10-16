@@ -169,9 +169,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
   const [processing, setProcessing] = useState(false);
   const [operationNotice, setOperationNotice] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
-  const [listMembership, setListMembership] = useState('All list records');
   const [routingApplicant, setRoutingApplicant] = useState(null);
-  const [preparationStatus, setPreparationStatus] = useState('All Preparation Statuses');
   const [query, setQuery] = useState('');
   const [scholarStatus, setScholarStatus] = useState('All Scholar Statuses');
   const [billed, setBilled] = useState(defaultBilledFilter);
@@ -244,21 +242,19 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
     const matchesReference = payReference === 'All Payroll References'
       || (payReference === 'No payroll reference' ? !record.payReference : record.payReference === payReference);
     return search.includes(query.trim().toLowerCase())
-      && (preparationStatus === 'All Preparation Statuses' || record.preparationStatus === preparationStatus)
       && (scholarStatus === 'All Scholar Statuses' || record.status === scholarStatus)
       && (billed === 'All Billing Statuses' || (billed === 'Billed' ? record.billed : !record.billed))
       && matchesBillingReference
       && matchesReference
       && matchesPayrollListStatus(record, payrollListStatus)
-      && (listMembership !== 'Not yet included' || record.notYetIncluded === true)
-      && ((isPayroll && listMembership === 'Not yet included' && record.notYetIncluded === true) || isVisibleInProcessingMode(record, isPayroll ? 'payroll' : 'billing'))
+      && ((isPayroll && payrollListStatus === 'Not included yet' && record.notYetIncluded === true) || isVisibleInProcessingMode(record, isPayroll ? 'payroll' : 'billing'))
       && (schoolYearSem === 'All School Years / Semesters' || record.schoolYearSemester === schoolYearSem)
       && (school === 'All Schools' || record.school === school)
       && (schoolType === 'All School Types' || normalizedSchoolType === schoolType)
       && matchesDateRange(record.dateProcessed, dateFrom, dateTo);
-  }), [records, preparationStatus, query, scholarStatus, billed, billingReference, payReference, payrollListStatus, schoolYearSem, school, schoolType, dateFrom, dateTo, isPayroll, listMembership]);
+  }), [records, query, scholarStatus, billed, billingReference, payReference, payrollListStatus, schoolYearSem, school, schoolType, dateFrom, dateTo, isPayroll]);
 
-  const hasFilters = Boolean(listMembership !== 'All list records' || query || dateFrom || dateTo || preparationStatus !== 'All Preparation Statuses'
+  const hasFilters = Boolean(query || dateFrom || dateTo
     || scholarStatus !== 'All Scholar Statuses'
     || billed !== defaultBilledFilter
     || billingReference !== 'All Billing References'
@@ -269,7 +265,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
     || schoolType !== 'All School Types');
 
   const clearFilters = () => {
-    setListMembership('All list records'); setPreparationStatus('All Preparation Statuses'); setQuery(''); setScholarStatus('All Scholar Statuses'); setBilled(defaultBilledFilter);
+    setQuery(''); setScholarStatus('All Scholar Statuses'); setBilled(defaultBilledFilter);
     setBillingReference('All Billing References'); setPayReference('All Payroll References'); setPayrollListStatus(defaultPayrollListFilter);
     setSchoolYearSem('All School Years / Semesters'); setSchool('All Schools');
     setSchoolType('All School Types'); setDateFrom(''); setDateTo(''); setPage(1);
@@ -448,8 +444,6 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
                 <label><span>Billed?</span><select value={billed} onChange={(event) => { setBilled(event.target.value); setPage(1); }}><option>All Billing Statuses</option><option>Billed</option><option>Not billed yet</option></select></label>
                 <label><span>Payroll list</span><select aria-label="Payroll list status" value={payrollListStatus} onChange={(event) => { setPayrollListStatus(event.target.value); setPage(1); }}><option>All Payroll Statuses</option><option>Included in payroll list</option><option>Not included yet</option></select></label>
               </div>
-              <label><span>List inclusion</span><select aria-label="List inclusion" value={listMembership} onChange={(event) => { setListMembership(event.target.value); setBilled('All Billing Statuses'); setPayrollListStatus('All Payroll Statuses'); setPreparationStatus('All Preparation Statuses'); setPage(1); }}><option>All list records</option><option>Not yet included</option></select></label>
-              <label><span>Grant preparation</span><select aria-label="Grant preparation status" value={preparationStatus} onChange={(event) => { setPreparationStatus(event.target.value); if (['Listed', 'All Preparation Statuses'].includes(event.target.value)) { setBilled('All Billing Statuses'); setPayrollListStatus('All Payroll Statuses'); } setPage(1); }}><option>All Preparation Statuses</option><option>Not prepared</option><option>Prepared</option><option>Listed</option></select></label>
               <label><span>Billing reference</span><select value={billingReference} onChange={(event) => {
                 const nextReference = event.target.value;
                 setBillingReference(nextReference);
@@ -482,7 +476,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
         </div>
       </section>
 
-      {isPayroll && listMembership === 'Not yet included' && <p className="processing-remaining-note">Showing Scholars without a Billing or Payroll list record for this period. After a regular list is generated, use Send to Payroll for remaining Private Scholars. Missing a list record does not mean a late submission.</p>}
+      {isPayroll && payrollListStatus === 'Not included yet' && <p className="processing-remaining-note">Showing Scholars without a Billing or Payroll list record for this period. After a regular list is generated, use Send to Payroll for remaining Private Scholars. Missing a list record does not mean a late submission.</p>}
       {operationNotice && <div className={`billing-operation-notice ${operationNotice.tone}`} role="status">{operationNotice.tone === 'error' && <TriangleAlert size={16} />}<span>{operationNotice.text}</span><button type="button" onClick={() => setOperationNotice(null)} aria-label="Dismiss notification"><X size={14} /></button></div>}
 
       <section className="billing-transfer-board">
