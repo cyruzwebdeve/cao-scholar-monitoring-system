@@ -1,3 +1,4 @@
+import PrivateGrantEditor from './PrivateGrantEditor';
 import InitialRequirementCapture from './InitialRequirementCapture';
 import ContinuingRequirementsSettings from './ContinuingRequirementsSettings';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -108,6 +109,8 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [academicPeriods, setAcademicPeriods] = useState([]);
   const [billingForm, setBillingForm] = useState({ schoolYear: '', semester: '' });
+  const [grantBusy, setGrantBusy] = useState(false);
+  const [grantNotice, setGrantNotice] = useState('');
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingPeriodLoading, setBillingPeriodLoading] = useState(false);
   const [billingEditError, setBillingEditError] = useState('');
@@ -322,6 +325,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
       || academicPeriods[0];
     setBillingForm(formFromScholarPeriod(selected, defaultPeriod));
     setBillingEditError('');
+    setGrantNotice('');
     setDrawerTab('finance');
   };
 
@@ -334,6 +338,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const selectBillingPeriod = async (period) => {
     if (!period || billingPeriodLoading) return;
     setBillingForm((current) => ({ ...current, schoolYear: period.schoolYear, semester: period.semester }));
+    setGrantNotice('');
     setBillingPeriodLoading(true);
     setBillingEditError('');
     try {
@@ -356,7 +361,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
 
   const saveBillingMetadata = async (event) => {
     event.preventDefault();
-    if (!selected || billingSaving) return;
+    if (!selected || billingSaving || billingPeriodLoading || grantBusy) return;
     setBillingSaving(true);
     setBillingEditError('');
     try {
@@ -364,6 +369,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
         period.schoolYear === billingForm.schoolYear && period.semester === billingForm.semester
       ));
       if (!selectedPeriod) throw new Error('Select a configured school year and semester.');
+      if (selected.schoolType === 'Private' && !selected.grantPrepared) throw new Error('Save the Private grant record for this period first.');
       const response = await fetch(`${API_BASE}/scholars/${selected.applicantId}/billing-metadata`, {
         method: 'PUT',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -570,10 +576,10 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
                   <i><ReceiptText size={17} /></i>
                   <div><span>{selected.processRoute === 'payroll' ? 'PAYROLL PREPARATION' : 'BILLING PREPARATION'}</span><h4>Set up processing session</h4><p>Select the academic period before preparing the official list.</p></div>
                 </header>
-                <form className="scholars-billing-edit-form" onSubmit={saveBillingMetadata}>
+                <form id="scholar-processing-session" className="scholars-billing-edit-form" onSubmit={saveBillingMetadata}>
                   <div className="scholars-billing-fields">
-                    <label><span>School year</span><select aria-label="School year" value={billingForm.schoolYear} disabled={!canEditBilling || billingPeriodLoading} onChange={(event) => { const schoolYear = event.target.value; const matchingPeriods = activeBillingPeriods.filter((period) => period.schoolYear === schoolYear); const nextPeriod = matchingPeriods.find((period) => period.semester === billingForm.semester) || matchingPeriods[0]; selectBillingPeriod(nextPeriod); }}><option value="">School Year</option>{billingSchoolYears.map((schoolYear) => <option key={schoolYear}>{schoolYear}</option>)}</select></label>
-                    <label><span>Semester</span><select aria-label="Semester" value={billingForm.semester} disabled={!canEditBilling || billingPeriodLoading || !billingForm.schoolYear} onChange={(event) => selectBillingPeriod(activeBillingPeriods.find((period) => period.schoolYear === billingForm.schoolYear && period.semester === event.target.value))}><option value="">Semester</option>{billingSemesters.map((semester) => <option key={semester}>{semester}</option>)}</select></label>
+                    <label><span>School year</span><select aria-label="School year" value={billingForm.schoolYear} disabled={!canEditBilling || billingPeriodLoading || billingSaving || grantBusy} onChange={(event) => { const schoolYear = event.target.value; const matchingPeriods = activeBillingPeriods.filter((period) => period.schoolYear === schoolYear); const nextPeriod = matchingPeriods.find((period) => period.semester === billingForm.semester) || matchingPeriods[0]; selectBillingPeriod(nextPeriod); }}><option value="">School Year</option>{billingSchoolYears.map((schoolYear) => <option key={schoolYear}>{schoolYear}</option>)}</select></label>
+                    <label><span>Semester</span><select aria-label="Semester" value={billingForm.semester} disabled={!canEditBilling || billingPeriodLoading || billingSaving || grantBusy || !billingForm.schoolYear} onChange={(event) => selectBillingPeriod(activeBillingPeriods.find((period) => period.schoolYear === billingForm.schoolYear && period.semester === event.target.value))}><option value="">Semester</option>{billingSemesters.map((semester) => <option key={semester}>{semester}</option>)}</select></label>
                     {selected.processRoute === 'billing' && <label><span>Billing reference</span><input aria-label="Billing reference" value={selected.billingReference || ''} placeholder="Generated after processing" readOnly aria-readonly="true" /><small>Assigned automatically by Process Billing.</small></label>}
                     <div className="scholars-processing-status-field">
                       <span>{selected.processRoute === 'payroll' ? 'Payroll-list status' : 'Billing status'}</span>
@@ -586,8 +592,14 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
                     </div>
                   </div>
                   {billingEditError && <p role="alert">{billingEditError}</p>}
-                  {canEditBilling && !selected.billed && !selected.inPayroll && <footer><button type="submit" disabled={billingSaving || billingPeriodLoading || !billingForm.schoolYear || !billingForm.semester}><Save size={12} />{billingSaving ? 'Preparing…' : selected.processRoute === 'payroll' ? 'Prepare & open Payroll' : 'Prepare & open Billing'}</button></footer>}
                 </form>
+                {grantNotice && <p className="scholars-grant-notice" role="status">{grantNotice}</p>}
+                {selected.schoolType === 'Private' && <div className="scholars-grant-preparation">
+                  {billingPeriodLoading ? <p role="status">Loading grant record…</p> : selected.billed || selected.inPayroll ? <div className="scholars-grant-breakdown"><h4>Listed grant record</h4><p>This period’s record is locked after list generation.</p><dl><div><dt>Total Grant</dt><dd>PHP 5,000.00</dd></div><div><dt>Tuition Fee Assistance</dt><dd>{selected.tuitionFeeAssistance == null ? 'Not recorded' : `PHP ${Number(selected.tuitionFeeAssistance).toFixed(2)}`}</dd></div><div><dt>Allowance</dt><dd>{selected.allowance == null ? 'Not recorded' : `PHP ${Number(selected.allowance).toFixed(2)}`}</dd></div></dl></div> : canEditBilling && !billingSaving ? <PrivateGrantEditor key={`${selected.applicantId}:${selected.academicPeriodId}:${selected.grantPreparedAt || 'new'}`} record={selected} period={{ id: selected.academicPeriodId, schoolYear: billingForm.schoolYear, semester: billingForm.semester }} token={token} onBusyChange={setGrantBusy} onSaved={async (message) => { await loadScholars({ academicPeriodId: selected.academicPeriodId }); setGrantNotice(message); }} /> : <p>Grant preparation requires access to this Scholar’s processing section.</p>}
+                </div>}
+
+                  {canEditBilling && !selected.billed && !selected.inPayroll && <div className="scholars-processing-actions"><button type="submit" form="scholar-processing-session" disabled={grantBusy || billingSaving || billingPeriodLoading || !billingForm.schoolYear || !billingForm.semester || (selected.schoolType === 'Private' && !selected.grantPrepared)}><Save size={12} />{billingSaving ? 'Preparing…' : selected.processRoute === 'payroll' ? 'Prepare & open Payroll' : 'Prepare & open Billing'}</button></div>}
+
               </section>
               <section className="scholars-finance-summary">
                 <article className={selected.billed ? 'complete' : 'pending'}><i><ReceiptText size={19} /></i><div><span>Billing status</span><strong>{['Ready for billing', 'On hold'].includes(selected.billingStatus) ? 'Not billed yet' : selected.billingStatus || (selected.billed ? 'Billed' : 'Not billed yet')}</strong><small>{selected.billed ? 'Included in a billing record' : 'Waiting for billing processing'}</small></div></article>

@@ -70,7 +70,7 @@ test('Billing and Payroll source rows share name-and-school-only identity and re
   assert.match(rows, /aria-pressed=\{isSelected\}/);
   assert.match(rows, /\{statusLabel\}<\/span>/);
   assert.doesNotMatch(rows, /openProcessingOverride|Override available/);
-  assert.match(rows, /openBillingEditor\(record\)/);
+  assert.doesNotMatch(rows, /openBillingEditor|setGrantEditor/);
 });
 
 test('Billing and Payroll retain source and target queue controls while sharing source spacing', async () => {
@@ -81,12 +81,8 @@ test('Billing and Payroll retain source and target queue controls while sharing 
   assert.match(css, /\.billing-queue-row > button \{ min-height: 40px;/);
 });
 
-test('Payroll cannot open, save, or render the shared Billing school editor', async () => {
+test('Billing and Payroll retain saved school identity without the removed editors', async () => {
   const source = await readFile(new URL('../src/BillingPayrollManagement.jsx', import.meta.url), 'utf8');
-  assert.match(source, /const openBillingEditor = \(record\) => \{\s+if \(isPayroll\) return;/);
-  assert.match(source, /if \(isPayroll \|\| !billingEditor \|\| billingSaving\) return;/);
-  assert.match(source, /\{!isPayroll && billingEditor &&/);
   assert.match(source, /<ScholarSchoolIdentity record=\{record\} \/>/);
-  assert.doesNotMatch(source, /Use saved school details for/);
-  assert.match(source, /!isPayroll && !record.isArchivedPeriod && !record.billed && <button/);
+  assert.doesNotMatch(source, /openBillingEditor|saveBillingDetails|billingEditor|grantEditor|PrivateGrantEditor|billing-details-form|Use saved school details for/);
 });

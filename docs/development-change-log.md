@@ -5,6 +5,34 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-16 - Prepare Private Grants in the Scholar Session Panel
+
+**TL;DR**
+- Private grant creation/update now appears inline in Scholar → Billing & Payroll → processing-session preparation for the selected academic period.
+- Removed grant editor actions and the separate Edit billing details modal from Billing/Payroll tables; saved breakdowns, filters, exports and list generation remain available.
+- Fixed PHP 5,000 total, manual receipt-based tuition, computed allowance, server permissions, stale-edit checks and post-list locks are retained without data migration.
+- Frontend lint/build, 81 frontend regression cases and two synthetic desktop/mobile browser workflows passed. Frontend deployment requested; verification is recorded below.
+
+### Objective and previous/new behavior
+
+The user clarified that grant preparation belongs in the Scholar processing-session panel shown in the reference screenshot, rather than in the Billing section, and requested removing the redundant Edit billing details flow. Previously Billing/Payroll table rows opened a grant modal and Billing rows also opened an academic/billing-details editor. Now staff selects the period in the Scholar drawer and enters the Private grant directly below the reference/status fields. Saving prepares the existing per-period record; the separate Prepare & open action follows the editor and is enabled after preparation. Actual Billing/Payroll list generation remains in its existing section. Listed records display a read-only breakdown, with unknown historical splits explicitly Not recorded rather than invented.
+
+### Roles, implementation and data flow
+
+Provincial, Regular and Billing/Payroll staff retain existing section permissions. Grant preparation is shown to staff authorized for the Scholar's actual processing route. Public Scholars retain the existing preparation action without Private amount inputs. Initial/late Private Payroll uses the same inline form, preserving route rules. The reusable PrivateGrantEditor is now a labeled inline form without modal/focus-trap behavior or autofocus. It still streams the authenticated period receipt and sends tuition/preparedAt to the existing grant-preparation endpoint. Successful saves reload the selected period and show a green confirmation; the persisted preparation timestamp keys the editor to the saved record. During save/receipt activity, period selectors and handoff are disabled. Period loads temporarily hide the editor; listed flags replace editing with a locked summary. Separate sibling forms avoid nested forms, and the handoff button explicitly targets the metadata form.
+
+Removed BillingPayrollManagement's editor states, handlers, modal render, school-editor helper import and unused icons/catalog state. Tables retain read-only school identity, preparation status/amounts, queue controls, filters and exports. The server billing-details endpoint and historical academic/billing data are retained for compatibility, with existing authorization; removing this UI does not delete records or silently disable unrelated API clients. No payment-release functionality is added; legacy membership storage is retained solely for official list records.
+
+### Files and impacts
+
+Changed `frontend/src/ScholarsManagement.jsx`, `PrivateGrantEditor.jsx`, `BillingPayrollManagement.jsx`, `styles/scholars-management.css` and the existing `frontend/tests/scholarSchoolIdentity.test.js` assertions that previously required the removed editor. API/backend: no endpoint, contract or permission changes; existing grant save/receipt/metadata services reused. Database: no migration, new columns or historical rewrite. Configuration/dependencies: no changes. Security/privacy: same scoped authenticated receipt access, validation, preparation provenance, stale-edit protection and listed-record lock; no real Scholar data used for checks. Accessibility: labeled inline form, read-only amount fields, validation alerts and success status; modal-specific trapping removed as no grant modal remains. Deployment: frontend-only rollout requested; no backend change or new migration required.
+
+### Validation, limitations, rollback and recommended checks
+
+Frontend lint and production build passed with the existing large-chunk advisory. All 81 frontend regression cases passed; old assertions requiring Billing editor handlers were updated to assert their removal while preserving school/queue identity checks. Two isolated Chromium scenarios passed with synthetic APIs: Billing at 1280px and initial/late Private Payroll at 390px. Checked inline presence, no nested forms, automatic 3,500/1,500 split, scoped receipt request, save/reload, preparation handoff with canonical unprocessed metadata, listed-lock display, and absence of table grant/billing edit buttons. No browser runtime errors; inline editor remained within viewport. Temporary preview artifacts were removed. No authenticated hosted save or production-record mutation was performed.
+
+Staff need existing Scholar-section access to use the relocated form; no access assignment is automatically broadened. Existing refresh behavior is reused. Rollback restores prior frontend files; saved preparation data remains compatible and needs no database rollback. After deployment, verify both Billing and Private Payroll periods, historical read-only amounts, receipt availability, and roles with the intended Scholar and processing access. The earlier grant feature's additive backend migration remains its separate prerequisite.
+
 ## 2026-10-16 - Uniform Processing Status Field Width
 
 **TL;DR**

@@ -1,4 +1,3 @@
-import PrivateGrantEditor from './PrivateGrantEditor';
 import { matchesPayrollListStatus } from './utils/payrollListStatus';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -10,9 +9,7 @@ import {
   ChevronsRight,
   Download,
   Filter,
-  Pencil,
   ReceiptText,
-  Save,
   Search,
   TriangleAlert,
   UsersRound,
@@ -25,7 +22,6 @@ import RequirementsWarning from './components/RequirementsWarning';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
 import { clearProcessingHandoff, readProcessingHandoff } from './utils/processingHandoff';
 import { canQueueForProcessing, isVisibleInProcessingMode } from './utils/processingVisibility';
-import { billingSchoolSelection, resolveBillingSchoolId, SAVED_SCHOOL_VALUE } from './utils/billingSchoolSelection';
 import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 
 const formatDate = (value) => {
@@ -161,7 +157,6 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
   const defaultBilledFilter = isPayroll ? 'All Billing Statuses' : 'Not billed yet';
   const defaultPayrollListFilter = isPayroll ? 'Not included yet' : 'All Payroll Statuses';
   const [records, setRecords] = useState([]);
-  const [availableSchools, setAvailableSchools] = useState([]);
   const [activePeriods, setActivePeriods] = useState([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState(() => initialHandoff ? String(initialHandoff.periodId) : '');
   const [handoffApplicantId, setHandoffApplicantId] = useState(() => initialHandoff?.applicantId || null);
@@ -174,12 +169,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
   const [processing, setProcessing] = useState(false);
   const [operationNotice, setOperationNotice] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
-  const [billingEditor, setBillingEditor] = useState(null);
-  const [grantEditor, setGrantEditor] = useState(null);
   const [preparationStatus, setPreparationStatus] = useState('All Preparation Statuses');
-  const [billingForm, setBillingForm] = useState({ schoolId: '', schoolClassification: '', yearLevel: '', course: '', major: '', billingAmount: '0', billingNotes: '' });
-  const [billingEditError, setBillingEditError] = useState('');
-  const [billingSaving, setBillingSaving] = useState(false);
   const [query, setQuery] = useState('');
   const [scholarStatus, setScholarStatus] = useState('All Scholar Statuses');
   const [billed, setBilled] = useState(defaultBilledFilter);
@@ -191,12 +181,6 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
   const [schoolType, setSchoolType] = useState('All School Types');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const isSavedBillingSchool = billingForm.schoolId === SAVED_SCHOOL_VALUE;
-  const selectedBillingSchool = isSavedBillingSchool
-    ? { schoolType: billingForm.schoolClassification }
-    : availableSchools.find((item) => String(item.id) === String(billingForm.schoolId));
-  const isPrivateBillingSchool = selectedBillingSchool?.schoolType === 'Private';
-
   const loadRecords = useCallback(async ({ showLoader = false } = {}) => {
     if (showLoader) setLoading(true);
     try {
@@ -216,7 +200,6 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
           isArchivedPeriod: true,
         })));
       setRecords([...currentRecords, ...archivedRecords]);
-      setAvailableSchools(body.schools || []);
       setActivePeriods(body.activePeriods || (body.activePeriod ? [body.activePeriod] : []));
       setSelectedPeriodId((current) => current || String(body.activePeriod?.id || ''));
       if (handoffApplicantId) {
@@ -345,46 +328,6 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
     setQueuedIds((current) => [...new Set([...current, ...movableSourceRecords.map(({ applicantId }) => applicantId)])]);
     setSourceSelection([]);
     setOperationNotice(null);
-  };
-
-  const openBillingEditor = (record) => {
-    if (isPayroll) return;
-    setBillingEditor(record);
-    setBillingForm({
-      ...billingSchoolSelection(record, availableSchools),
-      yearLevel: record.yearLevel || '',
-      course: record.course || '',
-      major: record.major || '',
-      billingAmount: record.schoolType === 'Private' ? '5000' : String(record.billingAmount ?? record.claimAmount ?? 0),
-      billingNotes: record.billingNotes || '',
-    });
-    setBillingEditError('');
-  };
-
-  const saveBillingDetails = async (event) => {
-    event.preventDefault();
-    if (isPayroll || !billingEditor || billingSaving) return;
-    setBillingSaving(true);
-    setBillingEditError('');
-    try {
-      const details = { ...billingForm };
-      delete details.schoolClassification;
-      const schoolId = await resolveBillingSchoolId(billingForm);
-      const response = await fetch(`${API_BASE}/scholars/${billingEditor.applicantId}/billing-details`, {
-        method: 'PUT',
-        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...details, academicPeriodId: Number(selectedPeriodId), schoolId, billingAmount: Number(billingForm.billingAmount) }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message || 'Unable to update billing details.');
-      setBillingEditor(null);
-      setOperationNotice({ tone: 'success', text: body.message });
-      await loadRecords();
-    } catch (error) {
-      setBillingEditError(error.message || 'Unable to update billing details.');
-    } finally {
-      setBillingSaving(false);
-    }
   };
 
   const removeSelectedFromQueue = () => {
@@ -552,9 +495,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
                   <div className="billing-source-status">
                     <span className={`billing-queue-ready ${canMove ? '' : 'archived'}`}>{statusLabel}</span>
                     {record.processingWarnings?.length > 0 && <RequirementsWarning name={record.name} />}
-                    {record.schoolType === 'Private' && !record.isArchivedPeriod && !record.billed && !record.inPayroll && <button type="button" onClick={() => setGrantEditor(record)} aria-label={`${record.grantPrepared ? 'Edit' : 'Create'} grant record for ${record.name}`}>{record.grantPrepared ? 'Edit grant' : 'Create grant record'}</button>}
                     {record.schoolType === 'Private' && <small className="private-grant-summary">{record.preparationStatus}{record.tuitionFeeAssistance != null ? ` · Tuition ${formatAmount(record.tuitionFeeAssistance)} · Allowance ${formatAmount(record.allowance)}` : record.preparationStatus === 'Listed' ? ' · Breakdown not recorded' : ''}</small>}
-                    {!isPayroll && !record.isArchivedPeriod && !record.billed && <button type="button" onClick={() => openBillingEditor(record)} aria-label={`Edit billing details for ${record.name}`}><Pencil size={12} />Edit</button>}
                   </div>
                   <ScholarSchoolIdentity record={record} />
                 </div>;
@@ -597,29 +538,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
       </section>
       {!isPayroll && !loadError && <section className="billing-certification-history"><header><div><span>CERTIFICATION RECORDS</span><h3>Certification history</h3><p>Review generated Private-scholar lists and download a previous workbook again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount || 5000), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download XLSX</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>No certification history yet</strong><span>Generated Private-scholar certification lists will appear here.</span></div>}</section>}
       {exportOpen && <CsvExportModal title={`Export ${isPayroll ? 'payroll' : 'billing'} queue`} description="Choose which scholar, academic, and processing fields to include in this CSV file." columns={billingExportColumns} rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `${mode}-records-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(queuedRecords, columns) })} />}
-      {grantEditor && <PrivateGrantEditor record={grantEditor} period={activePeriods.find((period) => String(period.id) === String(selectedPeriodId)) || { id: selectedPeriodId, schoolYear: grantEditor.schoolYear, semester: grantEditor.semester }} token={token} onClose={() => setGrantEditor(null)} onSaved={async (message) => { setOperationNotice({ tone: 'success', text: message }); await loadRecords(); }} />}
-      {!isPayroll && billingEditor && <div className="billing-details-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !billingSaving && setBillingEditor(null)}>
-        <section className="billing-details-modal" role="dialog" aria-modal="true" aria-labelledby="billing-details-title">
-          <header>
-            <i><Pencil size={20} /></i>
-            <div><span>BILLING DETAILS</span><h2 id="billing-details-title">Edit {billingEditor.name}</h2><p>Update the active-period academic and billing information before processing.</p></div>
-            <button type="button" disabled={billingSaving} onClick={() => setBillingEditor(null)} aria-label="Close billing details"><X size={18} /></button>
-          </header>
-          <form className="billing-details-form" onSubmit={saveBillingDetails}>
-            <div className="billing-details-grid">
-              <label><span>School</span><select required value={billingForm.schoolId} onChange={(event) => { const selected = availableSchools.find((school) => String(school.id) === event.target.value); setBillingForm((current) => ({ ...current, schoolId: event.target.value, schoolClassification: selected?.schoolType || 'Unclassified', billingAmount: selected?.schoolType === 'Private' ? '5000' : selected?.schoolType === 'Public' ? '3000' : current.billingAmount })); }}><option value="">Select school</option>{billingSchoolSelection(billingEditor, availableSchools).schoolId === SAVED_SCHOOL_VALUE && <option value={SAVED_SCHOOL_VALUE}>{billingEditor.school} (saved scholar record)</option>}{availableSchools.map((school) => <option key={school.id} value={school.id}>{school.name} ({school.schoolType})</option>)}</select>{isSavedBillingSchool && <small>Using the school already saved in the scholar record.</small>}</label>
-              <label><span>School classification</span><input readOnly value={selectedBillingSchool?.schoolType || 'Unclassified'} /><small>Automatically taken from School Catalog. Missing classifications must be saved there once, not per scholar.</small></label>
-              <label><span>Year level</span><input maxLength={20} value={billingForm.yearLevel} onChange={(event) => setBillingForm((current) => ({ ...current, yearLevel: event.target.value }))} /></label>
-              <label><span>Course</span><input maxLength={150} value={billingForm.course} onChange={(event) => setBillingForm((current) => ({ ...current, course: event.target.value }))} /></label>
-              <label><span>Major</span><input maxLength={150} value={billingForm.major} onChange={(event) => setBillingForm((current) => ({ ...current, major: event.target.value }))} /></label>
-              <label><span>Billable amount (PHP)</span><input required type="number" min="0" max={isPrivateBillingSchool ? '5000' : '99999999.99'} step="0.01" value={isPrivateBillingSchool ? '5000' : billingForm.billingAmount} disabled={isPrivateBillingSchool} onChange={(event) => setBillingForm((current) => ({ ...current, billingAmount: event.target.value }))} /><small>{isPrivateBillingSchool ? 'Private scholar grant is fixed at PHP 5,000.' : 'Enter the approved billable amount.'}</small></label>
-              <label className="wide"><span>Billing notes</span><textarea maxLength={1000} rows={4} value={billingForm.billingNotes} onChange={(event) => setBillingForm((current) => ({ ...current, billingNotes: event.target.value }))} /></label>
-            </div>
-            {billingEditError && <p className="billing-details-error" role="alert">{billingEditError}</p>}
-            <footer><button type="button" className="secondary" disabled={billingSaving} onClick={() => setBillingEditor(null)}>Cancel</button><button type="submit" className="primary" disabled={billingSaving}><Save size={14} />{billingSaving ? 'Saving…' : 'Save billing details'}</button></footer>
-          </form>
-        </section>
-      </div>}
+
     </div>
 
   </>;

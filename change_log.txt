@@ -319,3 +319,7 @@
 2026-10-16 | Matched Scholar processing-status field to Semester dropdown width, height, padding and radius while retaining automatic read-only status/colors. Frontend production build passed; frontend-only deployment requested and live verification pending. No backend/schema impact.
 
 2026-10-16 | Release 820a4ea verified live: status width 100% with matching 42px minimum height, padding and corners in served CSS. API/database healthy; no backend change or migration.
+
+2026-10-16 | Moved Private grant creation/update inline into Scholar processing-session preparation; removed Billing/Payroll table grant editors and Edit billing details modal. Saved records, route permissions, receipt access, fixed grant/auto allowance and listed locks retained. Frontend lint/build, 81 frontend cases and two desktop/mobile browser flows passed. No backend/schema change; not deployed.
+
+2026-10-16 | Deploying relocated Scholar-panel Private grant preparation and removal of Billing table editors. Lint/build, 81 frontend cases and two synthetic browser flows passed. Frontend-only release; live verification pending.
