@@ -306,3 +306,11 @@ test('priority-proof approval verifies the file without creating or tagging a Sc
   const res=response();await reviewDocument({params:{applicationId:'1',requirementKey:'priority_pwd'},body:{decision:'approved',notes:'Verified test proof'},user:{id:9}},res);
   assert.equal(res.statusCode,200);assert.equal(application.initial_docs.requirements.priority_pwd.status,'Approved');assert.equal(application.status,'Examined');assert.equal(await prisma.scholar_accounts.findFirst(),null);
 });
+
+test('grant preparation and receipt routes reject unauthenticated, applicant and wrong-section accounts',async()=>{
+ for(const headers of [{},authHeader(7,'control'),authHeader(3)]){
+  setup();for(const [method,path] of [['PUT','/scholars/7/grant-preparation'],['GET','/scholars/7/tuition-receipt?academicPeriodId=10']]){
+   const res=await fetch(baseUrl+path,{method,headers:{...headers,'Content-Type':'application/json'},...(method==='GET'?{}:{body:JSON.stringify({academicPeriodId:10,tuitionFeeAssistance:3500})})});assert.equal(res.status,headers.Authorization?403:401);
+  }
+ }
+});

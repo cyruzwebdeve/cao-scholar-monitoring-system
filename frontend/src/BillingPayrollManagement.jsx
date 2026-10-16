@@ -1,3 +1,4 @@
+import PrivateGrantEditor from './PrivateGrantEditor';
 import { matchesPayrollListStatus } from './utils/payrollListStatus';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -42,10 +43,14 @@ const billingExportColumns = [
   { key: 'controlNumber', label: 'Control Number', group: 'Scholar' },
   { key: 'email', label: 'Email', group: 'Scholar' },
   { key: 'status', label: 'Scholar Status', group: 'Scholar' },
-  { key: 'billingStatus', label: 'Billed', group: 'Billing & payroll' },
+  { key: 'billingStatus', label: 'Certification List Status', group: 'Billing & payroll' },
   { key: 'billingReference', label: 'Billing Reference', group: 'Billing & payroll' },
   { key: 'payReference', label: 'Payroll Reference', group: 'Billing & payroll' },
-  { key: 'payrollStatus', label: 'Paid', group: 'Billing & payroll' },
+  { key: 'payrollStatus', label: 'Payroll List Status', group: 'Billing & payroll' },
+  { key: 'preparationStatus', label: 'Preparation Status', group: 'Grant preparation' },
+  { key: 'totalGrant', label: 'Total Grant', group: 'Grant preparation' },
+  { key: 'tuitionFeeAssistance', label: 'Tuition Fee Assistance', group: 'Grant preparation' },
+  { key: 'allowance', label: 'Allowance', group: 'Grant preparation' },
   { key: 'claimAmount', label: 'Amount', group: 'Billing & payroll', value: (record) => formatAmount(record.claimAmount) },
   { key: 'schoolYearSemester', label: 'School Year / Semester', group: 'Academic' },
   { key: 'school', label: 'School', group: 'Academic' },
@@ -63,25 +68,25 @@ const downloadPayrollWorkbook = async ({ records, batch, activePeriod }) => {
   const sheet = workbook.addWorksheet('Official Payroll List', {
     pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
-  sheet.mergeCells('A1:I1');
+  sheet.mergeCells('A1:K1');
   sheet.getCell('A1').value = 'PGCEAP OFFICIAL PAYROLL LIST';
   sheet.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FF176B3A' } };
   sheet.getCell('A1').alignment = { horizontal: 'center' };
-  sheet.mergeCells('A2:I2');
+  sheet.mergeCells('A2:K2');
   sheet.getCell('A2').value = `${activePeriod?.schoolYear || ''} · ${activePeriod?.semester || ''} · ${batch?.batchNumber || ''}`;
   sheet.getCell('A2').alignment = { horizontal: 'center' };
   sheet.addRow([]);
-  const header = sheet.addRow(['No.', 'Control Number', 'Scholar Name', 'School', 'School Type', 'Municipality', 'Amount (PHP)', 'Reference Number', 'Signature']);
+  const header = sheet.addRow(['No.', 'Control Number', 'Scholar Name', 'School', 'School Type', 'Municipality', 'Total Grant (PHP)', 'Tuition Fee Assistance (PHP)', 'Allowance (PHP)', 'Reference Number', 'Signature']);
   header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF176B3A' } };
   header.alignment = { horizontal: 'center', vertical: 'middle' };
   records.forEach((record, index) => {
-    sheet.addRow([index + 1, record.controlNumber || '', record.name, record.school, record.schoolType, record.municipality, Number(record.claimAmount || 0), batch?.batchNumber || '', '']);
+    sheet.addRow([index + 1, record.controlNumber || '', record.name, record.school, record.schoolType, record.municipality, Number(record.claimAmount || 0), record.tuitionFeeAssistance ?? '', record.allowance ?? '', batch?.batchNumber || '', '']);
   });
   const totalRow = sheet.addRow(['', '', '', '', '', 'TOTAL', records.reduce((total, record) => total + Number(record.claimAmount || 0), 0), '', '']);
   totalRow.font = { bold: true };
-  sheet.getColumn(7).numFmt = '₱#,##0.00';
-  [7, 18, 32, 36, 14, 18, 16, 25, 28].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
+  [7,8,9].forEach((index) => { sheet.getColumn(index).numFmt = '₱#,##0.00'; });
+  [7, 18, 32, 36, 14, 18, 18, 22, 18, 25, 28].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
   sheet.views = [{ state: 'frozen', ySplit: 4 }];
   const buffer = await workbook.xlsx.writeBuffer();
   const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
@@ -104,15 +109,15 @@ const downloadCertificationWorkbook = async ({ records, batch, activePeriod }) =
   const sheet = workbook.addWorksheet('Tuition Certification List', {
     pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
-  sheet.mergeCells('A1:J1');
+  sheet.mergeCells('A1:L1');
   sheet.getCell('A1').value = 'PGCEAP PRIVATE-SCHOLAR TUITION CERTIFICATION LIST';
   sheet.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FF176B3A' } };
   sheet.getCell('A1').alignment = { horizontal: 'center' };
-  sheet.mergeCells('A2:J2');
+  sheet.mergeCells('A2:L2');
   sheet.getCell('A2').value = `${activePeriod?.schoolYear || ''} · ${activePeriod?.semester || ''} · ${batch?.batchNumber || batch?.billingReference || ''}`;
   sheet.getCell('A2').alignment = { horizontal: 'center' };
   sheet.addRow([]);
-  const header = sheet.addRow(['No.', 'Control Number', 'Private Scholar Name', 'School', 'Municipality', 'Course / Program', 'Year Level', 'Grant Amount (PHP)', 'Reference Number', 'Certification / Signature']);
+  const header = sheet.addRow(['No.', 'Control Number', 'Private Scholar Name', 'School', 'Municipality', 'Course / Program', 'Year Level', 'Total Grant (PHP)', 'Tuition Fee Assistance (PHP)', 'Allowance (PHP)', 'Reference Number', 'Certification / Signature']);
   header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF176B3A' } };
   header.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -120,14 +125,14 @@ const downloadCertificationWorkbook = async ({ records, batch, activePeriod }) =
     sheet.addRow([
       index + 1, record.controlNumber || '', record.name, record.school,
       record.municipality, record.course || '', record.yearLevel || '',
-      Number(record.claimAmount || record.billingAmount || 5000), batch?.batchNumber || batch?.billingReference || '', '',
+      Number(record.claimAmount || record.billingAmount || 5000), record.tuitionFeeAssistance ?? '', record.allowance ?? '', batch?.batchNumber || batch?.billingReference || '', '',
     ]);
   });
   const total = records.reduce((sum, record) => sum + Number(record.claimAmount || record.billingAmount || 5000), 0);
   const totalRow = sheet.addRow(['', '', '', '', '', '', 'TOTAL', total, '', '']);
   totalRow.font = { bold: true };
-  sheet.getColumn(8).numFmt = '₱#,##0.00';
-  [7, 18, 32, 36, 18, 28, 14, 20, 25, 28].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
+  [8,9,10].forEach((index) => { sheet.getColumn(index).numFmt = '₱#,##0.00'; });
+  [7, 18, 32, 36, 18, 28, 14, 20, 22, 18, 25, 28].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
   sheet.views = [{ state: 'frozen', ySplit: 4 }];
   const buffer = await workbook.xlsx.writeBuffer();
   const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
@@ -170,6 +175,8 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
   const [operationNotice, setOperationNotice] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [billingEditor, setBillingEditor] = useState(null);
+  const [grantEditor, setGrantEditor] = useState(null);
+  const [preparationStatus, setPreparationStatus] = useState('All Preparation Statuses');
   const [billingForm, setBillingForm] = useState({ schoolId: '', schoolClassification: '', yearLevel: '', course: '', major: '', billingAmount: '0', billingNotes: '' });
   const [billingEditError, setBillingEditError] = useState('');
   const [billingSaving, setBillingSaving] = useState(false);
@@ -252,6 +259,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
     const matchesReference = payReference === 'All Payroll References'
       || (payReference === 'No payroll reference' ? !record.payReference : record.payReference === payReference);
     return search.includes(query.trim().toLowerCase())
+      && (preparationStatus === 'All Preparation Statuses' || record.preparationStatus === preparationStatus)
       && (scholarStatus === 'All Scholar Statuses' || record.status === scholarStatus)
       && (billed === 'All Billing Statuses' || (billed === 'Billed' ? record.billed : !record.billed))
       && matchesBillingReference
@@ -262,9 +270,9 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
       && (school === 'All Schools' || record.school === school)
       && (schoolType === 'All School Types' || normalizedSchoolType === schoolType)
       && matchesDateRange(record.dateProcessed, dateFrom, dateTo);
-  }), [records, query, scholarStatus, billed, billingReference, payReference, payrollListStatus, schoolYearSem, school, schoolType, dateFrom, dateTo, isPayroll]);
+  }), [records, preparationStatus, query, scholarStatus, billed, billingReference, payReference, payrollListStatus, schoolYearSem, school, schoolType, dateFrom, dateTo, isPayroll]);
 
-  const hasFilters = Boolean(query || dateFrom || dateTo
+  const hasFilters = Boolean(query || dateFrom || dateTo || preparationStatus !== 'All Preparation Statuses'
     || scholarStatus !== 'All Scholar Statuses'
     || billed !== defaultBilledFilter
     || billingReference !== 'All Billing References'
@@ -275,7 +283,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
     || schoolType !== 'All School Types');
 
   const clearFilters = () => {
-    setQuery(''); setScholarStatus('All Scholar Statuses'); setBilled(defaultBilledFilter);
+    setPreparationStatus('All Preparation Statuses'); setQuery(''); setScholarStatus('All Scholar Statuses'); setBilled(defaultBilledFilter);
     setBillingReference('All Billing References'); setPayReference('All Payroll References'); setPayrollListStatus(defaultPayrollListFilter);
     setSchoolYearSem('All School Years / Semesters'); setSchool('All Schools');
     setSchoolType('All School Types'); setDateFrom(''); setDateTo(''); setPage(1);
@@ -414,12 +422,14 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
         }).filter(Boolean).join(' ');
         throw new Error([body.message || `Unable to process ${mode} records.`, details].filter(Boolean).join(' '));
       }
+      const snapshotByApplicant = new Map((body.grantBreakdowns || []).map((item) => [item.applicantId, item]));
+      const downloadRecords = processedRecords.map((record) => ({ ...record, ...snapshotByApplicant.get(record.applicantId) }));
       let downloadWarning = '';
       try {
         if (isPayroll) {
-          await downloadPayrollWorkbook({ records: processedRecords, batch: body.batch, activePeriod: body.activePeriod });
+          await downloadPayrollWorkbook({ records: downloadRecords, batch: body.batch, activePeriod: body.activePeriod });
         } else {
-          await downloadCertificationWorkbook({ records: processedRecords, batch: body.batch, activePeriod: body.activePeriod });
+          await downloadCertificationWorkbook({ records: downloadRecords, batch: body.batch, activePeriod: body.activePeriod });
         }
       } catch (downloadError) {
         const listName = isPayroll ? 'payroll list' : 'certification list';
@@ -480,6 +490,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
                 <label><span>Billed?</span><select value={billed} onChange={(event) => { setBilled(event.target.value); setPage(1); }}><option>All Billing Statuses</option><option>Billed</option><option>Not billed yet</option></select></label>
                 <label><span>Payroll list</span><select aria-label="Payroll list status" value={payrollListStatus} onChange={(event) => { setPayrollListStatus(event.target.value); setPage(1); }}><option>All Payroll Statuses</option><option>Included in payroll list</option><option>Not included yet</option></select></label>
               </div>
+              <label><span>Grant preparation</span><select aria-label="Grant preparation status" value={preparationStatus} onChange={(event) => { setPreparationStatus(event.target.value); if (['Listed', 'All Preparation Statuses'].includes(event.target.value)) { setBilled('All Billing Statuses'); setPayrollListStatus('All Payroll Statuses'); } setPage(1); }}><option>All Preparation Statuses</option><option>Not prepared</option><option>Prepared</option><option>Listed</option></select></label>
               <label><span>Billing reference</span><select value={billingReference} onChange={(event) => {
                 const nextReference = event.target.value;
                 setBillingReference(nextReference);
@@ -528,7 +539,8 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
               {sourceRecords.map((record) => {
                 const canMove = canQueueForProcessing(record, isPayroll ? 'payroll' : 'billing');
                 const isSelected = canMove && sourceSelection.includes(record.applicantId);
-                const statusLabel = record.schoolType === 'Unclassified'
+                const statusLabel = record.schoolType === 'Private' && !record.grantPrepared && !record.billed && !record.inPayroll
+                  ? 'Grant preparation required' : record.schoolType === 'Unclassified'
                   ? 'School classification required'
                   : isPayroll
                     ? record.inPayroll ? 'In payroll list' : canMove ? 'Ready for payroll' : 'Unavailable'
@@ -540,6 +552,8 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
                   <div className="billing-source-status">
                     <span className={`billing-queue-ready ${canMove ? '' : 'archived'}`}>{statusLabel}</span>
                     {record.processingWarnings?.length > 0 && <RequirementsWarning name={record.name} />}
+                    {record.schoolType === 'Private' && !record.isArchivedPeriod && !record.billed && !record.inPayroll && <button type="button" onClick={() => setGrantEditor(record)} aria-label={`${record.grantPrepared ? 'Edit' : 'Create'} grant record for ${record.name}`}>{record.grantPrepared ? 'Edit grant' : 'Create grant record'}</button>}
+                    {record.schoolType === 'Private' && <small className="private-grant-summary">{record.preparationStatus}{record.tuitionFeeAssistance != null ? ` · Tuition ${formatAmount(record.tuitionFeeAssistance)} · Allowance ${formatAmount(record.allowance)}` : record.preparationStatus === 'Listed' ? ' · Breakdown not recorded' : ''}</small>}
                     {!isPayroll && !record.isArchivedPeriod && !record.billed && <button type="button" onClick={() => openBillingEditor(record)} aria-label={`Edit billing details for ${record.name}`}><Pencil size={12} />Edit</button>}
                   </div>
                   <ScholarSchoolIdentity record={record} />
@@ -583,6 +597,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
       </section>
       {!isPayroll && !loadError && <section className="billing-certification-history"><header><div><span>CERTIFICATION RECORDS</span><h3>Certification history</h3><p>Review generated Private-scholar lists and download a previous workbook again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount || 5000), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download XLSX</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>No certification history yet</strong><span>Generated Private-scholar certification lists will appear here.</span></div>}</section>}
       {exportOpen && <CsvExportModal title={`Export ${isPayroll ? 'payroll' : 'billing'} queue`} description="Choose which scholar, academic, and processing fields to include in this CSV file." columns={billingExportColumns} rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={(columns) => downloadCsv({ filename: `${mode}-records-${new Date().toISOString().slice(0, 10)}.csv`, rows: buildRecordRows(queuedRecords, columns) })} />}
+      {grantEditor && <PrivateGrantEditor record={grantEditor} period={activePeriods.find((period) => String(period.id) === String(selectedPeriodId)) || { id: selectedPeriodId, schoolYear: grantEditor.schoolYear, semester: grantEditor.semester }} token={token} onClose={() => setGrantEditor(null)} onSaved={async (message) => { setOperationNotice({ tone: 'success', text: message }); await loadRecords(); }} />}
       {!isPayroll && billingEditor && <div className="billing-details-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !billingSaving && setBillingEditor(null)}>
         <section className="billing-details-modal" role="dialog" aria-modal="true" aria-labelledby="billing-details-title">
           <header>

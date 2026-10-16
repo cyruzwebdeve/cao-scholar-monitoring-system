@@ -56,3 +56,9 @@ test('archived, blocked, and already-listed scholars cannot move into a new queu
   }
   assert.equal(canQueueForProcessing({ ...privateScholar, billed: true }, 'billing'), false);
 });
+
+test('initial and late Private Payroll records follow the server route and preparation eligibility',()=>{
+ const record={...privateScholar,processRoute:'payroll',grantPrepared:true};
+ assert.equal(isVisibleInProcessingMode(record,'payroll'),true);assert.equal(isVisibleInProcessingMode(record,'billing'),false);assert.equal(canQueueForProcessing(record,'payroll'),true);
+ assert.equal(canQueueForProcessing({...record,processEligible:false},'payroll'),false);
+});

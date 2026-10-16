@@ -15,7 +15,7 @@ const setup = ({ schoolType = 'public', schoolName = 'TEST PUBLIC SCHOOL', appli
   const initialDocs = { initialRequirementPeriodId: 9, requirements: Object.fromEntries(['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form'].map((key) => [key, { fileName: `${key}.pdf`, status: key === 'grades' ? gradeStatus : 'approved' }])) };
   if (tuitionReceipt) initialDocs.requirements.tuition_receipt = { fileName: 'tuition_receipt.pdf', status: 'approved' };
   const application = { id: 1, applicant_id: 1, school_plan: { school: plannedSchool }, initial_docs: initialDocs };
-  const requirement = { applicant_id: 1, billing_period_id: 10, school_id: periodSchoolId };
+  const requirement = { applicant_id: 1, billing_period_id: 10, school_id: periodSchoolId, ...(schoolType === 'private' ? { tuition_fee_assistance: 3500, grant_prepared_at: new Date('2026-10-16'), grant_prepared_by: 99 } : {}) };
   const claims = alreadyProcessed ? [{ applicant_id: 1, academic_period_id: 10, payroll_batch_id: 50, claim_status: 'listed', claim_amount: 3000 }] : [];
   const batches = alreadyProcessed ? [{ id: 50, billing_period_id: 10, batch_number: 'PAYROLL-EXISTING', status: 'generated' }] : [];
   const writes = [];
@@ -41,9 +41,10 @@ const setup = ({ schoolType = 'public', schoolName = 'TEST PUBLIC SCHOOL', appli
     payroll_claims: { findMany: async () => claims, findFirst: async () => null },
     payroll_batches: { findMany: async () => batches },
     $transaction: async (callback) => callback({
+      $queryRaw: async () => [{ value: 1 }],
       payroll_batches: { create: async ({ data }) => { writes.push({ type: 'batch', data }); return { id: 51, ...data }; } },
       payroll_claims: { createMany: async ({ data }) => { writes.push({ type: 'memberships', data }); return { count: data.length }; } },
-      scholar_requirements: { updateMany: async () => ({ count: 1 }) },
+      scholar_requirements: { findMany: async () => [requirement], updateMany: async () => ({ count: 1 }) },
     }),
   });
   return { writes };
@@ -337,7 +338,7 @@ test('actual Scholar tuition upload rejects Public current-period catalog classi
 });
 
 
-test('Private list generation works without a requirement row and records missing documents without approvals', async () => {
+test('Private list generation requires a saved grant record when the period preparation row is absent', async () => {
   const { writes } = setup({ schoolType: 'private', periodSchoolId: 1 });
   prisma.scholar_requirements.findMany = async () => [];
   const [application] = await prisma.application_submissions.findMany();
@@ -352,10 +353,9 @@ test('Private list generation works without a requirement row and records missin
   });
   const res = response();
   await processBillingSelection({ body: { academicPeriodId: 10, applicantIds: [1] }, user: { id: 99, role: 'SuperAdmin' } }, res);
-  assert.equal(res.statusCode, 201);
-  assert.equal(res.body.incompleteRequirementsCount, 1);
-  assert.match(writes[1].data[0].notes, /Requirements incomplete/);
-  assert.deepEqual(Object.keys(writes[2].data[0]).sort(), ['applicant_id', 'billing_period_id', 'billing_reference', 'updated_by']);
+  assert.equal(res.statusCode, 409);
+  assert.ok(res.body.ineligible[0].reasons.some((item) => item.code === 'GRANT_PREPARATION_REQUIRED'));
+  assert.equal(writes.length, 0);
   assert.deepEqual(application.initial_docs.requirements, {});
 });
 
@@ -426,4 +426,33 @@ test('existing historical certification membership is retained even when new ini
   setup({schoolType:'private',periodSchoolId:1,alreadyProcessed:true});const [application]=await prisma.application_submissions.findMany();application.initial_docs.initialRequirementPeriodId=10;
   const batches=await prisma.payroll_batches.findMany();batches[0].batch_number='BILL-HISTORICAL';batches[0].status='billed';
   const record=await list();assert.equal(record.processRoute,'billing');assert.equal(record.billed,true);assert.equal((await generate()).statusCode,409);
+});
+
+test('Private generation snapshots assistance and allowance for both destinations without changing total grant',async()=>{
+ for(const destination of ['billing','payroll']){
+  const {writes}=setup({schoolType:'private',periodSchoolId:1});
+  if(destination==='payroll'){const [app]=await prisma.application_submissions.findMany();app.initial_docs.initialRequirementPeriodId=10;}
+  const res=response();await (destination==='billing'?processBillingSelection:processPayrollSelection)({body:{academicPeriodId:10,applicantIds:[1]},user:{id:99,role:'SuperAdmin'}},res);
+  assert.equal(res.statusCode,201);const saved=writes.find(item=>item.type==='memberships').data[0];assert.equal(saved.claim_amount,5000);assert.equal(saved.tuition_fee_assistance,3500);assert.equal(saved.allowance,1500);assert.equal(res.body.grantBreakdowns[0].allowance,1500);
+ }
+});
+test('both Private processing destinations reject missing grant preparation while documents remain independent warnings',async()=>{
+ for(const destination of ['billing','payroll']){
+  const {writes}=setup({schoolType:'private',periodSchoolId:1});const record=await prisma.scholar_requirements.findFirst();delete record.grant_prepared_at;delete record.tuition_fee_assistance;
+  if(destination==='payroll'){const [app]=await prisma.application_submissions.findMany();app.initial_docs.initialRequirementPeriodId=10;}
+  const res=response();await (destination==='billing'?processBillingSelection:processPayrollSelection)({body:{academicPeriodId:10,applicantIds:[1]},user:{id:99,role:'SuperAdmin'}},res);assert.equal(res.statusCode,409);assert.equal(writes.length,0);assert.ok(res.body.ineligible[0].reasons.some(item=>item.code==='GRANT_PREPARATION_REQUIRED'));
+ }
+});
+
+test('preparation/list serialization conflicts return a reload response without partial list writes',async()=>{
+ for(const destination of ['billing','payroll']){
+  const {writes}=setup({schoolType:'private',periodSchoolId:1});if(destination==='payroll'){const [app]=await prisma.application_submissions.findMany();app.initial_docs.initialRequirementPeriodId=10;}
+  prisma.$transaction=async()=>{throw Object.assign(new Error('Synthetic contention'),{code:'P2034'});};const res=response();await (destination==='billing'?processBillingSelection:processPayrollSelection)({body:{academicPeriodId:10,applicantIds:[1]},user:{id:99,role:'SuperAdmin'}},res);assert.equal(res.statusCode,409);assert.equal(writes.length,0);
+ }
+});
+
+test('a school transfer to Public does not project an obsolete Private preparation into the Public grant',async()=>{
+ const {writes}=setup({schoolType:'private',periodSchoolId:1});const [school]=await prisma.schools.findMany();school.school_type='public';
+ const record=await list();assert.equal(record.schoolType,'Public');assert.equal(record.totalGrant,3000);assert.equal(record.tuitionFeeAssistance,null);assert.equal(record.allowance,null);assert.equal(record.preparationStatus,'Not applicable');
+ const res=await generate();assert.equal(res.statusCode,201);assert.equal(writes[1].data[0].claim_amount,3000);assert.equal(writes[1].data[0].tuition_fee_assistance,undefined);
 });

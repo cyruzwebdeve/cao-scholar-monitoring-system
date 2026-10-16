@@ -1,3 +1,4 @@
+const grantPreparation = require('../controllers/grantPreparationController');
 const passerLists = require('../controllers/passerListController');
 const phoneCapture = require('../controllers/phoneCaptureController');
 const { rateLimit } = require('express-rate-limit');
@@ -171,6 +172,8 @@ router.get('/scholars', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAd
 router.get('/scholars/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars', 'billing', 'payroll'), getScholarManagement);
 router.put('/scholars/:applicantId/continuing-requirements/open', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('scholars'), openContinuingRequirements);
 router.put('/scholars/:applicantId/requirements/:requirementKey', authenticate, documentUploadRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('scholars'), uploadScholarRequirementByAdmin);
+router.put('/scholars/:applicantId/grant-preparation', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin','RegularAdmin','BillingPayrollAdmin']), checkSectionAccess('billing','payroll'), grantPreparation.save);
+router.get('/scholars/:applicantId/tuition-receipt', privateResponse, authenticate, checkRole(['SuperAdmin','RegularAdmin','BillingPayrollAdmin']), checkSectionAccess('billing','payroll'), grantPreparation.receipt);
 router.put('/scholars/:applicantId/billing-details', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing'), validateScholarBillingDetails, updateScholarBillingDetails);
 router.put('/scholars/:applicantId/billing-metadata', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing', 'payroll'), validateScholarBillingMetadata, updateScholarBillingMetadata);
 router.post('/billing/process', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing'), processBillingSelection);

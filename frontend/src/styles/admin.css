@@ -8229,3 +8229,16 @@
 .passer-candidates { max-height:300px; overflow:auto; margin:12px 0; }.passer-candidates label { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #edf2ee; font-size:12px; }.passer-candidates small { display:block; margin-top:4px; color:#6b7d70; }
 .passer-lists details { padding:12px 0; border-top:1px solid #e0e9e3; font-size:12px; }.passer-lists summary { cursor:pointer; font-weight:600; }
 .passer-intake-checklist { padding:0; list-style:none; font-size:11px; }.passer-intake-checklist li { display:flex; gap:10px; justify-content:space-between; padding:9px 0; border-bottom:1px solid #e4ece6; }.passer-intake-checklist strong { flex-shrink:0; }
+
+.private-grant-summary { flex-basis:100%; color:#65776c; font-size:10px; line-height:1.5; }
+.private-grant-editor { max-width:620px; }
+.private-grant-editor .billing-details-modal-body > p { font-size:12px; line-height:1.7; color:#65766a; }
+.private-grant-editor input[readonly] { background:#f0f6f2; color:#315a41; font-weight:600; }
+.private-grant-receipt { margin:0 0 16px; padding:8px 12px; border:1px solid #c9dfcf; border-radius:7px; background:#f3faf5; color:#21743f; font-size:12px; cursor:pointer; }
+.private-grant-editor > header { grid-template-columns:minmax(0,1fr) 34px; }
+.private-grant-editor .billing-details-modal-body { padding:18px 22px; }
+.private-grant-editor > footer { display:flex; justify-content:flex-end; gap:10px; padding:14px 22px; border-top:1px solid #e0e9e3; }
+.private-grant-editor > footer button { border:1px solid #c8dbcd; border-radius:7px; padding:10px 14px; font-size:12px; color:#285d3b; background:white; cursor:pointer; }
+.private-grant-editor > footer button[type=submit] { background:#19854d; color:white; }
+.private-grant-editor button:disabled { opacity:.5; cursor:default; }
+@media(max-width:520px) { .private-grant-editor .billing-details-grid { grid-template-columns:1fr; }.private-grant-editor .billing-details-modal-body { padding:14px; } }

@@ -1,3 +1,4 @@
+const { grantBreakdown, preparationBlocker, snapshotPrivateGrants } = require('../services/grantPreparation');
 const { getPostedPasser, canRecordInitial, initialChecklist, initialApproved } = require('../services/passerIntake');
 const { resolveProcessingRoute } = require('../services/processingRoute');
 const { hasSectionAccess } = require('../services/sectionAccess');
@@ -870,6 +871,9 @@ const getScholarManagement = async (req, res) => {
           payReference: historyRoute === 'payroll' ? batch?.batch_number || null : null,
           dateProcessed: batch?.prepared_at || claim.created_at || null,
           claimAmount: Number(claim.claim_amount),
+          tuitionFeeAssistance: claim.tuition_fee_assistance == null ? null : Number(claim.tuition_fee_assistance),
+          allowance: claim.allowance == null ? null : Number(claim.allowance),
+          preparationStatus: 'Listed',
           isActivePeriod: batch?.billing_period_id === activePeriod.id,
         };
       });
@@ -925,7 +929,7 @@ const getScholarManagement = async (req, res) => {
       const submittedDocuments = requiredDocuments.filter(({ submitted }) => submitted);
       const hasReviewItems = submittedDocuments.some(({ status }) => !['approved', 'complete', 'completed'].includes(String(status).toLowerCase()));
       const documentsComplete = submittedDocuments.length === requiredDocuments.length && !hasReviewItems;
-      const billingEligibility = evaluateListEligibility({
+      let billingEligibility = evaluateListEligibility({
         isActive: scholar.is_active,
         alreadyBilled: billed,
         alreadyProcessedForPeriod: !billed && (payrollClaimsByApplicant.get(applicant.id) || []).some((claim) => (
@@ -936,7 +940,15 @@ const getScholarManagement = async (req, res) => {
         schoolType: school?.school_type,
         requireSchoolClassification: true,
       });
+      const grantBlocker = preparationBlocker(schoolType, requirement, Boolean(payrollClaim));
+      if (grantBlocker) billingEligibility = { ...billingEligibility, eligible: false, reasons: [...billingEligibility.reasons, grantBlocker] };
+      const savedGrant = payrollClaim?.tuition_fee_assistance != null
+        ? { grantPrepared: true, totalGrant: 5000, tuitionFeeAssistance: Number(payrollClaim.tuition_fee_assistance), allowance: Number(payrollClaim.allowance), grantPreparedAt: requirement?.grant_prepared_at || null }
+        : payrollClaim || schoolType !== 'Private' ? { grantPrepared: false, totalGrant: schoolType === 'Private' ? 5000 : 3000, tuitionFeeAssistance: null, allowance: null, grantPreparedAt: null } : grantBreakdown(requirement);
       return {
+        ...savedGrant,
+        totalGrant: payrollClaim ? Number(payrollClaim.claim_amount) : resolveBillingAmount(schoolType),
+        preparationStatus: payrollClaim ? 'Listed' : schoolType !== 'Private' ? 'Not applicable' : savedGrant.grantPrepared ? 'Prepared' : 'Not prepared',
         id: scholar.id,
         applicantId: applicant.id,
         name: [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' ').toUpperCase(),
@@ -1170,6 +1182,9 @@ const processBillingSelection = async (req, res) => {
           tuition_fee_receipt_review_status: true,
           folder_physical_submitted: true,
           billing_amount: true,
+          tuition_fee_assistance: true,
+          grant_prepared_at: true,
+          grant_prepared_by: true,
         },
       }),
       prisma.schools.findMany({ select: { id: true, name: true, school_type: true, is_active: true } }),
@@ -1216,6 +1231,8 @@ const processBillingSelection = async (req, res) => {
         schoolType: school?.school_type,
         requireSchoolClassification: true,
       });
+      const grantBlocker = preparationBlocker(school?.school_type, requirement, billedIds.has(applicantId));
+      if (grantBlocker) result = { ...result, eligible: false, reasons: [...result.reasons, grantBlocker] };
       if (school && resolveProcessingRoute({ schoolType: school.school_type, docs: application?.initial_docs, period: activePeriod, schedule: continuingSchedule, applicantId, legacyPeriodId: primaryPeriod.id }) !== 'billing') {
         result = {
           ...result,
@@ -1254,6 +1271,7 @@ const processBillingSelection = async (req, res) => {
     const timestamp = new Date();
     const batchNumber = createBillingReference(timestamp);
     const result = await prisma.$transaction(async (transaction) => {
+      const grantSnapshots = await snapshotPrivateGrants(transaction, activePeriod.id, eligibleIds);
       const batch = await transaction.payroll_batches.create({
         data: {
           batch_number: batchNumber,
@@ -1273,6 +1291,7 @@ const processBillingSelection = async (req, res) => {
           academic_period_id: activePeriod.id,
           applicant_id: applicantId,
           claim_amount: billingAmountByApplicant.get(applicantId) || 0,
+          ...grantSnapshots.get(applicantId),
           claim_status: 'pending',
           notes: warningsByApplicant.get(applicantId)?.length
             ? 'Added through Billing Management. Requirements incomplete at list generation: ' + warningsByApplicant.get(applicantId).map(({ message }) => message).join(' ')
@@ -1295,8 +1314,8 @@ const processBillingSelection = async (req, res) => {
           })),
         });
       }
-      return batch;
-    });
+      return { ...batch, grantBreakdowns: [...grantSnapshots].map(([applicantId, value]) => ({ applicantId, totalGrant: 5000, tuitionFeeAssistance: value.tuition_fee_assistance, allowance: value.allowance })) };
+    }, { isolationLevel: 'Serializable', maxWait: 10000, timeout: 120000 });
 
     res.locals.auditTargetId = result.id;
     res.locals.auditDescription = `Generated a Private-scholar certification list for ${eligibleIds.length} scholars; ${incompleteRequirementsCount} with incomplete requirements.`;
@@ -1305,9 +1324,12 @@ const processBillingSelection = async (req, res) => {
       message: `Private-scholar certification list generated for ${eligibleIds.length} scholar${eligibleIds.length === 1 ? '' : 's'}.`,
       batch: { id: result.id, batchNumber: result.batch_number, billingReference: result.batch_number, totalScholars: result.total_scholars },
       incompleteRequirementsCount,
+      grantBreakdowns: result.grantBreakdowns,
       activePeriod: serializeAcademicPeriod(activePeriod),
     });
   } catch (error) {
+    if (error?.code === 'P2034') return res.status(409).json({ message: 'The preparation or list changed concurrently. Refresh and retry.' });
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.error(error);
     if (error?.code === 'P2002') {
       return res.status(409).json({ message: 'One or more selected scholars were already billed for this academic period. Refresh the list and try again.' });
@@ -1372,13 +1394,15 @@ const processPayrollSelection = async (req, res) => {
         requireSchoolClassification: true,
       });
       const reasons = [...readiness.reasons];
+      const grantBlocker = preparationBlocker(school?.school_type, requirement, processedIds.has(applicantId));
+      if (grantBlocker) reasons.push(grantBlocker);
       if (school && resolveProcessingRoute({ schoolType: school.school_type, docs: application?.initial_docs, period: activePeriod, schedule: continuingSchedule, applicantId, legacyPeriodId: primaryPeriod.id }) !== 'payroll') {
         reasons.push({ code: 'PRIVATE_SCHOOL_BILLING_ROUTE', message: 'Subsequent regular Private submissions go to Billing/certification. Initial and late submissions go to Payroll.' });
       }
       if (!applicantById.has(applicantId)) {
         reasons.push({ code: 'APPLICANT_UNAVAILABLE', message: 'The scholar applicant record is unavailable.' });
       }
-      return { applicantId, eligible: reasons.length === 0, reasons, warnings: readiness.warnings };
+      return { applicantId, schoolType: school?.school_type, eligible: reasons.length === 0, reasons, warnings: readiness.warnings };
     });
     const ineligible = eligibility.filter(({ eligible }) => !eligible);
     if (ineligible.length) {
@@ -1396,6 +1420,7 @@ const processPayrollSelection = async (req, res) => {
     const amountByApplicant = new Map(applicantIds.map((applicantId) => [applicantId, resolveBillingAmount(resolveScholarSchool({ applicant: applicantById.get(applicantId), requirement: requirementByApplicant.get(applicantId), application: applicationByApplicant.get(applicantId), schoolById, schoolByName, schoolHistory: schoolHistoryByApplicant.get(applicantId) })?.school_type)]));
     const totalAmount = applicantIds.reduce((total, applicantId) => total + amountByApplicant.get(applicantId), 0);
     const batch = await prisma.$transaction(async (transaction) => {
+      const grantSnapshots = await snapshotPrivateGrants(transaction, activePeriod.id, eligibility.filter((item) => String(item.schoolType).toLowerCase() === 'private').map((item) => item.applicantId));
       const createdBatch = await transaction.payroll_batches.create({
         data: {
           batch_number: batchNumber,
@@ -1415,6 +1440,7 @@ const processPayrollSelection = async (req, res) => {
           academic_period_id: activePeriod.id,
           applicant_id: applicantId,
           claim_amount: amountByApplicant.get(applicantId),
+          ...grantSnapshots.get(applicantId),
           claim_status: 'listed',
           notes: warningsByApplicant.get(applicantId)?.length
             ? 'Included in the official scholar payroll list. Requirements incomplete at list generation: ' + warningsByApplicant.get(applicantId).map(({ message }) => message).join(' ')
@@ -1422,18 +1448,21 @@ const processPayrollSelection = async (req, res) => {
           updated_at: timestamp,
         })),
       });
-      return createdBatch;
-    });
+      return { ...createdBatch, grantBreakdowns: [...grantSnapshots].map(([applicantId, value]) => ({ applicantId, totalGrant: 5000, tuitionFeeAssistance: value.tuition_fee_assistance, allowance: value.allowance })) };
+    }, { isolationLevel: 'Serializable', maxWait: 10000, timeout: 120000 });
 
     res.locals.auditTargetId = batch.id;
     res.locals.auditDescription = `Generated an official payroll list for ${applicantIds.length} scholars; ${incompleteRequirementsCount} with incomplete requirements.`;
     return res.status(201).json({
       message: `Official payroll list generated for ${applicantIds.length} scholar${applicantIds.length === 1 ? '' : 's'}.`,
       incompleteRequirementsCount,
+      grantBreakdowns: batch.grantBreakdowns,
       batch: { id: batch.id, batchNumber: batch.batch_number, totalScholars: batch.total_scholars },
       activePeriod: serializeAcademicPeriod(activePeriod),
     });
   } catch (error) {
+    if (error?.code === 'P2034') return res.status(409).json({ message: 'The preparation or list changed concurrently. Refresh and retry.' });
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.error(error);
     if (error?.code === 'P2002') {
       return res.status(409).json({ message: 'The payroll selection was already included or changed. Refresh the list and try again.' });

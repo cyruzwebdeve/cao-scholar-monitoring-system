@@ -5,6 +5,47 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-16 - Private Grant Preparation and Automatic Allowance
+
+**TL;DR**
+- Private Scholars now need a saved per-period grant record before Billing or Payroll list generation: fixed PHP 5,000 total, manually entered receipt-based tuition assistance, and automatic remaining allowance.
+- Staff can create/edit preparations, open the correct-period tuition receipt, reload saved amounts and filter Not prepared/Prepared/Listed records. Initial/late Private Payroll routing is visible in the frontend; subsequent regular Private stays in Billing.
+- Generated list membership snapshots tuition and allowance, locks preparation updates and exports the saved breakdown with one batch reference. Public grants and existing historical list amounts remain unchanged; old missing breakdowns stay unknown.
+- Added nullable preparation/snapshot columns in migration `20261016020000_private_grant_preparation`; no historical data is rewritten and no payment-release functionality is added.
+- Backend/frontend suites, lint/build, Prisma, synthetic browser/export and isolated PostgreSQL checks passed; exact counts and rollout are recorded below.
+
+### Objective and previous/new behavior
+
+Implement staff-entered Private tuition assistance with automatic allowance, replacing the abandoned OCR idea. Previously academic billing details stored only the fixed Private total, and list preparation did not require an explicit grant breakdown. Now staff selects the processing period and creates a record through Billing/Payroll, using Total Grant = 5,000 and Allowance = 5,000 minus Tuition Fee Assistance. Assistance must be an explicit numeric amount from 0 through 5,000 with at most two decimals; a receipt exceeding the grant does not allow negative allowance or silently clamp the typed value. This cap was stated as the implementation default before work. Batch references retain the existing system convention: one reference for each generated list, shared by its members.
+
+### Roles, UI and data flow
+
+Provincial, Regular and Billing/Payroll Admins use the processing section assigned to the Scholar's route. A new Private grant editor supplies a read-only total and allowance, manual amount, current-period receipt link, preparation save, status/error feedback, keyboard controls and mobile layout. Saving never generates an official list. The existing per-period `scholar_requirements` row stores tuition, server preparation timestamp and staff ID; fixed total and allowance are derived canonically. Missing preparation is a processing blocker independent of document readiness. Missing continuing documents remain warnings once a grant is prepared.
+
+`grantPreparationController` validates the active Scholar/period, persisted Private classification and actual Billing/Payroll destination. Receipt access reuses authenticated private streaming after scoped processing authorization; later periods do not silently fall back to older initial receipts. Saving takes a transaction advisory lock for the period/Scholar, checks existing membership and stale preparation timestamp, and upserts the canonical amount. Staff changes are recorded as operational grant-preparation activity, not an audit of released money.
+
+Both list-generation transactions take the same sorted locks and reread preparations before inserting membership. They snapshot tuition/allowance alongside the unchanged fixed grant total; subsequent save requests are denied after listing. Serializable conflicts return 409/reload feedback. Bulk generation uses a bounded two-minute transaction timeout. The response returns canonical snapshots so immediate workbooks do not use stale queue values. Current/history projections and CSV/XLSX include the breakdown; old missing amounts remain null/blank. The old “Paid” CSV header was corrected to Payroll List Status; legacy claim storage is retained solely as list-membership storage, with retired payout behavior unchanged.
+
+A route mismatch discovered during this work was corrected: frontend processing visibility/queue helpers now honor server processRoute, allowing initial/authorized late Private Payroll instead of unconditionally filtering Payroll to Public school type. Grant preparation applies on both Private destinations; Public retains the existing PHP 3,000 flow. Preparation-status filters retrieve Prepared/Listed records and clear conflicting default unlisted filters when necessary.
+
+### Files and impacts
+
+Added `backend/services/grantPreparation.js`, `backend/controllers/grantPreparationController.js`, `frontend/src/PrivateGrantEditor.jsx` and grant tests/migration. Updated application controller projections and both list mutations, routes, application Prisma schema, BillingPayrollManagement UI/exports/styles, processing-visibility helpers/tests and related generation/authorization fixtures. Staff checklist: `docs/qa/2026-10-16/private-grant-preparation.md`.
+
+API: new PUT `/scholars/:applicantId/grant-preparation` and GET `/scholars/:applicantId/tuition-receipt`; additive preparation/breakdown/status fields in management projections and generation responses. Existing generation now rejects unprepared Private records. Database: nullable tuition/preparation provenance columns on `scholar_requirements`, nullable tuition/allowance snapshots on legacy `payroll_claims`, with amount/provenance/sum constraints. No old values are invented, deleted or rewritten. Total grant remains the existing list amount. No application dependency/configuration change; Prisma regeneration and matching backend/frontend deployment with the additive migration are required.
+
+Security/privacy: scoped authenticated receipt access, server-owned totals/provenance, exact-cent validation, stale-edit rejection, sorted transaction locks, atomic snapshots, list-membership edit lock and existing duplicate/account/classification guards. No OCR, external receipt processor, new public document location or automatic third-party transfer. Accessibility: labeled/read-only fields, keyboard focus cycling/Escape, visible validation/status messages and tested responsive layout. System scope still ends at official payroll/certification-list generation; no fund release, claiming, reconciliation or monetary audit is introduced.
+
+### Validation, limitations and rollback
+
+Independent tests cover cents/bounds/zero, forged client totals, per-period persistence, stale and listed updates, destination permissions, snapshot freshness and refusal to substitute older receipts. Private happy-path generation fixtures now explicitly contain a saved preparation; a previous no-row generation expectation changed to the requested no-preparation denial, with document warnings/duplicate/route guards retained. Added actual generation snapshots for both destinations, contention/reload responses, receipt/preparation route protection and Private Payroll frontend visibility.
+
+Isolated Chromium workflows passed for Billing desktop, Payroll desktop and 390px Payroll: fixed/read-only total, auto allowance, 0/5,000 boundaries, rejected oversize input, correct receipt request, save/reload, Prepared/Listed filters and locked controls. Downloaded XLSX files were inspected: they contain tuition/allowance columns and the server's generation snapshot even when it differs from the queue preview. Embedded PostgreSQL applied the exact migration and verified nullable old records, valid zero/full grant, amount/provenance/sum constraints and advisory-lock SQL. Temporary QA tools/fixtures are not runtime dependencies and were removed from the repository.
+
+Final validation: full backend suite passed 327 tests with one existing opt-in database test skipped (328 total); all 17 frontend test modules passed. Frontend lint/build and Prisma generation/schema validation passed, as did seven focused preparation cases, three isolated browser/export scenarios and embedded PostgreSQL checks. Whitespace validation passed. Deployment evidence follows. No production Scholar was prepared or listed during verification. Existing large-chunk build advisory remains. Earlier generated lists have no recoverable split unless it was previously recorded; this feature deliberately does not invent one. Staff still decides the eligible tuition assistance from the receipt. Allowance is derived while Prepared and snapshotted when Listed. Provider migration confirmation remains necessary because public health does not expose revision/migration status.
+
+Rollback must coordinate frontend/backend: older clients do not collect the newly required preparation. Retain additive columns and any saved/listed snapshots; do not drop historical breakdowns. Reverting removes the preparation gate and restored old exports would omit splits, so prefer a forward fix once lists exist. Recommended next work: complete the attached hosted staff acceptance checklist with test records after deployment.
+
 ## 2026-10-16 - Retained Passer Lists and Verification before Scholar Acceptance
 
 **TL;DR**

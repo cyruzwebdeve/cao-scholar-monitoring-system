@@ -291,6 +291,9 @@ model scholar_requirements {
   year_level                        String?   @db.VarChar(20)
   course                            String?   @db.VarChar(150)
   major                             String?   @db.VarChar(150)
+  tuition_fee_assistance             Decimal? @db.Decimal(10, 2)
+  grant_prepared_at                 DateTime? @db.Timestamp(6)
+  grant_prepared_by                 Int?
   billing_amount                    Decimal?  @db.Decimal(10, 2)
   billing_notes                     String?
   billing_reference                 String?   @db.VarChar(40)
@@ -352,6 +355,8 @@ model payroll_claims {
   payroll_batch_id Int
   academic_period_id Int?
   applicant_id     Int
+  tuition_fee_assistance Decimal? @db.Decimal(10, 2)
+  allowance Decimal? @db.Decimal(10, 2)
   claim_amount     Decimal   @db.Decimal(10, 2)
   claim_status     String    @default("pending") @db.VarChar(30)
   notes            String?
