@@ -5,6 +5,22 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-17 - Configurable Payroll Excel Queue Export
+
+**TL;DR**
+- Payroll now uses Export Excel with the same column picker and ordering controls as Billing.
+- Default Payroll columns follow its Generate template, including Signature; Billing retains its separate no-signature template.
+- Queue exports are preparation copies with no official reference and do not generate membership or clear the queue. Generate remains the official-list action.
+- Payroll/Billing serialized workbook checks, 82 frontend cases and lint/build passed; browser/deployment verification recorded below. No backend change or migration.
+
+Objective: apply the deployed Billing export behavior to Payroll as requested. Previously Payroll still used configurable CSV with fixed column order. Now both processing sections open Excel export options, with each section's own template selected by default and optional metadata available. Payroll staff may select/deselect fields and use Move earlier/later to arrange the exported columns. Signature remains a default Payroll column that staff may omit from a particular export. Billing remains without a signature column.
+
+Implementation: updated `frontend/src/BillingPayrollManagement.jsx`. Added Payroll template definitions/configurable fields and made downloadPayrollWorkbook accept selectedColumns/preparationCopy, using the same dynamic header/row/width/currency/merge/total approach as Billing. The default Generate call still uses the full Payroll template and returned official reference. The queue handler now chooses the appropriate workbook generator and reports the section name in feedback. Removed the processing component's unused CSV download import; shared CSV dialogs elsewhere retain their existing behavior. Existing selection and period snapshots remain intact after download.
+
+API/backend, database/schema, configuration, dependencies, security/privacy and staff permissions: no changes. No list-generation request occurs during export. Accessibility reuses the labeled column picker, named reorder controls, disabled/busy states and responsive options already deployed for Billing. Stored grants, history and legacy official-list membership remain unchanged; no fund-release or payment-confirmation functionality is added. Deployment: frontend-only rollout requested, pending live verification.
+
+Validation: serialized/reloaded Payroll workbooks cover default official reference/signature, matching preparation headers/widths, mixed Public/Private totals, zero tuition, selected/reordered cells, currency relocation, resized merges, absent totals when unselected, one-column output and empty-selection rejection. Billing's existing configurable serialized-workbook checks also passed. All 82 frontend cases and lint/production build passed with the existing large-chunk advisory. Synthetic Chromium flows passed at 1280px/390px: opened Payroll Excel options, confirmed default Signature selected, selected/reordered a subset, downloaded/read actual XLSX headers and row values, confirmed preparation-copy title, no non-GET requests and queue still eligible for Generate. No runtime browser errors; temporary harness removed. No production lists or records were modified. Column choices apply to the current dialog rather than persistent preferences. Rollback restores the processing component's prior Payroll CSV path without data changes. After deployment verify Export Excel in Payroll, reorder a subset, inspect the downloaded columns/values, confirm the queue remains and compare the default Generate template.
+
 ## 2026-10-17 - Configurable Billing Excel Columns and Order
 
 **TL;DR**

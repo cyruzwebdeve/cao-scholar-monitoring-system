@@ -359,3 +359,5 @@
 2026-10-17 | Deploying Billing XLSX export with configurable columns/order, Generate-template styling and removal of Billing signature. Default official templates retained; queue export stays a preparation copy. XLSX, 82 frontend cases, lint/build and desktop/mobile controls passed; live verification pending. No backend change or migration.
 
 2026-10-17 | Release 3876cf1 verified live: Billing Export Excel retains configurable columns/order with shared Generate styling, preparation-copy identification and no signature column. API/database healthy; no backend change or migration. Workflow guide included in repository.
+
+2026-10-17 | Applied configurable Export Excel with column ordering to Payroll using its Generate template and retaining the default Signature column. Preparation copies do not generate membership or clear queues; Billing no-signature template retained. Payroll/Billing XLSX checks, 82 frontend cases and lint/build passed; desktop/mobile download checks passed; deployment pending. No backend change or migration.
