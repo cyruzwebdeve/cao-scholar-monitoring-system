@@ -5,6 +5,28 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-16 - One Add to Billing Action
+
+**TL;DR**
+- Private Billing preparation now uses one Add to billing button to validate/save tuition and allowance, save the processing session and open Billing.
+- Removed the separate Save as Prepared and Prepare & open Billing actions for this route; failed saves retain entered values and prevent navigation.
+- Payroll preparation and all current late-submission/routing rules remain unchanged; no proposed supplemental-processing flow is included.
+- Frontend lint/build and 81 frontend regression cases passed; browser/deployment checks are recorded below. No backend change or migration.
+
+### Objective, previous/new behavior and roles
+
+The user requested combining grant saving into the existing Billing preparation action and renaming it Add to billing. Previously staff saved the Private grant and then separately prepared/opened Billing. Now existing authorized Scholar/processing staff enter tuition once and submit one inline action. The form validates an explicit amount from zero to PHP 5,000 with at most two decimals, derives the fixed-total allowance, saves the grant, then saves the session using existing Not billed yet metadata. Only after both requests succeed does the existing handoff open Billing. This adds no automatic official list generation or Billed status; list generation remains separate. Private Payroll retains its existing two-step UI and all late-window/route behavior remains untouched.
+
+### Implementation, files and data flow
+
+Changed `frontend/src/PrivateGrantEditor.jsx` and `frontend/src/ScholarsManagement.jsx`, plus required logs. The inline form optionally accepts a continuation for the Billing route. It retains its mounted state during the session request so errors do not discard the typed amount. After a successful grant save it retains the returned preparation timestamp in a ref; if session saving fails, retry sends the current timestamp rather than the stale original. Session errors surface in the inline form without duplicate parent alerts. Navigation never occurs after grant/session failure, and form/period activity guards remain in place. The separate outer action is hidden only for Private Billing; existing Payroll save/reload and preparation behavior is retained.
+
+API/backend: existing grant-preparation and billing-metadata endpoints reused with unchanged contracts, permissions, validation, stale-edit checks and listed locks. Database/schema: no changes, bulk rewrite or migration. Configuration/dependencies: no runtime changes. Security/privacy: existing scoped auth/receipt handling retained; no new data collection or exposure. Accessibility: same labeled inputs, helper association, disabled/busy states and alert feedback; Billing now has one submit action. Scope ends at official list generation; retained legacy membership storage and retired payment behavior are unchanged. Deployment: frontend-only release requested, pending verification.
+
+### Validation, limitations and rollback
+
+Frontend lint and production build passed with the existing large-chunk advisory; 81 frontend regression cases passed. Four isolated Chromium cases passed using synthetic APIs: combined success, rejected grant save (no session call/navigation), rejected session save (input retained and timestamp-aware retry), and unchanged two-step Payroll. Explicit zero/over-limit input, computed allowance and request order were verified. The temporary harness was removed; no browser runtime errors remained after refreshing the preview dependency cache. No production Scholar records were modified. The two existing save endpoints are sequential rather than one database transaction: if session saving fails after grant saving, the grant remains safely Prepared and the UI keeps the input for retry. A lost grant-save response can still require refresh through the existing stale-edit protection. No server rewrite is needed for this UI simplification. Rollback restores the prior frontend files and two-step buttons; saved records remain compatible. After deployment verify single-action Billing success, invalid input, grant failure, session failure/retry and unchanged Payroll/late submission behavior.
+
 ## 2026-10-16 - Compact and Align the Inline Grant Form
 
 **TL;DR**

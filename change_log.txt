@@ -329,3 +329,5 @@
 2026-10-16 | Refined Scholar inline grant layout with dedicated styles, aligned fixed/computed fields, full-width tuition entry and equal-width compact save/handoff actions. Receipt and calculation/save rules unchanged. Lint/build and three synthetic desktop/mobile layout/workflow checks passed; live deployment check pending. Frontend only, no migration.
 
 2026-10-16 | Grant layout release 39764ae verified live: dedicated inline form/styles, aligned 42px inputs, full-width tuition and compact equal-width actions. API/database healthy. No backend change or migration.
+
+2026-10-16 | Combined Private Billing grant/session preparation into one Add to billing action. Validation and sequential saves precede navigation; failure preserves input with safe timestamp-aware retry. Payroll and late-submission behavior unchanged. Lint/build, 81 frontend cases and four synthetic browser success/failure/retry/Payroll checks passed; deployment pending. No backend/schema change.

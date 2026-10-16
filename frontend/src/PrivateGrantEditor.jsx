@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { API_BASE, authHeaders } from './services/api';
-export default function PrivateGrantEditor({ record, period, token, onSaved, onBusyChange }) {
+export default function PrivateGrantEditor({ record, period, token, onSaved, onBusyChange, onContinue }) {
   const [tuition,setTuition]=useState(record.tuitionFeeAssistance == null ? '' : String(record.tuitionFeeAssistance));
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[receiptBusy,setReceiptBusy]=useState(false);
   const receiptUrl=useRef(null);
+  const preparedAt=useRef(record.grantPreparedAt || null);
   useEffect(()=>()=>{if(receiptUrl.current)URL.revokeObjectURL(receiptUrl.current);},[]);
   useEffect(() => { onBusyChange?.(busy || receiptBusy); return () => onBusyChange?.(false); }, [busy, receiptBusy, onBusyChange]);
   const amount=Number(tuition), cents=Math.round(amount*100);
@@ -12,9 +13,11 @@ export default function PrivateGrantEditor({ record, period, token, onSaved, onB
   const save=async(event)=>{
     event.preventDefault();if(!valid||busy||receiptBusy)return;setBusy(true);setError('');
     try{
-      const response=await fetch(`${API_BASE}/scholars/${record.applicantId}/grant-preparation`,{method:'PUT',headers:{...authHeaders(token),'Content-Type':'application/json'},body:JSON.stringify({academicPeriodId:Number(period.id),tuitionFeeAssistance:amount,preparedAt:record.grantPreparedAt||null})});
+      const response=await fetch(`${API_BASE}/scholars/${record.applicantId}/grant-preparation`,{method:'PUT',headers:{...authHeaders(token),'Content-Type':'application/json'},body:JSON.stringify({academicPeriodId:Number(period.id),tuitionFeeAssistance:amount,preparedAt:preparedAt.current})});
       const body=await response.json();if(!response.ok)throw new Error(body.message||'Unable to save grant preparation.');
-      await onSaved(body.message);
+      preparedAt.current = body.grant?.grantPreparedAt || preparedAt.current;
+      if (onContinue) await onContinue();
+      else await onSaved(body.message);
     }catch(failure){setError(failure.message);}finally{setBusy(false);}
   };
   const openReceipt=async()=>{
@@ -35,6 +38,6 @@ export default function PrivateGrantEditor({ record, period, token, onSaved, onB
       <label className="scholar-grant-allowance"><span>Allowance (PHP)</span><input value={allowance} readOnly /><small>Computed automatically.</small></label>
     </div>
     {tuition!==''&&!valid&&<p role="alert" className="scholar-grant-error">Use an amount from PHP 0 to PHP 5,000 with up to two decimal places.</p>}{error&&<p role="alert" className="scholar-grant-error">{error}</p>}
-    <button className="scholar-grant-save" type="submit" disabled={busy||receiptBusy||!valid}>{busy?'Saving…':record.grantPrepared?'Update prepared record':'Save as Prepared'}</button>
+    <button className="scholar-grant-save" type="submit" disabled={busy||receiptBusy||!valid}>{busy?(onContinue?'Adding…':'Saving…'):onContinue?'Add to billing':record.grantPrepared?'Update prepared record':'Save as Prepared'}</button>
   </form>;
 }
