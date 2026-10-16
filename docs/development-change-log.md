@@ -5,6 +5,60 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-17 - Configurable Billing Excel Columns and Order
+
+**TL;DR**
+- Billing Export Excel now opens the column picker, retaining optional metadata selection and adding up/down controls for Excel's left-to-right column order.
+- Default selected columns match Generate's revised 11-column template without a signature. Selected headers, record values, widths, currency formats, title merges and totals follow the chosen order.
+- Generated/historical official workbooks retain default template behavior; queue exports remain preparation copies without official references. Other CSV export dialogs keep their existing defaults.
+- Serialized XLSX checks, 82 frontend cases and lint/build passed; browser verification recorded below. Frontend deployment requested.
+
+Objective: implement the user's clarification selecting formatted Excel while retaining configurable columns and order. The initial Excel-export implementation bypassed the CSV column picker; this follow-up restores configuration for Billing and makes order editable through named Move earlier/later buttons. Generate still exports the default official template. Billing queue export selects the template fields by default and offers additional existing metadata as optional fields; duplicate Amount/Billing Reference choices are represented by Total Grant/Reference Number.
+
+Implementation: updated `frontend/src/BillingPayrollManagement.jsx`, `frontend/src/components/CsvExportModal.jsx` and its CSS. The shared modal accepts optional formatLabel/exportLabel/allowReorder props; existing callers retain CSV labels, canonical ordering and behavior unless they opt in. Selected-key order drives Billing export, select-all preserves the chosen order and appends remaining fields, and clear disables export. The workbook generator accepts selected column definitions, derives header merges and widths from the output count, maps each row through the same definitions and relocates the grant total/currency styles correctly. Omitting Total Grant omits its total row; a single-column workbook is supported without invalid merged cells. It refuses an empty selection.
+
+API/backend, database/schema, configuration, dependencies, security/privacy and staff permissions: no changes. Excel cells retain plain values and no list-generation API is called by export. Accessibility: labeled checkboxes, named keyboard-operable reorder buttons, boundary/empty-selection disabled states and responsive scrollable options. Changes affect Billing staff exports; other CSV users retain existing defaults. No legacy storage or payment-related functionality changes. Deployment: frontend-only release requested; no backend change or migration required. Live verification pending.
+
+Validation: serialized/reloaded actual XLSX files cover default official template/reference, selected/reordered cells, currency locations, totals, explicit zero, optional metadata, omitted Total Grant, single-column output and empty-selection refusal. All 82 frontend regression cases and lint/build passed (existing chunk advisory). Synthetic Chromium checks passed at 1280px and 390px: selection/reordering exported the requested key order, clear disabled export, select-all restored fields, the dialog stayed within the viewport and CSV callers retained their label/order without reorder controls. No browser runtime errors; temporary preview harness removed. No production lists or records modified. Configuration applies to the current export dialog and is not saved as a persistent account preference. Rollback restores the prior component/modal styles with no database action. Recommended check after deployment: choose a subset, reorder it, download Excel and compare headers/cells while confirming Generate's default template and Payroll CSV remain intact.
+
+## 2026-10-17 - Reuse the Billing Generation Workbook for Queue Export
+
+**TL;DR**
+- Billing's former Export CSV button now uses the same formatted XLSX template as Generate and is labeled Export Excel.
+- Queue exports are preparation copies with no official reference; exporting does not generate a list, change membership or clear the queue.
+- The revised Billing template has 11 columns without Certification / Signature. Payroll's CSV column picker and separate signature column remain unchanged.
+- Serialized workbook equivalence checks passed; frontend checks are recorded below. Not deployed.
+
+Objective: use the Generate button's Billing Excel template for the export action. The prior Billing action opened a configurable CSV picker with unrelated columns and no workbook styling. The user was asked whether to keep CSV columns or use formatted XLSX; with no reply during the clarification interval, proceeded with the stated same-XLSX interpretation in the Billing context. Updated `frontend/src/BillingPayrollManagement.jsx` to reuse downloadCertificationWorkbook for a snapshot of the queued records and selected active period. Both generated/current and historical Billing workbooks retain their official title/reference handling; the export path passes preparationCopy to label the queued download and uses a billing-preparation date filename. Headers, row order, widths, currency formats, totals and print setup use the same generator. No fabricated official reference is assigned.
+
+Staff may export only a nonempty queue outside an active generation/export operation. Export shows busy/error/success feedback and leaves records/selection intact. Payroll retains its existing CSV export and picker. API/backend, database/schema, configuration, dependencies, security/privacy and role permissions: no changes. Accessibility: the button label matches the XLSX format and reports busy/feedback states. Existing CSV formula handling remains unchanged in Payroll. Legacy list storage and workflow scope remain unchanged; no fund-release functionality is added. Deployment requires only the frontend and has not been performed.
+
+Validation: generated and preparation XLSX files were serialized and reloaded with ExcelJS. Verified identical 11-column headers/order, merged titles, widths, header styles, saved amounts, explicit zero and totals; generated reference retained, preparation reference blank and title marked PREPARATION COPY. Source wiring retains the Payroll CSV modal and routes Billing to the workbook handler. Frontend lint/production build passed with the existing large-chunk advisory; all 82 frontend regression cases passed. No official lists or production data were created during checks. Rollback restores the old Billing CSV action and optional workbook flag without any database action. Limitations: Excel export represents queued preparation rather than a retained official batch; use Generate for official membership/reference and historical downloads for prior batches.
+
+## 2026-10-17 - Remove Billing Workbook Signature Column
+
+**TL;DR**
+- Removed the Certification / Signature column from generated and historical Billing/certification Excel downloads.
+- Billing now has 11 columns ending at Reference Number; title/period merges and configured widths match the reduced template.
+- Payroll's separate Signature column and saved list/grant data remain unchanged. Export/build validation is recorded below; not deployed.
+
+Objective: apply the user's first Excel-template adjustment to Billing. Previously the shared certification-workbook generator produced an extra empty signature column. Updated `frontend/src/BillingPayrollManagement.jsx` to remove its header, row placeholder and width, and reduce merged titles from A:L to A:K. Both newly generated and historical Billing downloads reuse this generator. Staff roles and list-generation flow remain unchanged; this affects downloaded presentation only.
+
+API/backend, database/schema, configuration, dependencies, security/privacy and application accessibility controls: no changes. Reference, grant, tuition, allowance, total calculations, and currency formats remain in their original positions. Legacy list-membership storage remains retained; no payment-release behavior added. Deployment: frontend rollout required, not performed. Existing downloaded files are unchanged; a fresh download uses the revised template.
+
+Validation: actual serialized XLSX generation/load passed: 11 columns, A1:K1/A2:K2 title merges, Reference Number as last header, signature absent, grant/tuition/allowance/reference and zero-value amounts retained, correct total, and Payroll Signature header retained. Frontend lint/production build passed with existing large-chunk advisory. Rollback restores the exporter header/placeholder/width and merge bounds without any data action. No production lists were generated for verification. Recommended check after deployment: download a Billing list and confirm Reference Number is its last column, then confirm Payroll still includes Signature.
+
+## 2026-10-17 - Full Process Guide and Mermaid Flowcharts
+
+**TL;DR**
+- Added a shareable Markdown guide covering application, examination, passer retention, initial verification, Scholar acceptance, regular/remaining-Scholar processing and official list generation.
+- Included two Mermaid flowcharts, role/document tables, current button/filter names and explanations of list membership versus preparation and lateness.
+- Documentation only: no runtime, API, database, deployment or record changes; local structural/link checks passed.
+
+Objective: provide the user's requested start-to-finish process as a Markdown file with a flowchart. Added `docs/workflows/scholarship-process-flow.md` for Admin/staff/project stakeholders, with an end-to-end diagram and a detailed continuing/remaining-Scholar diagram. It records initial Admin uploads, Scholar continuing uploads, optional Indigency, per-period access, Private grant calculation, Add to billing and explicit Send to Payroll prerequisites. It distinguishes multiple regular batches from lateness, preserves the single-membership-per-period rule and ends at official list generation. No application behavior changed.
+
+Files: the guide and both change logs. API, backend, database/schema, configuration, dependencies, security/privacy and accessibility controls: no change. No real personal data, credentials or private document locations included. Text steps and tables provide an alternative to the diagrams; Mermaid rendering requires a compatible Markdown viewer. Validation: checked complete paired code fences, two Mermaid diagrams, internal checklist link and whitespace; diagrams inspected for standard Mermaid flowchart syntax. No application tests or deployment required for this documentation-only deliverable. Rollback removes the guide/log entry without data impact. Recommended next work is keeping this guide synchronized when workflow rules change; no standalone image export is included.
+
 ## 2026-10-17 - Keep the Requested Billing and Payroll Filters
 
 **TL;DR**

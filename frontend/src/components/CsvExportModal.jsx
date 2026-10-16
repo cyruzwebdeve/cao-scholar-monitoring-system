@@ -1,8 +1,8 @@
-import { Columns3, Download, X } from 'lucide-react';
+import { ArrowUp, ArrowDown, Columns3, Download, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import './CsvExportModal.css';
 
-export default function CsvExportModal({ title, description, columns, rowCount, getRowCount, onClose, onExport }) {
+export default function CsvExportModal({ title, description, columns, rowCount, getRowCount, onClose, onExport, allowReorder = false, formatLabel = 'CSV EXPORT', exportLabel = 'Export CSV' }) {
   const [selectedKeys, setSelectedKeys] = useState(() => columns.filter(({ defaultSelected = true }) => defaultSelected).map(({ key }) => key));
   const groups = useMemo(() => {
     const grouped = new Map();
@@ -25,7 +25,12 @@ export default function CsvExportModal({ title, description, columns, rowCount, 
     };
   }, [onClose]);
 
-  const selectedColumns = columns.filter(({ key }) => selectedKeys.includes(key));
+  const selectedColumns = allowReorder ? selectedKeys.map(key => columns.find(column => column.key === key)).filter(Boolean) : columns.filter(({ key }) => selectedKeys.includes(key));
+  const moveColumn = (key, direction) => setSelectedKeys(current => {
+    const index = current.indexOf(key), target = index + direction;
+    if (index < 0 || target < 0 || target >= current.length) return current;
+    const next = [...current]; [next[index], next[target]] = [next[target], next[index]]; return next;
+  });
   const effectiveRowCount = getRowCount ? getRowCount(selectedColumns) : rowCount;
   const toggleColumn = (key) => setSelectedKeys((current) => current.includes(key)
     ? current.filter((item) => item !== key)
@@ -41,13 +46,13 @@ export default function CsvExportModal({ title, description, columns, rowCount, 
       <section className="csv-export-modal" role="dialog" aria-modal="true" aria-labelledby="csv-export-title">
         <header>
           <i><Columns3 size={21} /></i>
-          <div><span>CSV EXPORT</span><h2 id="csv-export-title">{title}</h2><p>{description}</p></div>
+          <div><span>{formatLabel}</span><h2 id="csv-export-title">{title}</h2><p>{description}</p></div>
           <button type="button" onClick={onClose} aria-label="Close export options"><X size={18} /></button>
         </header>
 
         <div className="csv-export-selection-bar">
           <span><strong>{selectedColumns.length}</strong> of <strong>{columns.length}</strong> columns selected</span>
-          <div><button type="button" onClick={() => setSelectedKeys(columns.map(({ key }) => key))} disabled={selectedColumns.length === columns.length}>Select all</button><button type="button" onClick={() => setSelectedKeys([])} disabled={!selectedColumns.length}>Clear</button></div>
+          <div><button type="button" onClick={() => setSelectedKeys(current => allowReorder ? [...current, ...columns.map(column => column.key).filter(key => !current.includes(key))] : columns.map(({ key }) => key))} disabled={selectedColumns.length === columns.length}>Select all</button><button type="button" onClick={() => setSelectedKeys([])} disabled={!selectedColumns.length}>Clear</button></div>
         </div>
 
         <div className="csv-export-groups">
@@ -62,11 +67,12 @@ export default function CsvExportModal({ title, description, columns, rowCount, 
               </div>
             </fieldset>
           ))}
+          {allowReorder && selectedColumns.length > 0 && <section className="export-column-order" aria-label="Selected column order"><h3>Column order</h3><p>Move columns up or down to set their left-to-right order in Excel.</p><ol>{selectedColumns.map((column, index) => <li key={column.key}><span>{index + 1}. {column.label}</span><div><button type="button" aria-label={`Move ${column.label} earlier`} disabled={index === 0} onClick={() => moveColumn(column.key, -1)}><ArrowUp size={14} /></button><button type="button" aria-label={`Move ${column.label} later`} disabled={index === selectedColumns.length - 1} onClick={() => moveColumn(column.key, 1)}><ArrowDown size={14} /></button></div></li>)}</ol></section>}
         </div>
 
         <footer>
           <span>{selectedColumns.length ? `${effectiveRowCount} ${effectiveRowCount === 1 ? 'record' : 'records'} will be exported.` : 'Select at least one column to continue.'}</span>
-          <div><button type="button" className="csv-export-cancel" onClick={onClose}>Cancel</button><button type="button" className="csv-export-confirm" onClick={handleExport} disabled={!selectedColumns.length}><Download size={15} />Export CSV</button></div>
+          <div><button type="button" className="csv-export-cancel" onClick={onClose}>Cancel</button><button type="button" className="csv-export-confirm" onClick={handleExport} disabled={!selectedColumns.length}><Download size={15} />{exportLabel}</button></div>
         </footer>
       </section>
     </div>

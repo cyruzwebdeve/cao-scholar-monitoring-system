@@ -347,3 +347,13 @@
 2026-10-17 | Deploying requested Billing/Payroll filter cleanup: kept Scholar and Academic & Date groups and four requested processing filters; removed List inclusion/Grant preparation. Lint/build and 82 frontend cases passed. No backend change or migration; live verification pending.
 
 2026-10-17 | Filter cleanup release dd296ae verified live: extra List inclusion/Grant preparation controls removed; requested groups and four processing filters retained. Not included yet and Send to Payroll preserved. API/database healthy; no backend change or migration.
+
+2026-10-17 | Added docs/workflows/scholarship-process-flow.md with full application-to-list-generation instructions, role/document tables and two Mermaid flowcharts. Includes current regular/remaining-Scholar routing and safeguards. Documentation only; structural/link/whitespace checks passed. No deployment or application changes.
+
+2026-10-17 | Removed Certification / Signature from Billing Excel exports; adjusted title merges, row placeholders and widths to 11 columns ending at Reference Number. Payroll signature and all saved data unchanged. Serialized XLSX check and frontend lint/build passed; not deployed.
+
+2026-10-17 | Billing queue Export CSV now reuses Generate's formatted XLSX template as Export Excel. Preparation copies retain matching columns/style/totals with no signature or official reference; export does not generate membership. Payroll CSV unchanged. Serialized workbook equivalence checks, frontend lint/build and 82 frontend regression cases passed. Not deployed.
+
+2026-10-17 | Retained configurable Billing Excel columns and added explicit column-order controls. Default selection matches Generate's 11-column no-signature template; XLSX rows, widths, currency and totals follow selected order. Other CSV dialogs retain defaults. Serialized XLSX checks, 82 frontend cases and lint/build passed; desktop/mobile picker checks passed. Not deployed.
+
+2026-10-17 | Deploying Billing XLSX export with configurable columns/order, Generate-template styling and removal of Billing signature. Default official templates retained; queue export stays a preparation copy. XLSX, 82 frontend cases, lint/build and desktop/mobile controls passed; live verification pending. No backend change or migration.
