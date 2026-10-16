@@ -12,17 +12,17 @@ const validate = (body) => {
     json(value) { payload = value; return this; },
   };
   validateScholarBillingMetadata({ body }, res, () => { nextCalled = true; });
-  return { nextCalled, statusCode, payload };
+  return { nextCalled, statusCode, payload, body };
 };
 
 test('accepts an available billing period identifier and supported status', () => {
-  const result = validate({ academicPeriodId: 4, billingStatus: 'Ready for billing' });
+  const result = validate({ academicPeriodId: 4, billingStatus: 'Not billed yet' });
   assert.equal(result.nextCalled, true);
   assert.equal(result.statusCode, 200);
 });
 
 test('accepts each editable pre-processing billing status', () => {
-  for (const billingStatus of ['Not billed yet', 'Pending', 'Ready for billing', 'On hold', 'Not applicable']) {
+  for (const billingStatus of ['Not billed yet', 'Pending', 'Not applicable']) {
     assert.equal(validate({ academicPeriodId: 1, billingStatus }).nextCalled, true);
   }
 });
@@ -39,4 +39,16 @@ test('rejects system-controlled or unknown billing statuses', () => {
   assert.equal(result.nextCalled, false);
   assert.equal(result.statusCode, 400);
   assert.match(result.payload.message, /billing status/i);
+});
+
+test('normalizes the retired Ready for billing value before persistence', () => {
+  const result = validate({ academicPeriodId: 4, billingStatus: 'Ready for billing' });
+  assert.equal(result.nextCalled, true);
+  assert.equal(result.body.billingStatus, 'Not billed yet');
+});
+
+test('normalizes the retired On hold value before persistence', () => {
+  const result = validate({ academicPeriodId: 4, billingStatus: 'On hold' });
+  assert.equal(result.nextCalled, true);
+  assert.equal(result.body.billingStatus, 'Not billed yet');
 });

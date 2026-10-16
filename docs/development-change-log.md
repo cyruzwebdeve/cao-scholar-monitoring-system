@@ -5,6 +5,42 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-16 - Remove the On Hold Preparation Choice
+
+**TL;DR**
+- Removed On hold from the Scholar Billing/Payroll preparation selector; staff use the existing Not billed yet (Payroll: Not listed yet) state.
+- Existing On hold values display compatibly and normalize to Not billed yet on save without bulk rewriting historical records.
+- Document verification remains the place to resolve document concerns; verification rules and list-generation eligibility are unchanged.
+- Six metadata tests passed; frontend checks are recorded below. Deployment requested; release verification is recorded below.
+
+### Objective, behavior, roles and implementation
+
+The user requested removing On hold because clarification belongs in document verification. Previously staff could select a separate hold state in the Scholar processing drawer. Now the selector retains the unprocessed state and system-controlled processed display. Provincial, Regular and Billing/Payroll staff retain their existing permissions. Form initialization and the current billing summary map historical On hold to Not billed yet; the API validator accepts older clients but canonicalizes that input before persistence. No new document-verification behavior or processing blocker is introduced.
+
+Files changed: `frontend/src/ScholarsManagement.jsx`, `backend/middleware/validators.js`, `backend/tests/billingMetadata.test.js`, and both change logs. API: existing metadata endpoint and response shape retained with legacy-input normalization. Database: no schema change, migration, deletion or bulk rewrite; existing values normalize when saved. Configuration/dependencies: no impact. Security/privacy: permissions and document access unchanged; no new data collection. Accessibility: existing labeled native selector retained with fewer choices. Deployment: frontend/backend rollout requested; no migration is required. Legacy list storage is retained unchanged; scope still ends at official list generation with no payment-release behavior.
+
+### Validation, limitations, rollback and next work
+
+Six focused metadata tests passed, including retired On hold normalization and invalid/system-controlled status rejection. Frontend lint and production build passed with the existing large-chunk advisory. No production records were edited for verification. Historical rows remain intact until saved. Rollback restores the prior option/validator; Not billed yet already exists, so no database rollback is needed. Release validation: six focused metadata tests and frontend lint/build passed. Live asset verification and backend provider confirmation are pending. After deployment, check the Scholar preparation selector and save an unprocessed session.
+
+## 2026-10-16 - Use the Existing Not Billed Yet Status
+
+**TL;DR**
+- Staff now use the existing “Not billed yet” selection instead of the redundant “Ready for billing” option in the Scholar processing drawer.
+- Older Ready for billing values display as Not billed yet and normalize to that value on save; historical database rows are not bulk rewritten.
+- Payroll retains its existing “Not listed yet” wording. Listing eligibility, grant preparation and generated records are unchanged.
+- Five billing metadata tests, frontend lint and production build passed.
+
+### Objective, behavior and implementation
+
+Remove the redundant pre-billing status at the user's request. Previously the processing selector offered both Not billed yet and Ready for billing (Ready for payroll on the Payroll route). It now offers the existing unprocessed status and On hold, retaining system-controlled processed state. Form initialization maps older Ready for billing and the server's computed Not listed yet state to the existing canonical select value, preventing a blank selection. The billing summary also handles the retired label. API validation accepts older clients sending Ready for billing but normalizes the body to Not billed yet before the existing controller persists it.
+
+Affected roles/workflows: staff with Scholar processing permissions, including Provincial, Regular and Billing/Payroll Admins. Changed areas: `frontend/src/ScholarsManagement.jsx`, `backend/middleware/validators.js` and `backend/tests/billingMetadata.test.js`. No endpoint or response shape changes; only legacy input normalization. No database/schema/migration, dependency or configuration impact. Existing saved rows remain intact and normalize when edited. No change to permissions, security controls, private data handling or receipt access. Accessibility retains the labeled native selector and removes a duplicate choice. No payment-release functionality is introduced; legacy list storage and scope remain unchanged.
+
+### Validation, deployment and limitations
+
+Five focused billing metadata cases passed, including canonical status acceptance, invalid/system-controlled rejection and legacy-input normalization. Frontend lint and production build passed (existing large-chunk advisory only). Deployment has not been performed for this change; frontend/backend deployment is required to apply both the selector and write normalization. No production records were changed during verification. Rollback restores the previous selector/validator without any data migration; Not billed yet was already a supported stored value. Existing historical migration fixtures are retained unchanged. Backend/migration confirmation for the preceding Private grant feature remains a separate pending verification.
+
 ## 2026-10-16 - Private Grant Preparation and Automatic Allowance
 
 **TL;DR**

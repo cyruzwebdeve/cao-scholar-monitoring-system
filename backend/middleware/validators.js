@@ -408,8 +408,11 @@ const validateScholarBillingDetails = (req, res, next) => {
 };
 
 const validateScholarBillingMetadata = (req, res, next) => {
-  const { academicPeriodId, billingStatus } = req.body;
-  const allowedStatuses = ['Not billed yet', 'Pending', 'Ready for billing', 'On hold', 'Not applicable'];
+  const { academicPeriodId } = req.body;
+  // Accept older clients while saving the existing canonical unbilled status.
+  if (['Ready for billing', 'On hold'].includes(req.body.billingStatus)) req.body.billingStatus = 'Not billed yet';
+  const { billingStatus } = req.body;
+  const allowedStatuses = ['Not billed yet', 'Pending', 'Not applicable'];
   if (!Number.isInteger(Number(academicPeriodId)) || Number(academicPeriodId) <= 0) {
     return res.status(400).json({ message: 'Select a valid school year and semester.' });
   }
