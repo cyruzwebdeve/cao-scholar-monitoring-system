@@ -345,3 +345,5 @@
 2026-10-17 | Kept all Scholar and Academic & Date filters plus Billed?, Payroll list, Billing Reference and Payroll Reference. Removed List inclusion/Grant preparation filters; existing Not included yet handles cross-list unprocessed discovery and excludes generated membership. No backend/schema change or deployment. Frontend lint/build and 82 regression cases passed.
 
 2026-10-17 | Deploying requested Billing/Payroll filter cleanup: kept Scholar and Academic & Date groups and four requested processing filters; removed List inclusion/Grant preparation. Lint/build and 82 frontend cases passed. No backend change or migration; live verification pending.
+
+2026-10-17 | Filter cleanup release dd296ae verified live: extra List inclusion/Grant preparation controls removed; requested groups and four processing filters retained. Not included yet and Send to Payroll preserved. API/database healthy; no backend change or migration.
