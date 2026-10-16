@@ -317,3 +317,5 @@
 2026-10-16 | Release 86c2a20 frontend verified live: automatic processing-status badge present, old status dropdown absent. API/database healthy. No backend change or migration required.
 
 2026-10-16 | Matched Scholar processing-status field to Semester dropdown width, height, padding and radius while retaining automatic read-only status/colors. Frontend production build passed; frontend-only deployment requested and live verification pending. No backend/schema impact.
+
+2026-10-16 | Release 820a4ea verified live: status width 100% with matching 42px minimum height, padding and corners in served CSS. API/database healthy; no backend change or migration.

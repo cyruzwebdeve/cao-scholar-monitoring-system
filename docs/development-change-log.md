@@ -22,7 +22,7 @@ Changed only `.scholars-processing-status-badge` in `frontend/src/styles/scholar
 
 ### Validation, limitations and rollback
 
-Production build passed with the existing large-chunk advisory; live CSS verification pending. This is a reversible presentation change and introduces no new tests. Rollback restores the prior badge CSS; no data rollback needed. Recommended manual check: both listed and unlisted states align with Semester at desktop/mobile widths.
+Production build passed with the existing large-chunk advisory; Release `820a4ea` pushed and live CSS verified in `Dashboard-JURIU0re.css`, served via entry `/assets/index-X1uUPFEE.js` and Admin `Dashboard-B1A1-qwY.js`: width 100%, border-box, min-height 42px, padding 8px 11px and radius 8px. Public API reported healthy/database connected. No authenticated production record was changed. This is a reversible presentation change and introduces no new tests. Rollback restores the prior badge CSS; no data rollback needed. Recommended manual check: both listed and unlisted states align with Semester at desktop/mobile widths.
 
 ## 2026-10-16 - Automatic Read-only Processing Status Badge
 
