@@ -313,3 +313,5 @@
 2026-10-16 | Replaced Scholar preparation status dropdown with automatic read-only Billing/Payroll list-status badge based on actual period membership. Preparation still saves Not billed yet; no API/schema or deployment change. Frontend lint/build passed.
 
 2026-10-16 | Deploying the automatic read-only Scholar processing-status badge for testing. Frontend lint/build passed; no backend change or migration. Live verification pending.
+
+2026-10-16 | Release 86c2a20 frontend verified live: automatic processing-status badge present, old status dropdown absent. API/database healthy. No backend change or migration required.
