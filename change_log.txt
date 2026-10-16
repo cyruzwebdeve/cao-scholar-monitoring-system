@@ -325,3 +325,5 @@
 2026-10-16 | Deploying relocated Scholar-panel Private grant preparation and removal of Billing table editors. Lint/build, 81 frontend cases and two synthetic browser flows passed. Frontend-only release; live verification pending.
 
 2026-10-16 | Release c565741 frontend verified live: grant preparation is inline in the Scholar session panel; legacy Billing table editors removed. New component/styles served; API/database healthy. No backend change or new migration.
+
+2026-10-16 | Refined Scholar inline grant layout with dedicated styles, aligned fixed/computed fields, full-width tuition entry and equal-width compact save/handoff actions. Receipt and calculation/save rules unchanged. Lint/build and three synthetic desktop/mobile layout/workflow checks passed; live deployment check pending. Frontend only, no migration.

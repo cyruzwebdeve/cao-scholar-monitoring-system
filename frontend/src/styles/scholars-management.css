@@ -79,23 +79,30 @@
 .scholars-processing-status-field > small { color:#708277; font-size:9px; line-height:1.5; }
 
 .scholars-grant-preparation { margin-top:18px; padding-top:16px; border-top:1px solid #dbe7df; }
-.private-grant-inline { width:100%; max-width:none; margin:0; }
-.private-grant-inline > header { display:block; margin-bottom:12px; }
-.private-grant-inline > header > span { color:#19834b; font-size:8px; font-weight:800; letter-spacing:.08em; }
-.private-grant-inline > header h4 { margin:5px 0; font-size:13px; }
-.private-grant-inline > header p { margin:0; font-size:10px; color:#6b7f71; }
-.private-grant-inline .billing-details-modal-body { padding:0; }
-.private-grant-inline .billing-details-modal-body > p { margin:0 0 12px; font-size:10px; line-height:1.6; }
-.private-grant-inline .billing-details-grid { gap:12px; }
-.private-grant-inline .billing-details-grid input { min-height:42px; }
-.private-grant-inline > footer { padding:14px 0 0; margin-top:14px; }
-.private-grant-inline > footer button { font-size:10px; }
+.scholar-grant-form { display:flex; flex-direction:column; gap:16px; width:100%; margin:0; }
+.scholar-grant-heading > span { color:#19834b; font-size:8px; font-weight:800; letter-spacing:.08em; }
+.scholar-grant-heading h4 { margin:5px 0; color:#2e4537; font-size:13px; font-weight:700; }
+.scholar-grant-heading p { margin:0; color:#708277; font-size:10px; }
+.scholar-grant-receipt-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.scholar-grant-receipt-row p { flex:1; margin:0; color:#667a6e; font-size:10px; line-height:1.6; }
+.scholar-grant-receipt-row button { flex-shrink:0; min-height:34px; padding:7px 10px; border:1px solid #c7ddcf; border-radius:7px; background:#fff; color:#1c7543; font:inherit; font-size:10px; font-weight:600; cursor:pointer; }
+.scholar-grant-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:14px 12px; }
+.scholar-grant-fields label { display:flex; flex-direction:column; gap:6px; min-width:0; color:#536b5d; font-size:9px; font-weight:700; }
+.scholar-grant-total { grid-column:1; grid-row:1; }
+.scholar-grant-allowance { grid-column:2; grid-row:1; }
+.scholar-grant-tuition { grid-column:1 / -1; grid-row:2; }
+.scholar-grant-fields input { box-sizing:border-box; width:100%; height:42px; padding:9px 11px; border:1px solid #cad8cf; border-radius:8px; background:#fff; color:#294b37; font:inherit; font-size:11px; }
+.scholar-grant-fields input[readonly] { background:#eff5f1; font-weight:700; }
+.scholar-grant-fields small { color:#718478; font-size:9px; font-weight:400; line-height:1.5; }
+.scholar-grant-save, .scholars-processing-actions button { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; min-height:38px; box-sizing:border-box; padding:9px 12px; border:1px solid #19854d; border-radius:7px; background:#19854d; color:#fff; font:inherit; font-size:10px; font-weight:700; cursor:pointer; }
+.scholar-grant-form button:disabled, .scholars-processing-actions button:disabled { opacity:.5; cursor:default; }
+.scholar-grant-form :is(input,button):focus-visible { outline:2px solid #19854d; outline-offset:2px; }
+.scholar-grant-error { margin:0; color:#ab342c; font-size:10px; line-height:1.5; }
+@media(max-width:420px) { .scholar-grant-receipt-row { align-items:flex-start; flex-direction:column; gap:8px; } }
 .scholars-grant-notice { padding:10px 12px; border:1px solid #c6e6d2; border-radius:7px; background:#edf9f0; color:#176c3b; font-size:11px; }
 .scholars-grant-breakdown h4 { margin:0 0 8px; }
 .scholars-grant-breakdown p { font-size:11px; color:#627668; }
 .scholars-grant-breakdown dl { display:grid; gap:10px; }
 .scholars-grant-breakdown dl > div { display:flex; justify-content:space-between; gap:12px; font-size:11px; }
 .scholars-grant-breakdown dd { margin:0; font-weight:700; }
-.scholars-processing-actions { display:flex; justify-content:flex-end; margin-top:16px; }
-.scholars-processing-actions button { display:inline-flex; align-items:center; gap:6px; padding:10px 13px; border:0; border-radius:7px; background:#19854d; color:white; font-size:10px; font-weight:700; cursor:pointer; }
-.scholars-processing-actions button:disabled { opacity:.5; cursor:default; }
+.scholars-processing-actions { display:flex; margin-top:10px; }

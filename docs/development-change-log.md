@@ -5,6 +5,26 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-16 - Compact and Align the Inline Grant Form
+
+**TL;DR**
+- Scholar grant preparation now uses dedicated inline styles, removing inherited modal padding and uneven amount-field heights.
+- Total Grant and computed Allowance align in one row; manual tuition assistance fills the next row with concise guidance.
+- Save and processing-handoff actions have matching full widths and compact spacing. Receipt access, amounts, permissions and saved records remain unchanged.
+- Frontend lint/build passed; browser/deployment verification is recorded below. No backend change or migration.
+
+### Objective, previous/new behavior and affected roles
+
+Fix the uneven grant form reported in the deployed Scholar drawer. The reused modal-body/grid/footer classes applied modal padding and stretched label contents in the inline context, creating inconsistent input heights and separated actions. The form now has its own inline-only class names, aligned 42px amount fields, concise receipt guidance and a full-width tuition input. Total and allowance remain read-only and tuition remains manual. Staff with existing Scholar/processing access see consistent layout across Private Billing and initial/late Private Payroll.
+
+### Implementation and impacts
+
+Updated markup in `frontend/src/PrivateGrantEditor.jsx` and replaced obsolete inline overrides in `frontend/src/styles/scholars-management.css`. Receipt guidance adapts on narrow screens; field labels use flex columns to avoid grid-induced stretching. Matching full-width 38px save/handoff buttons are separated by 10px instead of two oversized footer gaps. The tuition helper is associated with its input through aria-describedby and focus outlines remain visible. API, backend, database/schema, configuration, dependencies, security and privacy: no changes. No stored records are edited by this presentation change. Automatic allowance, grant bounds, save/reload, period context and listed locks retain existing behavior. Retained legacy list storage/scope is unchanged; no fund-release functionality is introduced. Deployment is frontend-only with no new migration.
+
+### Validation, limitations and rollback
+
+Frontend lint and production build passed with the existing chunk-size advisory. Three synthetic Chromium flows passed: Billing at 1280px and 390px, Private Payroll at 320px. Measured all amount fields at 42px, Total/Allowance aligned, tuition at full form width, action widths equal and action gap at most 12px. Save/reload, receipt, handoff and listed locks passed with no browser errors. Mobile screenshot inspected. Live frontend verification pending. No production record mutation is authorized or needed for deployment verification. Rollback restores the component/CSS; no data rollback required. Recommended manual check after hard refresh: aligned readonly fields, full-width tuition input, readable helper text, equal-width actions and successful existing preparation behavior.
+
 ## 2026-10-16 - Prepare Private Grants in the Scholar Session Panel
 
 **TL;DR**

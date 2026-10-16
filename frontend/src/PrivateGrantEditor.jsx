@@ -26,11 +26,15 @@ export default function PrivateGrantEditor({ record, period, token, onSaved, onB
       if(receiptUrl.current)URL.revokeObjectURL(receiptUrl.current);receiptUrl.current=URL.createObjectURL(await response.blob());target.location.href=receiptUrl.current;
     }catch(failure){target?.close();setError(failure.message);}finally{setReceiptBusy(false);}
   };
-  return <form className="private-grant-editor private-grant-inline" aria-label="Private grant preparation" onSubmit={save}>
-    <header><span>PRIVATE GRANT PREPARATION</span><h4>{record.grantPrepared?'Update':'Create'} grant record</h4><p>{period.schoolYear} · {period.semester}</p></header>
-    <div className="billing-details-modal-body"><p>Read the submitted receipt and enter the tuition assistance. Saving prepares this period’s record; list generation assigns the batch reference.</p><button type="button" className="private-grant-receipt" disabled={busy||receiptBusy} onClick={openReceipt}>{receiptBusy?'Opening receipt…':'View tuition receipt'}</button>
-      <div className="billing-details-grid"><label><span>Total Grant (PHP)</span><input value="5000.00" readOnly /></label><label><span>Tuition Fee Assistance (PHP)</span><input required type="number" min="0" max="5000" step="0.01" value={tuition} onChange={(event)=>{setTuition(event.target.value);setError('');}} disabled={busy} /><small>Enter PHP 0–5,000 from the receipt. Zero must be entered explicitly.</small></label><label><span>Allowance (PHP)</span><input value={allowance} readOnly /><small>Total Grant minus Tuition Fee Assistance.</small></label></div>
-      {tuition!==''&&!valid&&<p role="alert" className="billing-details-error">Use an amount from PHP 0 to PHP 5,000 with up to two decimal places.</p>}{error&&<p role="alert" className="billing-details-error">{error}</p>}
-    </div><footer><button type="submit" disabled={busy||receiptBusy||!valid}>{busy?'Saving…':record.grantPrepared?'Update prepared record':'Save as Prepared'}</button></footer>
+  return <form className="scholar-grant-form" aria-label="Private grant preparation" onSubmit={save}>
+    <header className="scholar-grant-heading"><span>PRIVATE GRANT PREPARATION</span><h4>{record.grantPrepared?'Update':'Create'} grant record</h4><p>{period.schoolYear} · {period.semester}</p></header>
+    <div className="scholar-grant-receipt-row"><p>Enter the tuition assistance from the submitted receipt.</p><button type="button" disabled={busy||receiptBusy} onClick={openReceipt}>{receiptBusy?'Opening…':'View tuition receipt'}</button></div>
+    <div className="scholar-grant-fields">
+      <label className="scholar-grant-total"><span>Total Grant (PHP)</span><input value="5000.00" readOnly /></label>
+      <label className="scholar-grant-tuition"><span>Tuition Fee Assistance (PHP)</span><input required type="number" min="0" max="5000" step="0.01" value={tuition} onChange={(event)=>{setTuition(event.target.value);setError('');}} disabled={busy} aria-describedby="scholar-grant-tuition-help" /><small id="scholar-grant-tuition-help">PHP 0–5,000. Enter 0 if no tuition assistance applies.</small></label>
+      <label className="scholar-grant-allowance"><span>Allowance (PHP)</span><input value={allowance} readOnly /><small>Computed automatically.</small></label>
+    </div>
+    {tuition!==''&&!valid&&<p role="alert" className="scholar-grant-error">Use an amount from PHP 0 to PHP 5,000 with up to two decimal places.</p>}{error&&<p role="alert" className="scholar-grant-error">{error}</p>}
+    <button className="scholar-grant-save" type="submit" disabled={busy||receiptBusy||!valid}>{busy?'Saving…':record.grantPrepared?'Update prepared record':'Save as Prepared'}</button>
   </form>;
 }
