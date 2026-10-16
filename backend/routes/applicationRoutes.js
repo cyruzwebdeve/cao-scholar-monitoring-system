@@ -1,3 +1,4 @@
+const { sendToPayroll } = require('../controllers/payrollPreparationController');
 const grantPreparation = require('../controllers/grantPreparationController');
 const passerLists = require('../controllers/passerListController');
 const phoneCapture = require('../controllers/phoneCaptureController');
@@ -177,6 +178,7 @@ router.get('/scholars/:applicantId/tuition-receipt', privateResponse, authentica
 router.put('/scholars/:applicantId/billing-details', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing'), validateScholarBillingDetails, updateScholarBillingDetails);
 router.put('/scholars/:applicantId/billing-metadata', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing', 'payroll'), validateScholarBillingMetadata, updateScholarBillingMetadata);
 router.post('/billing/process', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing'), processBillingSelection);
+router.post('/scholars/:applicantId/payroll-preparation', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('payroll'), sendToPayroll);
 router.post('/payroll/process', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('payroll'), processPayrollSelection);
 router.post('/scholars/:applicantId/accept', authenticate, scholarshipDecisionRateLimiter, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), acceptApplicantAsScholar);
 // Retired latest-result mutation: exact exam/result revision is now required.

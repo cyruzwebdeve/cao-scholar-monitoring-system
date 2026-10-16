@@ -8242,3 +8242,6 @@
 .private-grant-editor > footer button[type=submit] { background:#19854d; color:white; }
 .private-grant-editor button:disabled { opacity:.5; cursor:default; }
 @media(max-width:520px) { .private-grant-editor .billing-details-grid { grid-template-columns:1fr; }.private-grant-editor .billing-details-modal-body { padding:14px; } }
+
+.billing-source-status > .processing-send-payroll { flex-basis:100%; width:100%; min-height:28px; padding:4px 7px; border:1px solid #c8ddcf; border-radius:6px; background:#f0f8f3; color:#176c3b; font-size:9px; justify-content:center; }
+.processing-remaining-note { margin:12px 0; color:#63776a; font-size:11px; line-height:1.6; }

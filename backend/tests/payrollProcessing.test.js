@@ -415,10 +415,10 @@ test('initial Private scholar uses Payroll with the Private amount and is exclud
   let res=await generate();assert.equal(res.statusCode,201);assert.equal(writes[1].data[0].claim_amount,5000);
   res=response();await processBillingSelection({body:{academicPeriodId:10,applicantIds:[1]},user:{id:99,role:'SuperAdmin'}},res);assert.equal(res.statusCode,409);
 });
-test('late Private continuing upload enters Payroll and cannot generate a simultaneous certification list',async()=>{
+test('explicit period Payroll choice routes Private continuing record and excludes certification',async()=>{
   const {writes}=setup({schoolType:'private',periodSchoolId:1});const [application]=await prisma.application_submissions.findMany();
   application.initial_docs.requirementSets={'9:initial':{requirements:application.initial_docs.requirements},'10:continuing':{requirements:{grades:{fileName:'late.pdf',status:'Pending',uploadedAt:'2026-10-15T10:00:00Z'}}}};
-  prisma.continuing_requirement_schedules={findUnique:async()=>({opens_at:new Date('2026-10-01'),closes_at:new Date('2026-10-10'),late_opens_at:new Date('2026-10-15'),late_closes_at:new Date('2026-10-20'),late_scope:'all',late_applicant_ids:[]})};
+  const requirement = await prisma.scholar_requirements.findUnique();requirement.payroll_requested_at = new Date('2026-10-16');requirement.payroll_requested_by = 99;
   try {assert.equal((await list()).processRoute,'payroll');assert.equal((await generate()).statusCode,201);assert.equal(writes[1].data[0].claim_amount,5000);const res=response();await processBillingSelection({body:{academicPeriodId:10,applicantIds:[1]},user:{id:99,role:'SuperAdmin'}},res);assert.equal(res.statusCode,409);} finally {delete prisma.continuing_requirement_schedules;}
 });
 

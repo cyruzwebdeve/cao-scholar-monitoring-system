@@ -284,6 +284,8 @@ model scholar_accounts {
 }
 
 model scholar_requirements {
+  payroll_requested_at DateTime? @db.Timestamp(6)
+  payroll_requested_by Int?
   id                                Int       @id @default(autoincrement())
   applicant_id                      Int
   billing_period_id                 Int
@@ -392,8 +394,9 @@ model scholar_notifications {
 // Per-period upload windows. Payroll-list membership remains independent.
 model continuing_requirement_schedules {
   academic_period_id Int @id
-  opens_at DateTime @db.Timestamp(6)
-  closes_at DateTime @db.Timestamp(6)
+  uploads_open Boolean @default(true)
+  opens_at DateTime? @db.Timestamp(6)
+  closes_at DateTime? @db.Timestamp(6)
   late_opens_at DateTime? @db.Timestamp(6)
   late_closes_at DateTime? @db.Timestamp(6)
   late_scope String @default("all") @db.VarChar(20)

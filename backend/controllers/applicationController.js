@@ -1,6 +1,6 @@
 const { grantBreakdown, preparationBlocker, snapshotPrivateGrants } = require('../services/grantPreparation');
 const { getPostedPasser, canRecordInitial, initialChecklist, initialApproved } = require('../services/passerIntake');
-const { resolveProcessingRoute } = require('../services/processingRoute');
+const { resolveProcessingRoute, assertProcessingRoutes } = require('../services/processingRoute');
 const { hasSectionAccess } = require('../services/sectionAccess');
 const { loadContinuingSchedule, evaluateContinuingSchedule, projectContinuingAccess } = require('../services/continuingSchedule');
 const bcrypt = require('bcryptjs');
@@ -781,9 +781,7 @@ const getScholarManagement = async (req, res) => {
     ]);
     const schoolHistoryByApplicant = await loadSchoolHistory(prisma, applicantIds);
     const payrollBatchIds = [...new Set(payrollClaims.map((claim) => claim.payroll_batch_id).filter(Boolean))];
-    const payrollBatches = payrollBatchIds.length
-      ? await prisma.payroll_batches.findMany({ where: { id: { in: payrollBatchIds } } })
-      : [];
+    const payrollBatches = await prisma.payroll_batches.findMany({ where: { OR: [{ id: { in: payrollBatchIds } }, { billing_period_id: activePeriod.id }] } });
     const applicantById = new Map(applicants.map((applicant) => [applicant.id, applicant]));
     const accountByApplicant = new Map(accounts.map((account) => [account.applicant_id, account]));
     const schoolById = new Map(schools.map((school) => [school.id, school]));
@@ -844,7 +842,7 @@ const getScholarManagement = async (req, res) => {
         : null;
       const billed = Boolean(payrollClaim && currentRecordRoute === 'billing');
       const inPayroll = Boolean(payrollClaim && currentRecordRoute === 'payroll');
-      const processRoute = currentRecordRoute || resolveProcessingRoute({ schoolType, docs: application?.initial_docs, period: activePeriod, schedule: continuingSchedule, applicantId: applicant.id, legacyPeriodId: primaryPeriod.id });
+      const processRoute = currentRecordRoute || resolveProcessingRoute({ schoolType, requirement, docs: application?.initial_docs, period: activePeriod, schedule: continuingSchedule, applicantId: applicant.id, legacyPeriodId: primaryPeriod.id });
       const schoolYear = activePeriod.school_year;
       const semester = activePeriod.semester;
       const billingSchoolYear = requirement?.billing_school_year || schoolYear;
@@ -962,6 +960,9 @@ const getScholarManagement = async (req, res) => {
         schoolId: school?.id || null,
         schoolType,
         processRoute,
+        notYetIncluded: !payrollClaim && !(payrollClaimsByApplicant.get(applicant.id) || []).some((claim) => claim.academic_period_id === activePeriod.id),
+        payrollRequested: Boolean(requirement?.payroll_requested_at),
+        canPreparePayroll: scholar.is_active && !payrollClaim && !((payrollClaimsByApplicant.get(applicant.id) || []).some((claim) => claim.academic_period_id === activePeriod.id)) && schoolType === 'Private' && processRoute === 'billing' && payrollBatches.some((batch) => batch.billing_period_id === activePeriod.id && ['billed', 'generated'].includes(batch.status)) && hasSectionAccess(req.user, 'payroll'),
         academicPeriodId: activePeriod.id,
         schoolYear,
         semester,
@@ -1099,7 +1100,7 @@ const updateScholarBillingMetadata = async (req, res) => {
     ]);
     const school = await loadResolvedScholarSchool(prisma, { applicantId, applicant, application, requirement });
     if (!['Public', 'Private'].includes(schoolClassification(school?.school_type))) return res.status(409).json({ message: 'Correct the school classification before preparing a session.' });
-    if (!hasSectionAccess(req.user, resolveProcessingRoute({ schoolType: school.school_type, docs: application?.initial_docs, period: selectedPeriod, schedule: await loadContinuingSchedule(prisma, selectedPeriod.id), applicantId, legacyPeriodId: (await getActiveAcademicPeriodRecord()).id }))) return res.status(403).json({ message: 'Access Denied. The required processing section is not assigned to your staff account.' });
+    if (!hasSectionAccess(req.user, resolveProcessingRoute({ schoolType: school.school_type, requirement, docs: application?.initial_docs, period: selectedPeriod, schedule: await loadContinuingSchedule(prisma, selectedPeriod.id), applicantId, legacyPeriodId: (await getActiveAcademicPeriodRecord()).id }))) return res.status(403).json({ message: 'Access Denied. The required processing section is not assigned to your staff account.' });
 
     const metadata = await prisma.scholar_requirements.upsert({
       where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: selectedPeriod.id } },
@@ -1233,7 +1234,7 @@ const processBillingSelection = async (req, res) => {
       });
       const grantBlocker = preparationBlocker(school?.school_type, requirement, billedIds.has(applicantId));
       if (grantBlocker) result = { ...result, eligible: false, reasons: [...result.reasons, grantBlocker] };
-      if (school && resolveProcessingRoute({ schoolType: school.school_type, docs: application?.initial_docs, period: activePeriod, schedule: continuingSchedule, applicantId, legacyPeriodId: primaryPeriod.id }) !== 'billing') {
+      if (school && resolveProcessingRoute({ schoolType: school.school_type, requirement, docs: application?.initial_docs, period: activePeriod, schedule: continuingSchedule, applicantId, legacyPeriodId: primaryPeriod.id }) !== 'billing') {
         result = {
           ...result,
           eligible: false,
@@ -1272,6 +1273,7 @@ const processBillingSelection = async (req, res) => {
     const batchNumber = createBillingReference(timestamp);
     const result = await prisma.$transaction(async (transaction) => {
       const grantSnapshots = await snapshotPrivateGrants(transaction, activePeriod.id, eligibleIds);
+      await assertProcessingRoutes(transaction, activePeriod, eligibility, applicationByApplicant, primaryPeriod.id, 'billing');
       const batch = await transaction.payroll_batches.create({
         data: {
           batch_number: batchNumber,
@@ -1396,8 +1398,8 @@ const processPayrollSelection = async (req, res) => {
       const reasons = [...readiness.reasons];
       const grantBlocker = preparationBlocker(school?.school_type, requirement, processedIds.has(applicantId));
       if (grantBlocker) reasons.push(grantBlocker);
-      if (school && resolveProcessingRoute({ schoolType: school.school_type, docs: application?.initial_docs, period: activePeriod, schedule: continuingSchedule, applicantId, legacyPeriodId: primaryPeriod.id }) !== 'payroll') {
-        reasons.push({ code: 'PRIVATE_SCHOOL_BILLING_ROUTE', message: 'Subsequent regular Private submissions go to Billing/certification. Initial and late submissions go to Payroll.' });
+      if (school && resolveProcessingRoute({ schoolType: school.school_type, requirement, docs: application?.initial_docs, period: activePeriod, schedule: continuingSchedule, applicantId, legacyPeriodId: primaryPeriod.id }) !== 'payroll') {
+        reasons.push({ code: 'PRIVATE_SCHOOL_BILLING_ROUTE', message: 'Private continuing records go to Billing until staff explicitly sends this period to Payroll.' });
       }
       if (!applicantById.has(applicantId)) {
         reasons.push({ code: 'APPLICANT_UNAVAILABLE', message: 'The scholar applicant record is unavailable.' });
@@ -1421,6 +1423,7 @@ const processPayrollSelection = async (req, res) => {
     const totalAmount = applicantIds.reduce((total, applicantId) => total + amountByApplicant.get(applicantId), 0);
     const batch = await prisma.$transaction(async (transaction) => {
       const grantSnapshots = await snapshotPrivateGrants(transaction, activePeriod.id, eligibility.filter((item) => String(item.schoolType).toLowerCase() === 'private').map((item) => item.applicantId));
+      await assertProcessingRoutes(transaction, activePeriod, eligibility, applicationByApplicant, primaryPeriod.id, 'payroll');
       const createdBatch = await transaction.payroll_batches.create({
         data: {
           batch_number: batchNumber,
@@ -1719,7 +1722,7 @@ const getMyApplication = async (req, res) => {
         isActive: scholar.is_active,
         notes: scholar.notes,
       } : null,
-      processingRoute: payrollBatch ? (String(payrollBatch.batch_number || '').startsWith('BILL-') || payrollBatch.status === 'billed' ? 'billing' : 'payroll') : resolveProcessingRoute({ schoolType: selectedSchool?.school_type, docs: application.initial_docs, period: activePeriod, schedule: await loadContinuingSchedule(prisma, activePeriod.id), applicantId, legacyPeriodId: activePeriod.id }),
+      processingRoute: payrollBatch ? (String(payrollBatch.batch_number || '').startsWith('BILL-') || payrollBatch.status === 'billed' ? 'billing' : 'payroll') : resolveProcessingRoute({ schoolType: selectedSchool?.school_type, requirement: scholarRequirement, docs: application.initial_docs, period: activePeriod, schedule: await loadContinuingSchedule(prisma, activePeriod.id), applicantId, legacyPeriodId: activePeriod.id }),
       payrollList: serializePayrollListMembership(payrollClaim, payrollBatch),
       examination: {
         ...resolveExaminationProgress({ result, scholar, examSlot, fallbackStatus: application.status, applicantFacing: true, scheduledExam }),
@@ -1807,7 +1810,7 @@ const uploadMyRequirement = async (req, res) => {
     if (!scholar || !application) return res.status(404).json({ message: 'Active scholar application not found.' });
     const school = await loadResolvedScholarSchool(prisma, { applicantId: req.user.id, applicant, requirement: requirementRecord, application });
     const requirementSubmission = evaluateContinuingSchedule({ schedule: await loadContinuingSchedule(prisma, activePeriod.id), period: activePeriod, docs: application.initial_docs, applicantId: req.user.id, schoolType: school?.school_type, legacyPeriodId: primaryPeriod.id });
-    if (!requirementSubmission.isOpen) return res.status(403).json({ message: 'Continuing uploads are unavailable. Initial documents must be approved and the regular or authorized late window must be open.', requirementSubmission });
+    if (!requirementSubmission.isOpen) return res.status(403).json({ message: 'Continuing uploads are unavailable. Initial documents must be approved and continuing uploads must be open for this academic period.', requirementSubmission });
     if (key === 'tuition_receipt') {
       if (schoolClassification(school?.school_type) !== 'Private') return res.status(400).json({ message: 'Only Private-school scholars can upload an Official Receipt of Tuition Fee.' });
     }
@@ -1816,7 +1819,7 @@ const uploadMyRequirement = async (req, res) => {
       const latestPeriod = await tx.academic_periods.findFirst({ where: { id: activePeriod.id } });
       const access = evaluateContinuingSchedule({ schedule: await loadContinuingSchedule(tx, activePeriod.id), period: latestPeriod || activePeriod, docs, applicantId: req.user.id, schoolType: school?.school_type, legacyPeriodId: primaryPeriod.id });
       if (latestPeriod?.is_active === false || !access.isOpen) throw Object.assign(new Error('The upload window closed or initial approval changed. Refresh before submitting.'), { statusCode: 403 });
-      if (access.scheduled) docs.requirementWaves[activePeriod.id] = { ...docs.requirementWaves[activePeriod.id], continuingOpenedAt: access.opensAt, openingSource: 'period_schedule' };
+      if (access.scheduled) docs.requirementWaves[activePeriod.id] = { ...docs.requirementWaves[activePeriod.id], continuingOpenedAt: docs.requirementWaves[activePeriod.id]?.continuingOpenedAt || new Date().toISOString(), openingSource: 'period_access' };
       return { document: saveWaveDocument(docs, { periodId: activePeriod.id, wave: 'continuing', key, file: uploadedFile, actorId: req.user.id, actorRole: 'Scholar' }) };
     });
     uploadedFile = null;

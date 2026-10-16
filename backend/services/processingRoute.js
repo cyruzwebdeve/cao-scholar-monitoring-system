@@ -1,16 +1,15 @@
-const { getWaveSet } = require('./requirementWaves');
-// Initial sets always enter Payroll. Later Private sets use certification except
-// actual submissions in an authorized late window, which enter Payroll too.
-const resolveProcessingRoute = ({ schoolType, docs, period, schedule, applicantId, legacyPeriodId = period.id }) => {
-  const initialPeriodId = docs?.initialRequirementPeriodId || legacyPeriodId;
-  if (initialPeriodId === period.id) return 'payroll';
-  const allowedLate = schedule && (schedule.late_scope === 'all' || (schedule.late_applicant_ids || []).includes(applicantId));
-  const from = schedule?.late_opens_at ? +new Date(schedule.late_opens_at) : NaN;
-  const to = schedule?.late_closes_at ? +new Date(schedule.late_closes_at) : NaN;
-  const late = allowedLate && Object.values(getWaveSet(docs, period.id, 'continuing', legacyPeriodId).requirements).some((file) => {
-    const at = +new Date(file.uploadedAt);
-    return at >= from && at <= to;
-  });
-  return late || String(schoolType).toLowerCase() !== 'private' ? 'payroll' : 'billing';
+// Persisted staff choice applies only to this period. Generated membership remains
+// authoritative in list/history projections; upload timestamps never choose a route.
+const resolveProcessingRoute = ({ schoolType, docs, period, requirement, legacyPeriodId = period.id }) => {
+  if (requirement?.payroll_requested_at) return 'payroll';
+  if ((docs?.initialRequirementPeriodId || legacyPeriodId) === period.id) return 'payroll';
+  return String(schoolType).toLowerCase() === 'private' ? 'billing' : 'payroll';
 };
-module.exports = { resolveProcessingRoute };
+const assertProcessingRoutes = async (tx, period, eligibility, applications, legacyPeriodId, expected) => {
+  const requirements = await tx.scholar_requirements.findMany({ where: { billing_period_id: period.id, applicant_id: { in: eligibility.map(item => item.applicantId) } } });
+  for (const item of eligibility) {
+    const route = resolveProcessingRoute({ schoolType: item.schoolType, docs: applications.get(item.applicantId)?.initial_docs, period, requirement: requirements.find(row => row.applicant_id === item.applicantId), legacyPeriodId });
+    if (route !== expected) throw Object.assign(new Error('The processing destination changed. Refresh the list before generating.'), { statusCode: 409 });
+  }
+};
+module.exports = { resolveProcessingRoute, assertProcessingRoutes };

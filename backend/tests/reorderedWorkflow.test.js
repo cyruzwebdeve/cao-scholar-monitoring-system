@@ -18,12 +18,10 @@ test('both initial school types enter Payroll; subsequent regular Public uses Pa
  assert.equal(resolveProcessingRoute({schoolType:'Private',docs:docs(9),period,legacyPeriodId:9}),'billing');
  assert.equal(resolveProcessingRoute({schoolType:'Public',docs:docs(9),period,legacyPeriodId:9}),'payroll');
 });
-test('actual authorized late continuing uploads route both school types to Payroll and stay there after closure',()=>{
- const schedule={late_scope:'selected',late_applicant_ids:[7],late_opens_at:'2026-10-10',late_closes_at:'2026-10-12'};
- const record=docs(9);record.requirementSets['10:continuing']={requirements:{grades:{uploadedAt:'2026-10-11T12:00:00Z'}}};
- for(const schoolType of ['Public','Private']) assert.equal(resolveProcessingRoute({schoolType,docs:record,period,schedule,applicantId:7,legacyPeriodId:9}),'payroll');
- assert.equal(resolveProcessingRoute({schoolType:'Private',docs:record,period,schedule,applicantId:8,legacyPeriodId:9}),'billing');
- record.requirementSets['10:continuing'].requirements.grades.uploadedAt='2026-10-01';assert.equal(resolveProcessingRoute({schoolType:'Private',docs:record,period,schedule,applicantId:7,legacyPeriodId:9}),'billing');
+test('upload timestamps never reroute Private Scholars; only the persisted period choice does',()=>{
+ const record=docs(9);record.requirementSets['10:continuing']={requirements:{grades:{uploadedAt:'2026-10-11'}}};
+ const options={schoolType:'Private',docs:record,period,legacyPeriodId:9,schedule:{late_scope:'all',late_opens_at:'2026-10-10',late_closes_at:'2026-10-12'}};
+ assert.equal(resolveProcessingRoute(options),'billing');assert.equal(resolveProcessingRoute({...options,requirement:{payroll_requested_at:'2026-10-16'}}),'payroll');
 });
 test('posted intake rejects missing/stale/failed/unpublished results and binds the original application',async()=>{
  const result={id:20,passed:true,published_at:'2026-10-10',updated_at:'2026-10-10'};
@@ -34,4 +32,13 @@ test('posted intake rejects missing/stale/failed/unpublished results and binds t
  assert.equal(await getPostedPasser(client,7,10,{...result,passed:false},3),null);assert.equal(await getPostedPasser(client,7,10,{...result,published_at:null},3),null);
  assert.equal(await canRecordInitial(client,7,10,{id:3,status:'Examined'}),true);assert.equal(await canRecordInitial(client,7,10,{id:3,status:'Withdrawn'}),false);
  members=[];assert.equal(await canRecordInitial(client,7,10,{id:3,status:'Examined'}),false);
+});
+test('generation rereads the period destination and rejects a route changed after queue selection',async()=>{
+ const {assertProcessingRoutes}=require('../services/processingRoute');
+ const applications=new Map([[7,{initial_docs:docs(9)}]]);let requested=false;
+ const tx={scholar_requirements:{findMany:async()=>[{applicant_id:7,...(requested?{payroll_requested_at:new Date()}: {})}]}};
+ const eligible=[{applicantId:7,schoolType:'private'}];
+ await assertProcessingRoutes(tx,period,eligible,applications,9,'billing');requested=true;
+ await assert.rejects(()=>assertProcessingRoutes(tx,period,eligible,applications,9,'billing'),error=>error.statusCode===409);
+ await assertProcessingRoutes(tx,period,eligible,applications,9,'payroll');
 });

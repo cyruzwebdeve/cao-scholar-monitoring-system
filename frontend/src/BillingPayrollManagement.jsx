@@ -169,6 +169,8 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
   const [processing, setProcessing] = useState(false);
   const [operationNotice, setOperationNotice] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [listMembership, setListMembership] = useState('All list records');
+  const [routingApplicant, setRoutingApplicant] = useState(null);
   const [preparationStatus, setPreparationStatus] = useState('All Preparation Statuses');
   const [query, setQuery] = useState('');
   const [scholarStatus, setScholarStatus] = useState('All Scholar Statuses');
@@ -248,14 +250,15 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
       && matchesBillingReference
       && matchesReference
       && matchesPayrollListStatus(record, payrollListStatus)
-      && isVisibleInProcessingMode(record, isPayroll ? 'payroll' : 'billing')
+      && (listMembership !== 'Not yet included' || record.notYetIncluded === true)
+      && ((isPayroll && listMembership === 'Not yet included' && record.notYetIncluded === true) || isVisibleInProcessingMode(record, isPayroll ? 'payroll' : 'billing'))
       && (schoolYearSem === 'All School Years / Semesters' || record.schoolYearSemester === schoolYearSem)
       && (school === 'All Schools' || record.school === school)
       && (schoolType === 'All School Types' || normalizedSchoolType === schoolType)
       && matchesDateRange(record.dateProcessed, dateFrom, dateTo);
-  }), [records, preparationStatus, query, scholarStatus, billed, billingReference, payReference, payrollListStatus, schoolYearSem, school, schoolType, dateFrom, dateTo, isPayroll]);
+  }), [records, preparationStatus, query, scholarStatus, billed, billingReference, payReference, payrollListStatus, schoolYearSem, school, schoolType, dateFrom, dateTo, isPayroll, listMembership]);
 
-  const hasFilters = Boolean(query || dateFrom || dateTo || preparationStatus !== 'All Preparation Statuses'
+  const hasFilters = Boolean(listMembership !== 'All list records' || query || dateFrom || dateTo || preparationStatus !== 'All Preparation Statuses'
     || scholarStatus !== 'All Scholar Statuses'
     || billed !== defaultBilledFilter
     || billingReference !== 'All Billing References'
@@ -266,7 +269,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
     || schoolType !== 'All School Types');
 
   const clearFilters = () => {
-    setPreparationStatus('All Preparation Statuses'); setQuery(''); setScholarStatus('All Scholar Statuses'); setBilled(defaultBilledFilter);
+    setListMembership('All list records'); setPreparationStatus('All Preparation Statuses'); setQuery(''); setScholarStatus('All Scholar Statuses'); setBilled(defaultBilledFilter);
     setBillingReference('All Billing References'); setPayReference('All Payroll References'); setPayrollListStatus(defaultPayrollListFilter);
     setSchoolYearSem('All School Years / Semesters'); setSchool('All Schools');
     setSchoolType('All School Types'); setDateFrom(''); setDateTo(''); setPage(1);
@@ -330,6 +333,18 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
     setOperationNotice(null);
   };
 
+  const sendToPayroll = async (record) => {
+    if (routingApplicant) return;
+    setRoutingApplicant(record.applicantId); setOperationNotice(null);
+    try {
+      const response = await fetch(`${API_BASE}/scholars/${record.applicantId}/payroll-preparation`, { method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, body: JSON.stringify({ academicPeriodId: Number(selectedPeriodId) }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to send this Scholar to Payroll.');
+      await loadRecords(); setOperationNotice({ tone: 'success', text: body.message });
+    } catch (failure) { setOperationNotice({ tone: 'error', text: failure.message }); }
+    finally { setRoutingApplicant(null); }
+  };
+
   const removeSelectedFromQueue = () => {
     setQueuedIds((current) => current.filter((id) => !queueSelection.includes(id)));
     setQueueSelection([]);
@@ -343,7 +358,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
   };
 
   const processQueue = async () => {
-    if (!queuedRecords.length || processing) return;
+    if (!queuedRecords.length || processing || routingApplicant) return;
     setProcessing(true);
     setOperationNotice(null);
     const processedRecords = [...queuedRecords];
@@ -407,7 +422,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
     <div className="billing-management">
       <header className="billing-heading">
         <div><span>{isPayroll ? 'PAYROLL OPERATIONS' : 'BILLING OPERATIONS'}</span><h2>{isPayroll ? 'Payroll Management' : 'Billing Management'}</h2><p>{isPayroll ? 'Generate the official payroll list for initial Public/Private, subsequent Public, and late submissions.' : 'Generate tuition certification lists for subsequent regular Private-school submissions.'}</p></div>
-        <label className="billing-period-selector"><span>Processing period</span><select value={selectedPeriodId} disabled={loading || !activePeriods.length} onChange={(event) => { setSelectedPeriodId(event.target.value); setQueuedIds([]); setSourceSelection([]); setQueueSelection([]); setOperationNotice(null); setPage(1); }}><option value="" disabled>Select active period</option>{activePeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}{period.isPrimary ? ' (Primary)' : ''}</option>)}</select></label>
+        <label className="billing-period-selector"><span>Processing period</span><select value={selectedPeriodId} disabled={loading || processing || Boolean(routingApplicant) || !activePeriods.length} onChange={(event) => { setSelectedPeriodId(event.target.value); setQueuedIds([]); setSourceSelection([]); setQueueSelection([]); setOperationNotice(null); setPage(1); }}><option value="" disabled>Select active period</option>{activePeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}{period.isPrimary ? ' (Primary)' : ''}</option>)}</select></label>
       </header>
 
       <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !records.length) ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></article>)}</section>
@@ -433,6 +448,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
                 <label><span>Billed?</span><select value={billed} onChange={(event) => { setBilled(event.target.value); setPage(1); }}><option>All Billing Statuses</option><option>Billed</option><option>Not billed yet</option></select></label>
                 <label><span>Payroll list</span><select aria-label="Payroll list status" value={payrollListStatus} onChange={(event) => { setPayrollListStatus(event.target.value); setPage(1); }}><option>All Payroll Statuses</option><option>Included in payroll list</option><option>Not included yet</option></select></label>
               </div>
+              <label><span>List inclusion</span><select aria-label="List inclusion" value={listMembership} onChange={(event) => { setListMembership(event.target.value); setBilled('All Billing Statuses'); setPayrollListStatus('All Payroll Statuses'); setPreparationStatus('All Preparation Statuses'); setPage(1); }}><option>All list records</option><option>Not yet included</option></select></label>
               <label><span>Grant preparation</span><select aria-label="Grant preparation status" value={preparationStatus} onChange={(event) => { setPreparationStatus(event.target.value); if (['Listed', 'All Preparation Statuses'].includes(event.target.value)) { setBilled('All Billing Statuses'); setPayrollListStatus('All Payroll Statuses'); } setPage(1); }}><option>All Preparation Statuses</option><option>Not prepared</option><option>Prepared</option><option>Listed</option></select></label>
               <label><span>Billing reference</span><select value={billingReference} onChange={(event) => {
                 const nextReference = event.target.value;
@@ -466,6 +482,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
         </div>
       </section>
 
+      {isPayroll && listMembership === 'Not yet included' && <p className="processing-remaining-note">Showing Scholars without a Billing or Payroll list record for this period. After a regular list is generated, use Send to Payroll for remaining Private Scholars. Missing a list record does not mean a late submission.</p>}
       {operationNotice && <div className={`billing-operation-notice ${operationNotice.tone}`} role="status">{operationNotice.tone === 'error' && <TriangleAlert size={16} />}<span>{operationNotice.text}</span><button type="button" onClick={() => setOperationNotice(null)} aria-label="Dismiss notification"><X size={14} /></button></div>}
 
       <section className="billing-transfer-board">
@@ -495,6 +512,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
                   <div className="billing-source-status">
                     <span className={`billing-queue-ready ${canMove ? '' : 'archived'}`}>{statusLabel}</span>
                     {record.processingWarnings?.length > 0 && <RequirementsWarning name={record.name} />}
+                    {record.canPreparePayroll && <button type="button" className="processing-send-payroll" disabled={Boolean(routingApplicant) || processing} onClick={() => sendToPayroll(record)} aria-label={`Send ${record.name} to Payroll`}>{routingApplicant === record.applicantId ? 'Sending…' : 'Send to Payroll'}</button>}
                   </div>
                   <ScholarSchoolIdentity record={record} />
                 </div>;
@@ -532,7 +550,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
               </div>)}
             </div>
           </div>
-          <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Total payroll amount' : 'Total certification amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing}>{processing ? 'Processing…' : isPayroll ? 'Generate payroll list' : 'Generate certification list'}</button></footer>
+          <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Total payroll amount' : 'Total certification amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing || Boolean(routingApplicant)}>{processing ? 'Processing…' : isPayroll ? 'Generate payroll list' : 'Generate certification list'}</button></footer>
         </article>
       </section>
       {!isPayroll && !loadError && <section className="billing-certification-history"><header><div><span>CERTIFICATION RECORDS</span><h3>Certification history</h3><p>Review generated Private-scholar lists and download a previous workbook again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount || 5000), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download XLSX</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>No certification history yet</strong><span>Generated Private-scholar certification lists will appear here.</span></div>}</section>}

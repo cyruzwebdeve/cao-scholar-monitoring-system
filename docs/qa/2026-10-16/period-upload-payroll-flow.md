@@ -1,0 +1,16 @@
+# Period-wide uploads and remaining-Scholar Payroll verification
+
+Release requires backend migration `20261016030000_period_uploads_payroll_routing` and matching frontend/backend deployment. Use approved testing accounts/records. Actual list generation creates retained official records; use an authorized test period.
+
+1. Hard-refresh. In Scholar → Continuing Requirements, choose an active period. Confirm the separate regular/late date fields and selected-Scholar authorization are absent. Continuing uploads defaults to Open for eligible scholars.
+2. Save Closed for this period. Reload and verify it stays closed. Switch to another period and confirm its setting is independent. Return and reopen the original period.
+3. In a Scholar account, confirm incomplete initial verification still prevents continuing uploads. With approved required initial documents, uploads remain open regardless of retired deadlines. Closing the period prevents uploads; existing documents and review history stay visible. Private tuition receipts remain Private-only.
+4. In an authorized test period, generate the normal initial/regular list using existing rules. Initial Public/Private routes to Payroll; later regular Public routes to Payroll and Private to Billing/certification. No transfer action should be offered before any regular list exists in that period.
+5. In the existing Payroll section, select the same period and choose List inclusion → Not yet included. Verify only Scholars without either Billing or Payroll list membership for that period appear, including remaining Private records. A record in a different period should not exclude the current one.
+6. For a remaining Private record, use Send to Payroll. Confirm the success message and Payroll destination. This action selects the period route; it does not generate a list or mark the Scholar included. Staff lacking Payroll permission cannot perform this action.
+7. Prepare any missing Private grant in Scholar → Billing & Payroll for this period using the existing fixed PHP 5,000/manual tuition/automatic allowance flow. Public amount remains unchanged. Incomplete continuing documents remain warnings, not a new list blocker.
+8. Select the remaining records in Payroll and generate another normal payroll list. Confirm a new reference and correct saved grant breakdown. Earlier Billing/Payroll lists and their exports remain intact; the new members disappear from Not yet included. Listed records cannot be rerouted or listed again in either destination for the same period.
+9. With a stale Billing queue open in a second tab, send a Private record to Payroll in the first tab. Verify stale Billing generation refuses the changed destination rather than including it in both routes.
+10. Confirm historical schedule dates/authorization data are retained in storage for history but no longer control access or automatically choose Private routing. No workflow for fund release, claiming, payment confirmation or reconciliation is introduced.
+
+Automated verification: 329 backend tests passed, one existing optional database test skipped; 81 frontend tests passed. Lint/build, Prisma generation/validation, exact migration on isolated PostgreSQL, and desktop/mobile synthetic browser flows passed. Hosted authenticated record mutations were not used for deployment verification.

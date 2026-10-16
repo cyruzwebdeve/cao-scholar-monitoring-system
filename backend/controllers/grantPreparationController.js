@@ -16,7 +16,7 @@ const contextFor = async (client, req) => {
   if (!period || !scholar || !applicant || applicant.deleted_at || !application || !primary) throw error('Select an active Scholar and active academic period.',409);
   const school = await loadResolvedScholarSchool(client,{applicantId,applicant,application,requirement});
   if (schoolClassification(school?.school_type)!=='Private') throw error('Grant preparation applies only to Private-school Scholars.',409);
-  const route = resolveProcessingRoute({schoolType:school.school_type,docs:application.initial_docs,period,schedule:await loadContinuingSchedule(client,period.id),applicantId,legacyPeriodId:primary.id});
+  const route = resolveProcessingRoute({requirement,schoolType:school.school_type,docs:application.initial_docs,period,schedule:await loadContinuingSchedule(client,period.id),applicantId,legacyPeriodId:primary.id});
   if (!hasSectionAccess(req.user,route)) throw error('Access Denied. This record belongs to the other processing section.',403);
   return {applicantId,periodId,requirement,period,application,primary};
 };

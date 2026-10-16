@@ -43,7 +43,7 @@ const setup = (options = {}) => {
 };
 const file = (name = 'fixture.pdf') => ({ fileName: name, fileData: 'data:application/pdf;base64,' + Buffer.from('%PDF-1.4\nsynthetic fixture\n%%EOF').toString('base64') });
 const adminUpload = async (key, periodId = 10, name) => { const res = response(); await uploadScholarRequirementByAdmin({ params: { applicantId: '7', requirementKey: key }, body: { academicPeriodId: periodId, ...file(name) }, user: { id: 9, role: 'SuperAdmin' } }, res); return res; };
-const open = async (periodId = 10) => { const res = response(); await openContinuingRequirements({ params: { applicantId: '7' }, body: { academicPeriodId: periodId }, user: { id: 9, role: 'SuperAdmin' } }, res); return res; };
+const open = async (periodId = 10) => { if (periodId !== 99) for (const key of ['tax_exemption', 'valid_id', 'grades', 'registration_form', ...(schoolType === 'private' ? ['tuition_receipt'] : [])]) { if (!getWaveSet(application.initial_docs, 10, 'initial').requirements[key]?.fileName) await adminUpload(key); } const res = response(); await openContinuingRequirements({ params: { applicantId: '7' }, body: { academicPeriodId: periodId }, user: { id: 9, role: 'SuperAdmin' } }, res); return res; };
 const scholarUpload = async (key, periodId = 10, name) => { const res = response(); await uploadMyRequirement({ body: { requirement: key, academicPeriodId: periodId, ...file(name) }, user: { id: 7, role: 'Scholar' } }, res); return res; };
 const review = async (key, document, decision = 'approved', extra = {}) => {
   const res = response(); await reviewDocument({ params: { applicationId: '1', requirementKey: key }, body: { academicPeriodId: 10, submissionWave: 'continuing', versionId: document.versionId, revision: document.revision, decision, notes: decision === 'rejected' ? 'Please provide a readable scan.' : '', ...extra }, user: { id: 11 } }, res); return res;
@@ -72,8 +72,8 @@ test('Scholar cannot upload the initial trio or submit before CAO opens continui
 });
 test('second wave can open within the same period without modifying initial files', async () => {
   setup(); await adminUpload('grades', 10, 'initial-grades.pdf');
-  const before = clone(getWaveSet(application.initial_docs, 10, 'initial'));
   assert.equal((await open()).statusCode, 200);
+  const before = clone(getWaveSet(application.initial_docs, 10, 'initial'));
   assert.equal((await scholarUpload('grades', 10, 'continuing-grades.pdf')).statusCode, 200);
   assert.deepEqual(getWaveSet(application.initial_docs, 10, 'initial'), before);
   assert.equal(getWaveSet(application.initial_docs, 10, 'continuing').requirements.grades.status, 'Pending');
@@ -84,9 +84,9 @@ test('continuing must not fall back to initial grade files or approvals', async 
   assert.equal(getEffectiveRequirements(application.initial_docs, 10).requirements.grades, undefined);
   assert.equal(getWaveSet(application.initial_docs, 10, 'initial').requirements.grades.status, 'Approved');
 });
-test('next academic period is separate and needs its own opening', async () => {
+test('next active academic period opens automatically but keeps separate continuing files', async () => {
   setup(); await adminUpload('grades', 10, 'period-10.pdf'); await open(10); await scholarUpload('grades', 10, 'continuing-10.pdf');
-  assert.equal((await scholarUpload('grades', 11)).statusCode, 403);
+  assert.equal((await scholarUpload('grades', 11)).statusCode, 200);
   await adminUpload('grades', 11, 'period-11.pdf');
   assert.equal(getWaveSet(application.initial_docs, 11, 'initial').requirements.grades.fileName, 'period-11.pdf');
   assert.equal(getWaveSet(application.initial_docs, 10, 'continuing').requirements.grades.fileName, 'continuing-10.pdf');
@@ -156,10 +156,12 @@ test('inactive scholars and invalid/inactive period selections cannot write any 
   setup({ inactive: true }); assert.equal((await adminUpload('grades')).statusCode, 409); assert.equal((await open()).statusCode, 404); assert.equal(writes, 0);
   setup(); assert.equal((await adminUpload('grades', 99)).statusCode, 400); assert.equal((await open(99)).statusCode, 400); assert.equal(writes, 0);
 });
-test('continuing deadline applies without blocking authorized initial intake', async () => {
+test('period closure blocks continuing uploads without blocking authorized initial intake', async () => {
   setup({ deadline: new Date('2020-01-01T00:00:00Z') }); await open();
+  prisma.continuing_requirement_schedules = { findUnique: async () => ({ uploads_open: false }) };
   assert.equal((await scholarUpload('grades')).statusCode, 403);
   assert.equal((await adminUpload('grades')).statusCode, 200);
+  delete prisma.continuing_requirement_schedules;
 });
 
 
@@ -242,18 +244,18 @@ test('Scheduled period opens automatically after all initial approvals without p
   delete prisma.continuing_requirement_schedules;
 });
 test('Scheduled period rejects incomplete initial set even if legacy manual opening exists', async () => {
-  setup({ schoolType: 'public' }); await open();
+  setup({ schoolType: 'public' }); application.initial_docs.requirementWaves = { 10: { continuingOpenedAt: '2026-10-01' } };
   prisma.continuing_requirement_schedules = { findUnique: async () => ({ opens_at: new Date(Date.now() - 60000), closes_at: new Date(Date.now() + 60000), late_scope: 'all', late_applicant_ids: [] }) };
   assert.equal((await scholarUpload('grades')).statusCode, 403);
   delete prisma.continuing_requirement_schedules;
 });
-test('Late schedule admits selected scholar after original deadline and rejects nonselected scholar', async () => {
+test('period access ignores retired late selections and enforces global close/reopen', async () => {
   setup({ schoolType: 'public', deadline: new Date(Date.now() - 60000) });
   for (const key of ['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form']) await adminUpload(key);
-  let ids = [];
-  prisma.continuing_requirement_schedules = { findUnique: async () => ({ opens_at: new Date(Date.now() - 180000), closes_at: new Date(Date.now() - 120000), late_opens_at: new Date(Date.now() - 60000), late_closes_at: new Date(Date.now() + 60000), late_scope: 'selected', late_applicant_ids: ids }) };
+  let uploadsOpen = false;
+  prisma.continuing_requirement_schedules = { findUnique: async () => ({ uploads_open: uploadsOpen }) };
   assert.equal((await scholarUpload('grades')).statusCode, 403);
-  ids = [7]; assert.equal((await scholarUpload('grades')).statusCode, 200);
+  uploadsOpen = true; assert.equal((await scholarUpload('grades')).statusCode, 200);
   delete prisma.continuing_requirement_schedules;
 });
 test('Schedule mutation routes reject unauthenticated users, scholars, Billing staff and staff lacking Scholars access', async () => {
@@ -312,5 +314,11 @@ test('grant preparation and receipt routes reject unauthenticated, applicant and
   setup();for(const [method,path] of [['PUT','/scholars/7/grant-preparation'],['GET','/scholars/7/tuition-receipt?academicPeriodId=10']]){
    const res=await fetch(baseUrl+path,{method,headers:{...headers,'Content-Type':'application/json'},...(method==='GET'?{}:{body:JSON.stringify({academicPeriodId:10,tuitionFeeAssistance:3500})})});assert.equal(res.status,headers.Authorization?403:401);
   }
+ }
+});
+test('Payroll preparation mutation rejects unauthenticated, Scholar and staff without Payroll access', async () => {
+ for (const headers of [{}, authHeader(7,'control'), authHeader(4), authHeader(3)]) {
+  setup(); const res=await fetch(baseUrl+'/scholars/7/payroll-preparation',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({academicPeriodId:10})});
+  assert.equal(res.status,headers.Authorization?403:401);assert.equal(writes,0);
  }
 });
