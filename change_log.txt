@@ -315,3 +315,5 @@
 2026-10-16 | Deploying the automatic read-only Scholar processing-status badge for testing. Frontend lint/build passed; no backend change or migration. Live verification pending.
 
 2026-10-16 | Release 86c2a20 frontend verified live: automatic processing-status badge present, old status dropdown absent. API/database healthy. No backend change or migration required.
+
+2026-10-16 | Matched Scholar processing-status field to Semester dropdown width, height, padding and radius while retaining automatic read-only status/colors. Frontend production build passed; frontend-only deployment requested and live verification pending. No backend/schema impact.

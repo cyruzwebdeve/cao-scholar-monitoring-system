@@ -5,6 +5,25 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-16 - Uniform Processing Status Field Width
+
+**TL;DR**
+- The read-only Scholar processing status fills its grid column, matching the Semester dropdown width and 42px minimum height.
+- Billing/Payroll users retain automatic status behavior and listed/unlisted colors; no records or processing rules change.
+- Frontend build/deployment verification is recorded below; no backend change or migration.
+
+### Objective and behavior
+
+Match the processing-status field to the neighboring Semester dropdown as requested. Previously the badge sized to its text, leaving an uneven form. It now uses full width, border-box sizing, matching minimum height, padding and corner radius, with vertically aligned text. Existing responsive grid widths remain authoritative, including narrow layouts.
+
+### Implementation, roles and impacts
+
+Changed only `.scholars-processing-status-badge` in `frontend/src/styles/scholars-management.css` plus required change documentation. Affects staff viewing Scholar Billing/Payroll preparation. API, database, configuration, dependencies, security and privacy: no impact. Accessibility: text, read-only behavior and live status announcements retained; status does not depend on color alone. Deployment: frontend-only rollout requested. No backend revision requirement, migration or production-record edits. Legacy list storage remains unchanged; scope ends at official list generation.
+
+### Validation, limitations and rollback
+
+Production build passed with the existing large-chunk advisory; live CSS verification pending. This is a reversible presentation change and introduces no new tests. Rollback restores the prior badge CSS; no data rollback needed. Recommended manual check: both listed and unlisted states align with Semester at desktop/mobile widths.
+
 ## 2026-10-16 - Automatic Read-only Processing Status Badge
 
 **TL;DR**
