@@ -1,6 +1,6 @@
 # Short reference verification — 2026-10-17
 
-Status: implemented and verified locally; deployment authorized and in progress. No migration is required. Deploy backend and frontend together for the complete change.
+Status: release `731eb63` pushed. Shortened individual PDF code verified live in `Dashboard-C_5o1S_p.js`; API/database healthy. Hostinger backend revision confirmation remains pending. No migration is required. Deploy backend and frontend together for the complete change.
 
 ## Expected references
 

@@ -61,3 +61,9 @@ The drawer caption/amount and matching tooltip phrase were removed on 2026-10-12
 ## Automated verification command
 
 Use `npm test` from the repository root for readable backend/frontend checks with PASS/FAIL summaries. `npm run test:backend` and `npm run test:frontend` select a suite. Setup, coverage and failure behavior are documented in [testing.md](testing.md). This launcher was added on 2026-10-11 and published in `81660a3`; running it does not deploy the application or replace controlled hosted acceptance tests.
+
+## 2026-10-17 - Short reference deployment
+
+Release `731eb63` updates both frontend and backend: new Billing/Payroll lists use durable short `BILL-` / `PAY-` batch references, while individual Private Scholar PDFs use the scholar-only `PGCEAP-CERT#` reference reused across periods. Existing stored list references remain intact. No migration or deployment configuration change is needed.
+
+Frontend entry `/assets/index-Ctnlzoxh.js` and admin `Dashboard-C_5o1S_p.js` verified live with the new individual PDF reference code. API/database health passed. Backend provider revision confirmation is pending; public health does not identify deployed code. Local backend/frontend regressions, database transaction/rollback/uniqueness checks, actual two-period PDF downloads, lint and build passed. No production records were mutated. Staff verification: [short references](qa/2026-10-17/short-references.md).
