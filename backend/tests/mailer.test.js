@@ -115,6 +115,25 @@ test('announcement mail escapes user content and addresses only its intended rec
   assert.match(message.html, /https:\/\/example.vercel.app\/dashboard/);
 });
 
+test('schedule publication/update/cancellation mail is private, escaped and informational only', async () => {
+  const messages = [];
+  const mailer = createMailer({ env: configuredEnv, transportFactory: () => ({ sendMail: async (payload) => {
+    messages.push(payload); return { messageId: 'schedule-id' };
+  } }) });
+  for (const event of ['published', 'rescheduled', 'cancelled']) {
+    const result = await mailer.sendScheduleEmail({ to: 'scholar@example.com', firstName: '<Test>', title: 'CAO schedule\r\nBcc: injected',
+      event, reference: 'PAYROLL-TEST', startsAt: '2030-01-01T01:00:00Z', venue: '<Venue>', instructions: '<script>bad()</script>', cancellationReason: '<Reason>' });
+    assert.equal(result.sent, true);
+    const message = messages.at(-1);
+    assert.equal(message.to, 'scholar@example.com'); assert.equal(message.bcc, undefined); assert.equal(message.cc, undefined);
+    assert.doesNotMatch(message.subject, /[\r\n]/); assert.doesNotMatch(message.html, /<Venue>|<script>|<Reason>/);
+    assert.match(message.text, /Philippine time/); assert.match(message.text, /does not confirm fund release/);
+    assert.match(message.html, /https:\/\/example.vercel.app\/dashboard/);
+  }
+  assert.match(messages[1].text, /instead of the previous notice/);
+  assert.match(messages[2].text, /cancelled.*Do not follow/);
+});
+
 test('exam receipt does not expose the examination score', async () => {
   let message;
   const mailer = createMailer({

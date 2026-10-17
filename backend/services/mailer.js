@@ -217,6 +217,27 @@ const createMailer = ({
     }
   };
 
+  const sendScheduleEmail = ({ to, firstName, title, event, reference, startsAt, endsAt, venue, instructions, cancellationReason }) => {
+    const eventTitle = event === 'cancelled' ? 'Payout schedule cancelled' : event === 'rescheduled' ? 'Payout schedule updated' : 'New payout schedule';
+    const details = [
+      { label: 'Payroll list reference', value: reference },
+      { label: 'Starts (Philippine time)', value: formatDate(startsAt) },
+      ...(endsAt ? [{ label: 'Ends (Philippine time)', value: formatDate(endsAt) }] : []),
+      { label: 'Venue', value: venue },
+    ];
+    const body = event === 'cancelled'
+      ? `This schedule has been cancelled. Do not follow the previous schedule.${cancellationReason ? ` Reason: ${clean(cancellationReason)}` : ''}`
+      : `${event === 'rescheduled' ? 'CAO has updated your schedule. Use these details instead of the previous notice.' : 'CAO has published a schedule for you.'}${instructions ? ` Instructions: ${clean(instructions)}` : ''}`;
+    const notice = 'This is an informational schedule notice only. It does not confirm fund release, payment, or receipt of money.';
+    return send({
+      to, template: 'payout_schedule', subject: `PGCEAP ${eventTitle}: ${sanitizeHeader(title)}`,
+      text: [`Hello ${clean(firstName) || 'Scholar'},`, eventTitle, clean(title), body,
+        ...details.map(({ label, value }) => `${label}: ${value}`), notice, `View the latest schedule: ${appUrl}/dashboard`].join('\n\n'),
+      html: renderEmail({ eyebrow: 'CAO schedule notification', title: eventTitle, greeting: `Hello ${clean(firstName) || 'Scholar'},`,
+        body: `${clean(title)}. ${body}`, details, notice, actionLabel: 'View latest schedule', actionUrl: `${appUrl}/dashboard` }),
+    });
+  };
+
   const sendAnnouncementEmail = ({ to, firstName, title, content, priority }) => {
     const portalUrl = `${appUrl}/dashboard`;
     return send({
@@ -410,6 +431,7 @@ const createMailer = ({
     configured,
     provider,
     sendAnnouncementEmail,
+    sendScheduleEmail,
     sendApplicantAccountEmail,
     sendExamSubmittedEmail,
     sendPasswordResetEmail,

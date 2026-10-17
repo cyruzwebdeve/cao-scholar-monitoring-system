@@ -15,7 +15,11 @@ const withRecipients = row => row ? { ...structuredClone(row), recipients: state
 before(async () => { const app = express(); app.use(express.json()); app.use(routes); server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve)); base = 'http://127.0.0.1:' + server.address().port; });
 after(async () => new Promise(resolve => server.close(resolve)));
 beforeEach(() => {
- state = { schedules: [], recipients: [], notices: [], failNotices: false };
+ state = { schedules: [], recipients: [], notices: [], emails: [], failNotices: false, failEmails: false };
+ prisma.payout_schedule_email_deliveries = {
+  createMany: async ({ data }) => { if (state.failEmails) throw new Error('Synthetic email queue failure'); state.emails.push(...data.map(row => ({ ...row, status: 'pending' }))); },
+  groupBy: async () => { const groups = new Map(); for (const row of state.emails) { const key = `${row.schedule_id}:${row.revision}:${row.status}`; if (!groups.has(key)) groups.set(key, { schedule_id: row.schedule_id, revision: row.revision, status: row.status, _count: { _all: 0 } }); groups.get(key)._count._all++; } return [...groups.values()]; },
+ };
  prisma.admins = { findUnique: async ({ where }) => ({ id: where.id, is_active: true, auth_version: 0, is_super_admin: where.id === 1, role: where.id === 3 ? 'billing' : 'admin', section_access: where.id === 2 ? ['settings'] : ['payroll'] }) };
  prisma.applicants = { findUnique: async ({ where }) => applicant(where.id), findMany: async ({ where }) => [7,8].filter(id => where.id.in.includes(id)).map(applicant) };
  prisma.control_accounts = { findFirst: async () => ({ is_active: true, auth_version: 0 }) };
@@ -89,4 +93,33 @@ test('nonmembers and Billing batches are rejected; notification failure rolls ba
  assert.equal((await request('/payroll/schedule-batches/2')).status, 404);
  assert.equal(state.schedules.length, 0);
  state.failNotices = true; assert.equal((await save(payload())).status, 500); assert.equal(state.schedules.length, 0); assert.equal(state.recipients.length, 0);
+});
+
+test('email events target only selected recipients, never drafts, and unchanged publication does not resend', async () => {
+ await save(payload({ action: 'draft' })); assert.equal(state.emails.length, 0);
+ const published = await edit(payload({ revision: 1 })); assert.equal(published.body.emailNotificationsQueued, 1);
+ assert.deepEqual(state.emails.map(row => [row.applicant_id, row.event, row.revision]), [[7, 'published', 2]]);
+ const repeated = await edit(payload({ revision: 2 }));
+ assert.equal(repeated.status, 200); assert.equal(repeated.body.emailNotificationsQueued, 0);
+ assert.equal(state.emails.length, 1); assert.equal(state.notices.length, 1); assert.equal(state.schedules[0].revision, 2);
+ await edit(payload({ revision: 2, venue: 'Updated venue' }));
+ assert.deepEqual(state.emails.map(row => row.event), ['published', 'rescheduled']);
+ await edit({ action: 'cancel', revision: 3, cancellationReason: 'Rescheduled later.' });
+ assert.deepEqual(state.emails.map(row => [row.applicant_id, row.event]), [[7, 'published'], [7, 'rescheduled'], [7, 'cancelled']]);
+ assert.equal(state.emails.at(-1).revision, 4);
+});
+
+test('email enqueue failure rolls back schedule, recipients and portal notices together', async () => {
+ state.failEmails = true;
+ assert.equal((await save(payload())).status, 500);
+ assert.equal(state.schedules.length, 0); assert.equal(state.recipients.length, 0);
+ assert.equal(state.notices.length, 0); assert.equal(state.emails.length, 0);
+});
+
+test('staff delivery counts describe the current schedule revision without exposing email addresses', async () => {
+ await save(payload({ applicantIds: [7,8] }));
+ const management = await request('/payroll/schedules/management');
+ assert.equal(management.status, 200);
+ assert.deepEqual(management.body.schedules[0].emailDeliveries, { pending: 2 });
+ assert.doesNotMatch(JSON.stringify(management.body), /@example\.test/);
 });

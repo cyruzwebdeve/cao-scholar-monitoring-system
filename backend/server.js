@@ -109,9 +109,12 @@ captureCleanup.unref();
 
 const { createAnnouncementNotifications } = require('./services/announcementNotifications');
 const stopAnnouncementNotifications = createAnnouncementNotifications({ prisma, mailer: require('./services/mailer') }).start();
+const { createScheduleEmailNotifications } = require('./services/scheduleEmailNotifications');
+const stopScheduleEmails = createScheduleEmailNotifications({ prisma, mailer: require('./services/mailer') }).start();
 
 const shutdown = (signal) => {
   stopAnnouncementNotifications();
+  stopScheduleEmails();
   clearInterval(captureCleanup);
   console.log(`${signal} received. Closing the API server.`);
   server.close(async () => {

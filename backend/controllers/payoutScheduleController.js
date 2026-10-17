@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const { queueScheduleEmails } = require('../services/scheduleEmailNotifications');
 const { fail, positiveId, isPayrollBatch, scheduleInput, scheduleMessage } = require('../services/payoutSchedulePolicy');
 const serialize = (row, admin = false) => ({
   id: row.id, batchId: row.payroll_batch_id, title: row.title, startsAt: row.starts_at, endsAt: row.ends_at,
@@ -34,7 +35,8 @@ const management = handle(async (req, res) => {
     prisma.payout_schedules.findMany({ include: { recipients: true }, orderBy: { starts_at: 'desc' } }),
   ]);
   const periodById = new Map(periods.map(row => [row.id, row]));
-  return res.json({ batches: batches.filter(isPayrollBatch).map(row => ({ id: row.id, reference: row.batch_number, scholarCount: row.total_scholars, schoolYear: periodById.get(row.billing_period_id)?.school_year || 'Legacy period', semester: periodById.get(row.billing_period_id)?.semester || '' })), schedules: schedules.map(row => serialize(row, true)) });
+  const counts = await prisma.payout_schedule_email_deliveries.groupBy({ by: ['schedule_id', 'revision', 'status'], _count: { _all: true } });
+  return res.json({ batches: batches.filter(isPayrollBatch).map(row => ({ id: row.id, reference: row.batch_number, scholarCount: row.total_scholars, schoolYear: periodById.get(row.billing_period_id)?.school_year || 'Legacy period', semester: periodById.get(row.billing_period_id)?.semester || '' })), schedules: schedules.map(row => ({ ...serialize(row, true), emailDeliveries: Object.fromEntries(counts.filter(c => c.schedule_id === row.id && c.revision === row.revision).map(c => [c.status, c._count._all])) })) });
 });
 const roster = handle(async (req, res) => { const { batch, scholars } = await batchAndRoster(prisma, positiveId(req.params.id)); return res.json({ batch: { id: batch.id, reference: batch.batch_number }, scholars }); });
 const mine = handle(async (req, res) => {
@@ -72,6 +74,12 @@ const save = handle(async (req, res) => {
       const roster = await batchAndRoster(tx, input.batchId); batch = roster.batch;
       const listed = new Set(roster.scholars.map(r => r.applicantId));
       if (ids.some(value => !listed.has(value))) fail('Every recipient must belong to the selected Payroll batch.');
+      if (publishing && existing?.status === 'published'
+        && ['title', 'venue', 'instructions'].every(key => existing[key] === input.data[key])
+        && +new Date(existing.starts_at) === +input.data.starts_at
+        && (existing.ends_at ? +new Date(existing.ends_at) : null) === (input.data.ends_at ? +input.data.ends_at : null)) {
+        return { ...existing, unchanged: true, emailNotificationsQueued: 0 };
+      }
       const data = { ...input.data, payroll_batch_id: batch.id, status: publishing ? 'published' : 'draft', updated_by: req.user.id };
       row = existing ? await tx.payout_schedules.update({ where: { id }, data: { ...data, revision: { increment: 1 } } }) : await tx.payout_schedules.create({ data: { ...data, created_by: req.user.id } });
       await tx.payout_schedule_recipients.deleteMany({ where: { schedule_id: row.id } });
@@ -79,9 +87,11 @@ const save = handle(async (req, res) => {
       if (publishing) event = existing?.status === 'published' ? 'rescheduled' : 'published';
     }
     if (event) await tx.scholar_notifications.createMany({ data: ids.map(applicant_id => ({ applicant_id, academic_period_id: batch.billing_period_id, notification_type: 'payout_schedule', title: event === 'cancelled' ? 'Payout schedule cancelled' : event === 'rescheduled' ? 'Payout schedule updated' : 'New payout schedule', message: scheduleMessage(row, batch.batch_number, event), reference: batch.batch_number })) });
-    return { ...row, recipients: ids.map(applicant_id => ({ applicant_id })) };
-  }, { isolationLevel: 'Serializable' });
+    const emailNotificationsQueued = event ? await queueScheduleEmails(tx, row, event, ids) : 0;
+    return { ...row, recipients: ids.map(applicant_id => ({ applicant_id })), emailNotificationsQueued };
+  }, { isolationLevel: 'Serializable', maxWait: 10_000, timeout: 30_000 });
   res.locals.auditTargetId = result.id;
-  return res.status(id ? 200 : 201).json({ schedule: serialize(result, true), message: result.status === 'draft' ? 'Schedule draft saved. Scholars have not been notified.' : result.status === 'cancelled' ? 'Schedule cancelled. Selected Scholars have been notified.' : 'Schedule published. Selected Scholars have been notified.' });
+  return res.status(id ? 200 : 201).json({ schedule: serialize(result, true), emailNotificationsQueued: result.emailNotificationsQueued,
+    message: result.unchanged ? 'No schedule changes. No new notifications or emails were queued.' : result.status === 'draft' ? 'Schedule draft saved. Scholars have not been notified.' : result.status === 'cancelled' ? 'Schedule cancelled. Portal notifications saved and Gmail notifications queued for the selected Scholars.' : 'Schedule published. Portal notifications saved and Gmail notifications queued for the selected Scholars.' });
 });
 module.exports = { management, roster, mine, save };
