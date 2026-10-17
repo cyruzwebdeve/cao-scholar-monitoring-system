@@ -36,3 +36,5 @@ The supplied image is recreated as an editable Excel form. Both Payroll Generate
 7. Confirm Billing still offers Word downloads only.
 
 The image is a visual reference, not an original XLSX file, so this is a recreated editable layout rather than a pixel-identical binary template. Native Microsoft Excel/printer output was not available; XLSX round-trip, actual browser downloads and LibreOffice rendering were checked. Wide custom selections can print smaller. No payment-release, receipt, disbursement or monetary-audit function is added.
+
+Signatory defaults release `a43d6b8` verified live in entry `/assets/index-CXTkRhgj.js` and admin `Dashboard-BHfrLp1Y.js`; API/database healthy. Default/single-column name-edit save/reopen and print checks passed. Refresh and export a new workbook to get the prefilled names; previously downloaded files are unchanged.
