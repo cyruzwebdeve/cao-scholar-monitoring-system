@@ -26,15 +26,14 @@ export async function createBillingCertificationDocument({ records, batch, activ
     Object.entries(attributes).forEach(([key, value]) => node.setAttributeNS(WORD_NS, `w:${key}`, String(value)));
     return node;
   };
-  const paragraph = (text, bold = false) => {
+  const paragraph = (text) => {
     const p = element('p');
     const spacing = element('pPr');
     spacing.append(element('spacing', { before: 0, after: 60, line: 240, lineRule: 'auto' }));
     p.append(spacing);
     const run = element('r');
     const properties = element('rPr');
-    properties.append(element('sz', { val: 18 }));
-    if (bold) properties.append(element('b'));
+    properties.append(element('sz', { val: 22 }));
     run.append(properties);
     const t = element('t'); t.textContent = String(text ?? ''); run.append(t); p.append(run);
     return p;
@@ -45,20 +44,22 @@ export async function createBillingCertificationDocument({ records, batch, activ
     properties.append(element('tblW', { w: 9360, type: 'dxa' }));
     properties.append(element('tblLayout', { type: 'fixed' }));
     const borders = element('tblBorders');
-    ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].forEach((edge) => borders.append(element(edge, { val: 'single', sz: 4, color: '808080' })));
+    ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].forEach((edge) => borders.append(element(edge, { val: 'nil' })));
     properties.append(borders); node.append(properties);
-    const widths = [600, 1600, 3600, 2360, 1200];
+    const widths = [4680, 4680];
     const grid = element('tblGrid'); widths.forEach((width) => grid.append(element('gridCol', { w: width }))); node.append(grid);
-    const rows = [['No.', 'Control No.', 'Scholar Name', 'Course / Program', 'Year Level'], ...scholars.map((record, index) => [index + 1, record.controlNumber, record.name, record.course, record.yearLevel])];
-    rows.forEach((values, index) => {
+    const rows = [];
+    for (let index = 0; index < scholars.length; index += 2) {
+      rows.push([scholars[index].name, scholars[index + 1]?.name || '']);
+    }
+    rows.forEach((values) => {
       const row = element('tr'); const rowProperties = element('trPr');
       rowProperties.append(element('cantSplit'));
-      if (!index) rowProperties.append(element('tblHeader'));
       row.append(rowProperties);
       values.forEach((value, cellIndex) => {
         const cell = element('tc'); const cellProperties = element('tcPr');
         cellProperties.append(element('tcW', { w: widths[cellIndex], type: 'dxa' }));
-        cell.append(cellProperties, paragraph(value, index === 0)); row.append(cell);
+        cell.append(cellProperties, paragraph(value)); row.append(cell);
       });
       node.append(row);
     });

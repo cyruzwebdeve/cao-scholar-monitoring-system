@@ -2,7 +2,7 @@
 
 Scope: Generate certification list and certification-history downloads use the supplied certification letter template as DOCX. The existing server transaction retains official references, membership and grant snapshots. Payroll and configurable preparation Excel exports retain their current behavior.
 
-## Verification performed
+## Initial-release verification performed
 
 - Browser-created DOCX with 65 synthetic scholars across two schools: two school letters, matching names/control numbers/course/year level, correct reference/period/date, escaped XML characters and repeated table headers.
 - Opened the generated package with LibreOffice and rendered three pages. Inspected the first and final pages: retained letterhead/footer, page geometry and signatory; full-width table fits; separate school starts on a new page. Removed sample two-column section breaks to prevent clipping.
@@ -13,12 +13,18 @@ Scope: Generate certification list and certification-history downloads use the s
 - Existing serialized Billing/Payroll workbook checks still pass, including column selection/order, currency, zero values, official/draft references and Payroll signature.
 - Frontend regression suite, ESLint and production build passed. Existing build chunk-size advisory remains.
 
+## Names-only follow-up verification
+
+- Browser-generated DOCX with 65 synthetic scholars across two schools has exactly two equal-width cells per row. Names read left to right then downward in the source order. The odd final row has a blank right cell.
+- Scholar tables contain no column headers, numbering, control numbers, course or year-level values. Borderless layout uses 11-point name text and retains XML escaping and the school-specific letter template.
+- LibreOffice rendered pages were visually reviewed; two-column names fit within the page and retain letterhead/footer. Lint and production build passed. No production data mutations were made.
+
 ## Staff checks after deployment
 
 1. Open Billing and select the academic period.
 2. Move eligible prepared Private scholars into the certification queue. Include scholars from two schools if available.
 3. Choose **Generate certification list**. Expect a `.docx` download named after the saved Billing reference.
-4. Open it in Word. Verify the letterhead, school, semester/year, reference, scholar names/control numbers, course and year level. Each school has its own letter; long tables repeat their header.
+4. Open it in Word. Verify the letterhead, school, semester/year, reference, a names-only table in two equal columns. Each school has its own letter. Confirm every name appears once, with no numbering, headers, control numbers, course or year-level fields.
 5. Confirm the scholars are Billed and the generated reference appears in Certification history.
 6. Refresh, then choose **Download Word** from history. Confirm the original reference and processing date. This must not create another list.
 7. For a preparation copy, check **Export Excel** still offers selectable/reorderable columns and leaves the queue unchanged.

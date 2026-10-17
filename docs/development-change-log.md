@@ -5,6 +5,24 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-17 - Two-Column Scholar Names in Billing Word Lists
+
+**TL;DR**
+- Billing staff now export a names-only list in two equal columns through Generate certification list and history Download Word.
+- Removed numbering, column headers, control numbers, course and year level from the Word table; retained the letter template and saved Billing records.
+- Browser-generated DOCX checks with 65 synthetic scholars, two schools and an odd final row passed; LibreOffice visual review, lint and build passed.
+- Frontend-only update; no API/schema/migration or permission changes. Deployment is in progress.
+
+Objective/previous/new behavior: simplify the certification Word export as requested. The previous five-column table displayed numbering, control number, scholar name, course and year level. The new borderless, fixed-width table displays only scholar names in two equal columns, at 11-point type, reading left to right then downward in the existing record order. An odd final scholar leaves the right cell blank. Each school retains its separate letter, school/period/reference narrative, artwork and signatory. Both current generation and history share the same document utility; no changes to Payroll, preparation Excel exports or official list persistence.
+
+Implementation/data flow/files: updated `frontend/src/utils/billingCertificationDocument.js` to pair scholar names into rows, use equal column widths, omit headers and other fields, and suppress visible borders. Existing DOM text escaping and school grouping remain. Updated the staff verification checklist and change logs. The browser still uses authorized system records after the existing process endpoint persists official membership/reference/grant snapshots. No application data is removed. Legacy monetary functionality is untouched and remains outside this change; workflow ends at official list generation.
+
+Impact: no API, database/schema, migration, configuration, dependency, security/permission or server changes. Privacy exposure in the downloaded table is reduced to names. Accessibility retains editable document text and existing named download controls; the table has no misleading header row. Frontend deployment is authorized; no backend deployment confirmation is needed.
+
+Validation: the actual browser-generated DOCX passed XML checks for exactly two cells per row, expected paired names in order, 65 total names across two school letters, an empty final right cell, zero table headers, no control number/course/year fields, XML escaping and retained date/reference/page geometry. LibreOffice rendered the document and visual inspection confirmed the two-column names-only layout with retained letterhead/footer. ESLint and production build passed; the existing build size advisory remains. No production records were changed during testing.
+
+Limitations/rollback/next work: historical downloads still regenerate using existing history/profile data rather than archived immutable Word binaries. Names can wrap within each column; rows remain together on page breaks. Native Microsoft Word rendering was not available. Rollback restores the prior document utility without any data migration. Verify deployed assets, then confirm a fresh Generate and historical Download Word show the new two-column list.
+
 ## 2026-10-17 - Billing Certification Word Template
 
 **TL;DR**
