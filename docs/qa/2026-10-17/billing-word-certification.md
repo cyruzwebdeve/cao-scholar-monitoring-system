@@ -46,4 +46,4 @@ Removed the optional Billing preparation Excel control, modal and workbook gener
 
 ## Billing history label follow-up
 
-The Billing section card now reads **BILLING RECORDS** / **Billing history**. Its empty state reads **No billing history yet**. Stored records and Download Word remain unchanged; official document wording is unchanged. Frontend-only deployment in progress, with no backend or migration.
+The Billing section card now reads **BILLING RECORDS** / **Billing history**. Its empty state reads **No billing history yet**. Stored records and Download Word remain unchanged; official document wording is unchanged. Frontend release `2383775` verified live in `Dashboard-C1z9lA3t.js`, with healthy API/database; no backend or migration.

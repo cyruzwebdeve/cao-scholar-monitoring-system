@@ -10,13 +10,13 @@ and how the result was verified.
 **TL;DR**
 - Billing staff now see BILLING RECORDS and Billing history in the history card highlighted by the user.
 - Matching empty-state wording uses Billing; records, references and Word downloads are unchanged.
-- Frontend-only presentation change; source review, lint and build passed; deployment is in progress. No backend or migration.
+- Frontend-only presentation change; source review, lint and build passed; release `2383775` verified live. No backend or migration.
 
 Objective/previous/new behavior: align the shown Billing history card with its section name. The former CERTIFICATION RECORDS / Certification history labels now read BILLING RECORDS / Billing history. The empty state now reads No billing history yet and describes generated Private-scholar billing lists. This affects staff viewing Billing history, with no changes to generation, stored membership, references, download handlers, document contents or Payroll.
 
 Implementation/files/data flow: text-only edits in `frontend/src/BillingPayrollManagement.jsx`; current staff checklist/workflow notes and required logs updated. Internal variable/CSS names remain to avoid unrelated refactoring. No API/backend, database/schema/migration, configuration/dependency, permission/security/privacy or hosting changes; no personal data or external services added. Existing heading structure, controls and accessibility semantics remain intact. Legacy monetary functionality remains untouched outside scope and the workflow still ends at official list generation. Deployment uses the existing frontend pipeline.
 
-Validation: source label review, ESLint and production build passed. Public live verification is pending. Existing build-size advisory remains. No production data was modified. Label-only changes do not require new behavior tests. Frontend deployment is in progress; no backend revision confirmation needed.
+Validation: source label review, ESLint and production build passed. Live verification confirmed entry `/assets/index-DrWwRIaV.js` and admin `Dashboard-C1z9lA3t.js` with BILLING RECORDS, Billing history, matching empty-state text and retained Download Word. API/database health passed. Public checks inspect deployed assets/health; no authenticated record was modified. Existing build-size advisory remains. No production data was modified. Label-only changes do not require new behavior tests. Frontend release `2383775` is deployed; no backend revision confirmation needed.
 
 Limitations/rollback/next work: only the identified Billing history card and matching empty state are renamed; the official certification Word document retains its certification purpose. Rollback restores the four prior text strings without data changes. After deployment refresh Billing and confirm its history heading/empty state while Download Word remains available on saved records.
 

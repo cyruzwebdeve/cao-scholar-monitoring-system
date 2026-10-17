@@ -85,3 +85,7 @@ Frontend release `a7529bc` applies the shared notification to Scholar drawer Con
 ## 2026-10-17 - Word-only Billing exports
 
 Frontend release `ec32db5` removes Billing Export Excel, its column dialog and the Billing workbook generator. Official saved records, Word generation/history and Payroll configurable/official Excel are retained. No backend, migration or configuration change. Actual desktop/mobile Billing generation/history/failure-recovery and Payroll picker/workbook tests, frontend regressions, lint/build passed. Live `Dashboard-fp38YdaC.js` verified retired Billing XLSX markers absent and retained Word/Payroll paths present; API/database healthy. Refresh Billing and confirm only Word-list download actions; use dedicated test records for generation.
+
+## 2026-10-17 - Billing history labels
+
+Frontend release `2383775` renames the identified Billing card to BILLING RECORDS / Billing history, with matching empty-state wording. No data/download behavior, backend, migration or configuration changes. Source review, lint/build passed. Live `Dashboard-C1z9lA3t.js` verified new labels and retained Download Word; API/database healthy. Refresh Billing to verify the displayed headings.
