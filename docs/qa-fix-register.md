@@ -89,3 +89,9 @@ Frontend release `ec32db5` removes Billing Export Excel, its column dialog and t
 ## 2026-10-17 - Billing history labels
 
 Frontend release `2383775` renames the identified Billing card to BILLING RECORDS / Billing history, with matching empty-state wording. No data/download behavior, backend, migration or configuration changes. Source review, lint/build passed. Live `Dashboard-C1z9lA3t.js` verified new labels and retained Download Word; API/database healthy. Refresh Billing to verify the displayed headings.
+
+## 2026-10-17 - Payroll form template
+
+Frontend release `3700c75` recreates the supplied form for official Generate and configurable Export Excel: seven default columns, recorded amounts with unrecorded breakdowns blank, saved reference, blank signatures, actual totals and A4 landscape layout. Footer supports list preparation/review only. Billing remains Word-only; no backend, migration or configuration changes.
+
+Six serialized workbook tests, frontend regressions, lint/build, desktop/mobile Payroll and Billing workflow checks, and small/large/single-column print rendering passed. Live entry `/assets/index-DfslC_Tk.js` and admin `Dashboard-BZnHDxDC.js` verified form captions, preparation safeguards and A4/list-only footer markers; API/database healthy. No production record writes. Native Excel/printer output remains for staff verification: [Payroll form checklist](qa/2026-10-17/payroll-form-template.md).

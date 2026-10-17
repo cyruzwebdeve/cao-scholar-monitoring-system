@@ -19,7 +19,7 @@ The supplied image is recreated as an editable Excel form. Both Payroll Generate
 - LibreOffice opened/rendered the final workbooks: small official list prints on one A4 landscape page; 65 scholars print on two pages with repeated headings and the last scholar/grand total retained. Name-only and Amount-only exports rendered without clipping. Screenshots/text were reviewed.
 - Actual Payroll browser workflow at desktop/mobile widths: seven defaults with Signature selected; custom ordered preparation export contains matching values and causes no process POST or queue clearing; Generate sends one request then downloads the saved-reference workbook with snapshot values, totals and blank signatures.
 - Actual Billing browser checks at desktop/mobile widths retained Word-only generation, history re-download and batch retention on simulated Word download failure.
-- All workflow requests were local synthetic fixtures; no production list/document was generated or changed. Frontend deployment is in progress; no backend/migration.
+- All workflow requests were local synthetic fixtures; no production list/document was generated or changed. Frontend release `3700c75` is verified live: entry `/assets/index-DfslC_Tk.js`, admin `Dashboard-BZnHDxDC.js`, all form/scope/preparation/A4 markers present and API/database healthy. No backend/migration.
 
 ## Staff steps after deployment
 
