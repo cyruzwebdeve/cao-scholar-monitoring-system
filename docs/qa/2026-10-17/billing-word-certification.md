@@ -23,6 +23,7 @@ Scope: Generate certification list and certification-history downloads use the s
 
 - 65-scholar/two-school browser-created DOCX passed exact numbering checks in every populated cell, including first/last pairs, restart at 1 for each school and blank final right cell for an odd count.
 - LibreOffice visual rendering, ESLint and production build passed. Numbering is display text beside each name; official system identifiers and list membership remain unchanged.
+- Release `3d662eb` was pushed; new frontend entry/admin assets were observed. Direct deployed numbering and API health verification were limited by DNS/network timeouts. Staff should confirm using Generate or Download Word.
 
 ## Staff checks after deployment
 
