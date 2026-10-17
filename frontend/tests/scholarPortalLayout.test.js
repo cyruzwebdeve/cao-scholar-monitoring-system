@@ -70,7 +70,9 @@ test('individual capture sends only the selected document and preserves other dr
   assert.match(publish, /const item = draftsRef.current\[key\]/);
   assert.match(publish, /delete next\[key\]/);
   assert.doesNotMatch(publish, /for \(|captureReady\(|pending.push/);
-  assert.match(source, /setNotice\(''\); setConfirmed\(false\)/);
+  assert.doesNotMatch(source, /confirmed|setConfirmed|capture-confirm|type="checkbox"/);
+  assert.match(source, /disabled=\{working \|\| phoneConnected \|\| !ready/);
+  assert.match(source, /if \(!captureDocumentReady\(key, draftsRef.current, saved\)\)/);
   assert.match(source, /Upload &amp; approve this document|Upload & approve this document/);
 });
 

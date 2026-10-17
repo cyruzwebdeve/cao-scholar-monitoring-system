@@ -421,3 +421,6 @@
 
 2026-10-18 - Initial CAO intake now uploads and approves only the selected document; saved-file View controls added for staff, applicants and scholars through authenticated previews. Ownership-scoped file API added; no database or eligibility-rule change. Frontend 113 passed, backend 378 passed/one skipped, lint/build and synthetic browser checks passed. Not deployed.
 2026-10-18 - User requested deployment of individual initial-document uploads and secure View controls; publishing frontend/backend through the existing main-branch pipeline with no database migration.
+2026-10-18 - Published document-upload/viewing release 24035f7; live frontend feature assets verified HTTP 200 and API healthy/database connected. Tester-access gate retained; authenticated private-file viewing still requires in-account verification.
+
+2026-10-18 - Removed the staff initial-document confirmation checkbox and its upload gate. Staff can upload the selected valid draft directly; file validation, authorization, single-document saving, phone-session guard and version history remain unchanged. Deployment requested; verification follows.

@@ -8516,3 +8516,30 @@ Live hosting and real private-blob preview have not been tested. Browser checks 
 
 ### Deployment preparation
 The user requested deployment of the tested implementation. Remote main was confirmed at the prior layout release before staging this change. Preflight public API health returned HTTP 200 with database connected; document-file requests without a tester session are stopped by the existing invitation-only access gate, so that response cannot identify the backend revision. No gate bypass, production document upload, account access or email send is part of rollout verification.
+
+### Deployment observation
+Published release 24035f7 to origin/main through the existing frontend/backend hosting pipeline. The public site now serves index-DYK4mrXT.js, ScholarDashboard-DNFiUkQH.js, ApplicantDashboard-DX2E6rc-.js, Dashboard-BLYQ2tfu.js and DocumentViewButton-2T88ZRRU.js, all inspected feature chunks returning HTTP 200 JavaScript. The served code contains the individual upload action, intake label, owner-scoped View requests and preview controls; the former batch-submit label is absent. API health returns HTTP 200 with database connected. Unauthenticated document requests remain blocked by the tester-access gate as expected. This proves public frontend rollout and backend availability, not the backend commit revision or successful authenticated/private-storage viewing; verify the latter using a controlled document in an authorized tester account. No production records or emails were changed during verification.
+
+
+## 2026-10-18 - Remove redundant initial-upload confirmation checkbox
+
+**TL;DR**
+- Staff can select/capture one document and immediately use Upload & approve this document, without an extra checkbox.
+- Selected-draft readiness, file/page limits, staff permissions, phone-session guard and document version history are retained.
+- Frontend-only interaction change; no backend, API, database, account-role, eligibility or mailer changes.
+- Regression checks and production-build results, followed by deployment observations, are recorded below.
+
+### Objective and previous/new behavior
+Remove the extra confirmation action reported as cumbersome by staff. Previously an otherwise ready initial document could not upload until the readability checkbox was ticked. The checkbox, its component state/resets and its submit/readiness gate are removed. A short non-interactive note still explains that saving replaces only the selected document and retains previous versions. The explicit Upload & approve button remains; files are not automatically uploaded on selection.
+
+### Roles, workflow and implementation
+SuperAdmin and existing authorized RegularAdmin/Billing staff using initial intake in Scholar Management or posted-passer Results benefit from the same shared component. Applicants and scholars do not gain initial-upload permission. InitialRequirementCapture.jsx now gates upload only on the existing valid selected draft, idle processing state and disconnected phone session; the publish handler still checks readiness and phone status. Removing a checkbox does not bypass the backend mandatory-document verification required for Scholar acceptance. Unrelated unsaved-draft discard confirmation is deliberately retained to avoid accidental data loss.
+
+### Files and system impacts
+Changed InitialRequirementCapture.jsx, removed unused capture-confirm rules from document-capture.css, and updated scholarPortalLayout.test.js to assert absence of checkbox/state and preservation of selected-draft/phone safeguards. Required change logs updated. API, backend, database/schema/migration and environment configuration: no impact. Security/privacy: no role, section permission, owner-view restriction, storage access or data-collection changes. Document limits, capture previews, failure retry and version history remain unchanged. Accessibility: removes an unnecessary form control; labelled upload and preview controls and keyboard interaction remain. No document deletion or data migration. No change to legacy payment-related areas; these remain retained outside the approved payroll-list-generation workflow boundary. Deployment uses the existing main-branch hosting pipeline, with no infrastructure changes.
+
+### Validation and deployment
+Frontend regression suite: 113 passed, zero failures. Backend regression suite: 378 passed, one skipped, zero failures. ESLint and production build passed with the existing large-chunk warning; git diff --check passed. Source regression assertions confirm the checkbox/state are absent and selected-only readiness plus phone-session upload restrictions remain. Built capture CSS no longer contains checkbox styles. Public rollout verification follows deployment. Checks use synthetic fixtures; no live records are uploaded or changed for deployment verification.
+
+### Limitations, rollback and next work
+Staff should still check readability in the existing preview before pressing the explicit upload/approval action. No new automatic quality assessment is implied. Authenticated real-storage upload verification is not performed without a controlled staff account/document. Revert this frontend change to restore the checkbox; no database rollback is needed. After deployment, hard-refresh the portal and confirm a selected document can be uploaded directly without the checkbox.

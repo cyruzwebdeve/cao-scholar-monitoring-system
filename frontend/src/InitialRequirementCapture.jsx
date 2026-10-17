@@ -17,7 +17,6 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const [crop, setCrop] = useState([0, 0, 0, 0]);
   const [camera, setCamera] = useState(false);
   const [working, setWorking] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
   const [notice, setNotice] = useState('');
   const [noticeTone, setNoticeTone] = useState('warning');
   const [progress, setProgress] = useState('');
@@ -41,8 +40,8 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
     const warn = (event) => { event.preventDefault(); event.returnValue = ''; };
     window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn);
   }, [drafts, phoneConnected]);
-  const edit = (next) => { storeDrafts({ ...draftsRef.current, [key]: next }); setConfirmed(false); };
-  const choose = (nextKey) => { stopCamera(); setKey(nextKey); setPageIndex(0); setCrop([0, 0, 0, 0]); setNotice(''); setConfirmed(false); };
+  const edit = (next) => { storeDrafts({ ...draftsRef.current, [key]: next }); };
+  const choose = (nextKey) => { stopCamera(); setKey(nextKey); setPageIndex(0); setCrop([0, 0, 0, 0]); setNotice(''); };
   const startCamera = async () => {
     stopCamera(); const generation = cameraRequest.current; setNotice('');
     try {
@@ -84,7 +83,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
       next[item.requirementKey] = { pages: [...current.pages, item.imageData] }; total += item.imageData.length;
       receivedPages.current.add(item.id); received.push(item.id);
     }
-    if (received.length) { storeDrafts(next); setConfirmed(false); }
+    if (received.length) { storeDrafts(next); }
     return received;
   };
   const movePage = (direction) => {
@@ -96,7 +95,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const publish = () => act(async () => {
     stopCamera();
     if (phoneConnected) throw new Error('End the phone connection before uploading this document.');
-    if (!confirmed || !captureDocumentReady(key, draftsRef.current, saved)) throw new Error('Choose and review this document before uploading.');
+    if (!captureDocumentReady(key, draftsRef.current, saved)) throw new Error('Choose and review this document before uploading.');
     const item = draftsRef.current[key];
     setProgress('Preparing selected document...');
     const file = item.file || { fileName: `initial-${key}.pdf`, fileData: await buildCapturePdf(item.pages) };
@@ -113,13 +112,13 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
       if (!alive.current) return;
       setSaved(current => ({ ...current, [key]: true }));
       const next = { ...draftsRef.current }; delete next[key]; storeDrafts(next);
-      setNoticeTone('success'); setNotice('Selected document uploaded and approved. Other documents can be submitted separately. Previous versions are retained.'); setConfirmed(false);
+      setNoticeTone('success'); setNotice('Selected document uploaded and approved. Other documents can be submitted separately. Previous versions are retained.');
     } finally { if (alive.current) { setProgress(''); await onSaved(); } }
   });
   const ready = captureDocumentReady(key, drafts, saved);
   const selected = documents.find((item) => item.requirementKey === key);
   const page = draft.pages?.[pageIndex];
-  const close = () => { if ((Object.keys(drafts).length || phoneConnected) && !window.confirm('Discard received drafts and any phone photos that have not been uploaded?')) return; stopCamera(); storeDrafts({}); receivedPages.current.clear(); setSaved({}); setConfirmed(false); setOpen(false); };
+  const close = () => { if ((Object.keys(drafts).length || phoneConnected) && !window.confirm('Discard received drafts and any phone photos that have not been uploaded?')) return; stopCamera(); storeDrafts({}); receivedPages.current.clear(); setSaved({}); setOpen(false); };
   if (!open) return <button type="button" className="capture-start" disabled={!['Public', 'Private'].includes(scholar.schoolType)} onClick={() => setOpen(true)}><Camera size={15} />Upload initial documents individually</button>;
   return <section className="document-capture" aria-label="Initial document camera intake" aria-busy={working}>
     <header><div><h4>Capture initial requirements</h4><p>{scholar.name} · {scholar.controlNumber || scholar.scholarId}<br />{scholar.schoolYear} · {scholar.semester}</p></div><button type="button" disabled={working} onClick={close} aria-label="Close camera intake"><X size={16} /></button></header>
@@ -142,7 +141,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
         <p className="capture-help">Add pages in reading order, up to {MAX_CAPTURE_PAGES} per requirement. Photo pages become one PDF per requirement. Choosing a PDF replaces its photo draft; adding a photo replaces its PDF draft.</p>
       </>}
     </fieldset>
-    <label className="capture-confirm"><input type="checkbox" checked={confirmed} disabled={working || phoneConnected || !ready} onChange={(event) => setConfirmed(event.target.checked)} /><span>I checked this document. Its pages are readable, complete and ready for approval. Uploading replaces only this document in the selected period.</span></label>
-    <button type="button" className="capture-submit" disabled={working || phoneConnected || !confirmed || !ready || !Object.keys(drafts).length} onClick={publish}>{working ? 'Processing…' : 'Upload & approve this document'}</button>
+    <p className="capture-help">Uploading replaces only this document in the selected period. Previous versions are retained.</p>
+    <button type="button" className="capture-submit" disabled={working || phoneConnected || !ready || !Object.keys(drafts).length} onClick={publish}>{working ? 'Processing…' : 'Upload & approve this document'}</button>
   </section>;
 }
