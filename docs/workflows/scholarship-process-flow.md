@@ -121,7 +121,7 @@ Private Payroll preparation retains its existing grant-save and Payroll-opening 
 Staff may generate **multiple regular batches for the same academic period**, using different, unlisted Scholars.
 
 - Public regular continuing records use Payroll.
-- Private regular continuing records use Billing/certification.
+- Private regular continuing records use Billing/certification. Billing saves the official list in the system and downloads Word (`.docx`); saved lists can be downloaded again from Certification history. Billing has no Excel export.
 - Each generated batch receives its own reference.
 - Earlier lists remain intact.
 - A Scholar already included in either Billing or Payroll for that period cannot be included again.

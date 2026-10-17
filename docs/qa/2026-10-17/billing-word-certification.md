@@ -1,6 +1,6 @@
 # Billing Word certification verification — 2026-10-17
 
-Scope: Generate certification list and certification-history downloads use the supplied certification letter template as DOCX. The existing server transaction retains official references, membership and grant snapshots. Payroll and configurable preparation Excel exports retain their current behavior.
+Scope: Generate certification list and certification-history downloads use the supplied certification letter template as DOCX. The existing server transaction retains official references, membership and grant snapshots. Billing exports Word lists only. Payroll retains configurable preparation and official Excel downloads.
 
 ## Initial-release verification performed
 
@@ -33,9 +33,13 @@ Scope: Generate certification list and certification-history downloads use the s
 4. Open it in Word. Verify the letterhead, school, semester/year, reference, numbered scholar names in two equal columns. Each school has its own letter. Confirm every name appears once, numbering reads 1/2 then 3/4 across rows and restarts at 1 per school, and the odd final cell is blank. No headers, control numbers, course or year-level fields should appear.
 5. Confirm the scholars are Billed and the generated reference appears in Certification history.
 6. Refresh, then choose **Download Word** from history. Confirm the original reference and processing date. This must not create another list.
-7. For a preparation copy, check **Export Excel** still offers selectable/reorderable columns and leaves the queue unchanged.
-8. Confirm Payroll Generate still downloads Excel.
+7. Confirm Billing has no **Export Excel** button or Excel column dialog, including with scholars queued.
+8. Confirm Payroll Generate still downloads Excel and Payroll **Export Excel** retains selectable/reorderable columns without clearing its queue.
 
 ## Limits
 
 The DOCX is generated on demand from retained Billing membership and the profile fields returned by the existing history API; it is not stored as an immutable binary document. Historical profile edits can therefore affect a later download. The supplied signatory and artwork are static template content. Historical issue dates use the saved processing date when present; old records without a date use the download date. Official list inclusion does not certify document completeness, so the letter avoids asserting that every scholar submitted complete requirements. Word itself was not available for native rendering; LibreOffice rendering and DOCX/XML checks passed. Release `ff90b4e` is deployed. Public verification confirmed the Word bundle and exact template checksum, with healthy API/database. No authenticated production-session generation test was performed.
+
+## Word-only Billing follow-up
+
+Removed the optional Billing preparation Excel control, modal and workbook generator. Actual Billing checks at desktop/mobile widths passed absence of Excel controls, saved batch then DOCX download, history re-download and retained batch on template-download failure. Actual Payroll Excel picker/download checks and workbook artifact checks passed. Frontend tests, lint/build passed. No production records changed; no backend/migration. Frontend deployment in progress.

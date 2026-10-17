@@ -35,7 +35,7 @@ const formatAmount = (value) => value === null || value === undefined
   ? 'Not assigned'
   : new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value);
 
-const billingExportColumns = [
+const payrollMetadataColumns = [
   { key: 'name', label: 'Scholar Name', group: 'Scholar' },
   { key: 'controlNumber', label: 'Control Number', group: 'Scholar' },
   { key: 'email', label: 'Email', group: 'Scholar' },
@@ -55,24 +55,6 @@ const billingExportColumns = [
   { key: 'dateProcessed', label: 'Date Processed', group: 'Processing', value: (record) => formatDate(record.dateProcessed) },
 ];
 
-const certificationTemplateColumns = [
-  { key: 'sequence', label: 'No.', width: 7, value: (_record, index) => index + 1 },
-  { key: 'controlNumber', label: 'Control Number', width: 18 },
-  { key: 'name', label: 'Private Scholar Name', width: 32 },
-  { key: 'school', label: 'School', width: 36 },
-  { key: 'municipality', label: 'Municipality', width: 18 },
-  { key: 'course', label: 'Course / Program', width: 28 },
-  { key: 'yearLevel', label: 'Year Level', width: 14 },
-  { key: 'totalGrant', label: 'Total Grant (PHP)', width: 20, currency: true, value: record => Number(record.claimAmount || record.billingAmount || 5000) },
-  { key: 'tuitionFeeAssistance', label: 'Tuition Fee Assistance (PHP)', width: 22, currency: true },
-  { key: 'allowance', label: 'Allowance (PHP)', width: 18, currency: true },
-  { key: 'referenceNumber', label: 'Reference Number', width: 25, value: (_record, _index, batch) => batch?.batchNumber || batch?.billingReference || '' },
-].map(column => ({ ...column, group: 'Billing template' }));
-const configurableBillingColumns = [
-  ...certificationTemplateColumns,
-  ...billingExportColumns.filter(column => !certificationTemplateColumns.some(template => template.key === column.key) && !['claimAmount', 'billingReference'].includes(column.key)).map(column => ({ ...column, width: 24, defaultSelected: false })),
-];
-
 const payrollTemplateColumns = [
   { key: 'sequence', label: 'No.', width: 7, value: (_record, index) => index + 1 },
   { key: 'controlNumber', label: 'Control Number', width: 18 },
@@ -88,7 +70,7 @@ const payrollTemplateColumns = [
 ].map(column => ({ ...column, group: 'Payroll template' }));
 const configurablePayrollColumns = [
   ...payrollTemplateColumns,
-  ...billingExportColumns.filter(column => !payrollTemplateColumns.some(template => template.key === column.key) && !['claimAmount', 'payReference'].includes(column.key)).map(column => ({ ...column, width: 24, defaultSelected: false })),
+  ...payrollMetadataColumns.filter(column => !payrollTemplateColumns.some(template => template.key === column.key) && !['claimAmount', 'payReference'].includes(column.key)).map(column => ({ ...column, width: 24, defaultSelected: false })),
 ];
 
 const downloadPayrollWorkbook = async ({ records, batch, activePeriod, preparationCopy = false, selectedColumns = payrollTemplateColumns }) => {
@@ -135,56 +117,6 @@ const downloadPayrollWorkbook = async ({ records, batch, activePeriod, preparati
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = `${String(preparationCopy ? `payroll-preparation-${new Date().toISOString().slice(0, 10)}` : batch?.batchNumber || 'payroll-list').replace(/[^a-z0-9_-]+/gi, '-')}.xlsx`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
-
-const downloadCertificationWorkbook = async ({ records, batch, activePeriod, preparationCopy = false, selectedColumns = certificationTemplateColumns }) => {
-  const ExcelJS = await import('exceljs');
-  const Workbook = ExcelJS.Workbook || ExcelJS.default?.Workbook;
-  if (!Workbook) throw new Error('Excel workbook support could not be loaded.');
-  const workbook = new Workbook();
-  workbook.creator = 'PGCEAP Scholarship Management System';
-  workbook.created = new Date();
-  const sheet = workbook.addWorksheet('Tuition Certification List', {
-    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
-  });
-  if (!selectedColumns.length) throw new Error('Select at least one export column.');
-  const lastColumn = sheet.getColumn(selectedColumns.length).letter;
-  if (selectedColumns.length > 1) sheet.mergeCells(`A1:${lastColumn}1`);
-  sheet.getCell('A1').value = preparationCopy ? 'PGCEAP PRIVATE-SCHOLAR CERTIFICATION LIST - PREPARATION COPY' : 'PGCEAP PRIVATE-SCHOLAR TUITION CERTIFICATION LIST';
-  sheet.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FF176B3A' } };
-  sheet.getCell('A1').alignment = { horizontal: 'center' };
-  if (selectedColumns.length > 1) sheet.mergeCells(`A2:${lastColumn}2`);
-  sheet.getCell('A2').value = `${activePeriod?.schoolYear || ''} · ${activePeriod?.semester || ''} · ${batch?.batchNumber || batch?.billingReference || ''}`;
-  sheet.getCell('A2').alignment = { horizontal: 'center' };
-  sheet.addRow([]);
-  const header = sheet.addRow(selectedColumns.map(column => column.label));
-  header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF176B3A' } };
-  header.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-  records.forEach((record, index) => {
-    sheet.addRow(selectedColumns.map(column => column.value ? column.value(record, index, batch) : record[column.key] ?? ''));
-  });
-  const totalIndex = selectedColumns.findIndex(column => column.key === 'totalGrant');
-  if (totalIndex >= 0) {
-    const values = Array(selectedColumns.length).fill('');
-    values[totalIndex] = records.reduce((sum, record) => sum + Number(record.claimAmount || record.billingAmount || 5000), 0);
-    if (selectedColumns.length > 1) values[totalIndex > 0 ? totalIndex - 1 : 1] = 'TOTAL';
-    sheet.addRow(values).font = { bold: true };
-  }
-  selectedColumns.forEach((column, index) => {
-    sheet.getColumn(index + 1).width = column.width || 24;
-    if (column.currency) sheet.getColumn(index + 1).numFmt = '₱#,##0.00';
-  });
-  sheet.views = [{ state: 'frozen', ySplit: 4 }];
-  const buffer = await workbook.xlsx.writeBuffer();
-  const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `${String(preparationCopy ? `billing-preparation-${new Date().toISOString().slice(0, 10)}` : batch?.batchNumber || batch?.billingReference || 'private-certification-list').replace(/[^a-z0-9_-]+/gi, '-')}.xlsx`;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
@@ -453,14 +385,14 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
   };
 
   const exportWorkbook = async (selectedColumns) => {
-    if ( !queuedRecords.length || exportingWorkbook || processing) return;
+    if (!isPayroll || !queuedRecords.length || exportingWorkbook || processing) return;
     setExportingWorkbook(true); setOperationNotice(null);
     try {
       const period = activePeriods.find((item) => String(item.id) === String(selectedPeriodId));
       if (!period) throw new Error('Select an active processing period before exporting.');
-      await (isPayroll ? downloadPayrollWorkbook : downloadCertificationWorkbook)({ records: [...queuedRecords], activePeriod: period, preparationCopy: true, selectedColumns });
-      setOperationNotice({ tone: 'success', text: `${isPayroll ? 'Payroll' : 'Billing'} preparation workbook downloaded. No official list was generated.` });
-    } catch (failure) { setOperationNotice({ tone: 'error', text: `Unable to export ${isPayroll ? 'Payroll' : 'Billing'} workbook: ${failure.message}` }); }
+      await downloadPayrollWorkbook({ records: [...queuedRecords], activePeriod: period, preparationCopy: true, selectedColumns });
+      setOperationNotice({ tone: 'success', text: 'Payroll preparation workbook downloaded. No official list was generated.' });
+    } catch (failure) { setOperationNotice({ tone: 'error', text: `Unable to export Payroll workbook: ${failure.message}` }); }
     finally { setExportingWorkbook(false); }
   };
 
@@ -590,7 +522,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
         <article className="billing-transfer-panel billing-target-panel">
           <header className="billing-transfer-header">
             <div><strong>{isPayroll ? 'For Payroll' : 'For Billing'}</strong><small>Incomplete requirements can still be listed.</small></div>
-            <button type="button" className="billing-queue-export" onClick={() => setExportOpen(true)} disabled={!queuedRecords.length || exportingWorkbook || processing}><Download size={14} />{exportingWorkbook ? 'Exporting…' : 'Export Excel'}</button>
+            {isPayroll && <button type="button" className="billing-queue-export" onClick={() => setExportOpen(true)} disabled={!queuedRecords.length || exportingWorkbook || processing}><Download size={14} />{exportingWorkbook ? 'Exporting…' : 'Export Excel'}</button>}
           </header>
           <div className="billing-queue-table billing-target-table">
             <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>School year</span><span>Sem</span><span>Amount</span></div>
@@ -612,7 +544,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
         </article>
       </section>
       {!isPayroll && !loadError && <section className="billing-certification-history"><header><div><span>CERTIFICATION RECORDS</span><h3>Certification history</h3><p>Review generated Private-scholar lists and download a previous Word list again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount || 5000), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download Word</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>No certification history yet</strong><span>Generated Private-scholar certification lists will appear here.</span></div>}</section>}
-      {exportOpen && <CsvExportModal title={`Export ${isPayroll ? 'payroll' : 'billing'} queue`} description={`Choose columns and arrange their order. The Excel download uses the ${isPayroll ? 'Payroll' : 'Billing'} template and is marked as a preparation copy.`} columns={isPayroll ? configurablePayrollColumns : configurableBillingColumns} allowReorder formatLabel="EXCEL EXPORT" exportLabel="Export Excel" rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={exportWorkbook} />}
+      {isPayroll && exportOpen && <CsvExportModal title="Export payroll queue" description="Choose columns and arrange their order. The Excel download uses the Payroll template and is marked as a preparation copy." columns={configurablePayrollColumns} allowReorder formatLabel="EXCEL EXPORT" exportLabel="Export Excel" rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={exportWorkbook} />}
 
     </div>
 
