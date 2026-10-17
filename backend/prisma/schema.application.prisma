@@ -452,3 +452,34 @@ model passer_list_members {
   @@unique([list_id, applicant_id])
   @@index([applicant_id, academic_period_id])
 }
+
+// Informational notice scheduling, independent of legacy monetary fields.
+model payout_schedules {
+  id Int @id @default(autoincrement())
+  payroll_batch_id Int
+  title String @db.VarChar(160)
+  starts_at DateTime @db.Timestamp(6)
+  ends_at DateTime? @db.Timestamp(6)
+  venue String @db.VarChar(250)
+  instructions String @default("")
+  status String @default("draft") @db.VarChar(20)
+  cancellation_reason String @default("")
+  revision Int @default(1)
+  created_by Int
+  updated_by Int
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @updatedAt @db.Timestamp(6)
+  recipients payout_schedule_recipients[]
+  @@index([payroll_batch_id])
+  @@index([status, starts_at])
+}
+
+model payout_schedule_recipients {
+  schedule_id Int
+  payroll_batch_id Int
+  applicant_id Int
+  active Boolean @default(false)
+  schedule payout_schedules @relation(fields: [schedule_id], references: [id], onDelete: Cascade)
+  @@id([schedule_id, applicant_id])
+  @@index([applicant_id])
+}

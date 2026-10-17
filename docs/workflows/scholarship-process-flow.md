@@ -246,3 +246,7 @@ flowchart TD
 Use the [period upload and Payroll verification checklist](../qa/2026-10-16/period-upload-payroll-flow.md) for staff testing.
 
 Mermaid diagrams render in compatible Markdown viewers, including GitHub. A viewer without Mermaid support will show the diagram source blocks.
+
+## Informational payout schedules
+
+After official Payroll list generation, staff may publish an informational schedule under **Payroll → Payout schedules**. Select a saved batch, filter/select its members, enter Philippine-time dates and the independent office/school venue, preview recipients, then publish. Drafts remain private. The same batch can have several schedules for different groups; one Scholar has at most one published schedule per batch. Scholars see only their own dashboard cards and targeted portal notices. Staff may reschedule the same group or cancel and create a replacement. The official list remains unchanged; no fund-release/claiming/disbursement state is tracked. See [verification steps](../qa/2026-10-17/payout-schedules.md).

@@ -1,3 +1,4 @@
+const payoutSchedules = require('../controllers/payoutScheduleController');
 const { sendToPayroll } = require('../controllers/payrollPreparationController');
 const grantPreparation = require('../controllers/grantPreparationController');
 const passerLists = require('../controllers/passerListController');
@@ -183,6 +184,13 @@ router.post('/payroll/process', authenticate, checkRole(['SuperAdmin', 'RegularA
 router.post('/scholars/:applicantId/accept', authenticate, scholarshipDecisionRateLimiter, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), acceptApplicantAsScholar);
 // Retired latest-result mutation: exact exam/result revision is now required.
 router.put('/results/:applicantId/re-evaluate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), (req, res) => res.status(410).json({ message: 'Reload Results Management and use the examination-specific Correct score action.' }));
+
+const payoutScheduleAccess = [authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('payroll'), privateResponse];
+router.get('/payroll/schedules/management', ...payoutScheduleAccess, payoutSchedules.management);
+router.get('/payroll/schedule-batches/:id', ...payoutScheduleAccess, payoutSchedules.roster);
+router.post('/payroll/schedules', ...payoutScheduleAccess, billingWriteRateLimiter, payoutSchedules.save);
+router.put('/payroll/schedules/:id', ...payoutScheduleAccess, billingWriteRateLimiter, payoutSchedules.save);
+router.get('/payout-schedules/me', authenticate, checkRole(['Scholar']), privateResponse, payoutSchedules.mine);
 
 router.get('/announcements/latest', authenticate, checkRole(['Applicant', 'Scholar', 'SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getLatestPublishedAnnouncement);
 router.get('/announcements/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('announcements'), getAnnouncementManagement);

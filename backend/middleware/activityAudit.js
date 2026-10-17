@@ -2,6 +2,8 @@ const prisma = require('../config/prisma');
 const { recordActivitySafely } = require('../services/activityLog');
 
 const ACTIONS = {
+  'POST /payroll/schedules': ['PAYOUT_SCHEDULE_CREATED', 'payout_schedules', 'Created an informational payout schedule.'],
+  'PUT /payroll/schedules/:id': ['PAYOUT_SCHEDULE_UPDATED', 'payout_schedules', 'Updated an informational payout schedule.'],
   'POST /phone-capture/sessions': ['PHONE_CAPTURE_SESSION_CREATED', 'applicants', 'Started a temporary initial-document phone capture connection.'],
   'DELETE /phone-capture/sessions/:id': ['PHONE_CAPTURE_SESSION_CLOSED', 'applicants', 'Closed a temporary phone capture connection.'],
   'PUT /scholars/continuing-schedules/:id': ['CONTINUING_SUBMISSION_SCHEDULE_UPDATED', 'continuing_requirement_schedules', 'Published a continuing-requirements submission schedule.'],

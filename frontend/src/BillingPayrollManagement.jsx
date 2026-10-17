@@ -1,3 +1,4 @@
+import PayoutSchedules from './PayoutSchedules';
 import Notification from './components/Notification';
 import { matchesPayrollListStatus } from './utils/payrollListStatus';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -79,7 +80,7 @@ const matchesDateRange = (value, from, to) => {
   return true;
 };
 
-export default function BillingPayrollManagement({ token, mode = 'billing' }) {
+function BillingPayrollWorkspace({ token, mode = 'billing' }) {
   const isPayroll = mode === 'payroll';
   const [initialHandoff] = useState(() => readProcessingHandoff(mode));
   const defaultBilledFilter = isPayroll ? 'All Billing Statuses' : 'Not billed yet';
@@ -493,4 +494,11 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
     </div>
 
   </>;
+}
+
+export default function BillingPayrollManagement(props) {
+  const [section, setSection] = useState('lists');
+  const [schedulesOpened, setSchedulesOpened] = useState(false);
+  if (props.mode !== 'payroll') return <BillingPayrollWorkspace {...props} />;
+  return <><nav className="examination-workspace-tabs scholars-section-tabs" aria-label="Payroll sections"><button type="button" aria-pressed={section === 'lists'} className={section === 'lists' ? 'active' : ''} onClick={() => setSection('lists')}>Payroll lists</button><button type="button" aria-pressed={section === 'schedules'} className={section === 'schedules' ? 'active' : ''} onClick={() => { setSchedulesOpened(true); setSection('schedules'); }}>Payout schedules</button></nav><div hidden={section !== 'lists'}><BillingPayrollWorkspace {...props} /></div>{schedulesOpened && <div hidden={section !== 'schedules'}><PayoutSchedules token={props.token} /></div>}</>;
 }
