@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
+import { downloadPayrollWorkbook, payrollTemplateColumns } from './utils/payrollWorkbook';
 import { downloadBillingCertificationDocument } from './utils/billingCertificationDocument';
 import CsvExportModal from './components/CsvExportModal';
 import ScholarSchoolIdentity from './components/ScholarSchoolIdentity';
@@ -39,10 +40,12 @@ const payrollMetadataColumns = [
   { key: 'name', label: 'Scholar Name', group: 'Scholar' },
   { key: 'controlNumber', label: 'Control Number', group: 'Scholar' },
   { key: 'email', label: 'Email', group: 'Scholar' },
+  { key: 'municipality', label: 'Municipality', group: 'Scholar' },
   { key: 'status', label: 'Scholar Status', group: 'Scholar' },
   { key: 'billingStatus', label: 'Certification List Status', group: 'Billing & payroll' },
   { key: 'billingReference', label: 'Billing Reference', group: 'Billing & payroll' },
   { key: 'payReference', label: 'Payroll Reference', group: 'Billing & payroll' },
+  { key: 'referenceNumber', label: 'Reference Number', group: 'Billing & payroll', value: (_record, _index, batch) => batch?.batchNumber || '' },
   { key: 'payrollStatus', label: 'Payroll List Status', group: 'Billing & payroll' },
   { key: 'preparationStatus', label: 'Preparation Status', group: 'Grant preparation' },
   { key: 'totalGrant', label: 'Total Grant', group: 'Grant preparation' },
@@ -55,73 +58,10 @@ const payrollMetadataColumns = [
   { key: 'dateProcessed', label: 'Date Processed', group: 'Processing', value: (record) => formatDate(record.dateProcessed) },
 ];
 
-const payrollTemplateColumns = [
-  { key: 'sequence', label: 'No.', width: 7, value: (_record, index) => index + 1 },
-  { key: 'controlNumber', label: 'Control Number', width: 18 },
-  { key: 'name', label: 'Scholar Name', width: 32 },
-  { key: 'school', label: 'School', width: 36 },
-  { key: 'schoolType', label: 'School Type', width: 14 },
-  { key: 'municipality', label: 'Municipality', width: 18 },
-  { key: 'totalGrant', label: 'Total Grant (PHP)', width: 18, currency: true, value: record => Number(record.claimAmount || 0) },
-  { key: 'tuitionFeeAssistance', label: 'Tuition Fee Assistance (PHP)', width: 22, currency: true },
-  { key: 'allowance', label: 'Allowance (PHP)', width: 18, currency: true },
-  { key: 'referenceNumber', label: 'Reference Number', width: 25, value: (_record, _index, batch) => batch?.batchNumber || '' },
-  { key: 'signature', label: 'Signature', width: 28, value: () => '' },
-].map(column => ({ ...column, group: 'Payroll template' }));
 const configurablePayrollColumns = [
   ...payrollTemplateColumns,
   ...payrollMetadataColumns.filter(column => !payrollTemplateColumns.some(template => template.key === column.key) && !['claimAmount', 'payReference'].includes(column.key)).map(column => ({ ...column, width: 24, defaultSelected: false })),
 ];
-
-const downloadPayrollWorkbook = async ({ records, batch, activePeriod, preparationCopy = false, selectedColumns = payrollTemplateColumns }) => {
-  const ExcelJS = await import('exceljs');
-  const Workbook = ExcelJS.Workbook || ExcelJS.default?.Workbook;
-  if (!Workbook) throw new Error('Excel workbook support could not be loaded.');
-  const workbook = new Workbook();
-  workbook.creator = 'PGCEAP Scholarship Management System';
-  workbook.created = new Date();
-  const sheet = workbook.addWorksheet('Official Payroll List', {
-    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
-  });
-  if (!selectedColumns.length) throw new Error('Select at least one export column.');
-  const lastColumn = sheet.getColumn(selectedColumns.length).letter;
-  if (selectedColumns.length > 1) sheet.mergeCells(`A1:${lastColumn}1`);
-  sheet.getCell('A1').value = preparationCopy ? 'PGCEAP PAYROLL LIST - PREPARATION COPY' : 'PGCEAP OFFICIAL PAYROLL LIST';
-  sheet.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FF176B3A' } };
-  sheet.getCell('A1').alignment = { horizontal: 'center' };
-  if (selectedColumns.length > 1) sheet.mergeCells(`A2:${lastColumn}2`);
-  sheet.getCell('A2').value = `${activePeriod?.schoolYear || ''} · ${activePeriod?.semester || ''} · ${batch?.batchNumber || ''}`;
-  sheet.getCell('A2').alignment = { horizontal: 'center' };
-  sheet.addRow([]);
-  const header = sheet.addRow(selectedColumns.map(column => column.label));
-  header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF176B3A' } };
-  header.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-  records.forEach((record, index) => {
-    sheet.addRow(selectedColumns.map(column => column.value ? column.value(record, index, batch) : record[column.key] ?? ''));
-  });
-  const totalIndex = selectedColumns.findIndex(column => column.key === 'totalGrant');
-  if (totalIndex >= 0) {
-    const values = Array(selectedColumns.length).fill('');
-    values[totalIndex] = records.reduce((sum, record) => sum + Number(record.claimAmount || 0), 0);
-    if (selectedColumns.length > 1) values[totalIndex > 0 ? totalIndex - 1 : 1] = 'TOTAL';
-    sheet.addRow(values).font = { bold: true };
-  }
-  selectedColumns.forEach((column, index) => {
-    sheet.getColumn(index + 1).width = column.width || 24;
-    if (column.currency) sheet.getColumn(index + 1).numFmt = '₱#,##0.00';
-  });
-  sheet.views = [{ state: 'frozen', ySplit: 4 }];
-  const buffer = await workbook.xlsx.writeBuffer();
-  const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `${String(preparationCopy ? `payroll-preparation-${new Date().toISOString().slice(0, 10)}` : batch?.batchNumber || 'payroll-list').replace(/[^a-z0-9_-]+/gi, '-')}.xlsx`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
 
 const matchesDateRange = (value, from, to) => {
   if (!from && !to) return true;
