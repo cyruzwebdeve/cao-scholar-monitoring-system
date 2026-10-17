@@ -42,4 +42,4 @@ The DOCX is generated on demand from retained Billing membership and the profile
 
 ## Word-only Billing follow-up
 
-Removed the optional Billing preparation Excel control, modal and workbook generator. Actual Billing checks at desktop/mobile widths passed absence of Excel controls, saved batch then DOCX download, history re-download and retained batch on template-download failure. Actual Payroll Excel picker/download checks and workbook artifact checks passed. Frontend tests, lint/build passed. No production records changed; no backend/migration. Frontend deployment in progress.
+Removed the optional Billing preparation Excel control, modal and workbook generator. Actual Billing checks at desktop/mobile widths passed absence of Excel controls, saved batch then DOCX download, history re-download and retained batch on template-download failure. Actual Payroll Excel picker/download checks and workbook artifact checks passed. Frontend tests, lint/build passed. No production records changed; no backend/migration. Release `ec32db5` verified live in `Dashboard-fp38YdaC.js`, with Billing XLSX markers removed, Word/Payroll Excel retained and healthy API/database.

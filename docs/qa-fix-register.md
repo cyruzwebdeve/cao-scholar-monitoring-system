@@ -81,3 +81,7 @@ Shared `Notification-C4SK8V0v.js` / `Notification-BzWhuijy.css` and affected adm
 ## 2026-10-17 - Continuing submission status card
 
 Frontend release `a7529bc` applies the shared notification to Scholar drawer Continuing submission: amber closed, green open and blue pending initial verification, with existing guidance/access rules retained. No backend, migration or configuration changes. Actual drawer checks for all states at desktop/mobile widths, lint/build passed. Live `Dashboard-DlXRnK6R.js` verified all headings/reopening copy; API/database healthy. Refresh and check Scholar details.
+
+## 2026-10-17 - Word-only Billing exports
+
+Frontend release `ec32db5` removes Billing Export Excel, its column dialog and the Billing workbook generator. Official saved records, Word generation/history and Payroll configurable/official Excel are retained. No backend, migration or configuration change. Actual desktop/mobile Billing generation/history/failure-recovery and Payroll picker/workbook tests, frontend regressions, lint/build passed. Live `Dashboard-fp38YdaC.js` verified retired Billing XLSX markers absent and retained Word/Payroll paths present; API/database healthy. Refresh Billing and confirm only Word-list download actions; use dedicated test records for generation.
