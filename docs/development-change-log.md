@@ -8543,3 +8543,35 @@ Frontend regression suite: 113 passed, zero failures. Backend regression suite: 
 
 ### Limitations, rollback and next work
 Staff should still check readability in the existing preview before pressing the explicit upload/approval action. No new automatic quality assessment is implied. Authenticated real-storage upload verification is not performed without a controlled staff account/document. Revert this frontend change to restore the checkbox; no database rollback is needed. After deployment, hard-refresh the portal and confirm a selected document can be uploaded directly without the checkbox.
+
+### Deployment observation
+Published commit 8020bfa to origin/main through the existing hosting pipeline. The live homepage now references index-CrLXinIc.js, and its staff Dashboard-DtzRx6pI.js returns HTTP 200 JavaScript. The served bundle contains the direct individual-upload action and passive replacement/version-history note and no longer contains the capture-confirm checkbox or its former acknowledgement text. Public API health returns HTTP 200 with database connected. These checks verify frontend rollout and backend availability; no authenticated staff document upload was performed.
+
+
+## 2026-10-18 - Readable previous-document-version layout
+
+**TL;DR**
+- Authorized staff now see each historical document in a separate, spaced row with a clear filename, submission stage, academic period and status.
+- View buttons align consistently and move below details on narrow screens; long filenames wrap instead of running into metadata.
+- History records/order, permissions, private-file access and exact document-version scope are unchanged; no backend or database change.
+- Frontend tests, lint/build and a synthetic narrow-layout preview were checked; deployment has now been requested through the existing hosting pipeline.
+
+### Objective and previous/new behavior
+Correct the crowded Previous document versions section shown in the screenshot. The earlier history markup reused document-entry elements outside the document-list wrapper that supplies row layout and block metadata styles. This let filenames, small metadata and buttons flow together inline. A dedicated DocumentVersionHistory component now renders a semantic list of bordered rows with separate filename, stage/period details, status badge and View action. Repeated filenames remain separate versions; no records are merged, removed or reordered.
+
+### Roles, workflow and implementation
+Only the history section in the staff Scholar Management drawer changes. Documents are passed unchanged from selected.documentHistory, and each View action calls the existing openScholarDocument function with the original document object, preserving application, period, initial/continuing wave and versionId. The existing loading guard disables additional View actions while a file is opening. No applicant/scholar portal upload flow or staff permission assignment changes.
+
+### Areas and impacts
+Changed ScholarsManagement.jsx to mount components/DocumentVersionHistory.jsx; added styles/document-version-history.css; extended tests/scholarPortalLayout.test.js; updated required change logs. API/backend/database/schema/configuration: no impact or migration. Security/privacy: existing authorization and authenticated file streaming are retained, filenames remain React-escaped, no additional data is fetched. Accessibility: semantic list, document-specific View labels, visible focus, readable text statuses independent of color and 44px narrow-screen action targets. Deployment: user requested deployment through the existing main-branch hosting pipeline; no infrastructure change. Legacy payment-oriented areas are untouched and retained outside the approved payroll-list-generation workflow boundary.
+
+### Validation
+Frontend regression suite: 116 passed, zero failures on the initial layout implementation; lint and production build passed with the existing large-bundle warning. Added checks cover separated semantic rows, escaped filenames, distinct status styles, empty histories, exact unchanged View callback scope, loading state, long-name wrapping and narrow-screen layout rules. Inspected a synthetic 410px-wide history preview in headless Chrome with long and repeated filenames; it revealed an undefined loading-label edge case, corrected with an explicit active-loading guard and a regression assertion. Final rerun results follow below. No live records or private document contents were accessed. Backend tests were not rerun for this isolated frontend-only layout change.
+
+### Limitations, rollback and next work
+Synthetic preview does not replace an authenticated drawer check on production. Browser-native opening behavior and stored metadata remain unchanged. After rollout, verify the drawer at desktop and phone widths with a controlled history record. Reverting this component/import/style change restores the previous presentation without any data rollback.
+
+Final validation: 116 frontend tests passed after the loading-label guard correction; lint, production build and git diff --check passed. Deployment requested; public rollout observations follow below.
+
+### Deployment preparation
+Remote main was confirmed at release 8020bfa before publication. Only the document-history component, its scoped styles, Scholar Management integration, regression tests and required logs are included. Existing unrelated local work and synthetic preview artifacts are excluded. No migration, credential change or production data mutation is needed.

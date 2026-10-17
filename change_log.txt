@@ -424,3 +424,7 @@
 2026-10-18 - Published document-upload/viewing release 24035f7; live frontend feature assets verified HTTP 200 and API healthy/database connected. Tester-access gate retained; authenticated private-file viewing still requires in-account verification.
 
 2026-10-18 - Removed the staff initial-document confirmation checkbox and its upload gate. Staff can upload the selected valid draft directly; file validation, authorization, single-document saving, phone-session guard and version history remain unchanged. Deployment requested; verification follows.
+2026-10-18 - Checkbox-removal release 8020bfa deployed; live staff dashboard verified without the acknowledgement checkbox, individual-upload action retained, API healthy/database connected.
+
+2026-10-18 - Fixed Previous document versions layout with distinct file rows, separated filename/period/wave details, readable status badges, aligned View buttons and mobile wrapping. Existing document history and scoped file-view requests retained; frontend-only change, not deployed.
+2026-10-18 - User requested deployment of the verified previous-document-version layout; publishing frontend changes through the existing main-branch pipeline without API/database changes.

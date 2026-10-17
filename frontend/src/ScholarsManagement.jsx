@@ -1,3 +1,4 @@
+import DocumentVersionHistory from './components/DocumentVersionHistory';
 import Notification from './components/Notification';
 import { canManageStaffSection } from './utils/staffAccess';
 import PrivateGrantEditor from './PrivateGrantEditor';
@@ -560,7 +561,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
                 </div>;
               })}</div></section>
               <section className="scholars-detail-section"><h4>Continuing submission</h4><Notification tone={selected.continuingSubmission?.state === 'waiting_initial' ? 'info' : selected.continuingSubmission?.isOpen ? 'success' : 'warning'} title={selected.continuingSubmission?.state === 'waiting_initial' ? 'Initial verification pending' : selected.continuingSubmission?.isOpen ? 'Continuing uploads open' : 'Continuing uploads closed'}>{selected.continuingSubmission?.state === 'waiting_initial' ? 'Waiting for approval of all initial requirements.' : selected.continuingSubmission?.isOpen ? 'Continuing uploads are open for this academic period.' : 'Uploads closed. Admin can reopen them in Continuing Requirements.'}</Notification></section>
-              {selected.documentHistory?.length > 0 && <section className="scholars-detail-section"><h4>Previous document versions</h4>{selected.documentHistory.map((document) => <div className="scholars-document-entry" key={`${document.academicPeriodId}:${document.submissionWave}:${document.versionId}`}><span>{document.fileName}<small>{document.submissionWave} · {document.periodLabel || "Earlier submission"} · {document.status}</small></span><button type="button" className="scholars-document-view" onClick={() => openScholarDocument(document)}>View previous file</button></div>)}</section>}
+              <DocumentVersionHistory documents={selected.documentHistory} onView={openScholarDocument} openingRequirement={openingRequirement} />
               {selected.notes && <section className="scholars-detail-section"><h4>Account notes</h4><p className="scholars-notes">{selected.notes}</p></section>}
             </div>
           ) : drawerTab === 'finance' ? (

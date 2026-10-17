@@ -87,3 +87,44 @@ test('view controls are authenticated and available to staff, applicants, and sc
     const screen = await readFile(new URL(`../src/${file}`, import.meta.url), 'utf8'); assert.ok(screen.includes(guard), file);
   }
 });
+
+test('document history separates filenames, submission details, statuses and actions into list rows', async () => {
+  const History = (await server.ssrLoadModule('/src/components/DocumentVersionHistory.jsx')).default;
+  const documents = [
+    { fileName: 'initial-grades.pdf', academicPeriodId: 10, submissionWave: 'initial', periodLabel: '2027-2028 - 1st Semester', status: 'Approved', versionId: 'first' },
+    { fileName: '<synthetic>.jpg', academicPeriodId: 11, submissionWave: 'continuing', periodLabel: '2027-2028 - 2nd Semester', status: 'Rejected', versionId: 'second' },
+  ];
+  const html = renderToStaticMarkup(createElement(History, { documents }));
+  assert.equal((html.match(/<li /g) || []).length, 2);
+  assert.match(html, /<strong class="scholar-document-history-name">initial-grades.pdf<\/strong>/);
+  assert.match(html, /<span>Initial<\/span><span>2027-2028 - 1st Semester<\/span>/);
+  assert.match(html, /status approved">Approved/);
+  assert.match(html, /status returned">Rejected/);
+  assert.match(html, /&lt;synthetic&gt;.jpg/);
+  assert.equal((html.match(/aria-label="View previous file:/g) || []).length, 2);
+  assert.equal((html.match(/View previous file<\/button>/g) || []).length, 2);
+  assert.doesNotMatch(html, /Opening\.\.\./);
+  assert.equal(renderToStaticMarkup(createElement(History)), '');
+});
+
+test('history View action preserves the exact version and academic-period scope', async () => {
+  const History = (await server.ssrLoadModule('/src/components/DocumentVersionHistory.jsx')).default;
+  const document = { applicationId: 1, requirementKey: 'grades', academicPeriodId: 10, submissionWave: 'initial', versionId: 'old-version', fileName: 'same-name.pdf' };
+  let viewed;
+  const tree = History({ documents: [document], onView: value => { viewed = value; } });
+  const button = tree.props.children[1].props.children[0].props.children[2];
+  button.props.onClick();
+  assert.equal(viewed, document);
+  const busy = renderToStaticMarkup(createElement(History, { documents: [document], openingRequirement: 'grades' }));
+  assert.match(busy, /disabled=""/); assert.match(busy, /Opening\.\.\./);
+});
+
+test('history layout wraps long names and moves actions below content on narrow screens', async () => {
+  const css = await readFile(new URL('../src/styles/document-version-history.css', import.meta.url), 'utf8');
+  assert.match(css, /overflow-wrap: anywhere/);
+  assert.match(css, /minmax\(0, 1fr\)/);
+  assert.match(css, /@media \(max-width: 520px\)/);
+  assert.match(css, /min-height: 44px/);
+  const source = await readFile(new URL('../src/ScholarsManagement.jsx', import.meta.url), 'utf8');
+  assert.match(source, /<DocumentVersionHistory documents=\{selected.documentHistory\} onView=\{openScholarDocument\}/);
+});
