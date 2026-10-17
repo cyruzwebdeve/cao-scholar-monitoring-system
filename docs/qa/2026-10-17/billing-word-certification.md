@@ -31,8 +31,8 @@ Scope: Generate certification list and certification-history downloads use the s
 2. Move eligible prepared Private scholars into the certification queue. Include scholars from two schools if available.
 3. Choose **Generate certification list**. Expect a `.docx` download named after the saved Billing reference.
 4. Open it in Word. Verify the letterhead, school, semester/year, reference, numbered scholar names in two equal columns. Each school has its own letter. Confirm every name appears once, numbering reads 1/2 then 3/4 across rows and restarts at 1 per school, and the odd final cell is blank. No headers, control numbers, course or year-level fields should appear.
-5. Confirm the scholars are Billed and the generated reference appears in Certification history.
-6. Refresh, then choose **Download Word** from history. Confirm the original reference and processing date. This must not create another list.
+5. Confirm the scholars are Billed and the generated reference appears in Billing history.
+6. Refresh, then choose **Download Word** from Billing history. Confirm the original reference and processing date. This must not create another list.
 7. Confirm Billing has no **Export Excel** button or Excel column dialog, including with scholars queued.
 8. Confirm Payroll Generate still downloads Excel and Payroll **Export Excel** retains selectable/reorderable columns without clearing its queue.
 
@@ -43,3 +43,7 @@ The DOCX is generated on demand from retained Billing membership and the profile
 ## Word-only Billing follow-up
 
 Removed the optional Billing preparation Excel control, modal and workbook generator. Actual Billing checks at desktop/mobile widths passed absence of Excel controls, saved batch then DOCX download, history re-download and retained batch on template-download failure. Actual Payroll Excel picker/download checks and workbook artifact checks passed. Frontend tests, lint/build passed. No production records changed; no backend/migration. Release `ec32db5` verified live in `Dashboard-fp38YdaC.js`, with Billing XLSX markers removed, Word/Payroll Excel retained and healthy API/database.
+
+## Billing history label follow-up
+
+The Billing section card now reads **BILLING RECORDS** / **Billing history**. Its empty state reads **No billing history yet**. Stored records and Download Word remain unchanged; official document wording is unchanged. Frontend-only deployment in progress, with no backend or migration.
