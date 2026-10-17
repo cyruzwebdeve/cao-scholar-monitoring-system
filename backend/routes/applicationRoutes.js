@@ -85,7 +85,7 @@ const privateResponse = (req, res, next) => { res.set('Cache-Control', 'no-store
 router.use(auditSuccessfulMutation);
 
 const phoneCaptureWriteLimit = rateLimit({ windowMs: 15 * 60 * 1000, limit: 180, message: { message: 'Too many capture changes. Wait before retrying.' } });
-const phoneCaptureAccess = [authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('scholars', 'examination'), privateResponse];
+const phoneCaptureAccess = [authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars', 'examination'), privateResponse];
 router.post('/phone-capture/sessions', ...phoneCaptureAccess, phoneCaptureWriteLimit, phoneCapture.create);
 router.get('/phone-capture/sessions/:id', ...phoneCaptureAccess, phoneCapture.get);
 router.post('/phone-capture/sessions/:id/pages', ...phoneCaptureAccess, phoneCaptureWriteLimit, phoneCapture.send);
@@ -95,18 +95,18 @@ router.delete('/phone-capture/sessions/:id', ...phoneCaptureAccess, phoneCapture
 
 router.get('/academic-periods/active', getActiveAcademicPeriod);
 router.get('/application-settings', getApplicationSettings);
-router.put('/application-settings', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('settings'), updateApplicationSettings);
+router.put('/application-settings', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), updateApplicationSettings);
 router.get('/examination-settings', authenticate, checkRole(['Applicant', 'Scholar', 'SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getExaminationSettingsController);
-router.put('/examination-settings', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('settings'), updateExaminationSettings);
+router.put('/examination-settings', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), updateExaminationSettings);
 router.get('/online-examination/configuration', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('settings'), onlineExamConfigurationController.get);
 router.put('/online-examination/configuration', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('settings'), onlineExamConfigurationController.save);
 router.get('/scholars/continuing-schedules/:id', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), getContinuingSchedule);
-router.put('/scholars/continuing-schedules/:id', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('scholars'), saveContinuingSchedule);
+router.put('/scholars/continuing-schedules/:id', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), saveContinuingSchedule);
 
 router.get('/academic-periods', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), getAcademicPeriods);
 router.post('/academic-periods', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), createAcademicPeriod);
 router.put('/academic-periods/:id/activate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), activateAcademicPeriod);
-router.put('/academic-periods/:id/requirements-deadline', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('settings'), updateAcademicPeriodRequirementsDeadline);
+router.put('/academic-periods/:id/requirements-deadline', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), updateAcademicPeriodRequirementsDeadline);
 router.put('/academic-periods/:id/primary', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), setPrimaryAcademicPeriod);
 router.put('/academic-periods/:id/deactivate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), deactivateAcademicPeriod);
 
@@ -125,10 +125,10 @@ router.put('/document-reviews/:applicationId/:requirementKey', authenticate, doc
 router.put('/schools/classification', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), updateSchoolClassification);
 router.get('/applicants/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('applicants'), getApplicantManagement);
 router.get('/passer-lists', privateResponse, authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), passerLists.index);
-router.post('/passer-lists', privateResponse, authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('examination'), passerLists.create);
-router.post('/passer-lists/:id/post', privateResponse, authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('examination'), passerLists.post);
-router.get('/passers/:applicantId/intake', privateResponse, authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('examination'), passerLists.intake);
-router.put('/passers/:applicantId/requirements/:requirementKey', authenticate, documentUploadRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('examination'), uploadScholarRequirementByAdmin);
+router.post('/passer-lists', privateResponse, authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), passerLists.create);
+router.post('/passer-lists/:id/post', privateResponse, authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), passerLists.post);
+router.get('/passers/:applicantId/intake', privateResponse, authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), passerLists.intake);
+router.put('/passers/:applicantId/requirements/:requirementKey', authenticate, documentUploadRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), uploadScholarRequirementByAdmin);
 router.get('/results/management', privateResponse, authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), getApplicantManagement);
 router.get('/examinations/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), getExaminationManagement);
 router.put('/examinations/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), saveExaminationManagement);
@@ -172,8 +172,8 @@ router.put('/payroll/billing-batch/:id/release', authenticate, checkRole(['Billi
 router.get('/scholars/eligible', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('payroll'), retiredPayoutWorkflow);
 router.get('/scholars', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), retiredPayoutWorkflow);
 router.get('/scholars/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars', 'billing', 'payroll'), getScholarManagement);
-router.put('/scholars/:applicantId/continuing-requirements/open', authenticate, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('scholars'), openContinuingRequirements);
-router.put('/scholars/:applicantId/requirements/:requirementKey', authenticate, documentUploadRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin']), checkSectionAccess('scholars'), uploadScholarRequirementByAdmin);
+router.put('/scholars/:applicantId/continuing-requirements/open', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), openContinuingRequirements);
+router.put('/scholars/:applicantId/requirements/:requirementKey', authenticate, documentUploadRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), uploadScholarRequirementByAdmin);
 router.put('/scholars/:applicantId/grant-preparation', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin','RegularAdmin','BillingPayrollAdmin']), checkSectionAccess('billing','payroll'), grantPreparation.save);
 router.get('/scholars/:applicantId/tuition-receipt', privateResponse, authenticate, checkRole(['SuperAdmin','RegularAdmin','BillingPayrollAdmin']), checkSectionAccess('billing','payroll'), grantPreparation.receipt);
 router.put('/scholars/:applicantId/billing-details', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing'), validateScholarBillingDetails, updateScholarBillingDetails);

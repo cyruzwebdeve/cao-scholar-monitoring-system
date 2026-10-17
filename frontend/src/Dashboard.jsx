@@ -1,4 +1,5 @@
 import Notification from './components/Notification';
+import { canAccessBillingWorkspace } from './utils/staffAccess';
 import {
   Archive,
   ArrowUpDown,
@@ -1376,6 +1377,9 @@ function ApplicantWorkspace({ token, user, initialView }) {
 }
 
 function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange, onLogout }) {
+  if (user?.role === 'BillingPayrollAdmin' && !canAccessBillingWorkspace(user, activeSection)) {
+    return <Notification tone="error" title="Section unavailable">This section is not assigned to your Billing account.</Notification>;
+  }
   if (activeSection === 'Dashboard' && ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role)) {
     return <DashboardOverview token={token} onSectionChange={onSectionChange} onSessionExpired={onLogout} />;
   }

@@ -8225,3 +8225,72 @@ Latest-branch backend suite: 356 tests, 355 passed, one existing opt-in skip, ze
 The API must be running; downtime and provider quotas delay delivery. Existing notices are opted out to prevent historical blasts. Accounts registered after the first snapshot are not added; expanded audiences and edits do not trigger a second broadcast. Pending deliveries use current saved content and can be cancelled by unchecking email, archiving or losing eligibility. Already accepted mail cannot be recalled. Known failures retry at most three times with five/ten-minute backoff; missing configuration pauses attempts. Exactly-once mail is not guaranteed if provider acceptance is followed by response loss. Unexpected interruptions leave sending rows for operator investigation rather than blind automatic resend. No manual retry UI or stuck-row reclaimer is included. Formal-acceptance emails remain immediate attempts without automatic retry, and failure never undoes the acceptance.
 
 Rollback by reverting matched frontend/backend code while keeping additive schema/queue data; stop workers before maintenance. Do not drop the table as a disable mechanism. Hostinger deployment logs are not accessible through the connected tools, so public API health alone is not proof of the backend revision or migration. Verify the migration in Hostinger logs, then test an intentionally limited audience and official acceptance using controlled test accounts. A matching Hostinger hosting-management plugin was not available; mailbox-only integration is not deployment access.
+
+
+## 2026-10-18 - Notification testing release push outcome
+
+### TL;DR
+- Pushed release 53295da20a47343dd9347adb218aafb5a527d4a4 to the existing main-branch deployment pipeline and confirmed the remote hash.
+- Integrated onto newer remote main ffa1e7f without reverting current workflows or publishing unrelated local files.
+- Latest-branch checks passed: 355 backend tests with one skip, 97 frontend tests, lint/build, Prisma validation/client generation.
+- Public frontend index changed after push; notification asset content, backend revision and migration remain unverified due intermittent connection resets. No live test notification or manual database mutation was performed.
+
+### Objective, reason, previous/new behavior and roles
+Deploy the announcement-notification implementation for authorized testing. Announcement staff gain the audience checkbox and delivery counts; matching registered applicant/scholar accounts receive published notices through the durable queue. Historical notices default off. Formal scholarship acceptance retains the current remote branch's reviewed-result, posted Passer List and initial-document gates and existing approval email. Current priority proof review does not automatically accept a scholar; older local assumptions were not ported or deployed.
+
+### Implementation, data flow and changed areas
+An isolated release based on latest remote main preserves its Manila announcement dates, Post Now actions, optimistic editing checks, validated image handling, shared notification component and capture cleanup. Notification controller/mailer/worker/schema/migration/frontend/tests and matching documentation were committed; old local diagrams, maintenance artifacts, ignore edits and unrelated log changes were excluded. A single push fast-forwarded main from ffa1e7f to 53295da. Normal hosting builds are expected to generate Prisma and apply the additive notification migration before startup; no workstation migration was executed.
+
+### API/database/configuration/security/privacy/accessibility/deployment impact
+Existing announcement APIs gain additive delivery preference/queue/count fields. The additive migration creates delivery state and two announcement columns, preserving data and disabling historical broadcasts. Existing Gmail/public app URL configuration and role/section/tester gates remain unchanged; no new secrets, permissions, provider or dependency. One recipient per email prevents address-list disclosure, and queue rows contain IDs/status rather than copied addresses/content. Native labeled checkbox and current status UI are retained. No additional deployment configuration change was made. Legacy payment-oriented functionality is retained unchanged outside approved scope; no release, claiming, disbursement, reconciliation or monetary-audit behavior was added.
+
+### Validation and observations
+The isolated latest-branch test run passed 355 backend checks, with one existing opt-in skip, and all 97 frontend tests. Frontend ESLint/build, Prisma validation/client generation and final staged whitespace check passed. Existing bundle-size warnings remain. Remote main was confirmed at the exact pushed commit. Baseline frontend/API health were HTTP 200/database connected. After push, the public index changed from index-D4RMRgpm.js to index-BT2O20_Y.js; subsequent asset and API fetches intermittently failed with ECONNRESET. Those resets are not evidence of a failed hosting build, nor is the changed frontend index proof that the backend migration succeeded. No private record, authenticated portal, test email, announcement post or scholarship decision was exercised.
+
+### Limitations, rollback and next work
+Hostinger build logs and database migration outcomes are not accessible through the connected tools. Confirm the backend build completed and migration 20261018000000_announcement_email_notifications applied before testing. Refresh the frontend, then use a deliberately limited recipient audience and controlled account; avoid Everyone for a mail test. Do not create duplicate applications to test email. Rollback with a matched code revert while retaining additive schema/queue history, never with data reset. Original checkout and unrelated local work remain preserved; continued development must account for the newer release baseline. This outcome is recorded locally without another rebuild-triggering documentation push.
+
+## 2026-10-18 - Billing operational parity within existing visible sections
+
+### TL;DR
+- Billing gains the formerly restricted SuperAdmin operational actions in its assigned visible sections, without becoming SuperAdmin.
+- Existing hidden Staff, Activity Logs, School Catalog, System Health and Online Questions surfaces stay hidden; hidden management/question APIs remain denied.
+- Existing section assignments, decision/document validations, owner checks and retired payment-release restrictions remain enforced. No database/account/configuration changes.
+- Backend suite: 359 passed, one existing skip; frontend suite: 101 passed. ESLint, production build and whitespace checks passed. Authorized deployment is prepared; live role testing remains pending.
+
+### Objective and reason
+Implement the requested operational access for the Billing account while preserving every already-hidden section. Use explicit action allowlists rather than role impersonation or a global SuperAdmin bypass. Prepare a testing deployment on top of notification release 53295da, preserving all newer production workflows and unrelated local work.
+
+### Previous and new behavior
+Billing could see the main workspaces but several controls and backend routes still allowed only SuperAdmin/RegularAdmin. Billing can now change application availability and examination delivery settings, manage requirements deadlines, update continuing submission access, open continuing requirements, upload scholar/initial documents, use owner-scoped phone capture, and create/post Passer Lists or view/upload passer intake documents. These routes still require their existing settings, scholars or examination assignment and all original controller validations. Existing Billing operations, result decision gates, announcements and list generation are unchanged.
+
+Billing remains BillingPayrollAdmin; saved section_access, admin role, is_super_admin and authentication versions are not modified. Hidden Staff and Activity Logs navigation stays absent. School Catalog and System Health remain SuperAdmin-only panels. The already-hidden Online Questions editor remains hidden and its read/write endpoints continue to deny Billing, including access to question keys. Existing public health endpoints are unchanged. A stale/direct Billing dashboard selection is now rejected when it targets a hidden, unknown or unassigned workspace. Assigned Applicants access retains the existing Applicants-or-Examination visibility rule.
+
+### Affected roles and workflows
+Billing receives operational parity only within assigned visible workspaces; an empty section assignment still grants no access. SuperAdmin continues to bypass section assignments, and RegularAdmin permissions remain otherwise unchanged. Applicant/Scholar self-service, staff creation/password/role management and activity-log access are not broadened. Document review and scholarship approval requirements, exact result revisions, posted Passer Lists, period isolation and one-family safeguards remain authoritative.
+
+### Implementation and data flow
+- backend/routes/applicationRoutes.js explicitly adds BillingPayrollAdmin to eleven existing role gates covering sixteen operational routes, including shared phone-capture handlers. No change is made to the global role middleware or hidden management/question routes. Existing section checks, authentication, write limits and audit hooks remain in the same order.
+- frontend/src/utils/staffAccess.js provides role-and-section-aware action checks and an explicit Billing workspace allowlist. It does not mutate user roles or assignments.
+- SettingsManagement.jsx enables visible settings actions for assigned Billing staff but independently keeps Online Questions restricted to its original roles. Existing SuperAdmin-only embedded panels remain unchanged.
+- ScholarsManagement.jsx enables staff document uploads and continuing controls for Billing with Scholars access.
+- Dashboard.jsx rejects hidden/unassigned Billing workspace selections instead of mounting or falling back to content.
+- billingOperationalAccess.test.js exercises real authentication and route guards against injected no-write controller probes, checking assigned/unassigned/anonymous cases, hidden APIs and retired release routes.
+- requirementWaves.test.js replaces obsolete Billing-denial expectations with real-controller positive upload/open checks while retaining anonymous, Scholar and unassigned-staff denial tests.
+- Frontend staffAccess/examinationSettings tests cover section narrowing, unchanged role identity, hidden workspace selections, enabled settings actions and retained hidden sidebar/subpanels.
+
+### Impact assessment
+- API: existing route role allowlists expand only for the specified operational actions; payloads, URLs and controller rules are unchanged. No new endpoint.
+- Database: no schema, migration, backfill, account-role or assignment change. Existing sessions resolve the same Billing role; no manual database operation is required. The earlier notification migration remains a separate hosting build prerequisite if still pending.
+- Configuration/dependencies: no change. Existing production build and GitHub-to-Hostinger pipeline are reused.
+- Security: least-privilege section assignment remains enforced at backend guards and frontend action/workspace checks. Billing cannot manage staff or grant itself SuperAdmin access, read activity logs/catalog administration, or fetch/save hidden online question configuration. Capture session ownership and all document/decision checks remain unchanged. Existing classification operations are not modified.
+- Privacy: no new personal-data collection, exports, logging fields or notification recipients. Billing can now perform operational uploads in its authorized section under the existing storage/access controls.
+- Accessibility: existing labeled controls are enabled rather than replaced; native checkbox/button behavior and shared Notification feedback are retained. Unauthorized direct selections show a visible error.
+- Deployment: matched frontend/backend release is required for testing. No new migration or hosting-setting change is introduced by this permissions release. No production data or authenticated user operation has been performed during implementation.
+- Approved scope: no fund release, claiming, disbursement confirmation, reconciliation or monetary auditing is introduced. Legacy payout routes remain retired with HTTP 410; untouched legacy activation/score compatibility paths are not newly granted to Billing.
+
+### Validation and results
+Full backend suite: 360 tests, 359 passed, one existing opt-in database-dependent skip, zero failed. Full frontend suite: 101 passed, zero failed. ESLint and production build passed, retaining existing large-chunk warnings. Whitespace checks passed. Initial full regression correctly exposed two old tests assuming Billing must be denied; they were updated to the requested access contract, with positive real-controller tests and new negative route tests rather than weakening section checks. Controller probes do not write records, upload files or send mail. Hosted authenticated visual testing and deployment completion are not yet claimed.
+
+### Limitations, rollback and next work
+This is not blanket SuperAdmin elevation: hidden sections and account-specific section assignments remain authoritative. Accounts lacking a section must still be assigned it by SuperAdmin through existing staff management; this release does not unhide it automatically. Refresh the browser after both hosting builds, then test Billing settings, initial upload/continuing controls and Passer List actions on controlled records; verify hidden sections remain absent and forbidden APIs return 403. Rollback by reverting the matched code release; no database/account rollback is needed. Keep the earlier additive notification schema if rolling back only this change. Provider-only build/migration completion may require Hostinger log confirmation because hosting management is not connected. Unrelated original local files and reset/cleanup artifacts remain excluded.

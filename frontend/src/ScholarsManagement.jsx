@@ -1,4 +1,5 @@
 import Notification from './components/Notification';
+import { canManageStaffSection } from './utils/staffAccess';
 import PrivateGrantEditor from './PrivateGrantEditor';
 import InitialRequirementCapture from './InitialRequirementCapture';
 import ContinuingRequirementsSettings from './ContinuingRequirementsSettings';
@@ -121,8 +122,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     || user.sectionAccess.includes(selected?.processRoute === 'payroll' ? 'payroll' : 'billing');
   const canReviewDocuments = ['SuperAdmin', 'BillingPayrollAdmin'].includes(user?.role)
     && (user?.role === 'SuperAdmin' || !Array.isArray(user?.sectionAccess) || user.sectionAccess.includes('documentReviews'));
-  const canUploadScholarRequirements = ['SuperAdmin', 'RegularAdmin'].includes(user?.role)
-    && (user?.role === 'SuperAdmin' || !Array.isArray(user?.sectionAccess) || user.sectionAccess.includes('scholars'));
+  const canUploadScholarRequirements = canManageStaffSection(user, 'scholars');
   const canViewScholarDocuments = canReviewDocuments || canUploadScholarRequirements;
   const canOpenSettings = user?.role === 'SuperAdmin'
     || !Array.isArray(user?.sectionAccess)

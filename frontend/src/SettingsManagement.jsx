@@ -18,6 +18,7 @@ import SystemHealthPanel from './components/SystemHealthPanel';
 import SchoolCatalogManagement from './SchoolCatalogManagement';
 import SettingsTabs from './components/SettingsTabs';
 import OnlineQuestionsSettings from './OnlineQuestionsSettings';
+import { canManageStaffSection } from './utils/staffAccess';
 
 const emptyPeriodForm = { schoolYear: '', semester: '1st Semester', startDate: '', endDate: '' };
 const emptyAvailability = { isEnabled: true, opensAt: '', closesAt: '', state: 'open', isOpen: true };
@@ -86,8 +87,9 @@ export default function SettingsManagement({ token, user }) {
   const [requirementsDeadlineSaving, setRequirementsDeadlineSaving] = useState(false);
   const [requirementsDeadlineError, setRequirementsDeadlineError] = useState('');
   const [requirementsDeadlineNotice, setRequirementsDeadlineNotice] = useState('');
-  const canManagePeriods = ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role);
-  const canManageApplications = ['SuperAdmin', 'RegularAdmin'].includes(user?.role);
+  const canManagePeriods = canManageStaffSection(user, 'settings');
+  const canManageApplications = canManageStaffSection(user, 'settings');
+  const canEditQuestions = ['SuperAdmin', 'RegularAdmin'].includes(user?.role) && canManageApplications;
   const activePeriod = periods.find((period) => period.isPrimary)
     || periods.find((period) => period.isActive)
     || null;
@@ -529,7 +531,7 @@ export default function SettingsManagement({ token, user }) {
           <button className="settings-save" disabled={!canManageApplications || examinationLoading || examinationSaving} onClick={saveExamMode}><Save size={15} />{examinationSaving ? ' Saving…' : ' Save examination setting'}</button>
         </div>
       </section>
-      {canManageApplications && <OnlineQuestionsSettings token={token} active={activeTab === 'examination'} />}
+      {canEditQuestions && <OnlineQuestionsSettings token={token} active={activeTab === 'examination'} />}
       </div>
 
       {examinationSaveNotice && (

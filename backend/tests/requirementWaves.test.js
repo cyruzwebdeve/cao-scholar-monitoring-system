@@ -185,14 +185,23 @@ before(async () => {
 });
 after(async () => { await new Promise((resolve) => server.close(resolve)); });
 const authHeader = (id, accountType = 'admin') => ({ Authorization: `Bearer ${jwt.sign({ userId: id, accountType, authVersion: 0 }, process.env.JWT_SECRET)}` });
-test('actual wave-opening and initial-upload routes reject anonymous, Scholar, Billing, and staff without Scholars access', async () => {
-  for (const headers of [{}, authHeader(7, 'control'), authHeader(4), authHeader(3)]) {
+test('actual wave-opening and initial-upload routes reject anonymous, Scholar and staff without Scholars access', async () => {
+  for (const headers of [{}, authHeader(7, 'control'), authHeader(3)]) {
     for (const url of ['/scholars/7/continuing-requirements/open', '/scholars/7/requirements/grades']) {
       setup(); const res = await fetch(baseUrl + url, { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ academicPeriodId: 10, ...file() }) });
       assert.equal(res.status, headers.Authorization ? 403 : 401); assert.equal(writes, 0);
     }
   }
 });
+test('Billing with Scholars access can open continuing requirements and upload initial files through real controllers', async () => {
+  for (const url of ['/scholars/7/continuing-requirements/open', '/scholars/7/requirements/grades']) {
+    setup();
+    const res = await fetch(baseUrl + url, { method: 'PUT', headers: { ...authHeader(4), 'Content-Type': 'application/json' }, body: JSON.stringify({ academicPeriodId: 10, ...file() }) });
+    assert.equal(res.status, 200);
+    assert.ok(writes > 0);
+  }
+});
+
 test('actual Scholar-only continuing endpoint denies staff and enforces wave opening for Scholar', async () => {
   setup();
   const body = JSON.stringify({ academicPeriodId: 10, requirement: 'grades', ...file() });
@@ -258,8 +267,8 @@ test('period access ignores retired late selections and enforces global close/re
   uploadsOpen = true; assert.equal((await scholarUpload('grades')).statusCode, 200);
   delete prisma.continuing_requirement_schedules;
 });
-test('Schedule mutation routes reject unauthenticated users, scholars, Billing staff and staff lacking Scholars access', async () => {
-  for (const headers of [{}, authHeader(7, 'control'), authHeader(4), authHeader(3)]) {
+test('Schedule mutation routes reject unauthenticated users, scholars and staff lacking Scholars access', async () => {
+  for (const headers of [{}, authHeader(7, 'control'), authHeader(3)]) {
     setup(); const res = await fetch(baseUrl + '/scholars/continuing-schedules/10', { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
     assert.equal(res.status, headers.Authorization ? 403 : 401);
   }

@@ -10,11 +10,13 @@ let server;
 let SettingsTabs;
 let OnlineQuestionsSettings;
 let SettingsManagement;
+let Sidebar;
 before(async () => {
   server = await createServer({ root: fileURLToPath(new URL('../', import.meta.url)), server: { middlewareMode: true, hmr: false }, appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] } });
   ({ default: SettingsTabs } = await server.ssrLoadModule('/src/components/SettingsTabs.jsx'));
   ({ default: OnlineQuestionsSettings } = await server.ssrLoadModule('/src/OnlineQuestionsSettings.jsx'));
   ({ default: SettingsManagement } = await server.ssrLoadModule('/src/SettingsManagement.jsx'));
+  ({ default: Sidebar } = await server.ssrLoadModule('/src/components/Sidebar.jsx'));
 });
 after(async () => { await server?.close(); });
 
@@ -39,11 +41,13 @@ test('Examination panel contains delivery controls followed by the authorized qu
   assert.doesNotMatch(html.slice(0, panelStart), /Online Questions<\/h3>|Online Examination<\/h3>/);
 });
 
-test('Billing staff retain two tabs but cannot see the question editor or enable delivery changes', () => {
+test('Billing can manage visible Settings controls while question editor and hidden panels stay hidden', () => {
   const html = renderToStaticMarkup(createElement(SettingsManagement, { token: '', user: { role: 'BillingPayrollAdmin' } }));
   assert.equal((html.match(/role="tab"/g) || []).length, 2);
   assert.doesNotMatch(html, /online-questions-settings|Online Questions<\/h3>/);
-  assert.match(html, /<input type="checkbox" disabled=""/);
+  assert.match(html, /Save application/);
+  assert.match(html, /Save examination setting/);
+  assert.doesNotMatch(html, /school-catalog|System Health|settings-availability-readonly/);
 });
 
 test('tab keyboard navigation supports arrows, Home and End with focus movement', () => {
@@ -57,6 +61,15 @@ test('tab keyboard navigation supports arrows, Home and End with focus movement'
     assert.equal(focused, expected);
     assert.equal(prevented, true);
   }
+});
+
+test('Billing without Settings assignment stays read-only and its sidebar retains hidden sections', () => {
+  const html = renderToStaticMarkup(createElement(SettingsManagement, { token: '', user: { role: 'BillingPayrollAdmin', sectionAccess: [] } }));
+  assert.doesNotMatch(html, /Save application setting|Online Questions<\/h3>/);
+  assert.match(html, /settings-availability-readonly/);
+  const sidebar = renderToStaticMarkup(createElement(Sidebar, { role: 'BillingPayrollAdmin', sectionAccess: ['scholars', 'settings'] }));
+  assert.match(sidebar, />Scholars<|>Settings</);
+  assert.doesNotMatch(sidebar, />Staff<|>Activity Logs<|>School Catalog<|>Payroll<|>Billing</);
 });
 
 test('question configuration clearly discloses versioning, scale and required objective grading', () => {
