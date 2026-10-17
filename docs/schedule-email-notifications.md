@@ -12,8 +12,11 @@ portal notice or email. Published recipient groups remain fixed under existing r
 Staff messages distinguish **portal notifications saved** from **Gmail notices
 queued**. The schedule directory displays pending, sent, failed, sending and
 cancelled email counts for its current revision. Sent means provider acceptance,
-not proof that an email reached the inbox or was read. Scholar portal notices and
-the existing schedule cards remain available even while delivery is pending.
+not proof that an email reached the inbox or was read. Scholar portal notices in
+the existing latest-update/announcement area and notification history remain
+available while delivery is pending. The duplicate "Your payout schedules"
+history section has been removed from the Scholar Portal; admin saved-schedule
+cards and stored schedule history remain available and are not deleted.
 
 The email includes the notice/event title, Payroll list reference, Philippine-time
 dates, venue, relevant instructions or cancellation reason, and a link to the

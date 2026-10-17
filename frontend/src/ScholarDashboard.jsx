@@ -1,4 +1,3 @@
-import ScholarPayoutSchedules from './components/ScholarPayoutSchedules';
 import Notification from './components/Notification';
 import {
   Bell,
@@ -365,8 +364,6 @@ function ScholarDashboard({ token, user, onLogout }) {
           <div><p className="scholar-eyebrow">SCHOLAR ACCOUNT</p><h1>Good morning, {displayName}!</h1><p>Here’s a quick look at your scholarship progress and next steps.</p></div>
           <div className="scholar-welcome-icon"><GraduationCap size={42} /></div>
         </section>
-
-        <ScholarPayoutSchedules token={token} />
 
         {(announcementError || notificationsError) && <Notification tone="error" title="Unable to refresh updates" action={<button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry updates</button>}>{announcementError || notificationsError} Announcements or notifications may be out of date.</Notification>}
         {requirementsError && <Notification tone="error" title="Unable to load scholar requirements" action={<button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry now</button>}>{requirementsError}</Notification>}
