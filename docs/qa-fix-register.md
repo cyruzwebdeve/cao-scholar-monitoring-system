@@ -77,3 +77,7 @@ Frontend-only release `0ae5908` replaces tiny certificate feedback with a dismis
 Frontend release `264c2e6` standardizes 49 notification locations across 17 screens/components, retaining retry callbacks, blocking safeguards and input state. Shared success/error/warning/info/progress cards have readable copy, icons, keyboard controls and accessible roles. No backend, migration or deployment-configuration changes.
 
 Shared `Notification-C4SK8V0v.js` / `Notification-BzWhuijy.css` and affected admin, phone-capture, examination, applicant and scholar bundles verified live; API/database healthy. Frontend regressions, lint/build, multi-width browser checks and synthetic capture/grant/passer/announcement retry workflows passed. No production writes were performed. Staff checklist and scope: [notification layouts](qa/2026-10-17/notification-layouts.md).
+
+## 2026-10-17 - Continuing submission status card
+
+Frontend release `a7529bc` applies the shared notification to Scholar drawer Continuing submission: amber closed, green open and blue pending initial verification, with existing guidance/access rules retained. No backend, migration or configuration changes. Actual drawer checks for all states at desktop/mobile widths, lint/build passed. Live `Dashboard-DlXRnK6R.js` verified all headings/reopening copy; API/database healthy. Refresh and check Scholar details.
