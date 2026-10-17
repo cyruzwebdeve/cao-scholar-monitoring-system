@@ -1,3 +1,4 @@
+import Notification from './components/Notification';
 import { useEffect, useRef, useState } from 'react';
 import { API_BASE, authHeaders } from './services/api';
 export default function PrivateGrantEditor({ record, period, token, onSaved, onBusyChange, onContinue }) {
@@ -37,7 +38,7 @@ export default function PrivateGrantEditor({ record, period, token, onSaved, onB
       <label className="scholar-grant-tuition"><span>Tuition Fee Assistance (PHP)</span><input required type="number" min="0" max="5000" step="0.01" value={tuition} onChange={(event)=>{setTuition(event.target.value);setError('');}} disabled={busy} aria-describedby="scholar-grant-tuition-help" /><small id="scholar-grant-tuition-help">PHP 0–5,000. Enter 0 if no tuition assistance applies.</small></label>
       <label className="scholar-grant-allowance"><span>Allowance (PHP)</span><input value={allowance} readOnly /><small>Computed automatically.</small></label>
     </div>
-    {tuition!==''&&!valid&&<p role="alert" className="scholar-grant-error">Use an amount from PHP 0 to PHP 5,000 with up to two decimal places.</p>}{error&&<p role="alert" className="scholar-grant-error">{error}</p>}
+    {tuition!==''&&!valid&&<Notification tone="error" title="Check tuition assistance">Use an amount from PHP 0 to PHP 5,000 with up to two decimal places.</Notification>}{error&&<Notification tone="error" title="Grant preparation needs attention">{error}</Notification>}
     <button className="scholar-grant-save" type="submit" disabled={busy||receiptBusy||!valid}>{busy?(onContinue?'Adding…':'Saving…'):onContinue?'Add to billing':record.grantPrepared?'Update prepared record':'Save as Prepared'}</button>
   </form>;
 }

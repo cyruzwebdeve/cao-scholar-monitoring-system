@@ -1,3 +1,4 @@
+import Notification from './components/Notification';
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, Save, RefreshCw, Trash2 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
@@ -65,13 +66,13 @@ export default function OnlineQuestionsSettings({ token, active }) {
   return <section className="settings-card online-questions-settings">
     <div className="settings-card-heading"><div><span className="settings-eyebrow">OPTIONAL ONLINE EXAMINATION</span><h3>Online Questions</h3><p>Edit the question bank and server-side answer keys. Saving creates a new version for subsequently opened examinations; it does not activate online delivery.</p></div></div>
     <p className="online-questions-warning">The examination remains out of 20 points. Identification requires accepted answers (ignoring case and repeated spaces). Essays and completion credit are not supported in automatic grading. Replace legacy essays with objectively scored questions and add identification answer keys before applicants start. Existing results are preserved.</p>
-    {error && <p role="alert" className="settings-period-message error">{error}</p>}
-    {notice && <p role="status" className="settings-period-message success">{notice}</p>}
+    {error && <Notification tone="error" title="Question settings need attention">{error}</Notification>}
+    {notice && <Notification tone="success" title="Question settings saved" onDismiss={() => setNotice('')}>{notice}</Notification>}
     <button type="button" className="settings-save" disabled={loading || saving} onClick={() => { if (!dirty || window.confirm('Discard unsaved question edits and reload the saved version?')) { setNotice(''); void load(); } }}><RefreshCw size={15} />{loading ? 'Loading…' : 'Reload saved questions'}</button>
     {configuration && <form onSubmit={save}>
       <fieldset disabled={loading || saving}>
         <legend>Question configuration · Version {configuration.id || 'built-in'}{dirty ? ' · Unsaved changes' : ''}</legend>
-        {requiresReview && <p role="alert">This bank cannot be used for automatic examinations yet. Replace essays and complete accepted-answer keys, then save a new version.</p>}
+        {requiresReview && <Notification tone="warning" title="Question bank review required">This bank cannot be used for automatic examinations yet. Replace essays and complete accepted-answer keys, then save a new version.</Notification>}
         <div className="online-question-fields">
           <label>Examination title<input required maxLength={150} value={configuration.title} onChange={(event) => edit({ ...configuration, title: event.target.value })} /></label>
           <label>Passing score (out of 20)<input required type="number" min="1" max="20" step="1" value={configuration.passingScore} onChange={(event) => edit({ ...configuration, passingScore: event.target.value === '' ? '' : Number(event.target.value) })} /></label>
@@ -90,10 +91,10 @@ export default function OnlineQuestionsSettings({ token, active }) {
           </>}
           {question.type === 'true-false' && <label>Correct answer<select value={question.answer} onChange={(event) => updateQuestion(question.id, { answer: event.target.value })}><option value="TRUE">TRUE</option><option value="FALSE">FALSE</option></select></label>}
           {question.type === 'identification' && <>
-            {question.grading === 'completion' && <p role="alert">This legacy item needs an accepted-answer key before saving.</p>}
+            {question.grading === 'completion' && <Notification tone="warning" title="Answer key required">This legacy item needs an accepted-answer key before saving.</Notification>}
             <label>Accepted answers (one per line, up to 10)<textarea required rows={3} value={(question.acceptedAnswers || []).join('\n')} onChange={(event) => updateQuestion(question.id, { grading: 'answer', acceptedAnswers: event.target.value.split('\n') })} /></label>
           </>}
-          {question.type === 'essay' && <p role="alert">Replace this essay with a multiple-choice, true-or-false or keyed identification question, or remove it and allocate its points to objective questions. Total points must remain 20.</p>}
+          {question.type === 'essay' && <Notification tone="warning" title="Essay replacement required">Replace this essay with a multiple-choice, true-or-false or keyed identification question, or remove it and allocate its points to objective questions. Total points must remain 20.</Notification>}
           <button type="button" className="online-question-remove" onClick={() => edit({ ...configuration, questions: configuration.questions.filter(({ id }) => id !== question.id) })}><Trash2 size={14} />Remove question {index + 1}</button>
         </fieldset>)}
         <div className="online-question-actions">

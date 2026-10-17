@@ -1,3 +1,4 @@
+import Notification from './components/Notification';
 import { getApplicantExaminationSummary } from './utils/applicantExamination';
 import {
   Bell,
@@ -490,7 +491,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
           </section>
         </div>
 
-        {initialVerification && <section className="applicant-card passer-initial-status" aria-label="Initial requirement verification"><h3>Initial requirements · CAO upload</h3><p>Submit hard copies to CAO. Admins upload and verify these documents before accepting you as a Scholar.</p><div className="scholar-requirements-list">{initialVerification.documents.map((document) => <div className="scholar-requirement-item" key={document.requirementKey}><div><strong>{document.label}</strong><small>{document.fileName || (document.optional ? 'Optional · provide if available' : 'Awaiting CAO upload')}</small></div><span>{document.status}</span></div>)}</div><p role="status">{initialVerification.verified ? 'Required initial documents verified. Awaiting official Scholar acceptance.' : 'Initial verification in progress. You are an examination passer; Scholar registration is pending.'}</p></section>}
+        {initialVerification && <section className="applicant-card passer-initial-status" aria-label="Initial requirement verification"><h3>Initial requirements · CAO upload</h3><p>Submit hard copies to CAO. Admins upload and verify these documents before accepting you as a Scholar.</p><div className="scholar-requirements-list">{initialVerification.documents.map((document) => <div className="scholar-requirement-item" key={document.requirementKey}><div><strong>{document.label}</strong><small>{document.fileName || (document.optional ? 'Optional · provide if available' : 'Awaiting CAO upload')}</small></div><span>{document.status}</span></div>)}</div><Notification tone={initialVerification.verified ? 'success' : 'info'} title="Initial requirement verification">{initialVerification.verified ? 'Required initial documents verified. Awaiting official Scholar acceptance.' : 'Initial verification in progress. You are an examination passer; Scholar registration is pending.'}</Notification></section>}
 
         <section className="applicant-bottom-grid">
           <PortalGuidance
@@ -527,7 +528,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
               </div>
               <FileText size={20} className="applicant-heading-icon" />
             </div>
-            {announcementError && <div role="status"><p>{announcementError} Existing notices may be out of date.</p><button type="button" onClick={() => setAnnouncementRefresh((value) => value + 1)}>Retry announcements</button></div>}
+            {announcementError && <Notification tone="error" title="Unable to refresh announcements" action={<button type="button" onClick={() => setAnnouncementRefresh((value) => value + 1)}>Retry announcements</button>}>{announcementError} Existing notices may be out of date.</Notification>}
             {showExamSchedule && (
               <div className={`applicant-exam-announcement${examActivated ? '' : ' pending'}`}>
                 <div className="applicant-exam-announcement-heading">

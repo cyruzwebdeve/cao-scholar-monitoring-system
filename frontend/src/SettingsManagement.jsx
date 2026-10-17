@@ -1,3 +1,4 @@
+import Notification from './components/Notification';
 import { useCallback, useEffect, useState } from 'react';
 import {
   CalendarClock,
@@ -380,8 +381,8 @@ export default function SettingsManagement({ token, user }) {
           <Power size={24} />
         </div>
 
-        {availabilityError && <div className="settings-period-message error" role="status"><TriangleAlert size={15} /><span>{availabilityError}</span><button type="button" onClick={loadAvailability}>Retry</button></div>}
-        {availabilityNotice && <div className="settings-period-message success" role="status"><Check size={15} /><span>{availabilityNotice}</span></div>}
+        {availabilityError && <Notification tone="error" title="Application availability needs attention" action={<button type="button" onClick={loadAvailability}>Retry</button>}>{availabilityError}</Notification>}
+        {availabilityNotice && <Notification tone="success" title="Application availability updated">{availabilityNotice}</Notification>}
 
         <form className="settings-availability-form" onSubmit={saveAvailability}>
           <div className={`settings-availability-status ${availability.isOpen ? 'open' : availability.state || 'disabled'}`}>
@@ -422,8 +423,8 @@ export default function SettingsManagement({ token, user }) {
           <CalendarRange size={24} />
         </div>
 
-        {periodError && <div className="settings-period-message error" role="status"><TriangleAlert size={15} /><span>{periodError}</span><button type="button" onClick={loadPeriods}>Retry</button></div>}
-        {periodNotice && <div className="settings-period-message success" role="status"><Check size={15} /><span>{periodNotice}</span></div>}
+        {periodError && <Notification tone="error" title="Academic period needs attention" action={<button type="button" onClick={loadPeriods}>Retry</button>}>{periodError}</Notification>}
+        {periodNotice && <Notification tone="success" title="Academic period updated">{periodNotice}</Notification>}
 
         <div className="settings-active-period">
           <div className="settings-active-period-icon"><CalendarRange size={21} /></div>
@@ -468,8 +469,8 @@ export default function SettingsManagement({ token, user }) {
           <CalendarClock size={24} />
         </div>
 
-        {requirementsDeadlineError && <div className="settings-period-message error" role="alert"><TriangleAlert size={15} /><span>{requirementsDeadlineError}</span></div>}
-        {requirementsDeadlineNotice && <div className="settings-period-message success" role="status"><Check size={15} /><span>{requirementsDeadlineNotice}</span></div>}
+        {requirementsDeadlineError && <Notification tone="error" title="Requirements deadline needs attention">{requirementsDeadlineError}</Notification>}
+        {requirementsDeadlineNotice && <Notification tone="success" title="Requirements deadline updated">{requirementsDeadlineNotice}</Notification>}
 
         <form className="settings-requirements-deadline-form" onSubmit={saveRequirementsDeadline}>
           <div className={`settings-availability-status ${requirementsPeriod?.requirementsSubmission?.state === 'closed' ? 'disabled' : 'open'}`}>
@@ -516,7 +517,7 @@ export default function SettingsManagement({ token, user }) {
       <div className="settings-tab-panel" id="settings-panel-examination" role="tabpanel" aria-labelledby="settings-tab-examination" hidden={activeTab !== 'examination'}>
       <section className="settings-card settings-examination-card">
         <div className="settings-card-heading"><div><span className="settings-eyebrow">OPTIONAL ONLINE DELIVERY</span><h3>Online Examination</h3><p>Paper and Pen remains primary. Select Online only when CAO intends applicants to answer through the portal. Access also requires an active municipality schedule, its permitted dates, and Present attendance.</p></div><Monitor size={24} /></div>
-        {examinationError && <div className="settings-period-message error" role="status"><TriangleAlert size={15} /><span>{examinationError}</span><button type="button" onClick={loadExaminationSettings}>Retry</button></div>}
+        {examinationError && <Notification tone="error" title="Examination settings needs attention" action={<button type="button" onClick={loadExaminationSettings}>Retry</button>}>{examinationError}</Notification>}
         <div className={`settings-availability-status ${examinationEnabled ? 'open' : 'disabled'}`}>
           <span className="settings-availability-status-icon"><Power size={18} /></span>
           <div><small>EXAMINATION MODE</small><strong>{examinationEnabled ? 'Active' : 'Inactive'}</strong><span>{examinationEnabled ? 'Eligible applicants can access their active municipality schedule.' : 'All applicant examination question views are blocked.'}</span></div>

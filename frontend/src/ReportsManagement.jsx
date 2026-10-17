@@ -1,3 +1,4 @@
+import Notification from './components/Notification';
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ChartColumn,
@@ -8,7 +9,6 @@ import {
   MapPin,
   RefreshCw,
   Search,
-  TriangleAlert,
   UsersRound,
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
@@ -263,14 +263,10 @@ export default function ReportsManagement({ token }) {
       </header>
 
       {loadError && (
-        <div className="reports-error" role="status">
-          <TriangleAlert size={17} />
-          <span>{loadError}</span>
-          <button type="button" onClick={() => loadReports({ showLoader: true })}><RefreshCw size={14} /> Retry</button>
-        </div>
+        <Notification tone="error" title="Unable to load reports" action={<button type="button" onClick={() => loadReports({ showLoader: true })}><RefreshCw size={14} /> Retry</button>}>{loadError}</Notification>
       )}
 
-      {loading && !hasLoadedReport && <p role="status">Loading report data…</p>}
+      {loading && !hasLoadedReport && <Notification tone="progress" title="Loading reports">Please wait while report data is loaded.</Notification>}
       {hasLoadedReport && <>
       <section className="reports-metrics" aria-label="Report summary">
         <article className="green"><div><span>Active Scholars</span><strong>{activeScholars.length}</strong><small>Included in this report</small></div><i><UsersRound size={22} /></i></article>

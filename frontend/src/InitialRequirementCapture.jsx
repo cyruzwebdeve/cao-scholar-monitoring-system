@@ -1,3 +1,4 @@
+import Notification from './components/Notification';
 import CapturePhotoTips from './CapturePhotoTips';
 import LaptopPhoneCapture from './LaptopPhoneCapture';
 import { useEffect, useRef, useState } from 'react';
@@ -17,6 +18,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const [working, setWorking] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [notice, setNotice] = useState('');
+  const [noticeTone, setNoticeTone] = useState('warning');
   const [progress, setProgress] = useState('');
   const receivedPages = useRef(new Set());
   const draftsRef = useRef({});
@@ -47,7 +49,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
       const media = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 2200 }, height: { ideal: 1600 } } });
       if (!alive.current || generation !== cameraRequest.current) { media.getTracks().forEach((track) => track.stop()); return; }
       stream.current = media; setCamera(true);
-    } catch { if (alive.current) setNotice('Camera unavailable or permission denied. Use Take photo on your phone, or choose an existing file.'); }
+    } catch { if (alive.current) { setNoticeTone('warning'); setNotice('Camera unavailable or permission denied. Use Take photo on your phone, or choose an existing file.'); } }
   };
   const addPage = async (source) => {
     if ((draft.pages?.length || 0) >= MAX_CAPTURE_PAGES) throw new Error(`Maximum ${MAX_CAPTURE_PAGES} pages per requirement.`);
@@ -57,7 +59,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
     if (!alive.current) return;
     edit({ pages: [...(draft.pages || []), page] }); setPageIndex(draft.pages?.length || 0); setCrop([0, 0, 0, 0]);
   };
-  const act = async (action) => { setWorking(true); setNotice(''); try { await action(); } catch (error) { if (alive.current) setNotice(error.message); } finally { if (alive.current) { setWorking(false); setProgress(''); } } };
+  const act = async (action) => { setWorking(true); setNotice(''); try { await action(); } catch (error) { if (alive.current) { setNoticeTone('error'); setNotice(error.message); } } finally { if (alive.current) { setWorking(false); setProgress(''); } } };
   const pick = (file, photo = false) => act(async () => {
     if (!file) return;
     if (!['image/jpeg', 'image/png', ...(photo ? [] : ['application/pdf'])].includes(file.type)) throw new Error('Use a JPG, PNG, or PDF file.');
@@ -75,9 +77,9 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
     let total = Object.values(next).reduce((sum, item) => sum + (item.pages || []).reduce((bytes, image) => bytes + image.length, 0) + (item.file?.fileData.length || 0), 0);
     for (const item of pages) {
       if (receivedPages.current.has(item.id)) { received.push(item.id); continue; }
-      if (!documents.some((doc) => doc.requirementKey === item.requirementKey) || saved[item.requirementKey]) { setNotice('A phone page targets an already uploaded or unavailable requirement. End the connection and review before continuing.'); continue; }
+      if (!documents.some((doc) => doc.requirementKey === item.requirementKey) || saved[item.requirementKey]) { setNoticeTone('warning'); setNotice('A phone page targets an already uploaded or unavailable requirement. End the connection and review before continuing.'); continue; }
       const current = next[item.requirementKey] || { pages: [] };
-      if (current.file || current.pages.length >= MAX_CAPTURE_PAGES || total + item.imageData.length > 32 * 1024 * 1024) { setNotice('A phone page is waiting: its category has a PDF, too many pages or the draft set is full. Resolve it before receiving more.'); continue; }
+      if (current.file || current.pages.length >= MAX_CAPTURE_PAGES || total + item.imageData.length > 32 * 1024 * 1024) { setNoticeTone('warning'); setNotice('A phone page is waiting: its category has a PDF, too many pages or the draft set is full. Resolve it before receiving more.'); continue; }
       next[item.requirementKey] = { pages: [...current.pages, item.imageData] }; total += item.imageData.length;
       receivedPages.current.add(item.id); received.push(item.id);
     }
@@ -117,7 +119,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
         setSaved((current) => ({ ...current, [item.key]: true }));
         const next = { ...draftsRef.current }; delete next[item.key]; storeDrafts(next);
       }
-      setNotice('Initial documents uploaded and approved. Their previous versions remain available.'); setConfirmed(false);
+      setNoticeTone('success'); setNotice('Initial documents uploaded and approved. Their previous versions remain available.'); setConfirmed(false);
     } finally { if (alive.current) { setProgress(''); await onSaved(); } }
   });
   const ready = captureReady(documents, drafts, saved);
@@ -128,8 +130,8 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   return <section className="document-capture" aria-label="Initial document camera intake" aria-busy={working}>
     <header><div><h4>Capture initial requirements</h4><p>{scholar.name} · {scholar.controlNumber || scholar.scholarId}<br />{scholar.schoolYear} · {scholar.semester}</p></div><button type="button" disabled={working} onClick={close} aria-label="Close camera intake"><X size={16} /></button></header>
     <p className="capture-help">Capture each document, check every page, then confirm the set. Drafts stay in this tab until uploaded; closing the drawer or leaving Overview discards them. Use phone camera to pair with this laptop, or capture directly on this device.</p>
-    {notice && <p role="status" className="capture-notice">{notice}</p>}
-    {progress && <p role="status">{progress}</p>}
+    {notice && <Notification tone={noticeTone} title={noticeTone === 'success' ? 'Initial requirements saved' : 'Capture needs attention'} onDismiss={() => setNotice('')}>{notice}</Notification>}
+    {progress && <Notification tone="progress" title="Uploading initial requirements">{progress}</Notification>}
     <LaptopPhoneCapture scholar={scholar} token={token} busy={working} onPages={receivePhonePages} onConnectionChange={setPhoneConnected} />
     <div className="capture-checklist">{documents.map((doc) => <button type="button" key={doc.requirementKey} aria-pressed={key === doc.requirementKey} disabled={working} onClick={() => choose(doc.requirementKey)}><span>{doc.label}{doc.optional && !doc.label.includes('optional') ? ' (optional)' : ''}</span><small>{saved[doc.requirementKey] ? 'Uploaded · Approved' : drafts[doc.requirementKey]?.file ? 'PDF ready' : drafts[doc.requirementKey]?.pages.length ? `${drafts[doc.requirementKey].pages.length} page(s) captured` : doc.submitted && ['approved', 'complete', 'completed'].includes(String(doc.status).toLowerCase()) ? 'Keep existing approved file' : doc.optional || doc.requirementKey === 'indigency' ? 'Optional · capture if available' : 'Capture needed'}</small></button>)}</div>
     <fieldset disabled={working || Boolean(saved[key])}>

@@ -1,3 +1,4 @@
+import Notification from './components/Notification';
 import { matchesPayrollListStatus } from './utils/payrollListStatus';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -540,7 +541,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
       </section>
 
       {isPayroll && payrollListStatus === 'Not included yet' && <p className="processing-remaining-note">Showing Scholars without a Billing or Payroll list record for this period. After a regular list is generated, use Send to Payroll for remaining Private Scholars. Missing a list record does not mean a late submission.</p>}
-      {operationNotice && <div className={`billing-operation-notice ${operationNotice.tone}`} role="status">{operationNotice.tone === 'error' && <TriangleAlert size={16} />}<span>{operationNotice.text}</span><button type="button" onClick={() => setOperationNotice(null)} aria-label="Dismiss notification"><X size={14} /></button></div>}
+      {operationNotice && <Notification tone={operationNotice.tone} title={operationNotice.tone === 'error' ? 'Processing needs attention' : 'Processing update'} onDismiss={() => setOperationNotice(null)}>{operationNotice.text}</Notification>}
 
       <section className="billing-transfer-board">
         <article className="billing-transfer-panel billing-source-panel">

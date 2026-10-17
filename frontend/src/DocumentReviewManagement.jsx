@@ -1,3 +1,4 @@
+import Notification from './components/Notification';
 import {
   CheckCircle2,
   ChevronDown,
@@ -96,7 +97,7 @@ export function DecisionModal({ review, decision, saving, error, onClose, onConf
         <header><i className={decision}>{rejected ? <XCircle size={22} /> : <CheckCircle2 size={22} />}</i><div><span>{rejected ? 'RETURN FOR CORRECTION' : 'CONFIRM APPROVAL'}</span><h3>{rejected ? 'Reject this document?' : 'Approve this document?'}</h3></div></header>
         <p>{rejected ? 'The applicant or scholar will see your reason for correction.' : review.requiresIndividualReview ? 'Approving this priority proof does not register a Scholar. Post examination results and verify the initial documents before acceptance.' : 'This file will count as an approved requirement across the scholar and administrative dashboards.'}</p>
         <label><span>{rejected ? 'Reason for rejection' : 'Review note (optional)'}</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} maxLength="500" placeholder={rejected ? 'Explain what needs to be corrected…' : 'Add an internal review note…'} /></label>
-        {error && <div className="review-decision-error"><TriangleAlert size={16} />{error}</div>}
+        {error && <Notification tone="error" title="Document review needs attention">{error}</Notification>}
         <footer><button type="button" onClick={onClose} disabled={saving}>Cancel</button><button type="button" className={rejected ? 'danger' : 'success'} onClick={() => onConfirm(notes)} disabled={saving || (rejected && notes.trim().length < 3)}>{saving ? 'Saving…' : rejected ? 'Reject and return' : 'Confirm approval'}</button></footer>
       </section>
     </div>
@@ -110,7 +111,7 @@ function BulkApprovalModal({ group, saving, error, onClose, onConfirm }) {
         <header><i className="approved"><CheckCircle2 size={22} /></i><div><span>BULK DOCUMENT REVIEW</span><h3>Approve all pending files?</h3></div></header>
         <p>This will approve <strong>{group.pendingTotal}</strong> pending {group.pendingTotal === 1 ? 'requirement' : 'requirements'} uploaded by <strong>{group.scholarName}</strong>. Rejected files will remain unchanged.</p>
         <div className="bulk-approval-summary"><ShieldCheck size={18} /><span><strong>One recorded decision</strong><small>The complete batch will be saved together and added to Activity Logs.</small></span></div>
-        {error && <div className="review-decision-error"><TriangleAlert size={16} />{error}</div>}
+        {error && <Notification tone="error" title="Document review needs attention">{error}</Notification>}
         <footer><button type="button" onClick={onClose} disabled={saving}>Cancel</button><button type="button" className="success" onClick={onConfirm} disabled={saving}>{saving ? 'Approving…' : `Approve ${group.pendingTotal} pending`}</button></footer>
       </section>
     </div>

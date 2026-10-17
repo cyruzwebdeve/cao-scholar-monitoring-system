@@ -1,3 +1,4 @@
+import Notification from './components/Notification';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { API_BASE, authHeaders } from './services/api';
 export default function PasserLists({ applicants, token, onPosted }) {
@@ -28,7 +29,7 @@ export default function PasserLists({ applicants, token, onPosted }) {
   const invalid = busy || !ready || !title.trim() || !selected.length || selected.length > 500 || (previous && !reason.trim());
   return <section className="passer-lists" aria-label="Passer Lists">
     <div className="passer-list-heading"><div><h3>Passer Lists</h3><p>Save a draft or post reviewed passers now. Posting publishes their results and locks a retained list. Initial verification comes before Scholar acceptance.</p></div><button type="button" disabled={busy} onClick={() => act(load)}>Refresh lists</button></div>
-    {busy && <p role="status">Processing the list. Keep this page open while records are checked and saved.</p>}{notice && <p role="status" className="capture-notice capture-notice-success">{notice}</p>}{error && <p role="alert" className="rm-accept-error">{error}</p>}
+    {busy && <Notification tone="progress" title="Saving passer list">Keep this page open while records are checked and saved.</Notification>}{notice && <Notification tone="success" title="Passer list saved" onDismiss={() => setNotice('')}>{notice}</Notification>}{error && <Notification tone="error" title="Passer list needs attention">{error}</Notification>}
     <fieldset disabled={busy}><legend>Prepare a list</legend><label>List title<input maxLength={160} value={title} onChange={(event) => { setTitle(event.target.value); requestKey.current = null; }} /></label>
       <label>Revision of<select value={previous} onChange={(event) => { setPrevious(event.target.value); requestKey.current = null; }}><option value="">New list</option>{lists.filter((list) => list.status === 'posted' && !lists.some((revision) => revision.supersedes_id === list.id && revision.status === 'posted')).map((list) => <option key={list.id} value={list.id}>#{list.id} · {list.title}</option>)}</select></label>
       {previous && <label>Revision reason<input maxLength={2000} value={reason} onChange={(event) => { setReason(event.target.value); requestKey.current = null; }} /></label>}

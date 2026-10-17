@@ -1,0 +1,73 @@
+.system-notice {
+  --notice-ink: #285d83;
+  --notice-border: #c9deee;
+  --notice-bg: #f0f7fc;
+  --notice-icon: #dcecf7;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 10px;
+  min-width: 0;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--notice-border);
+  border-radius: 10px;
+  background: var(--notice-bg);
+  color: var(--notice-ink);
+  text-align: left;
+}
+.system-notice--success { --notice-ink: #176c3b; --notice-border: #bce3c8; --notice-bg: #edf9f0; --notice-icon: #d8efdf; }
+.system-notice--error { --notice-ink: #9e302b; --notice-border: #f0c7c2; --notice-bg: #fff3f2; --notice-icon: #fbe0dc; }
+.system-notice--warning { --notice-ink: #875314; --notice-border: #efd7aa; --notice-bg: #fff8e9; --notice-icon: #faeac8; }
+.system-notice .system-notice-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--notice-icon);
+  color: inherit;
+}
+.system-notice .system-notice-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.system-notice .system-notice-copy > strong { display: block; margin: 0; color: inherit; font-size: 12px; font-weight: 700; line-height: 1.5; }
+.system-notice .system-notice-message { margin-top: 3px; color: inherit; font-size: 12px; font-weight: 400; line-height: 1.6; }
+.system-notice .system-notice-message > p { margin: 0; color: inherit; font: inherit; }
+.system-notice .system-notice-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.system-notice .system-notice-dismiss:hover { background: #0000000a; }
+.system-notice .system-notice-actions { display: flex; flex-wrap: wrap; gap: 8px; flex-basis: 100%; margin-left: 42px; }
+.system-notice .system-notice-actions button {
+  max-width: 100%;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: normal;
+  cursor: pointer;
+}
+.system-notice .system-notice-actions button:disabled { opacity: .6; cursor: wait; }
+.system-notice button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.system-notice--progress .system-notice-icon > svg { animation: system-notice-spin 1s linear infinite; }
+@keyframes system-notice-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .system-notice--progress .system-notice-icon > svg { animation: none; } }

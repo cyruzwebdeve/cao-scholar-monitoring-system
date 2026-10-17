@@ -1,3 +1,4 @@
+import Notification from './components/Notification';
 import {
   Bell,
   CalendarDays,
@@ -363,9 +364,9 @@ function ScholarDashboard({ token, user, onLogout }) {
           <div className="scholar-welcome-icon"><GraduationCap size={42} /></div>
         </section>
 
-        {(announcementError || notificationsError) && <div className="scholar-requirements-error" role="status"><span>{announcementError || notificationsError} Announcements or notifications may be out of date.</span><button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry updates</button></div>}
-        {requirementsError && <div className="scholar-requirements-error" role="status"><span>{requirementsError}</span><button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry now</button></div>}
-        {loadingRequirements && !application && <p role="status">Loading scholar records…</p>}
+        {(announcementError || notificationsError) && <Notification tone="error" title="Unable to refresh updates" action={<button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry updates</button>}>{announcementError || notificationsError} Announcements or notifications may be out of date.</Notification>}
+        {requirementsError && <Notification tone="error" title="Unable to load scholar requirements" action={<button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry now</button>}>{requirementsError}</Notification>}
+        {loadingRequirements && !application && <Notification tone="progress" title="Loading scholar records">Please wait while your records are loaded.</Notification>}
         {application && <>
         <section className="scholar-stat-grid">
           <article className="scholar-stat-card"><div className="scholar-stat-icon green"><CheckCircle2 size={21} /></div><div><span>Scholarship status</span><strong>{portalData.scholar?.isActive ? 'Active Scholar' : 'Scholar record unavailable'}</strong><small>{portalData.scholar?.issuedAt ? `Approved ${formatPortalDate(portalData.scholar.issuedAt)}` : 'Approval date unavailable'}</small></div></article>

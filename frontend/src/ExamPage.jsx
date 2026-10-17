@@ -1,3 +1,4 @@
+import Notification from './components/Notification';
 import { ApiRequestError } from './services/apiFailure';
 import { useState, useEffect, useCallback } from 'react'
 import './exam-source.css'
@@ -120,7 +121,7 @@ function SubmitModal({ answered, total, onConfirm, onCancel, submitting, expired
               {submitting ? 'Submitting…' : 'Submit Now'}
             </button>
           </div>
-          {error && <p role="alert" className="text-sm text-red-700 mt-3">{error}</p>}
+          {error && <Notification tone="error" title="Unable to submit examination">{error}</Notification>}
         </div>
       </div>
     </div>
@@ -356,7 +357,7 @@ export default function App({ token }) {
           </div>
         </div>
       </header>
-      {!expired && <p role={recoveryError ? 'alert' : 'status'} className="px-6 py-2 text-sm">{recoveryError || recoveryMessage} Drafts are removed on submission, expiry or sign-out. Use one examination tab.</p>}
+      {!expired && <Notification tone={recoveryError ? 'error' : 'info'} title="Answer recovery">{recoveryError || recoveryMessage} Drafts are removed on submission, expiry or sign-out. Use one examination tab.</Notification>}
       <p role={expired ? 'alert' : 'status'} className="px-6 py-2 text-sm" style={{ backgroundColor: expired ? '#FFF2E2' : '#F3F8F5' }}>
         {expired ? 'Time expired. Answering and submission are locked. Contact CAO; late answers cannot be recorded.' : 'You have 45 minutes from the first question load. Refreshing does not restart the timer. Submit before time runs out; late answers are not accepted.'}
       </p>
