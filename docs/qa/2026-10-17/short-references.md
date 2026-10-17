@@ -29,3 +29,7 @@ Examples do not force the next record to use these exact numbers. Batch IDs are 
 - Actual Scholar drawer browser downloads for two synthetic periods produced the same `PGCEAP-CERT#0034` in PDF text and filenames, with correct semester text and no API mutation.
 
 No production records were created or rewritten. Individual PDF references identify a scholar rather than a unique issuance. Existing long list references are intentionally retained; this change is not a historical renumbering.
+
+## Certificate notification follow-up
+
+After downloading from the Private Scholar drawer, check the green success card with an icon, readable heading/print guidance and Dismiss certificate notification control. Confirm keyboard dismissal. At mobile width the card must wrap without horizontal overflow. Local mocked failures should show a red alert with an error heading instead of a green success state. Actual component checks at 1280px/390px passed both outcomes and retained the short PDF filename; no production writes were used. Frontend deployment in progress, with no backend changes or migration.

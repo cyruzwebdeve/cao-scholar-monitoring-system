@@ -113,7 +113,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const [documentNoticeTone, setDocumentNoticeTone] = useState('success');
   const [openingRequirement, setOpeningRequirement] = useState('');
   const [certificateDownloading, setCertificateDownloading] = useState(false);
-  const [certificateNotice, setCertificateNotice] = useState('');
+  const [certificateNotice, setCertificateNotice] = useState(null);
   const pageSize = 10;
   const canEditBilling = user?.role === 'SuperAdmin'
     || !Array.isArray(user?.sectionAccess)
@@ -385,7 +385,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const downloadPrivateCertificate = async () => {
     if (!selected || String(selected.schoolType || '').toLowerCase() !== 'private' || certificateDownloading) return;
     setCertificateDownloading(true);
-    setCertificateNotice('');
+    setCertificateNotice(null);
     try {
       const [{ jsPDF }, headerDataUrl] = await Promise.all([
         import('jspdf'),
@@ -452,9 +452,9 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
       document.text(`Control No.: ${selected.controlNumber || selected.scholarId || 'Not available'}`, margin, 310);
       document.text('Official PGCEAP private-scholar certification', pageWidth - margin, 310, { align: 'right' });
       document.save(`${reference}.pdf`);
-      setCertificateNotice('Certificate downloaded. Print it for CAO issuance to the scholar.');
+      setCertificateNotice({ scholarId: selected.id, tone: 'success', title: 'Certificate downloaded', message: 'Print the PDF for CAO issuance to the scholar.' });
     } catch (error) {
-      setCertificateNotice(error.message || 'Unable to download the certificate.');
+      setCertificateNotice({ scholarId: selected.id, tone: 'error', title: 'Unable to download certificate', message: error.message || 'Please try downloading the certificate again.' });
     } finally {
       setCertificateDownloading(false);
     }
@@ -513,7 +513,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
             <div data-label="Barangay"><span>{scholar.barangay}</span></div>
             <div data-label="Status"><ScholarBadge value={scholar.status} type="status" /></div>
             <div data-label="Documents"><ScholarBadge value={scholar.documentStatus} type="documents" /></div>
-            <div data-label="Action"><button type="button" className="scholars-view" aria-label={`View details for ${scholar.name}`} onClick={() => { setSelected(scholar); setDrawerTab('overview'); setDocumentNotice(''); setCertificateNotice(''); }}><Eye size={13} />View details</button></div>
+            <div data-label="Action"><button type="button" className="scholars-view" aria-label={`View details for ${scholar.name}`} onClick={() => { setSelected(scholar); setDrawerTab('overview'); setDocumentNotice(''); setCertificateNotice(null); }}><Eye size={13} />View details</button></div>
           </article>)}
         </div>
         {!!filtered.length && <footer className="scholars-table-footer"><span>Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}</span><nav className="scholars-pagination" aria-label="Scholar pages"><button type="button" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" key={item} aria-label={`Page ${item}`} className={item === currentPage ? 'active' : ''} aria-current={item === currentPage ? 'page' : undefined} onClick={() => setPage(item)}>{item}</button> : <span key={item}>…</span>)}<button type="button" aria-label="Next page" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>›</button></nav></footer>}
@@ -528,7 +528,11 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
           <button type="button" className="scholars-drawer-close" onClick={() => setSelected(null)} aria-label="Close scholar details"><X size={19} /></button>
           <div className="scholars-drawer-profile"><span className="scholars-drawer-avatar">{selected.initials}</span><div><span className="scholars-admin-eyebrow">SCHOLAR RECORD</span><h3 id="scholar-detail-title">{selected.name}</h3><p>{selected.scholarId}</p></div></div>
           <div className="scholars-drawer-badges"><ScholarBadge value={selected.status} type="status" /><ScholarBadge value={selected.documentStatus} type="documents" />{String(selected.schoolType || '').toLowerCase() === 'private' && <button type="button" className="scholars-certification-download" onClick={downloadPrivateCertificate} disabled={certificateDownloading} title="Download individual certification"><Download size={15} />{certificateDownloading ? 'Preparing PDF…' : 'Download Certification'}</button>}</div>
-          {certificateNotice && <p className="scholars-certificate-notice" role="status">{certificateNotice}</p>}
+          {certificateNotice?.scholarId === selected.id && <div className={`scholars-certificate-notice ${certificateNotice.tone}`} role={certificateNotice.tone === 'error' ? 'alert' : 'status'} aria-atomic="true">
+            <span className="scholars-certificate-notice-icon" aria-hidden="true">{certificateNotice.tone === 'error' ? <TriangleAlert size={18} /> : <BadgeCheck size={18} />}</span>
+            <div className="scholars-certificate-notice-copy"><strong>{certificateNotice.title}</strong><p>{certificateNotice.message}</p></div>
+            <button type="button" className="scholars-certificate-notice-dismiss" aria-label="Dismiss certificate notification" onClick={() => setCertificateNotice(null)}><X size={16} aria-hidden="true" /></button>
+          </div>}
 
           <nav className="scholars-drawer-tabs" role="tablist" aria-label="Scholar record sections">
             <button type="button" role="tab" aria-selected={drawerTab === 'overview'} className={drawerTab === 'overview' ? 'active' : ''} onClick={() => setDrawerTab('overview')}><GraduationCap size={15} />Overview</button>

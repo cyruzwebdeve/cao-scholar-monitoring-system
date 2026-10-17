@@ -5,6 +5,24 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-17 - Scholar Certificate Download Notifications
+
+**TL;DR**
+- Scholar drawer certificate downloads now show a readable green success card with an icon, title, print guidance and dismiss button.
+- Failures show a separate red alert card; notifications belong to the selected scholar and do not leak into another drawer record.
+- Desktop/mobile success/failure checks, keyboard dismissal, PDF filename regression, lint and build passed.
+- Frontend-only deployment in progress; no backend, API, database or migration changes.
+
+Objective/previous/new behavior: replace the tiny unstyled 9px certificate-download text beneath the drawer badges. Staff now see a spaced, bordered card with 12px title/body text, an icon and a named close control. Success is green and failures red. No timer dismisses the notice before it can be read. Opening another scholar or retrying clears the previous notice. A scholar ID guard also prevents completion of an earlier asynchronous download from displaying feedback on another scholar.
+
+Affected roles/workflow/implementation/files: staff using the Private Scholar drawer Download Certification action. `frontend/src/ScholarsManagement.jsx` stores structured scholar-scoped notification state and renders separate status/error semantics, icon, heading, explanatory text and dismissal. `frontend/src/styles/admin.css` replaces the old tiny text rule with responsive flex layout, color states, wrapping and focus styles. The PDF generation/reference logic, contents, filename and list workflow are unchanged. Legacy monetary functionality is untouched and remains outside this change; the system ends at official list generation.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: no backend/API, schema, migration, dependency, configuration or permission changes. No additional personal data or external service use. Success uses role=status; errors use role=alert; aria-atomic announces the complete message. Icons are decorative, and the close button has an accessible name and visible keyboard focus. Heading text distinguishes outcomes in addition to color. Deploy the frontend through the existing pipeline; no backend confirmation is required for this update.
+
+Validation: the actual Scholar component was exercised with synthetic records at 1280px and 390px widths. Successful PDF downloads retained the shortened filename and showed the green status; a mocked header-load failure showed the red alert. Both outcomes passed title, role, computed 12px copy, background, viewport/no-overflow and keyboard Enter dismissal checks at both widths. Screenshots were visually inspected. All mocked API requests were reads. ESLint and production build passed; the existing chunk-size advisory remains. No production records were modified. Public deployment verification is pending.
+
+Limitations/rollback/next work: the notice reflects the existing PDF generation/download request and cannot prove that the browser saved or printed the file. It persists until dismissed, retry or another record is opened. Rollback restores the prior notice state/markup/styles with no data changes. After deployment refresh the app, download a Private Scholar certificate, confirm the green card and dismiss it; use local/staging network controls for failure checks rather than production fault injection.
+
 ## 2026-10-17 - Short Billing, Payroll and Individual Certification References
 
 **TL;DR**
