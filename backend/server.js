@@ -107,7 +107,11 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 const captureCleanup = setInterval(() => { require('./controllers/phoneCaptureController').purgeExpired().catch((error) => console.error('Capture expiry cleanup failed:', error.code || error.name)); }, 60_000);
 captureCleanup.unref();
 
+const { createAnnouncementNotifications } = require('./services/announcementNotifications');
+const stopAnnouncementNotifications = createAnnouncementNotifications({ prisma, mailer: require('./services/mailer') }).start();
+
 const shutdown = (signal) => {
+  stopAnnouncementNotifications();
   clearInterval(captureCleanup);
   console.log(`${signal} received. Closing the API server.`);
   server.close(async () => {

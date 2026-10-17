@@ -32,6 +32,7 @@ const matchesNotice=(row,where={})=>Object.entries(where).every(([key,v])=>{
   return row[key]===v;
 });
 const notices=(initial=[])=>{
+ prisma.announcement_email_deliveries = { groupBy: async () => [] };
  const state={rows:initial,writes:[]};
  prisma.$transaction=async (callback,options)=>{assert.equal(options.isolationLevel,'Serializable');const before=structuredClone(state.rows);const length=state.writes.length;try{return await callback(prisma);}catch(error){state.rows=before;state.writes.length=length;throw error;}};
  prisma.announcements={

@@ -585,6 +585,8 @@ const serializeAnnouncement = (announcement) => ({
   createdBy: announcement.created_by,
   createdAt: announcement.created_at,
   updatedAt: announcement.updated_at,
+  notifyEmail: announcement.notify_email,
+  emailQueuedAt: announcement.email_queued_at,
 });
 
 const parseAnnouncementPayload = (body, existing = null) => {
@@ -601,6 +603,7 @@ const parseAnnouncementPayload = (body, existing = null) => {
   let imageType = body.imageType ? String(body.imageType).trim().slice(0, 100) : null;
   const imageData = body.imageData ? String(body.imageData) : null;
   const rawExternalUrl = String(body.externalUrl || '').trim();
+  if (body.notifyEmail !== undefined && typeof body.notifyEmail !== 'boolean') return { error: 'Email notification preference must be true or false.' };
   const externalUrl = normalizeFacebookPostUrl(rawExternalUrl);
   if (!title || title.length > 200) return { error: 'Announcement title is required and must not exceed 200 characters.' };
   if (!content || content.length > 5000) return { error: 'Announcement content is required and must not exceed 5,000 characters.' };
@@ -620,7 +623,7 @@ const parseAnnouncementPayload = (body, existing = null) => {
   const preservesWindow = existing && !postNow && existing.status === status && +new Date(existing.publish_at) === +new Date(publishAt);
   const effectivePublishDate = publishAt || (existing && !postNow ? existing.published_at : null) || new Date();
   if (expiresAt && expiresAt <= effectivePublishDate && !(['draft', 'archived'].includes(status) || (preservesWindow && +new Date(expiresAt) === +new Date(existing.expires_at)))) return { error: 'Expiration must be later than the publishing date.' };
-  return { title, content, audience, priority, status, publishAt, expiresAt, imageName, imageType, imageData, externalUrl, postNow };
+  return { title, content, audience, priority, status, publishAt, expiresAt, imageName, imageType, imageData, externalUrl, postNow, notifyEmail: body.notifyEmail };
 };
 
 const persistAnnouncementImage = async (payload) => {
@@ -650,7 +653,14 @@ const getAnnouncementManagement = async (req, res) => {
   try {
     await publishDueAnnouncements();
     const announcements = await prisma.announcements.findMany({ orderBy: { updated_at: 'desc' } });
-    return res.json({ announcements: announcements.map(serializeAnnouncement) });
+    const deliveryCounts = await prisma.announcement_email_deliveries.groupBy({
+      by: ['announcement_id', 'status'], _count: { _all: true },
+    });
+    return res.json({ announcements: announcements.map((announcement) => ({
+      ...serializeAnnouncement(announcement),
+      emailDeliveries: Object.fromEntries(deliveryCounts.filter((row) => row.announcement_id === announcement.id)
+        .map((row) => [row.status, row._count._all])),
+    })) });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error fetching announcements.' });
@@ -687,6 +697,7 @@ const createAnnouncement = async (req, res) => {
     const announcement = await prisma.announcements.create({
       data: {
         title: payload.title,
+        notify_email: payload.notifyEmail ?? true,
         content: payload.content,
         audience: payload.audience,
         priority: payload.priority,
@@ -727,6 +738,7 @@ const updateAnnouncement = async (req, res) => {
       where: { id, updated_at: new Date(req.body.updatedAt) },
       data: {
         title: payload.title,
+        notify_email: payload.notifyEmail ?? existing.notify_email,
         content: payload.content,
         audience: payload.audience,
         priority: payload.priority,

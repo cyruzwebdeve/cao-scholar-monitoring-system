@@ -217,6 +217,24 @@ const createMailer = ({
     }
   };
 
+  const sendAnnouncementEmail = ({ to, firstName, title, content, priority }) => {
+    const portalUrl = `${appUrl}/dashboard`;
+    return send({
+      to,
+      template: 'announcement_published',
+      subject: `PGCEAP announcement: ${sanitizeHeader(title)}`,
+      text: [`Hello ${clean(firstName) || 'PGCEAP user'},`, title, content, `Read the announcement in your portal: ${portalUrl}`].join('\n\n'),
+      html: renderEmail({
+        eyebrow: priority === 'urgent' ? 'Urgent announcement' : 'CAO announcement',
+        title,
+        greeting: `Hello ${clean(firstName) || 'PGCEAP user'},`,
+        body: content,
+        actionLabel: 'Open PGCEAP portal',
+        actionUrl: portalUrl,
+      }),
+    });
+  };
+
   const sendApplicantAccountEmail = ({ to, firstName, controlNumber, temporaryPassword }) => {
     const loginUrl = `${appUrl}/login`;
     const details = [
@@ -391,6 +409,7 @@ const createMailer = ({
   return {
     configured,
     provider,
+    sendAnnouncementEmail,
     sendApplicantAccountEmail,
     sendExamSubmittedEmail,
     sendPasswordResetEmail,

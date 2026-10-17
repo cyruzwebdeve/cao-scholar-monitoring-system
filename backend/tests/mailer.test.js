@@ -100,6 +100,21 @@ test('prefers the Gmail HTTPS API and sends a MIME message with a refreshed toke
   assert.match(decodedMessage, /Content-Type: multipart\/alternative/);
 });
 
+test('announcement mail escapes user content and addresses only its intended recipient', async () => {
+  let message;
+  const mailer = createMailer({ env: configuredEnv, transportFactory: () => ({ sendMail: async (payload) => {
+    message = payload; return { messageId: 'announcement-id' };
+  } }) });
+  const result = await mailer.sendAnnouncementEmail({ to: 'applicant@example.com', firstName: '<Test>', title: 'Schedule\r\nBcc: injected', content: '<script>bad()</script>', priority: 'urgent' });
+  assert.equal(result.sent, true);
+  assert.equal(message.to, 'applicant@example.com');
+  assert.equal(message.bcc, undefined);
+  assert.doesNotMatch(message.subject, /[\r\n]/);
+  assert.doesNotMatch(message.html, /<script>/);
+  assert.match(message.html, /Urgent announcement/);
+  assert.match(message.html, /https:\/\/example.vercel.app\/dashboard/);
+});
+
 test('exam receipt does not expose the examination score', async () => {
   let message;
   const mailer = createMailer({
