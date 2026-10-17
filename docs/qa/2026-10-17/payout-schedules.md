@@ -1,6 +1,6 @@
 # Informational payout schedules — 2026-10-17
 
-Deployment pending. Requires frontend/backend and migration `20261017010000_payout_schedules`; no new environment variables. The feature never records fund release, claiming or disbursement confirmation.
+Frontend release `cabab0c` verified live in entry `/assets/index-BcgfHzUX.js`, admin `Dashboard-COj50L5g.js` and Scholar `ScholarDashboard-BPauVyP0.js`; API/database healthy. Hostinger backend/migration confirmation pending. Requires frontend/backend and migration `20261017010000_payout_schedules`; no new environment variables. The feature never records fund release, claiming or disbursement confirmation.
 
 1. Refresh, open **Payroll → Payout schedules** with a staff account assigned Payroll access. Confirm the tab matches existing tabs and lists/export actions remain in Payroll lists. Verify an account without Payroll access cannot read or write schedules.
 2. Use an existing dedicated official Payroll test batch containing Scholars in different municipalities/schools. Billing batches and unfinished/empty batches must not be available.
