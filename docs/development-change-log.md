@@ -8478,3 +8478,41 @@ Frontend 113/113 tests passed, including status aliases, action priorities/close
 
 ### Limitations, rollback and next work
 Synthetic rendering is not an authenticated end-to-end production test, and screenshot checks do not replace full assistive-technology testing. CAO-facing processing and backend gates remain authoritative. Review with a scholar account after deployment, including private-school records, closed periods, tabs, profile and notification history on a narrow phone. Revert this frontend commit to restore the previous layout; no data rollback required.
+
+### Deployment observation
+Published commit e4aa77d to origin/main through the existing hosting pipeline. Public homepage now serves index-_KkIYN3a.js and ScholarDashboard-CFmTmoWK.js (HTTP 200 JavaScript), containing the new next-step, combined updates, and requirement-tab labels; the removed duplicate schedules heading remains absent. This verifies public frontend rollout, not an authenticated scholar session.
+
+Post-deployment API health could not be verified from this environment: read-only requests encountered network connection resets. No backend code or configuration changed in this release; public frontend rollout is independently confirmed.
+
+
+## 2026-10-18 - Individual initial-document intake and secure document viewing
+
+**TL;DR**
+- CAO staff can capture/select, confirm and upload one initial document without preparing the complete set.
+- Staff intake and posted-passer checklists gain View controls; applicants and scholars can preview their own saved initial files, with continuing-file viewing also available to scholars.
+- New owner-only file streaming retains staff permission boundaries; document history, optional Indigency, school-specific requirements and full-verification acceptance gates remain unchanged.
+- Frontend 113 tests passed; backend 378 passed and one skipped; lint/build and synthetic browser interaction checks passed. Deployment requested through the existing main-branch hosting pipeline; rollout observations follow below.
+
+### Objective and behavior
+Replace the all-requirements readiness gate and sequential multi-document publish loop with a selected-document action. Previously staff had to prepare every required item or retain an approved original before confirming the set; now only the selected draft is checked and uploaded, and only that successful draft is cleared. Other drafts survive switching and saving. Confirmation resets on document selection/edit; failed uploads retain their draft for retry. Existing per-file automatic staff approval and version retention are preserved, and applicant-to-Scholar acceptance still requires all applicable mandatory initial documents approved.
+
+### Roles, workflow and data flow
+SuperAdmin and authorized RegularAdmin/Billing staff keep their existing Scholars/Examination section permissions and per-file PUT routes. Camera capture, multi-page PDF creation, file limits and phone pairing remain; active phone sessions must end before the selected document is approved. Existing Scholar-management View/review buttons are retained. Selected saved initial documents can also be viewed in capture intake and the Results passer checklist. Applicants see View next to uploaded initial-verification documents; Scholars see View for uploaded initial and continuing documents. Missing files do not show a View button. Initial files inherited from the original intake period remain viewable; continuing requests never fall back to initial academic files.
+
+### Implementation and changed areas
+InitialRequirementCapture.jsx and documentCapture.js implement selected-only readiness/publish and remove obsolete batch readiness. DocumentViewButton.jsx plus document-viewer.css provide a shared authenticated modal preview for PDF/JPG/PNG, failure/loading states, a separate-tab fallback, cancellation, object-URL cleanup, focus restoration and keyboard controls. ApplicantDashboard.jsx, ScholarDashboard.jsx and ResultsManagement.jsx wire the buttons. documentReviewController.js shares existing private-storage/database streaming and adds streamMyDocument. applicationRoutes.js adds GET /applications/me/requirements/:requirementKey/file. documentCapture.test.js, scholarPortalLayout.test.js and requirementWaves.test.js cover regressions. Required change logs updated.
+
+### API, database, configuration, security and privacy
+The additive GET requires authenticated Applicant/Scholar role, a valid requirement key, positive integer academicPeriodId and explicit initial/continuing submissionWave. It resolves the latest application by the authenticated applicant identity rather than accepting another person's application/applicant ID, and validates the returned ownership before streaming. It does not open staff document-review routes to applicants and does not support archived-version requests. Responses stream file bytes with private/no-store caching, sanitized inline filenames, correct database MIME type and nosniff; storage credentials and private URLs are not placed in new viewer links. The UI only previews PDF/JPEG/PNG types and uses short-lived local blob URLs. No database schema, migration, environment variable, role assignment, mailer, announcement or eligibility configuration change. No record or document-history deletion. Existing legacy payment-related code is untouched and retained outside the approved workflow; this change does not extend payroll-list generation into fund release.
+
+### Accessibility and deployment impact
+View buttons have document-specific accessible names. The responsive modal has a named dialog, loading/error announcements, keyboard focus containment/restoration and a Close button; PDF embeds have a title, image previews have an alternative description. Native PDF viewer keyboard handling varies by browser, so close controls and the separate-tab fallback remain available. Both frontend and backend must deploy together for the new owner endpoint; no migration is needed. User authorized deployment of frontend and backend together through the existing main-branch hosting pipeline; no infrastructure change.
+
+### Validation
+Frontend suite: 113 passed, zero failures. Backend suite: 378 passed, one skipped, zero failures. ESLint and production build passed with the existing large-bundle warning. Automated headless-Chrome interactions used synthetic local fixtures: uploaded one PDF while peer requirements were absent; prepared a second draft, saved another category and verified the draft survived; verified confirmation reset; induced a failed upload and retried successfully; opened an authenticated PDF blob preview and closed it. API tests cover applicant/scholar own-file access, missing/foreign ownership rejection, role/auth denial, strict scope validation, original-period inheritance, no continuing fallback and unchanged staff-route restrictions. No live applicant data, production uploads, emails or private-storage network calls were used.
+
+### Limitations, rollback and next work
+Live hosting and real private-blob preview have not been tested. Browser checks use synthetic responses, not production storage. After rollout, verify a controlled uploaded document as staff and its owner, including a phone browser. Reverting these source changes restores batch readiness and removes the additive owner-view route without any data rollback. Already saved individual uploads remain valid and versioned.
+
+### Deployment preparation
+The user requested deployment of the tested implementation. Remote main was confirmed at the prior layout release before staging this change. Preflight public API health returned HTTP 200 with database connected; document-file requests without a tester session are stopped by the existing invitation-only access gate, so that response cannot identify the backend revision. No gate bypass, production document upload, account access or email send is part of rollout verification.

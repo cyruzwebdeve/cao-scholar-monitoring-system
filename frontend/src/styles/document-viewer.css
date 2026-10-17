@@ -1,0 +1,12 @@
+.document-view-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 7px 12px; border: 1px solid #bad6c2; border-radius: 8px; background: #f3f9f4; color: #235236; font: inherit; font-size: 12px; cursor: pointer; flex-shrink: 0; }
+.document-view-button:focus-visible, .document-view-dialog button:focus-visible, .document-view-dialog a:focus-visible { outline: 3px solid #87b85d; outline-offset: 3px; }
+.document-view-overlay { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: #081e16b8; }
+.document-view-dialog { display: flex; flex-direction: column; gap: 14px; width: min(960px, 100%); height: min(900px, 92dvh); padding: 20px; border-radius: 14px; background: white; color: #23472f; overflow: auto; }
+.document-view-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.document-view-dialog h2 { margin: 0; font-size: 17px; overflow-wrap: anywhere; }
+.document-view-dialog header button { display: grid; place-items: center; min-width: 44px; min-height: 44px; border: 1px solid #d3dfd5; border-radius: 8px; background: white; color: #23472f; cursor: pointer; }
+.document-view-dialog > a { color: #235236; font-size: 13px; }
+.document-view-dialog iframe { flex: 1; width: 100%; min-height: 320px; border: 1px solid #d3dfd5; }
+.document-view-dialog > img { width: 100%; min-height: 0; object-fit: contain; }
+.initial-document-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; flex-wrap: wrap; }
+@media (max-width: 520px) { .document-view-button { min-height: 44px; } .document-view-dialog { padding: 14px; } .scholar-requirement-item { flex-wrap: wrap; gap: 12px; } }

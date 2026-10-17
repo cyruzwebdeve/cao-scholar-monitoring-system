@@ -1,3 +1,4 @@
+import DocumentViewButton from './components/DocumentViewButton';
 import Notification from './components/Notification';
 import { getApplicantExaminationSummary } from './utils/applicantExamination';
 import {
@@ -491,7 +492,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
           </section>
         </div>
 
-        {initialVerification && <section className="applicant-card passer-initial-status" aria-label="Initial requirement verification"><h3>Initial requirements · CAO upload</h3><p>Submit hard copies to CAO. Admins upload and verify these documents before accepting you as a Scholar.</p><div className="scholar-requirements-list">{initialVerification.documents.map((document) => <div className="scholar-requirement-item" key={document.requirementKey}><div><strong>{document.label}</strong><small>{document.fileName || (document.optional ? 'Optional · provide if available' : 'Awaiting CAO upload')}</small></div><span>{document.status}</span></div>)}</div><Notification tone={initialVerification.verified ? 'success' : 'info'} title="Initial requirement verification">{initialVerification.verified ? 'Required initial documents verified. Awaiting official Scholar acceptance.' : 'Initial verification in progress. You are an examination passer; Scholar registration is pending.'}</Notification></section>}
+        {initialVerification && <section className="applicant-card passer-initial-status" aria-label="Initial requirement verification"><h3>Initial requirements · CAO upload</h3><p>Submit hard copies to CAO. Admins upload and verify these documents before accepting you as a Scholar.</p><div className="scholar-requirements-list">{initialVerification.documents.map((document) => <div className="scholar-requirement-item" key={document.requirementKey}><div><strong>{document.label}</strong><small>{document.fileName || (document.optional ? 'Optional · provide if available' : 'Awaiting CAO upload')}</small></div><div className="initial-document-actions"><span>{document.status}</span>{document.fileName && <DocumentViewButton token={token} label={document.label} endpoint={`/applications/me/requirements/${document.requirementKey}/file?academicPeriodId=${document.academicPeriodId}&submissionWave=initial`} />}</div></div>)}</div><Notification tone={initialVerification.verified ? 'success' : 'info'} title="Initial requirement verification">{initialVerification.verified ? 'Required initial documents verified. Awaiting official Scholar acceptance.' : 'Initial verification in progress. You are an examination passer; Scholar registration is pending.'}</Notification></section>}
 
         <section className="applicant-bottom-grid">
           <PortalGuidance

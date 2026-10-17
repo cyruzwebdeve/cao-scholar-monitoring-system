@@ -417,3 +417,7 @@
 2026-10-18 | Deployed Scholar Portal cleanup 27fd7c96221c12cb641d807afafd99b1b66a4faa; remote main confirmed. Live Scholar JavaScript omits the duplicate history heading/request and retains latest schedule-update/announcement markers. API is healthy/database connected. Backend 373 passed/1 skipped, frontend 106 passed, lint/build passed. Stored/admin history, Gmail delivery and backend/schema remain unchanged; no data deletion or live email test.
 
 2026-10-18 - Redesigned the Scholar Portal with a compact identity header, action-first guidance, unified updates, accessible requirement tabs, and mobile-first ordering. Existing upload gates, mailer, records, and list-generation workflow are unchanged; frontend 113 tests and backend 373 tests passed (one skipped), lint/build passed, synthetic desktop/mobile previews inspected. Deployment pending verification.
+2026-10-18 - Scholar Portal redesign e4aa77d deployed; new live ScholarDashboard asset and feature markers verified over HTTP 200.
+
+2026-10-18 - Initial CAO intake now uploads and approves only the selected document; saved-file View controls added for staff, applicants and scholars through authenticated previews. Ownership-scoped file API added; no database or eligibility-rule change. Frontend 113 passed, backend 378 passed/one skipped, lint/build and synthetic browser checks passed. Not deployed.
+2026-10-18 - User requested deployment of individual initial-document uploads and secure View controls; publishing frontend/backend through the existing main-branch pipeline with no database migration.

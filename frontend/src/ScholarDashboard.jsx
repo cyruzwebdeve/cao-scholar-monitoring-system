@@ -1,3 +1,4 @@
+import DocumentViewButton from './components/DocumentViewButton';
 import Notification from './components/Notification';
 import {
   Bell,
@@ -389,7 +390,8 @@ function ScholarDashboard({ token, user, onLogout }) {
               <div className="scholar-panel-heading"><div><p className="scholar-eyebrow">KEEP YOUR RECORD COMPLETE</p><h2 id="scholar-requirements-title" tabIndex={-1}>Requirements</h2><p className="scholar-panel-copy">Initial documents are managed by CAO. Continuing documents are your uploads.</p></div><FileCheck2 size={22} className="scholar-heading-icon" aria-hidden="true" /></div>
               <ScholarRequirementsTabs activeTab={activeRequirementsTab} onChange={setRequirementsTab} />
               <div role="tabpanel" id="scholar-panel-initial" aria-labelledby="scholar-tab-initial" hidden={activeRequirementsTab !== 'initial'}>
-            <section className="scholar-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">INITIAL SUBMISSION · CAO UPLOAD</p><h2>Initial requirements</h2></div></div><p className="scholar-panel-copy">CAO records these documents. You do not need to upload this initial set again.</p><div className="scholar-requirements-list">{initialRequirementItems.map(({ key, label }) => <div key={key} className="scholar-requirement-item"><div><strong>{label}</strong><small>{initialRequirements[key]?.fileName || (key === 'indigency' ? 'Optional · provide if available' : 'Awaiting CAO upload')}</small></div><span className={'scholar-review-badge ' + getRequirementReviewStatus(initialRequirements[key])}>{key === 'indigency' && !initialRequirements[key]?.fileName ? 'Optional' : requirementStatusLabels[getRequirementReviewStatus(initialRequirements[key])]}</span></div>)}</div></section>
+            <section className="scholar-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">INITIAL SUBMISSION · CAO UPLOAD</p><h2>Initial requirements</h2></div></div><p className="scholar-panel-copy">CAO records these documents. You do not need to upload this initial set again.</p><div className="scholar-requirements-list">{initialRequirementItems.map(({ key, label }) => <div key={key} className="scholar-requirement-item"><div><strong>{label}</strong><small>{initialRequirements[key]?.fileName || (key === 'indigency' ? 'Optional · provide if available' : 'Awaiting CAO upload')}</small></div><div className="initial-document-actions">{initialRequirements[key]?.fileName && <DocumentViewButton token={token} label={label} endpoint={`/applications/me/requirements/${key}/file?academicPeriodId=${portalData.requirementWave?.academicPeriodId}&submissionWave=initial`} />}
+<span className={'scholar-review-badge ' + getRequirementReviewStatus(initialRequirements[key])}>{key === 'indigency' && !initialRequirements[key]?.fileName ? 'Optional' : requirementStatusLabels[getRequirementReviewStatus(initialRequirements[key])]}</span></div></div>)}</div></section>
 
               </div>
               <div role="tabpanel" id="scholar-panel-continuing" aria-labelledby="scholar-tab-continuing" hidden={activeRequirementsTab !== 'continuing'}>
@@ -424,6 +426,7 @@ function ScholarDashboard({ token, user, onLogout }) {
                       </small>
                     </span>
                     <span className="scholar-requirement-actions">
+                      {item?.fileName && <DocumentViewButton token={token} label={label} endpoint={`/applications/me/requirements/${key}/file?academicPeriodId=${portalData.requirementWave?.academicPeriodId}&submissionWave=continuing`} />}
                       {reviewStatus !== 'missing' && <span className={`scholar-review-badge ${reviewStatus}`}>{requirementStatusLabels[reviewStatus]}</span>}
                       {reviewStatus !== 'approved' && <label className={`scholar-upload-button ${item?.fileName ? 'submitted' : ''} ${requirementsSubmissionClosed ? 'closed' : ''}`}>
                         {requirementsSubmissionClosed ? 'Closed' : isUploading ? 'Uploading…' : reviewStatus === 'rejected' ? 'Upload again' : item?.fileName ? 'Replace' : 'Upload'}

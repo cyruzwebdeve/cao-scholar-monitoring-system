@@ -1,10 +1,11 @@
 import Notification from './components/Notification';
+import DocumentViewButton from './components/DocumentViewButton';
 import CapturePhotoTips from './CapturePhotoTips';
 import LaptopPhoneCapture from './LaptopPhoneCapture';
 import { useEffect, useRef, useState } from 'react';
 import { Camera, CheckCircle2, Crop, RotateCw, Trash2, Upload, X } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
-import { buildCapturePdf, captureReady, MAX_CAPTURE_PAGES, MAX_DOCUMENT_BYTES, readCaptureFile, renderCapture } from './utils/documentCapture';
+import { buildCapturePdf, captureDocumentReady, MAX_CAPTURE_PAGES, MAX_DOCUMENT_BYTES, readCaptureFile, renderCapture } from './utils/documentCapture';
 import './styles/document-capture.css';
 export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const documents = scholar.initialDocuments || scholar.documents || [];
@@ -41,7 +42,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
     window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn);
   }, [drafts, phoneConnected]);
   const edit = (next) => { storeDrafts({ ...draftsRef.current, [key]: next }); setConfirmed(false); };
-  const choose = (nextKey) => { stopCamera(); setKey(nextKey); setPageIndex(0); setCrop([0, 0, 0, 0]); setNotice(''); };
+  const choose = (nextKey) => { stopCamera(); setKey(nextKey); setPageIndex(0); setCrop([0, 0, 0, 0]); setNotice(''); setConfirmed(false); };
   const startCamera = async () => {
     stopCamera(); const generation = cameraRequest.current; setNotice('');
     try {
@@ -94,46 +95,40 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   };
   const publish = () => act(async () => {
     stopCamera();
-    if (phoneConnected) throw new Error('End the phone connection before reviewing and uploading the final set.');
-    if (!confirmed || !captureReady(documents, drafts, saved)) throw new Error('Review every requirement and confirm readability before uploading.');
-    const pending = [];
-    // Validate every generated PDF before making any request.
-    for (const doc of documents) {
-      const item = drafts[doc.requirementKey];
-      if (!item || saved[doc.requirementKey]) continue;
-      setProgress(`Preparing ${doc.label}…`);
-      pending.push({ key: doc.requirementKey, ...(item.file || { fileName: `initial-${doc.requirementKey}.pdf`, fileData: await buildCapturePdf(item.pages) }) });
-    }
-    if (!pending.length) throw new Error('Capture at least one new document. Existing approved files can be retained.');
-    let success = 0;
+    if (phoneConnected) throw new Error('End the phone connection before uploading this document.');
+    if (!confirmed || !captureDocumentReady(key, draftsRef.current, saved)) throw new Error('Choose and review this document before uploading.');
+    const item = draftsRef.current[key];
+    setProgress('Preparing selected document...');
+    const file = item.file || { fileName: `initial-${key}.pdf`, fileData: await buildCapturePdf(item.pages) };
+    if (!alive.current) return;
     request.current = new AbortController();
+    setProgress('Uploading selected document...');
     try {
-      for (const item of pending) {
-        if (!alive.current) return;
-        setProgress(`Uploading ${++success} of ${pending.length} documents…`);
-        const response = await fetch(`${API_BASE}/${scholar.isPasser ? 'passers' : 'scholars'}/${scholar.applicantId}/requirements/${item.key}`, { method: 'PUT', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, signal: request.current.signal,
-          body: JSON.stringify({ academicPeriodId: scholar.academicPeriodId, fileName: item.fileName, fileData: item.fileData }) });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message || 'Upload failed. Retry the remaining documents.');
-        if (!alive.current) return;
-        setSaved((current) => ({ ...current, [item.key]: true }));
-        const next = { ...draftsRef.current }; delete next[item.key]; storeDrafts(next);
-      }
-      setNoticeTone('success'); setNotice('Initial documents uploaded and approved. Their previous versions remain available.'); setConfirmed(false);
+      const response = await fetch(`${API_BASE}/${scholar.isPasser ? 'passers' : 'scholars'}/${scholar.applicantId}/requirements/${key}`, {
+        method: 'PUT', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, signal: request.current.signal,
+        body: JSON.stringify({ academicPeriodId: scholar.academicPeriodId, ...file }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Upload failed. This document can be retried.');
+      if (!alive.current) return;
+      setSaved(current => ({ ...current, [key]: true }));
+      const next = { ...draftsRef.current }; delete next[key]; storeDrafts(next);
+      setNoticeTone('success'); setNotice('Selected document uploaded and approved. Other documents can be submitted separately. Previous versions are retained.'); setConfirmed(false);
     } finally { if (alive.current) { setProgress(''); await onSaved(); } }
   });
-  const ready = captureReady(documents, drafts, saved);
+  const ready = captureDocumentReady(key, drafts, saved);
   const selected = documents.find((item) => item.requirementKey === key);
   const page = draft.pages?.[pageIndex];
   const close = () => { if ((Object.keys(drafts).length || phoneConnected) && !window.confirm('Discard received drafts and any phone photos that have not been uploaded?')) return; stopCamera(); storeDrafts({}); receivedPages.current.clear(); setSaved({}); setConfirmed(false); setOpen(false); };
-  if (!open) return <button type="button" className="capture-start" disabled={!['Public', 'Private'].includes(scholar.schoolType)} onClick={() => setOpen(true)}><Camera size={15} />Capture initial requirements</button>;
+  if (!open) return <button type="button" className="capture-start" disabled={!['Public', 'Private'].includes(scholar.schoolType)} onClick={() => setOpen(true)}><Camera size={15} />Upload initial documents individually</button>;
   return <section className="document-capture" aria-label="Initial document camera intake" aria-busy={working}>
     <header><div><h4>Capture initial requirements</h4><p>{scholar.name} · {scholar.controlNumber || scholar.scholarId}<br />{scholar.schoolYear} · {scholar.semester}</p></div><button type="button" disabled={working} onClick={close} aria-label="Close camera intake"><X size={16} /></button></header>
-    <p className="capture-help">Capture each document, check every page, then confirm the set. Drafts stay in this tab until uploaded; closing the drawer or leaving Overview discards them. Use phone camera to pair with this laptop, or capture directly on this device.</p>
+    <p className="capture-help">Choose one document, check its pages, then upload it immediately. You do not need to prepare the other requirements first. Drafts stay in this tab until uploaded; closing the drawer or leaving Overview discards them. Use phone camera to pair with this laptop, or capture directly on this device.</p>
     {notice && <Notification tone={noticeTone} title={noticeTone === 'success' ? 'Initial requirements saved' : 'Capture needs attention'} onDismiss={() => setNotice('')}>{notice}</Notification>}
     {progress && <Notification tone="progress" title="Uploading initial requirements">{progress}</Notification>}
     <LaptopPhoneCapture scholar={scholar} token={token} busy={working} onPages={receivePhonePages} onConnectionChange={setPhoneConnected} />
     <div className="capture-checklist">{documents.map((doc) => <button type="button" key={doc.requirementKey} aria-pressed={key === doc.requirementKey} disabled={working} onClick={() => choose(doc.requirementKey)}><span>{doc.label}{doc.optional && !doc.label.includes('optional') ? ' (optional)' : ''}</span><small>{saved[doc.requirementKey] ? 'Uploaded · Approved' : drafts[doc.requirementKey]?.file ? 'PDF ready' : drafts[doc.requirementKey]?.pages.length ? `${drafts[doc.requirementKey].pages.length} page(s) captured` : doc.submitted && ['approved', 'complete', 'completed'].includes(String(doc.status).toLowerCase()) ? 'Keep existing approved file' : doc.optional || doc.requirementKey === 'indigency' ? 'Optional · capture if available' : 'Capture needed'}</small></button>)}</div>
+    {selected?.submitted && selected.applicationId && <DocumentViewButton token={token} label={selected.label} endpoint={`/document-reviews/${selected.applicationId}/${key}/file?academicPeriodId=${selected.academicPeriodId || scholar.academicPeriodId}&submissionWave=initial`} />}
     <fieldset disabled={working || Boolean(saved[key])}>
       <legend>{selected?.label}</legend>
       {saved[key] ? <p><CheckCircle2 size={16} /> Uploaded and approved. Close and reopen intake to capture a correction.</p> : <>
@@ -147,7 +142,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
         <p className="capture-help">Add pages in reading order, up to {MAX_CAPTURE_PAGES} per requirement. Photo pages become one PDF per requirement. Choosing a PDF replaces its photo draft; adding a photo replaces its PDF draft.</p>
       </>}
     </fieldset>
-    <label className="capture-confirm"><input type="checkbox" checked={confirmed} disabled={working || phoneConnected || !ready} onChange={(event) => setConfirmed(event.target.checked)} /><span>I checked every requirement for this scholar, including retained files. All pages are readable, complete and ready for approval. Captured documents replace any existing file in the selected period.</span></label>
-    <button type="button" className="capture-submit" disabled={working || phoneConnected || !confirmed || !ready || !Object.keys(drafts).length} onClick={publish}>{working ? 'Processing…' : 'Confirm, upload & approve initial set'}</button>
+    <label className="capture-confirm"><input type="checkbox" checked={confirmed} disabled={working || phoneConnected || !ready} onChange={(event) => setConfirmed(event.target.checked)} /><span>I checked this document. Its pages are readable, complete and ready for approval. Uploading replaces only this document in the selected period.</span></label>
+    <button type="button" className="capture-submit" disabled={working || phoneConnected || !confirmed || !ready || !Object.keys(drafts).length} onClick={publish}>{working ? 'Processing…' : 'Upload & approve this document'}</button>
   </section>;
 }

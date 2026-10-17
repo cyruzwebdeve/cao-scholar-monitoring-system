@@ -62,3 +62,26 @@ test('redesign retains upload guards, period scoping, history, and profile dialo
   for (const text of ['academicPeriodId', 'requirementsSubmissionClosed || loadingRequirements || Boolean(uploadingRequirement)', "key !== 'tuition_receipt' || isPrivateRequirementPeriod", 'scholarNotifications.map', 'setProfileOpen(true)', 'role="dialog"', 'hidden={activeRequirementsTab']) assert.ok(source.includes(text), text);
   assert.doesNotMatch(source, /Your payout schedules|scholar-profile-card/);
 });
+
+test('individual capture sends only the selected document and preserves other drafts', async () => {
+  const source = await readFile(new URL('../src/InitialRequirementCapture.jsx', import.meta.url), 'utf8');
+  const publish = source.slice(source.indexOf('const publish ='), source.indexOf('const ready ='));
+  assert.match(publish, /captureDocumentReady\(key, draftsRef.current, saved\)/);
+  assert.match(publish, /const item = draftsRef.current\[key\]/);
+  assert.match(publish, /delete next\[key\]/);
+  assert.doesNotMatch(publish, /for \(|captureReady\(|pending.push/);
+  assert.match(source, /setNotice\(''\); setConfirmed\(false\)/);
+  assert.match(source, /Upload &amp; approve this document|Upload & approve this document/);
+});
+
+test('view controls are authenticated and available to staff, applicants, and scholars only for saved files', async () => {
+  const Viewer = (await server.ssrLoadModule('/src/components/DocumentViewButton.jsx')).default;
+  const html = renderToStaticMarkup(createElement(Viewer, { label: 'Valid ID', endpoint: '/applications/me/requirements/valid_id/file', token: 'synthetic-token' }));
+  assert.match(html, /aria-label="View Valid ID"/);
+  assert.doesNotMatch(html, /synthetic-token|<iframe|applications\/me/);
+  const source = await readFile(new URL('../src/components/DocumentViewButton.jsx', import.meta.url), 'utf8');
+  for (const guard of ['authHeaders(token)', 'URL.revokeObjectURL(url)', 'controller.abort()', "cache: 'no-store'", "'application/pdf', 'image/jpeg', 'image/png'", 'aria-modal="true"']) assert.ok(source.includes(guard), guard);
+  for (const [file, guard] of [['ApplicantDashboard.jsx', 'document.fileName && <DocumentViewButton'], ['ScholarDashboard.jsx', 'initialRequirements[key]?.fileName && <DocumentViewButton'], ['ResultsManagement.jsx', 'document.submitted && <DocumentViewButton'], ['InitialRequirementCapture.jsx', 'selected?.submitted && selected.applicationId && <DocumentViewButton']]) {
+    const screen = await readFile(new URL(`../src/${file}`, import.meta.url), 'utf8'); assert.ok(screen.includes(guard), file);
+  }
+});

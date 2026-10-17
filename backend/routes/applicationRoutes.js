@@ -15,7 +15,7 @@ const { getActivityLogs } = require('../controllers/activityController');
 const { getApplicationSettings, updateApplicationSettings, getExaminationSettingsController, updateExaminationSettings } = require('../controllers/applicationSettingsController');
 const { getLifecycleReport } = require('../controllers/lifecycleReportController');
 const { getMyNotifications, markMyNotificationRead } = require('../controllers/notificationController');
-const { approvePendingDocuments, getDocumentReviews, reviewDocument, streamDocument } = require('../controllers/documentReviewController');
+const { approvePendingDocuments, getDocumentReviews, reviewDocument, streamDocument, streamMyDocument } = require('../controllers/documentReviewController');
 const {
   changeStaffPassword,
   createStaffAccount,
@@ -142,6 +142,7 @@ router.post('/examinations/:examId/results/:applicantId/publish', privateRespons
 router.post('/applications', applicationSubmissionRateLimiter, authenticateOptional, validateCreateApplication, createApplication);
 
 // Get application by ID (owner or privileged roles)
+router.get('/applications/me/requirements/:requirementKey/file', privateResponse, authenticate, checkRole(['Applicant', 'Scholar']), streamMyDocument);
 router.get('/applications/me', privateResponse, authenticate, checkRole(['Applicant', 'Scholar']), getMyApplication);
 router.get('/notifications/me', authenticate, checkRole(['Applicant', 'Scholar']), getMyNotifications);
 router.put('/notifications/:id/read', authenticate, checkRole(['Applicant', 'Scholar']), markMyNotificationRead);

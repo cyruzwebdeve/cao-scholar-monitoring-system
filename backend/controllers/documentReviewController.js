@@ -11,7 +11,7 @@ const {
   getRequirementDocument,
 } = require('../services/documentReview');
 
-const { WAVES, getWaveSet, getScopedDocument, mutateRequirementWaves, conflict } = require('../services/requirementWaves');
+const { INITIAL_KEYS, CONTINUING_KEYS, getInitialRequirements, WAVES, getWaveSet, getScopedDocument, mutateRequirementWaves, conflict } = require('../services/requirementWaves');
 
 const parseApplicationId = (value) => {
   const id = Number(value);
@@ -199,6 +199,55 @@ const approvePendingDocuments = async (req, res) => {
   }
 };
 
+// File contents are served only after the caller has resolved its authorized document.
+const sendStoredDocument = async (document, res) => {
+    const setDocumentHeaders = (contentType) => {
+      res.setHeader('Content-Type', contentType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename="${String(document.fileName).replace(/[^\x20-\x7e]|["]/g, '_')}"`);
+      res.setHeader('Cache-Control', 'private, no-store');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+    };
+
+    if (document.fileData) {
+      const parsed = parseDataUrl(document.fileData);
+      setDocumentHeaders(parsed.contentType);
+      return res.send(parsed.buffer);
+    }
+    if (!document.fileUrl) return res.status(404).json({ message: 'Document content is unavailable.' });
+    const token = process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN;
+    if (!token) return res.status(503).json({ message: 'Document storage is not configured.' });
+    const { get } = await import('@vercel/blob');
+    const blobResult = await get(document.fileUrl, { access: 'private', token });
+    if (!blobResult?.stream) return res.status(404).json({ message: 'Document file was not found in storage.' });
+    setDocumentHeaders(document.fileType || blobResult.blob?.contentType);
+    return Readable.fromWeb(blobResult.stream).pipe(res);
+};
+
+// Ownership is derived exclusively from the authenticated control account, never a URL applicant ID.
+const streamMyDocument = async (req, res) => {
+  try {
+    if (!['Applicant', 'Scholar'].includes(req.user?.role)) return res.status(403).json({ message: 'Only your own applicant documents can be opened here.' });
+    const { requirementKey } = req.params;
+    const wave = req.query?.submissionWave;
+    const periodId = Number(req.query?.academicPeriodId);
+    const keys = wave === 'initial' ? INITIAL_KEYS : wave === 'continuing' ? CONTINUING_KEYS : [];
+    if (!keys.includes(requirementKey) || !Number.isSafeInteger(periodId) || periodId <= 0 || req.query?.versionId) return res.status(400).json({ message: 'Invalid document scope.' });
+    const application = await prisma.application_submissions.findFirst({ where: { applicant_id: req.user.id }, orderBy: { submitted_at: 'desc' } });
+    if (!application || application.applicant_id !== req.user.id) return res.status(404).json({ message: 'Document not found.' });
+    const primary = await getPrimaryAcademicPeriod();
+    if (!primary) return res.status(409).json({ message: 'An active academic period is required.' });
+    const document = wave === 'initial'
+      ? getInitialRequirements(application.initial_docs, periodId, primary.id).requirements[requirementKey]
+      : getScopedDocument(application.initial_docs, periodId, wave, requirementKey, null, primary.id);
+    if (!document?.fileName) return res.status(404).json({ message: 'Document not found.' });
+    return await sendStoredDocument(document, res);
+  } catch (error) {
+    console.error('Error opening own requirement document:', error.name);
+    if (!res.headersSent) return res.status(500).json({ message: 'Unable to open the document.' });
+    return res.end();
+  }
+};
+
 const streamDocument = async (req, res) => {
   try {
     const applicationId = parseApplicationId(req.params.applicationId);
@@ -214,25 +263,7 @@ const streamDocument = async (req, res) => {
     const scholar = await prisma.scholar_accounts.findFirst({ where: { applicant_id: application.applicant_id, is_active: true } });
     if (!scholar && REQUIREMENT_DEFINITIONS[requirementKey].category !== 'priority' && !(wave === 'initial' && await canRecordInitial(prisma, application.applicant_id, periodId, application))) return res.status(403).json({ message: 'Only current posted passer or Scholar documents can be opened.' });
 
-    const setDocumentHeaders = () => {
-      res.setHeader('Content-Type', document.fileType || 'application/octet-stream');
-      res.setHeader('Content-Disposition', `inline; filename="${String(document.fileName).replace(/["\r\n]/g, '')}"`);
-      res.setHeader('Cache-Control', 'private, no-store');
-    };
-
-    if (document.fileData) {
-      const parsed = parseDataUrl(document.fileData);
-      setDocumentHeaders();
-      return res.send(parsed.buffer);
-    }
-    if (!document.fileUrl) return res.status(404).json({ message: 'Document content is unavailable.' });
-    const token = process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN;
-    if (!token) return res.status(503).json({ message: 'Document storage is not configured.' });
-    const { get } = await import('@vercel/blob');
-    const blobResult = await get(document.fileUrl, { access: 'private', token });
-    if (!blobResult?.stream) return res.status(404).json({ message: 'Document file was not found in storage.' });
-    setDocumentHeaders();
-    return Readable.fromWeb(blobResult.stream).pipe(res);
+    return await sendStoredDocument(document, res);
   } catch (error) {
     console.error('Error streaming scholar document:', error);
     if (!res.headersSent) return res.status(500).json({ message: 'Server error opening the document.' });
@@ -240,4 +271,4 @@ const streamDocument = async (req, res) => {
   }
 };
 
-module.exports = { approvePendingDocuments, getDocumentReviews, reviewDocument, streamDocument };
+module.exports = { approvePendingDocuments, getDocumentReviews, reviewDocument, streamDocument, streamMyDocument };

@@ -11,7 +11,7 @@ const prismaPath = require.resolve('../config/prisma');
 require.cache[prismaPath] = { id: prismaPath, filename: prismaPath, loaded: true, exports: prisma };
 const { uploadMyRequirement, uploadScholarRequirementByAdmin, openContinuingRequirements, updateScholarBillingMetadata } = require('../controllers/applicationController');
 delete process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN;
-const { reviewDocument, approvePendingDocuments, streamDocument } = require('../controllers/documentReviewController');
+const { reviewDocument, approvePendingDocuments, streamDocument, streamMyDocument } = require('../controllers/documentReviewController');
 const { getWaveSet, getEffectiveRequirements, getScopedDocument } = require('../services/requirementWaves');
 const { buildReviewRecords } = require('../services/documentReview');
 const clone = (value) => structuredClone(value);
@@ -42,6 +42,58 @@ const setup = (options = {}) => {
   });
 };
 const file = (name = 'fixture.pdf') => ({ fileName: name, fileData: 'data:application/pdf;base64,' + Buffer.from('%PDF-1.4\nsynthetic fixture\n%%EOF').toString('base64') });
+const ownDocument = async (key = 'tax_exemption', query = {}, user = { id: 7, role: 'Scholar' }) => {
+  const res = response(); res.headers = {}; res.setHeader = (name, value) => { res.headers[name] = value; };
+  await streamMyDocument({ params: { requirementKey: key }, query: { academicPeriodId: '10', submissionWave: 'initial', ...query }, user }, res);
+  return res;
+};
+
+test('own document stream serves authenticated applicant and scholar files without private URLs', async () => {
+  for (const role of ['Applicant', 'Scholar']) {
+    setup({ inactive: role === 'Applicant' });
+    let lookup;
+    prisma.application_submissions.findFirst = async (args) => { lookup = args; return clone(application); };
+    const res = await ownDocument('tax_exemption', {}, { id: 7, role });
+    assert.equal(lookup.where.applicant_id, 7);
+    assert.equal(res.statusCode, 200); assert.ok(Buffer.isBuffer(res.sent));
+    assert.equal(res.headers['Content-Type'], 'application/pdf');
+    assert.equal(res.headers['Cache-Control'], 'private, no-store');
+    assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
+    assert.equal(res.body, undefined);
+  }
+});
+test('own document stream fails closed for foreign or missing applications and staff roles', async () => {
+  setup(); assert.equal((await ownDocument('tax_exemption', {}, { id: 8, role: 'Scholar' })).statusCode, 404);
+  prisma.application_submissions.findFirst = async () => null;
+  assert.equal((await ownDocument()).statusCode, 404);
+  for (const role of ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']) assert.equal((await ownDocument('tax_exemption', {}, { id: 7, role })).statusCode, 403);
+});
+test('own document scope rejects malformed keys, waves, periods, and archived-version requests', async () => {
+  setup();
+  for (const key of ['unknown', 'priority_pwd', '../grades']) assert.equal((await ownDocument(key)).statusCode, 400);
+  for (const query of [{ academicPeriodId: '0' }, { academicPeriodId: '1.5' }, { academicPeriodId: 'no' }, { submissionWave: 'other' }, { versionId: 'archived' }]) assert.equal((await ownDocument('tax_exemption', query)).statusCode, 400);
+  assert.equal((await ownDocument('tax_exemption', { submissionWave: 'continuing' })).statusCode, 400);
+  assert.equal((await ownDocument('valid_id')).statusCode, 404);
+});
+test('own initial preview inherits originals while continuing never falls back to initial files', async () => {
+  setup(); await adminUpload('grades');
+  assert.equal((await ownDocument('grades', { academicPeriodId: '11' })).statusCode, 200);
+  assert.equal((await ownDocument('grades', { submissionWave: 'continuing' })).statusCode, 404);
+  await open(); await scholarUpload('grades');
+  assert.equal((await ownDocument('grades', { submissionWave: 'continuing' })).statusCode, 200);
+  assert.equal((await ownDocument('grades', { academicPeriodId: '11', submissionWave: 'continuing' })).statusCode, 404);
+});
+test('own file route rejects anonymous and staff users and never opens the staff review endpoint to applicants', async () => {
+  setup();
+  const path = '/applications/me/requirements/tax_exemption/file?academicPeriodId=10&submissionWave=initial';
+  for (const headers of [{}, authHeader(9), authHeader(4), authHeader(3)]) {
+    const res = await fetch(baseUrl + path, { headers }); assert.equal(res.status, headers.Authorization ? 403 : 401);
+  }
+  const res = await fetch(baseUrl + path, { headers: authHeader(7, 'control') }); assert.equal(res.status, 200);
+  assert.equal(res.headers.get('cache-control'), 'private, no-store');
+  const staff = await fetch(baseUrl + '/document-reviews/1/tax_exemption/file?academicPeriodId=10&submissionWave=initial', { headers: authHeader(7, 'control') });
+  assert.equal(staff.status, 403);
+});
 const adminUpload = async (key, periodId = 10, name) => { const res = response(); await uploadScholarRequirementByAdmin({ params: { applicantId: '7', requirementKey: key }, body: { academicPeriodId: periodId, ...file(name) }, user: { id: 9, role: 'SuperAdmin' } }, res); return res; };
 const open = async (periodId = 10) => { if (periodId !== 99) for (const key of ['tax_exemption', 'valid_id', 'grades', 'registration_form', ...(schoolType === 'private' ? ['tuition_receipt'] : [])]) { if (!getWaveSet(application.initial_docs, 10, 'initial').requirements[key]?.fileName) await adminUpload(key); } const res = response(); await openContinuingRequirements({ params: { applicantId: '7' }, body: { academicPeriodId: periodId }, user: { id: 9, role: 'SuperAdmin' } }, res); return res; };
 const scholarUpload = async (key, periodId = 10, name) => { const res = response(); await uploadMyRequirement({ body: { requirement: key, academicPeriodId: periodId, ...file(name) }, user: { id: 7, role: 'Scholar' } }, res); return res; };
