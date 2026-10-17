@@ -71,3 +71,9 @@ Frontend entry `/assets/index-Ctnlzoxh.js` and admin `Dashboard-C_5o1S_p.js` ver
 ## 2026-10-17 - Scholar certificate notification layout
 
 Frontend-only release `0ae5908` replaces tiny certificate feedback with a dismissible green success/red error card in the Scholar drawer. No backend changes, migration or configuration changes. Public admin bundle `Dashboard-CPP6EpD4.js` and stylesheet `Dashboard-C9Y2e9lc.css` verified new markup/readable styles; API/database healthy. Synthetic actual-component success/failure checks at desktop/mobile widths passed roles, keyboard dismissal, wrapping and retained PDF filename. Refresh the app and download a Private Scholar certificate to inspect the live card.
+
+## 2026-10-17 - Shared notification layouts
+
+Frontend release `264c2e6` standardizes 49 notification locations across 17 screens/components, retaining retry callbacks, blocking safeguards and input state. Shared success/error/warning/info/progress cards have readable copy, icons, keyboard controls and accessible roles. No backend, migration or deployment-configuration changes.
+
+Shared `Notification-C4SK8V0v.js` / `Notification-BzWhuijy.css` and affected admin, phone-capture, examination, applicant and scholar bundles verified live; API/database healthy. Frontend regressions, lint/build, multi-width browser checks and synthetic capture/grant/passer/announcement retry workflows passed. No production writes were performed. Staff checklist and scope: [notification layouts](qa/2026-10-17/notification-layouts.md).

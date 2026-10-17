@@ -43,7 +43,7 @@ Existing retry actions are preserved. Success/informational feedback may offer a
 - Actual Announcements: a failed list load displays an error with Retry; retry makes the original read and clears the error after success at desktop/mobile widths.
 - Existing actual Scholar drawer checks passed Add to Billing success, grant-save retry, metadata-save retry and separate Payroll preparation. Amount entry, computed allowance, handoff order and input retention remain intact.
 
-All workflow requests used local synthetic API fixtures. No production records or documents were changed. Frontend deployment is in progress; no backend changes or migration are required.
+All workflow requests used local synthetic API fixtures. No production records or documents were changed. Frontend release `264c2e6` is deployed. Shared `Notification-C4SK8V0v.js` / `Notification-BzWhuijy.css` and affected admin, phone, exam, applicant and scholar bundles were verified live, with healthy API/database. No backend changes or migration are required.
 
 ## Staff checks after deployment
 
