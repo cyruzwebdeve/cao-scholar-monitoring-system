@@ -603,7 +603,6 @@ const parseAnnouncementPayload = (body, existing = null) => {
   let imageType = body.imageType ? String(body.imageType).trim().slice(0, 100) : null;
   const imageData = body.imageData ? String(body.imageData) : null;
   const rawExternalUrl = String(body.externalUrl || '').trim();
-  if (body.notifyEmail !== undefined && typeof body.notifyEmail !== 'boolean') return { error: 'Email notification preference must be true or false.' };
   const externalUrl = normalizeFacebookPostUrl(rawExternalUrl);
   if (!title || title.length > 200) return { error: 'Announcement title is required and must not exceed 200 characters.' };
   if (!content || content.length > 5000) return { error: 'Announcement content is required and must not exceed 5,000 characters.' };
@@ -623,7 +622,7 @@ const parseAnnouncementPayload = (body, existing = null) => {
   const preservesWindow = existing && !postNow && existing.status === status && +new Date(existing.publish_at) === +new Date(publishAt);
   const effectivePublishDate = publishAt || (existing && !postNow ? existing.published_at : null) || new Date();
   if (expiresAt && expiresAt <= effectivePublishDate && !(['draft', 'archived'].includes(status) || (preservesWindow && +new Date(expiresAt) === +new Date(existing.expires_at)))) return { error: 'Expiration must be later than the publishing date.' };
-  return { title, content, audience, priority, status, publishAt, expiresAt, imageName, imageType, imageData, externalUrl, postNow, notifyEmail: body.notifyEmail };
+  return { title, content, audience, priority, status, publishAt, expiresAt, imageName, imageType, imageData, externalUrl, postNow };
 };
 
 const persistAnnouncementImage = async (payload) => {
@@ -645,7 +644,7 @@ const publishDueAnnouncements = async () => {
   const now = new Date();
   await prisma.announcements.updateMany({
     where: { status: 'scheduled', publish_at: { lte: now } },
-    data: { status: 'published', published_at: now },
+    data: { status: 'published', published_at: now, notify_email: true },
   });
 };
 
@@ -697,7 +696,7 @@ const createAnnouncement = async (req, res) => {
     const announcement = await prisma.announcements.create({
       data: {
         title: payload.title,
-        notify_email: payload.notifyEmail ?? true,
+        notify_email: true,
         content: payload.content,
         audience: payload.audience,
         priority: payload.priority,
@@ -738,7 +737,10 @@ const updateAnnouncement = async (req, res) => {
       where: { id, updated_at: new Date(req.body.updatedAt) },
       data: {
         title: payload.title,
-        notify_email: payload.notifyEmail ?? existing.notify_email,
+        // Internal rollout marker, not a staff preference. Do not retroactively
+        // broadcast historical published notices on an ordinary content edit.
+        notify_email: Boolean(existing.notify_email || payload.postNow || payload.status === 'scheduled'
+          || (payload.status === 'published' && existing.status !== 'published')),
         content: payload.content,
         audience: payload.audience,
         priority: payload.priority,

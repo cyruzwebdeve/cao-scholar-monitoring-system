@@ -49,22 +49,22 @@ test('mail failure does not undo official scholarship acceptance', async () => {
   assert.equal(res.statusCode, 201);
   assert.equal(res.body.notification.scholarApprovalEmailSent, false);
 });
-test('new announcements default to email enabled; explicit opt-out is persisted', async () => {
-  for (const opt of [undefined, false, true]) {
+test('announcement email is mandatory even if an older client submits an opt-out', async () => {
+  for (const opt of [undefined, false, true, 'false']) {
     let saved;
     prisma.announcements = { create: async ({ data }) => { saved = data; return { id: 1, ...data }; } };
     const res = response();
     await createAnnouncement({ body: { title: 'Notice', content: 'Details', status: 'published', ...(opt === undefined ? {} : { notifyEmail: opt }) }, user: { id: 99 } }, res);
     assert.equal(res.statusCode, 201);
-    assert.equal(saved.notify_email, opt ?? true);
-    assert.equal(res.body.announcement.notifyEmail, opt ?? true);
+    assert.equal(saved.notify_email, true);
+    assert.equal(res.body.announcement.notifyEmail, true);
   }
 });
-test('announcement updates preserve email preference and queue marker; invalid preference is rejected', async () => {
+test('ordinary historical edits do not blast past notices and never reset the queue marker', async () => {
   let saved;
   prisma.$transaction = async (fn) => fn(prisma);
   prisma.announcements = {
-    findUnique: async () => ({ id: 1, notify_email: false, email_queued_at: new Date(), published_at: new Date(), updated_at: new Date('2026-10-18T00:00:00Z') }),
+    findUnique: async () => ({ id: 1, status: 'published', notify_email: false, email_queued_at: new Date(), published_at: new Date(), updated_at: new Date('2026-10-18T00:00:00Z') }),
     updateMany: async ({ data }) => { saved = data; return { count: 1 }; },
   };
   const req = { params: { id: 1 }, body: { title: 'Edited', content: 'Details', status: 'published', updatedAt: '2026-10-18T00:00:00Z' }, user: { id: 99 } };
@@ -72,8 +72,35 @@ test('announcement updates preserve email preference and queue marker; invalid p
   assert.equal(res.statusCode, 200);
   assert.equal(saved.notify_email, false);
   assert.equal(Object.hasOwn(saved, 'email_queued_at'), false);
-  const invalid = response(); await createAnnouncement({ ...req, body: { ...req.body, notifyEmail: 'false' } }, invalid);
-  assert.equal(invalid.statusCode, 400);
+});
+
+test('publishing and scheduling historical drafts automatically enable email; old opt-out cannot disable it', async () => {
+  for (const status of ['published', 'scheduled']) {
+    let saved;
+    const existing = { id: 1, status: 'draft', notify_email: false, updated_at: new Date('2026-10-18T00:00:00Z') };
+    prisma.$transaction = async (fn) => fn(prisma);
+    prisma.announcements = {
+      findUnique: async () => existing,
+      updateMany: async ({ data }) => { saved = data; return { count: 1 }; },
+    };
+    const res = response();
+    await updateAnnouncement({ params: { id: 1 }, body: { title: 'Notice', content: 'Details', status, notifyEmail: false,
+      updatedAt: existing.updated_at.toISOString(), ...(status === 'scheduled' ? { publishAt: '2099-01-01T00:00:00Z' } : {}) }, user: { id: 99 } }, res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(saved.notify_email, true);
+    assert.equal(Object.hasOwn(saved, 'email_queued_at'), false);
+  }
+});
+
+test('older clients cannot switch off automatic email on a current notice', async () => {
+  let saved;
+  const existing = { id: 1, status: 'published', notify_email: true, updated_at: new Date('2026-10-18T00:00:00Z') };
+  prisma.$transaction = async (fn) => fn(prisma);
+  prisma.announcements = { findUnique: async () => existing, updateMany: async ({ data }) => { saved = data; return { count: 1 }; } };
+  const res = response();
+  await updateAnnouncement({ params: { id: 1 }, body: { title: 'Notice', content: 'Details', status: 'published', notifyEmail: false, updatedAt: existing.updated_at.toISOString() }, user: { id: 99 } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(saved.notify_email, true);
 });
 
 test('management exposes delivery counts without recipient addresses', async () => {

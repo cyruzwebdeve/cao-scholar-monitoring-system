@@ -5,10 +5,9 @@
 1. Create a notice in Announcements and select Applicants, Scholars, Applicants
    & Scholars, or Everyone. Everyone emails registered applicants/scholars only;
    administrator-only notices never email applicants or scholars.
-2. Leave **Notify the selected applicants and/or scholars by email** checked
-   for notices requiring an alert: schedules, requirement deadlines, document
-   instructions, official results notices, and other CAO updates. Uncheck it for
-   portal-only updates. Every priority supports email; no keyword guessing is used.
+2. Email notification is built in: publishing automatically alerts the selected
+   applicant/scholar audience. There is no opt-out checkbox or extra sending step.
+   Every priority supports email; no keyword guessing is used.
 3. Publish immediately or schedule publication. Drafts, archived, expired and
    future-dated notices are not emailed. The running API checks every 30 seconds.
 4. Review sent, pending, failed, sending and cancelled counts in the directory.
@@ -23,7 +22,7 @@ Facebook posts remain available in the portal, not embedded in mail.
 
 Edits, republishing, priority changes and expanding the audience do not reset the
 snapshot or repeat completed deliveries. Create a new announcement for a new alert.
-Unchecking email, archiving, expiration or audience narrowing cancels outstanding
+Archiving, expiration or audience narrowing cancels outstanding
 deliveries when examined by the worker; emails already accepted cannot be recalled.
 Accounts registered after the snapshot do not receive that announcement by email.
 
@@ -46,11 +45,15 @@ decision and has no automatic retry. Announcement retries do not apply to it.
   generate the Prisma application client, and restart the backend. Existing build
   scripts already provide these steps for a production target; verify the hosting
   build actually invokes `npm run build` or the existing migration-enabled build.
-- Build/deploy the frontend to expose the checkbox and delivery counters.
+- Build/deploy the frontend to show automatic-delivery guidance and counters.
 - Keep the existing Gmail variables and set `APP_BASE_URL` to the public frontend
   origin, not localhost. No additional secrets or dependencies are required.
-- Existing announcements default to email disabled to prevent historical blasts.
-  Deliberately enable one if an old announcement should produce its first alert.
+- Historical already-published notices are not retrospectively broadcast on
+  ordinary edits. Explicit Post Now, publication of a draft, and scheduled
+  publication automatically enable delivery. Existing scheduled notices send when
+  they become due even if an older client previously opted them out. Older clients
+  cannot disable automatic delivery by submitting notifyEmail=false. The stored
+  notify_email flag remains an internal rollout marker, not a staff preference.
 - The queue survives restarts and uses atomic DB claims across API instances. A tick
   queues at most ten announcements and sends at most 25 emails sequentially; larger
   audiences take multiple ticks and remain subject to the sender's provider limits.
@@ -70,7 +73,7 @@ decision and has no automatic retry. Announcement retries do not apply to it.
 
 ## Rollback and scope
 
-Disable email on outstanding announcements to cancel them, or roll back the backend
+Archive outstanding announcements to cancel them, or roll back the backend
 and frontend release while preserving the additive database columns/table. Do not
 drop the table to stop the worker. Old mail and database backups cannot be recalled.
 No scholarship decision rules or payroll behavior change. Legacy payment-oriented

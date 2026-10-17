@@ -8294,3 +8294,69 @@ Full backend suite: 360 tests, 359 passed, one existing opt-in database-dependen
 
 ### Limitations, rollback and next work
 This is not blanket SuperAdmin elevation: hidden sections and account-specific section assignments remain authoritative. Accounts lacking a section must still be assigned it by SuperAdmin through existing staff management; this release does not unhide it automatically. Refresh the browser after both hosting builds, then test Billing settings, initial upload/continuing controls and Passer List actions on controlled records; verify hidden sections remain absent and forbidden APIs return 403. Rollback by reverting the matched code release; no database/account rollback is needed. Keep the earlier additive notification schema if rolling back only this change. Provider-only build/migration completion may require Hostinger log confirmation because hosting management is not connected. Unrelated original local files and reset/cleanup artifacts remain excluded.
+
+
+### Deployment verification outcome
+Pushed commit 31b4bb772ee8a5a2c7c045b5c9a5aa1bee718cd1 to main and confirmed the exact remote hash. The live frontend serves index-BlHnIZIh.js and the exact administrator chunk assets/Dashboard-Cs_xparm.js with HTTP 200/JavaScript content type. That chunk contains the new Billing workspace-denial marker and the preceding notification checkbox/delivery-count markers. Initial polling incorrectly matched the ApplicantDashboard filename suffix and received an HTML fallback; verification was corrected to the exact assets/Dashboard path before making a live-content claim. API health returned HTTP 200, healthy and database connected. This proves frontend publication and API availability, not the backend commit, new role behavior, or preceding migration completion. Hostinger build confirmation and authenticated Billing tests remain pending; no production account, section assignment, document, announcement, examination or scholarship decision was modified during verification. Deployment outcome is recorded locally without another rebuild-triggering documentation push.
+
+
+## 2026-10-18 - Make announcement email a built-in publication behavior
+
+### TL;DR
+- Removed the optional email checkbox: publishing automatically emails the selected registered applicant/scholar audience at every priority.
+- Scheduling and due publication enable delivery even if an older client submitted an opt-out; ordinary edits do not repeat mail or blast historical notices.
+- Existing staff section access, scholarship decision gates, drafts/admin-only exclusions and delivery counters remain unchanged. No new migration or live email.
+- Validation: 361 backend tests passed with one existing skip; all 102 frontend tests passed. No deployment or push is performed for this correction yet.
+
+### Objective and reason
+Correct the earlier optional-delivery interpretation after the user clarified that notification is an important built-in feature. Staff should publish a notice once, not remember a separate notification preference.
+
+### Previous and new behavior
+Previously the editor exposed a checkbox and the API persisted an optional notifyEmail preference. Now the checkbox, preference form state and request field are removed; the Delivery text explains automatic publication email. New announcements always set the internal delivery marker. Draft-to-published, explicit Post Now and scheduling updates activate it; both scheduled-publication paths activate it when due. Older client opt-out fields are ignored, so they cannot silently suppress current delivery. Normal historical published edits retain the rollout safety marker and never trigger a retrospective email blast. Existing unique queue membership and email_queued_at remain untouched to prevent routine resends. Staff see automatic/historical/administrator delivery descriptions and existing aggregate counters rather than an email-disabled preference.
+
+### Affected roles and workflows
+Authorized announcement staff, including Billing within its saved assignments, retain the same publishing controls and audience choices. Selected applicants/scholars are emailed automatically after publication. Administrator-only notices do not email applicants/scholars; drafts, archived, expired and future notices remain blocked until appropriate. Scholarship-acceptance emails are already automatic after the formal decision and are unchanged. Existing hidden sections and permissions are unchanged.
+
+### Implementation, data flow and changed files
+applicationController.js no longer parses a delivery preference, unconditionally enables new notices and enables eligible publication transitions without resetting the queued marker. Its due-schedule promotion and announcementNotifications.js worker promotion both set the internal marker. AnnouncementsManagement.jsx removes the checkbox/preference payload, updates post-save/status guidance and explains built-in delivery. Controller tests verify ignored opt-out flags, publication/scheduling activation and historical-edit safety; the worker test now covers a scheduled notice with a legacy opt-out. A new frontend regression asserts the editor has no checkbox or optional preference state/payload and retains automatic guidance/counters. docs/announcement-email-notifications.md now explains mandatory publication delivery and archiving-based cancellation. Both development logs are updated while preserving earlier local entries.
+
+### Impact assessment
+- API: existing endpoint contracts remain; obsolete notifyEmail request fields are ignored rather than controlling delivery. The serialized marker remains read-only delivery/rollout information for compatibility, not a staff preference.
+- Database: no schema, migration, historical backfill or account/assignment change. Existing queue/table and internal notify_email rollout column are retained. Future scheduled-publication events update their marker through the normal application flow.
+- Configuration/deployment: no new environment, hosting, dependency or scheduler requirement. Matched frontend/backend publication will be required to make this correction live; no push, deploy or workstation migration was performed.
+- Security: existing authentication, role/section guards, edit-revision checks, recipient filtering, private individual addressing and HTML/header escaping are unchanged. Clients cannot bypass automatic notification using a stale checkbox flag.
+- Privacy: relevant published notices now always use the previously configured transactional provider for the matching audience. No new data categories, recipient-address disclosure or bulk historical broadcast. Do not publish Everyone merely to test email.
+- Accessibility/UX: removes the oversized native-checkbox control entirely and replaces it with ordinary Delivery instructions. Existing semantic publishing buttons, status feedback and counters remain.
+- Approved scope: no payroll, fund release, claiming, disbursement, reconciliation or monetary audit change. Remaining legacy payment behavior remains unchanged outside scope; retired release routes stay disabled.
+
+### Validation and results
+Full backend suite passed 361 tests with one existing opt-in skip (362 total); full frontend suite passed all 102 tests. Final backend rerun and diff whitespace checks passed after both publication paths were updated. Tests use injected database/mailer facades; no real messages, announcement records, decisions or database migrations were performed. Frontend lint/build results are recorded immediately below when the final process completes.
+
+### Limitations, rollback and recommended next work
+Publication automatically queues mail; provider availability and the existing bounded retry/ambiguous-send limitations still apply. Publishing is not proof of inbox receipt. Ordinary already-published historical notices are not retroactively sent; use an explicit Post Now or a new notice for an intentional fresh alert. Completed recipient deliveries never repeat through ordinary edits or republishing. Archive or narrow audience to cancel pending work; there is no optional delivery toggle. Rollback only the matched frontend/backend correction while retaining additive queue/schema history. Deploy when authorized, refresh old browser sessions and test a controlled audience plus schedule/draft behavior. No live deployment is claimed for this local correction.
+
+### Final frontend verification
+ESLint and final production build passed after removal of the checkbox and preference state. Existing large-chunk warnings remain. This correction is local only; no commit, push, deployment or live email was performed.
+
+## 2026-10-18 - Deploy built-in automatic announcement email for testing
+
+### TL;DR
+- Deploy the corrected automatic announcement notification behavior; no optional checkbox or separate sending step remains.
+- Selected applicants/scholars are queued on publication or due scheduling; draft/admin-only exclusions, historical-edit safety and unique deliveries remain intact.
+- No new schema, account, permission, environment or dependency change; use the existing hosting pipeline and preserve the earlier queue migration.
+- Verification before deployment: 361 backend tests passed/one skipped, 102 frontend passed, lint/build and whitespace checks passed. Hosted outcome follows after push.
+
+### Objective, reason, previous/new behavior and affected workflows
+Publish the user's requested correction for testing. Staff previously could opt out through a checkbox; the corrected UI removes that choice and the backend ignores stale opt-out fields. Authorized staff publish once to the intended audience, and delivery is automatic. Existing Billing hidden sections and assigned operational access, applicant/scholar workflows and formal acceptance emails are unchanged. Historical published notices are not blasted by routine edits, while existing scheduled notices enable delivery when due.
+
+### Implementation and changed areas
+Deploy only the corrected announcement controller and worker, announcement management UI, associated controller/worker/frontend regression tests, operator guide and matching development logs. No unrelated local files or test output artifacts are staged. Existing worker queue, audience checks and duplicate markers remain authoritative. Backend and frontend builds both need to finish; no workstation migration or direct production-data operation is used.
+
+### Impact assessment
+API: old notifyEmail request fields no longer control delivery; existing routes/payloads otherwise remain compatible. Database: no new schema/migration/backfill; existing queue and internal rollout flags are retained. Configuration/dependencies/hosting settings: no changes. Security/privacy: existing staff guards, assigned sections, individual recipient privacy and safe templating remain; publication now always alerts the matching audience, not administrators. Accessibility/UX: oversized optional checkbox removed, ordinary Delivery instructions and counters retained. Deployment: existing main-branch GitHub-to-Hostinger pipeline only. Scope: no fund release, claiming, disbursement, reconciliation or monetary audit changes; legacy payment paths remain unchanged/retired outside approved scope.
+
+### Validation and results
+Full code checks already passed on the exact prepared correction: 362 backend tests total, 361 passed and one existing opt-in skip; all 102 frontend tests passed. Frontend lint/build passed with the existing large-chunk warning. Diff whitespace checks passed. Remote main was confirmed at the expected Billing release 31b4bb7 before staging. No authenticated records, live mail, announcement publication, account assignment or manual migration was used for validation. Commit/push and public asset/API checks follow separately.
+
+### Limitations, rollback and next work
+Hostinger-only backend revision/build and migration evidence cannot be inferred from public API health. Verify matched build completion before testing; refresh old browser sessions and use a deliberately limited audience rather than Everyone. Automatic queuing is not proof of inbox delivery and existing provider/retry limitations remain. Roll back matched frontend/backend code without dropping the queue/schema or resetting data. No new migration is introduced, but the earlier notification migration must already exist or be applied by the normal production build. Record deployment observations locally without an extra rebuild-triggering documentation-only push.

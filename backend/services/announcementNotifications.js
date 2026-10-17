@@ -67,7 +67,7 @@ const createAnnouncementNotifications = ({ prisma, mailer, now = () => new Date(
     running = true;
     try {
       const timestamp = now();
-      await prisma.announcements.updateMany({ where: { status: 'scheduled', publish_at: { lte: timestamp } }, data: { status: 'published', published_at: timestamp } });
+      await prisma.announcements.updateMany({ where: { status: 'scheduled', publish_at: { lte: timestamp } }, data: { status: 'published', published_at: timestamp, notify_email: true } });
       const announcements = await prisma.announcements.findMany({ where: {
         notify_email: true, email_queued_at: null, status: 'published', audience: { in: audiences },
         AND: [{ OR: [{ publish_at: null }, { publish_at: { lte: timestamp } }] }, { OR: [{ expires_at: null }, { expires_at: { gt: timestamp } }] }],

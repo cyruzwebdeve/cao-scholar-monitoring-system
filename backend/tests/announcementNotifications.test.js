@@ -104,6 +104,7 @@ test('concurrent local ticks do not duplicate deliveries', async () => {
 test('scheduled notices send only after their publication time', async () => {
   const f = fixture();
   f.announcement.status = 'scheduled';
+  f.announcement.notify_email = false; // A legacy opt-out must not suppress a future publication.
   f.announcement.publish_at = new Date('2026-10-19');
   await f.runOnce(); assert.equal(f.messages.length, 0);
   f.announcement.publish_at = new Date('2026-10-17');
