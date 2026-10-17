@@ -36,7 +36,7 @@ const { findPrimaryActivePeriod } = require('../services/academicPeriod');
 const { isExaminationApplicationEligible, isCurrentExaminationApplicant } = require('../services/examinationEligibility');
 const { evaluateEligibility, serializeAssessment } = require('../services/eligibilityRecommendation');
 const { PRIORITY_PROOFS, selectedPriorityCriteria } = require('../services/priorityEligibility');
-const { createBillingReference } = require('../services/billingReference');
+const { createReferencedListBatch } = require('../services/billingReference');
 const { resolveBillingAmount } = require('../services/billingGrant');
 const { getOrStartAttempt, assertAttemptOpen, AttemptError } = require('../services/onlineExamAttempt');
 const { assertAutomaticGrading, loadConfiguration, publicConfiguration, scoreConfiguredAnswers, createExamTicket, verifyExamTicket } = require('../services/onlineExamConfiguration');
@@ -1270,22 +1270,18 @@ const processBillingSelection = async (req, res) => {
     const batchTotal = eligibleIds.reduce((total, applicantId) => total + (billingAmountByApplicant.get(applicantId) || 0), 0);
 
     const timestamp = new Date();
-    const batchNumber = createBillingReference(timestamp);
     const result = await prisma.$transaction(async (transaction) => {
       const grantSnapshots = await snapshotPrivateGrants(transaction, activePeriod.id, eligibleIds);
       await assertProcessingRoutes(transaction, activePeriod, eligibility, applicationByApplicant, primaryPeriod.id, 'billing');
-      const batch = await transaction.payroll_batches.create({
-        data: {
-          batch_number: batchNumber,
-          billing_period_id: activePeriod.id,
-          total_scholars: eligibleIds.length,
-          total_amount: batchTotal,
-          status: 'billed',
-          prepared_by: req.user.id,
-          prepared_at: timestamp,
-          remarks: `${activePeriod.school_year} · ${activePeriod.semester} billing batch${incompleteRequirementsCount ? ` · ${incompleteRequirementsCount} with incomplete requirements` : ''}`,
-          updated_at: timestamp,
-        },
+      const batch = await createReferencedListBatch(transaction, 'billing', {
+        billing_period_id: activePeriod.id,
+        total_scholars: eligibleIds.length,
+        total_amount: batchTotal,
+        status: 'billed',
+        prepared_by: req.user.id,
+        prepared_at: timestamp,
+        remarks: `${activePeriod.school_year} · ${activePeriod.semester} billing batch${incompleteRequirementsCount ? ` · ${incompleteRequirementsCount} with incomplete requirements` : ''}`,
+        updated_at: timestamp,
       });
       await transaction.payroll_claims.createMany({
         data: eligibleIds.map((applicantId) => ({
@@ -1303,7 +1299,7 @@ const processBillingSelection = async (req, res) => {
       });
       await transaction.scholar_requirements.updateMany({
         where: { applicant_id: { in: eligibleIds }, billing_period_id: activePeriod.id },
-        data: { billing_reference: batchNumber, updated_by: req.user.id },
+        data: { billing_reference: batch.batch_number, updated_by: req.user.id },
       });
       const scholarsWithoutRequirementRows = eligibleIds.filter((applicantId) => !requirementByApplicant.has(applicantId));
       if (scholarsWithoutRequirementRows.length) {
@@ -1311,7 +1307,7 @@ const processBillingSelection = async (req, res) => {
           data: scholarsWithoutRequirementRows.map((applicantId) => ({
             applicant_id: applicantId,
             billing_period_id: activePeriod.id,
-            billing_reference: batchNumber,
+            billing_reference: batch.batch_number,
             updated_by: req.user.id,
           })),
         });
@@ -1418,24 +1414,20 @@ const processPayrollSelection = async (req, res) => {
     const incompleteRequirementsCount = eligibility.filter(({ warnings }) => warnings.length > 0).length;
 
     const timestamp = new Date();
-    const batchNumber = `PAYROLL-${timestamp.toISOString().replace(/\D/g, '').slice(0, 17)}`;
     const amountByApplicant = new Map(applicantIds.map((applicantId) => [applicantId, resolveBillingAmount(resolveScholarSchool({ applicant: applicantById.get(applicantId), requirement: requirementByApplicant.get(applicantId), application: applicationByApplicant.get(applicantId), schoolById, schoolByName, schoolHistory: schoolHistoryByApplicant.get(applicantId) })?.school_type)]));
     const totalAmount = applicantIds.reduce((total, applicantId) => total + amountByApplicant.get(applicantId), 0);
     const batch = await prisma.$transaction(async (transaction) => {
       const grantSnapshots = await snapshotPrivateGrants(transaction, activePeriod.id, eligibility.filter((item) => String(item.schoolType).toLowerCase() === 'private').map((item) => item.applicantId));
       await assertProcessingRoutes(transaction, activePeriod, eligibility, applicationByApplicant, primaryPeriod.id, 'payroll');
-      const createdBatch = await transaction.payroll_batches.create({
-        data: {
-          batch_number: batchNumber,
-          billing_period_id: activePeriod.id,
-          total_scholars: applicantIds.length,
-          total_amount: totalAmount,
-          status: 'generated',
-          prepared_by: req.user.id,
-          prepared_at: timestamp,
-          remarks: `${activePeriod.school_year} · ${activePeriod.semester} official payroll list for scholars`,
-          updated_at: timestamp,
-        },
+      const createdBatch = await createReferencedListBatch(transaction, 'payroll', {
+        billing_period_id: activePeriod.id,
+        total_scholars: applicantIds.length,
+        total_amount: totalAmount,
+        status: 'generated',
+        prepared_by: req.user.id,
+        prepared_at: timestamp,
+        remarks: `${activePeriod.school_year} · ${activePeriod.semester} official payroll list for scholars`,
+        updated_at: timestamp,
       });
       await transaction.payroll_claims.createMany({
         data: applicantIds.map((applicantId) => ({

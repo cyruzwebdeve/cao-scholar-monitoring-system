@@ -238,7 +238,7 @@
 
 2026-10-13 | Deployed heading-size correction ea83fd4 for testing. Live Dashboard-CD8_2I3X.css verified both source/target headings share 11px; API healthy/database connected. Frontend only, no migration.
 
-2026-10-13 | Set Billing/Payroll source-list school names to the requested 7px. Other typography and processing unchanged; frontend build passed. No migration; not deployed.
+2026-10-13 | Set Billing/Payroll source-list school names to the requested 7px. Other typography and processing unchanged; frontend build passed. No migration; deployment authorized and in progress.
 
 2026-10-13 | Deployed 7px school-name release cdb5a99. Live Dashboard-r7w7Pw-9.css verified the scoped 7px rule; API healthy/database connected. Frontend only, no migration.
 
@@ -256,7 +256,7 @@
 
 2026-10-13 | Deployed matching-panel UI (2527dd7, final alignment 3b51509) for testing. Public component/shared typography/compact row styles verified live; queue uses warning icon and school subtitle. API healthy/database connected. No backend change or migration.
 
-2026-10-13 | Verified attendance API read-back and applicant refresh: isolated browsers can wait up to the next 120-second visible-page poll; shared-browser revision events refetch immediately. Renamed user-facing privileged-role labels/messages to Provincial Admin, preserving SuperAdmin wire role and permissions. 312 tests passed/one skipped, lint/build and controlled browser checks passed. No migration; not deployed.
+2026-10-13 | Verified attendance API read-back and applicant refresh: isolated browsers can wait up to the next 120-second visible-page poll; shared-browser revision events refetch immediately. Renamed user-facing privileged-role labels/messages to Provincial Admin, preserving SuperAdmin wire role and permissions. 312 tests passed/one skipped, lint/build and controlled browser checks passed. No migration; deployment authorized and in progress.
 
 2026-10-13 | Deployed Provincial Admin role-display release 90832a5. Public frontend labels verified live; API healthy/database connected; user confirmed Hostinger backend success. No migration. Attendance refresh remains the existing 120-second visible-page interval.
 
@@ -369,3 +369,5 @@
 2026-10-17 | Simplified Billing Word certification lists to two equal borderless columns containing scholar names only, with no numbering, headers or academic/identity fields in the table. Applies to Generate and history downloads; official records retained. Synthetic 65-name/two-school DOCX checks, rendered layout review, lint and build passed; release 17934c3 verified live with new generator code and exact template checksum. API/database healthy on IPv4 retry.
 
 2026-10-17 | Added sequential numbering beside names in the two-column Billing Word certification list, reading across rows and restarting for each school letter. Generate and history downloads use the same layout. Synthetic DOCX numbering/odd-row checks, visual rendering, lint and build passed; release 3d662eb pushed and new frontend assets observed. Live sequential-numbering code verified on a subsequent direct read; API health verification limited by DNS/network timeouts. No backend/schema changes.
+
+2026-10-17 | Shortened new official list references to BILL-0042 / PAY-0043 using durable batch IDs and individual Scholar PDF references to PGCEAP-CERT#0034 using one scholar ID across academic periods. Existing stored list references remain unchanged. Atomic generation/rollback and database uniqueness checks, backend/frontend regressions, actual two-period PDF downloads, lint and build passed. No migration; deployment authorized and in progress.

@@ -27,6 +27,7 @@ import { buildRecordRows, downloadCsv } from './utils/csvExport';
 import { saveProcessingHandoff } from './utils/processingHandoff';
 import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 import certificateHeader from './assets/certificate-header.png';
+import { certificateReferenceFor } from './utils/certificateReference';
 import './styles/document-reviews.css';
 import './styles/scholars-management.css';
 
@@ -49,19 +50,6 @@ const formatScholarAmount = (value) => new Intl.NumberFormat('en-PH', {
   currency: 'PHP',
   minimumFractionDigits: 2,
 }).format(Number(value || 0));
-
-const certificateReferenceFor = (record) => {
-  const controlNumber = String(record.controlNumber || record.scholarId || 'SCHOLAR')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '-');
-  const schoolYear = String(record.schoolYear || 'CURRENT')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '');
-  const semester = String(record.semester || 'CURRENT')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '');
-  return `PGCEAP-CERT-${controlNumber}-${schoolYear}-${semester}`;
-};
 
 const imageUrlToDataUrl = async (url) => {
   const response = await fetch(url);

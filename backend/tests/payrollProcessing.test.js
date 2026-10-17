@@ -42,9 +42,18 @@ const setup = ({ schoolType = 'public', schoolName = 'TEST PUBLIC SCHOOL', appli
     payroll_batches: { findMany: async () => batches },
     $transaction: async (callback) => callback({
       $queryRaw: async () => [{ value: 1 }],
-      payroll_batches: { create: async ({ data }) => { writes.push({ type: 'batch', data }); return { id: 51, ...data }; } },
+      payroll_batches: {
+        create: async ({ data }) => { writes.push({ type: 'batch', data }); return { id: 51, ...data }; },
+        update: async ({ where, data }) => {
+          assert.equal(where.id, 51);
+          const batch = writes.find((entry) => entry.type === 'batch');
+          assert.ok(batch);
+          Object.assign(batch.data, data);
+          return { id: 51, ...batch.data };
+        },
+      },
       payroll_claims: { createMany: async ({ data }) => { writes.push({ type: 'memberships', data }); return { count: data.length }; } },
-      scholar_requirements: { findMany: async () => [requirement], updateMany: async () => ({ count: 1 }) },
+      scholar_requirements: { findMany: async () => [requirement], updateMany: async ({ data }) => { Object.assign(requirement, data); return { count: 1 }; } },
     }),
   });
   return { writes };
@@ -76,6 +85,8 @@ test('all processing roles generate incomplete Payroll lists without override or
     assert.equal(res.statusCode, 201);
     assert.equal(res.body.incompleteRequirementsCount, 1);
     assert.equal(res.body.overrideCount, undefined);
+    assert.equal(res.body.batch.batchNumber, 'PAY-0051');
+    assert.equal(writes[0].data.batch_number, 'PAY-0051');
     assert.equal(writes[0].data.status, 'generated');
     assert.equal(writes[1].data[0].claim_status, 'listed');
     assert.match(writes[1].data[0].notes, /Requirements incomplete at list generation/);
@@ -219,6 +230,10 @@ test('Private certification accepts missing tuition receipt and pending grades w
   assert.equal(res.statusCode, 201);
   assert.equal(res.body.incompleteRequirementsCount, 1);
   assert.equal(writes[0].data.total_amount, 5000);
+  assert.equal(res.body.batch.batchNumber, 'BILL-0051');
+  assert.equal(res.body.batch.billingReference, 'BILL-0051');
+  assert.equal(writes[0].data.batch_number, 'BILL-0051');
+  assert.equal((await prisma.scholar_requirements.findUnique({})).billing_reference, 'BILL-0051');
   assert.match(writes[1].data[0].notes, /Receipt of Tuition Fee has not been uploaded/);
   assert.equal((await prisma.application_submissions.findMany())[0].initial_docs.requirements.grades.status, 'pending');
 });
@@ -344,7 +359,16 @@ test('Private list generation requires a saved grant record when the period prep
   const [application] = await prisma.application_submissions.findMany();
   application.initial_docs.requirements = {};
   prisma.$transaction = async (callback) => callback({
-    payroll_batches: { create: async ({ data }) => { writes.push({ type: 'batch', data }); return { id: 51, ...data }; } },
+    payroll_batches: {
+        create: async ({ data }) => { writes.push({ type: 'batch', data }); return { id: 51, ...data }; },
+        update: async ({ where, data }) => {
+          assert.equal(where.id, 51);
+          const batch = writes.find((entry) => entry.type === 'batch');
+          assert.ok(batch);
+          Object.assign(batch.data, data);
+          return { id: 51, ...batch.data };
+        },
+      },
     payroll_claims: { createMany: async ({ data }) => { writes.push({ type: 'memberships', data }); return { count: data.length }; } },
     scholar_requirements: {
       updateMany: async () => ({ count: 0 }),
