@@ -17,7 +17,7 @@ Scope: Generate certification list and certification-history downloads use the s
 
 - Browser-generated DOCX with 65 synthetic scholars across two schools has exactly two equal-width cells per row. Names read left to right then downward in the source order. The odd final row has a blank right cell.
 - Scholar tables contain no column headers, numbering, control numbers, course or year-level values. Borderless layout uses 11-point name text and retains XML escaping and the school-specific letter template.
-- LibreOffice rendered pages were visually reviewed; two-column names fit within the page and retain letterhead/footer. Lint and production build passed. No production data mutations were made.
+- LibreOffice rendered pages were visually reviewed; two-column names fit within the page and retain letterhead/footer. Lint and production build passed. No production data mutations were made. Release `17934c3` verified live with the new generator code and exact template checksum; API/database health passed on IPv4 retry.
 
 ## Staff checks after deployment
 
