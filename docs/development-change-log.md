@@ -8447,3 +8447,34 @@ All 106 frontend tests passed; full backend suite passed 373 tests with one exis
 
 ### Limitations, rollback and recommended next work
 Older records deliberately remain in administrator history and notification history; this is a presentation cleanup, not data deletion or a new schedule-expiry rule. The existing latest-update selection and backend notification ordering remain unchanged. If notification refresh fails, the existing portal error guidance remains authoritative; Gmail availability is independent of this view. Rollback only the removed import/mount/component/style and related documentation if the duplicate history UI is explicitly wanted again; no database/API rollback is required. Refresh the Scholar browser after publication and visually verify a controlled schedule notice appears in the existing announcement area without a second history section. Do not edit a real schedule or notify Everyone just to test layout. Preserve unrelated local work; record outcome locally without another rebuild-triggering documentation-only push.
+
+
+### Deployment verification outcome
+Pushed 27fd7c96221c12cb641d807afafd99b1b66a4faa to main and confirmed the exact remote hash. Live public frontend now references index-CWX2XNvh.js and assets/ScholarDashboard-BH_Yk2Sb.js. The exact Scholar asset returned HTTP 200/JavaScript, no longer contains the duplicate Your payout schedules heading or /payout-schedules/me request, and still contains the existing Your latest update and PAYOUT SCHEDULE UPDATE announcement markers. API health returned HTTP 200, healthy and database connected. Initial checks from both HTTP clients saw transient connection resets before successful verification; no hosting failure is inferred. This verifies frontend publication and API availability, not authenticated visual behavior or inbox delivery. No backend source/schema was changed by this release, and no schedule record, recipient, notification history, email queue or payment state was deleted or mutated during verification. No live test email was triggered. Outcome recorded locally without a second documentation-only deployment push.
+
+
+## 2026-10-18 - Action-first Scholar Portal layout
+
+**TL;DR**
+- Scholars now see one clear next step, unified personal/general updates, and separate initial/continuing document tabs.
+- Compact identity/status cards and a profile shortcut replace duplicate profile content; mobile prioritizes action, updates, and requirements.
+- No API, database, eligibility, mailer, permissions, or record changes; legacy monetary details are removed only from the redesigned main updates view.
+- Validation: 113 frontend tests pass; backend 373 pass and one skip; lint/build pass; synthetic desktop/mobile screenshots inspected. Deployment verification follows below.
+
+### Objective and previous/new behavior
+Reduce visual duplication and make the next required scholar action obvious. Previously the portal used parallel columns, a full profile card alongside a profile dialog, and one update that could obscure the general announcement. It now has a compact name/ID/actual academic-period header, three status summaries, one next-step card, optional progress disclosure, separate personal and general articles in one updates panel, and document-stage tabs. Empty, loading, failed-refresh, closed-upload, correction, pending-review and approved states have explicit guidance. The historical all-schedules section remains absent.
+
+### Roles, workflow, implementation and data flow
+Only the Scholar Portal presentation changes. Existing applications, announcement and notification fetches populate the same state; new pure helpers derive display status and next-step copy. Existing upload requests, selected academic-period scoping, public/private tuition filtering, six-megabyte validation, approved-file restrictions, deadline/closed guards, mark-as-read requests, profile dialog and bell history are retained. Tabs default to the appropriate stage and support arrow/Home/End keys. On mobile, requirements precede the summary/list cards. CAO/Billing/admin workspaces do not change. The approved workflow still ends at official payroll-list generation.
+
+### System areas changed
+ScholarDashboard.jsx; ScholarNextStep.jsx; ScholarUpdates.jsx; ScholarRequirementsTabs.jsx; scholarPortalLayout.js; scoped scholar-portal-layout.css; scholarPortalLayout.test.js and the existing scholarScheduleDisplay.test.js; required change logs.
+
+### Impacts and scope
+API/database/configuration: none; no migration, new endpoint, environment variable or data deletion. Security/privacy: existing authentication and role enforcement unchanged, React text escaping retained, external links retain noopener/noreferrer, no new personal data fetched. Accessibility: labelled tabs/panels, keyboard navigation, focus outlines, focus transfer from primary action, native progress/disclosure, text status labels, reduced motion and mobile touch targets. Legacy payment-oriented Amount/Processed metadata is removed from the main update card rather than implying release of funds; underlying historical notification records, bell history and APIs remain retained legacy functionality outside approved monetary scope. Informational schedule notices and Gmail queues are unchanged. Deployment uses the existing main-branch hosting pipeline; no infrastructure change.
+
+### Validation and results
+Frontend 113/113 tests passed, including status aliases, action priorities/closed guards, combined notices/escaping, no monetary display, tab semantics/keyboard behavior, profile/history/upload-source invariants and absence of duplicate schedules. ESLint and production build passed with the existing large-chunk warning. Backend regression suite: 373 passed, one skipped, zero failures. Headless Chrome synthetic local previews inspected at desktop 1440px and mobile 520px; no production accounts, document uploads, schedule publications or test emails were used.
+
+### Limitations, rollback and next work
+Synthetic rendering is not an authenticated end-to-end production test, and screenshot checks do not replace full assistive-technology testing. CAO-facing processing and backend gates remain authoritative. Review with a scholar account after deployment, including private-school records, closed periods, tabs, profile and notification history on a narrow phone. Revert this frontend commit to restore the previous layout; no data rollback required.

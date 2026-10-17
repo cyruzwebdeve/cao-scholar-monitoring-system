@@ -4,20 +4,23 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronRight,
-  CircleDollarSign,
+  ClipboardList,
   FileCheck2,
-  ExternalLink,
   GraduationCap,
   LogOut,
   UserRound,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import PortalGuidance from './components/PortalGuidance';
+import ScholarNextStep from './components/ScholarNextStep';
+import ScholarUpdates from './components/ScholarUpdates';
+import ScholarRequirementsTabs from './components/ScholarRequirementsTabs';
+import { buildScholarNextStep, getRequirementReviewStatus, requirementStatusLabels } from './utils/scholarPortalLayout';
 import { API_BASE, authHeaders } from './services/api';
 import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh, TIME_SENSITIVE_DATA_REFRESH_MS } from './utils/dataRefresh';
 import './styles/scholar-portal.css';
 import './styles/portal-responsive.css';
+import './styles/scholar-portal-layout.css';
 
 const requirementItems = [
   { key: 'grades', label: 'Certificate of Grades (previous semester attended)' },
@@ -37,17 +40,10 @@ const formatPortalDate = (value, fallback = 'Not available', timeZone) => {
   });
 };
 
-const getRequirementReviewStatus = (item) => {
-  if (!item?.fileName) return 'missing';
-  const status = String(item.status || '').toLowerCase();
-  if (['approved', 'complete', 'completed'].includes(status)) return 'approved';
-  if (['rejected', 'declined'].includes(status)) return 'rejected';
-  return 'pending';
-};
-
 function ScholarDashboard({ token, user, onLogout }) {
   const [application, setApplication] = useState(null);
   const [requirementPeriodId, setRequirementPeriodId] = useState('');
+  const [requirementsTab, setRequirementsTab] = useState(null);
   const [portalData, setPortalData] = useState({});
   const [loadingRequirements, setLoadingRequirements] = useState(true);
   const [requirementsError, setRequirementsError] = useState('');
@@ -222,7 +218,19 @@ function ScholarDashboard({ token, user, onLogout }) {
   ] : ['Scholar records are unavailable until loading succeeds.'];
   const unreadScholarNotifications = scholarNotifications.filter(({ isRead }) => !isRead);
   const latestScholarNotification = scholarNotifications[0] || null;
-  const isScheduleNotification = latestScholarNotification?.type === 'payout_schedule';
+  const activeRequirementsTab = requirementsTab || (continuingOpen ? 'continuing' : 'initial');
+  const initialRequirementItems = [{ key: 'tax_exemption', label: 'Certificate of Tax Exemption' }, { key: 'indigency', label: 'Barangay Indigency (optional)' }, { key: 'valid_id', label: 'Valid ID' }, ...visibleRequirementItems];
+  const requiredInitialItems = initialRequirementItems.filter(({ key }) => key !== 'indigency');
+  const initialApprovedCount = requiredInitialItems.filter(({ key }) => getRequirementReviewStatus(initialRequirements[key]) === 'approved').length;
+  const summaryApproved = continuingOpen ? approvedCount : initialApprovedCount;
+  const summaryTotal = continuingOpen ? uploadableRequirements.length : requiredInitialItems.length;
+  const nextStep = buildScholarNextStep({ loading: loadingRequirements, error: requirementsError,
+    continuingOpen, uploadsClosed: requirementsSubmissionClosed, rejectedCount, missingCount, pendingReviewCount,
+    requirementsComplete, listed: useCertification ? certificationDate !== 'Not generated' : Boolean(payrollList), guidance: portalData.guidance });
+  const openRequirements = (tab) => {
+    setRequirementsTab(tab || 'initial');
+    window.requestAnimationFrame(() => document.getElementById('scholar-requirements-title')?.focus({ preventScroll: true }));
+  };
   const hasActionNotifications = unreadScholarNotifications.length > 0 || attentionCount > 0 || pendingReviewCount > 0 || (useCertification ? certificationDate === 'Not generated' : !payrollList);
   const uploadRequirement = (requirement, file) => {
     if (!file) return;
@@ -305,6 +313,7 @@ function ScholarDashboard({ token, user, onLogout }) {
             <button
               type="button"
               className="scholar-icon-button"
+              id="scholar-notifications-toggle"
               aria-label="Notifications"
               aria-expanded={notificationsOpen}
               onClick={() => setNotificationsOpen((open) => !open)}
@@ -360,41 +369,31 @@ function ScholarDashboard({ token, user, onLogout }) {
             </section>
           </div>
         )}
-        <section className="scholar-welcome-card">
-          <div><p className="scholar-eyebrow">SCHOLAR ACCOUNT</p><h1>Good morning, {displayName}!</h1><p>Here’s a quick look at your scholarship progress and next steps.</p></div>
-          <div className="scholar-welcome-icon"><GraduationCap size={42} /></div>
+        <section className="scholar-welcome-card scholar-compact-welcome" aria-label="Scholar account overview">
+          <div><p className="scholar-eyebrow">YOUR SCHOLAR WORKSPACE</p><h1>Welcome, {user?.firstName || displayName}</h1><div className="scholar-welcome-meta"><span>Scholar ID <strong>{portalData.scholar?.scholarId || 'Not assigned'}</strong></span><span><CalendarDays size={14} aria-hidden="true" />{portalData.activePeriod?.schoolYear || 'Academic period unavailable'}{portalData.activePeriod?.semester ? ' - ' + portalData.activePeriod.semester : ''}</span></div></div>
+          <button type="button" className="scholar-profile-shortcut" onClick={() => setProfileOpen(true)}><UserRound size={17} aria-hidden="true" />My profile<ChevronRight size={15} aria-hidden="true" /></button>
         </section>
-
         {(announcementError || notificationsError) && <Notification tone="error" title="Unable to refresh updates" action={<button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry updates</button>}>{announcementError || notificationsError} Announcements or notifications may be out of date.</Notification>}
         {requirementsError && <Notification tone="error" title="Unable to load scholar requirements" action={<button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry now</button>}>{requirementsError}</Notification>}
         {loadingRequirements && !application && <Notification tone="progress" title="Loading scholar records">Please wait while your records are loaded.</Notification>}
         {application && <>
-        <section className="scholar-stat-grid">
-          <article className="scholar-stat-card"><div className="scholar-stat-icon green"><CheckCircle2 size={21} /></div><div><span>Scholarship status</span><strong>{portalData.scholar?.isActive ? 'Active Scholar' : 'Scholar record unavailable'}</strong><small>{portalData.scholar?.issuedAt ? `Approved ${formatPortalDate(portalData.scholar.issuedAt)}` : 'Approval date unavailable'}</small></div></article>
-          <article className="scholar-stat-card"><div className="scholar-stat-icon gold"><CircleDollarSign size={21} /></div><div><span>{useCertification ? 'Certification list' : 'Payroll list'}</span><strong>{listDate}</strong><small>{listSubtitle}</small></div></article>
-          <article className="scholar-stat-card">
-            <div className="scholar-stat-icon blue"><FileCheck2 size={21} /></div>
-            <div>
-              <span>Continuing requirements</span>
-              <strong>{continuingOpen ? `${approvedCount} of ${uploadableRequirements.length} files approved` : "Not open yet"}</strong>
-              <small>{!continuingOpen ? 'CAO records the complete initial set' : requirementsComplete ? 'All continuing requirements cleared' : rejectedCount > 0 ? `${rejectedCount} returned for correction` : pendingReviewCount > 0 ? `${pendingReviewCount} awaiting Billing staff review` : `${missingCount} still need to be uploaded`}</small>
-            </div>
-          </article>
-        </section>
+          <section className="scholar-stat-grid scholar-summary-strip" aria-label="Scholarship summary">
+            <article className="scholar-stat-card"><div className="scholar-stat-icon green"><CheckCircle2 size={21} aria-hidden="true" /></div><div><span>Scholarship status</span><strong>{portalData.scholar?.isActive ? 'Active Scholar' : 'Scholar record unavailable'}</strong><small>{portalData.scholar?.issuedAt ? 'Approved ' + formatPortalDate(portalData.scholar.issuedAt) : 'Approval date unavailable'}</small></div></article>
+            <article className="scholar-stat-card"><div className="scholar-stat-icon blue"><FileCheck2 size={21} aria-hidden="true" /></div><div><span>{continuingOpen ? 'Continuing documents' : 'Initial documents'}</span><strong>{summaryApproved} of {summaryTotal} approved</strong><progress value={summaryApproved} max={summaryTotal || 1} aria-label="Approved documents" /><small>{continuingOpen ? 'Your uploads - selected submission period' : 'Managed by CAO - optional indigency excluded'}</small></div></article>
+            <article className="scholar-stat-card"><div className="scholar-stat-icon gold"><ClipboardList size={21} aria-hidden="true" /></div><div><span>{useCertification ? 'Certification list' : 'Payroll list'}</span><strong>{listDate}</strong><small>{listSubtitle}</small></div></article>
+          </section>
+          <ScholarNextStep step={nextStep} timeline={portalData.guidance?.timeline} onOpenRequirements={openRequirements} />
+          <div className="scholar-content-stack">
+            <ScholarUpdates personal={latestScholarNotification} announcement={latestAnnouncement} onMarkRead={markNotificationRead} onOpenHistory={() => { setNotificationsOpen(true); document.getElementById('scholar-notifications-toggle')?.focus(); }} />
+            <section className="scholar-panel scholar-requirements-panel" id="requirements" aria-labelledby="scholar-requirements-title">
+              <div className="scholar-panel-heading"><div><p className="scholar-eyebrow">KEEP YOUR RECORD COMPLETE</p><h2 id="scholar-requirements-title" tabIndex={-1}>Requirements</h2><p className="scholar-panel-copy">Initial documents are managed by CAO. Continuing documents are your uploads.</p></div><FileCheck2 size={22} className="scholar-heading-icon" aria-hidden="true" /></div>
+              <ScholarRequirementsTabs activeTab={activeRequirementsTab} onChange={setRequirementsTab} />
+              <div role="tabpanel" id="scholar-panel-initial" aria-labelledby="scholar-tab-initial" hidden={activeRequirementsTab !== 'initial'}>
+            <section className="scholar-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">INITIAL SUBMISSION · CAO UPLOAD</p><h2>Initial requirements</h2></div></div><p className="scholar-panel-copy">CAO records these documents. You do not need to upload this initial set again.</p><div className="scholar-requirements-list">{initialRequirementItems.map(({ key, label }) => <div key={key} className="scholar-requirement-item"><div><strong>{label}</strong><small>{initialRequirements[key]?.fileName || (key === 'indigency' ? 'Optional · provide if available' : 'Awaiting CAO upload')}</small></div><span className={'scholar-review-badge ' + getRequirementReviewStatus(initialRequirements[key])}>{key === 'indigency' && !initialRequirements[key]?.fileName ? 'Optional' : requirementStatusLabels[getRequirementReviewStatus(initialRequirements[key])]}</span></div>)}</div></section>
 
-        <div className="scholar-portal-columns">
-          <div className="scholar-portal-column">
-            <PortalGuidance
-              guidance={portalData.guidance}
-              resolveRoute={(route) => route === 'requirements' ? '#requirements' : null}
-            />
-            {latestScholarNotification && latestAnnouncement && <article className="scholar-panel scholar-announcement-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">FROM CAO · {latestAnnouncement.priority || 'normal'}</p><h2>Latest announcement</h2></div><Bell size={20} /></div><h3>{latestAnnouncement.title}</h3><p>{latestAnnouncement.content}</p>{latestAnnouncement.imageData && <img className="portal-announcement-image" src={latestAnnouncement.imageData} alt={latestAnnouncement.imageName || latestAnnouncement.title} />}{latestAnnouncement.externalUrl && <a href={latestAnnouncement.externalUrl} target="_blank" rel="noopener noreferrer" className="scholar-text-button">View official Facebook post <ExternalLink size={15} /></a>}</article>}
-            <article className={`scholar-panel scholar-announcement-panel ${latestScholarNotification ? 'personal-notice' : ''}`}><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{latestScholarNotification ? isScheduleNotification ? 'PAYOUT SCHEDULE UPDATE' : 'PERSONAL PAYROLL UPDATE' : 'FROM CAO'}</p><h2>{latestScholarNotification ? 'Your latest update' : 'Latest announcement'}</h2></div><Bell size={20} className="scholar-heading-icon" /></div><h3>{latestScholarNotification?.title || latestAnnouncement?.title || (requirementsComplete ? 'Requirements submitted' : 'Complete your scholar requirements')}</h3><p>{latestScholarNotification?.message || latestAnnouncement?.content || (requirementsComplete ? 'Your required documents are approved and recorded. Watch this portal for list-generation updates.' : 'Submit the remaining requirements so your scholar record can proceed to list preparation.')}</p>{latestScholarNotification && <div className="scholar-payroll-notice-details"><span><small>List reference</small><strong>{latestScholarNotification.reference || 'Not assigned'}</strong></span>{!isScheduleNotification && <span><small>Amount</small><strong>{new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(latestScholarNotification.amount || 0)}</strong></span>}<span><small>{isScheduleNotification ? 'Notified' : 'Processed'}</small><strong>{formatPortalDate(latestScholarNotification.createdAt)}</strong></span></div>}{latestScholarNotification && !latestScholarNotification.isRead && <button type="button" className="scholar-text-button" onClick={() => markNotificationRead(latestScholarNotification.id)}>Mark as read <ChevronRight size={15} /></button>}{!latestScholarNotification && latestAnnouncement?.imageData && <img className="portal-announcement-image" src={latestAnnouncement.imageData} alt={latestAnnouncement.imageName || latestAnnouncement.title} />}{!latestScholarNotification && latestAnnouncement?.externalUrl ? <a href={latestAnnouncement.externalUrl} target="_blank" rel="noopener noreferrer" className="scholar-text-button">View official Facebook post <ExternalLink size={15} /></a> : !latestScholarNotification && <a href="#requirements">View requirements <ChevronRight size={15} /></a>}</article>
-          </div>
-
-          <div className="scholar-portal-column">
-            <section className="scholar-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">INITIAL SUBMISSION · CAO UPLOAD</p><h2>Initial requirements</h2></div></div><p className="scholar-panel-copy">CAO records these documents. You do not need to upload this initial set again.</p><div className="scholar-requirements-list">{[{ key: 'tax_exemption', label: 'Certificate of Tax Exemption' }, { key: 'indigency', label: 'Barangay Indigency (optional)' }, { key: 'valid_id', label: 'Valid ID' }, ...visibleRequirementItems].map(({ key, label }) => <div key={key} className="scholar-requirement-item"><div><strong>{label}</strong><small>{initialRequirements[key]?.fileName || (key === 'indigency' ? 'Optional · provide if available' : 'Awaiting CAO upload')}</small></div><span>{initialRequirements[key]?.status || 'Not recorded'}</span></div>)}</div></section>
-            <section className="scholar-panel scholar-action-panel" id="requirements">
+              </div>
+              <div role="tabpanel" id="scholar-panel-continuing" aria-labelledby="scholar-tab-continuing" hidden={activeRequirementsTab !== 'continuing'}>
+            <section className="scholar-panel scholar-action-panel">
             {portalData.continuingPeriods?.length > 1 && <label className="scholar-continuing-period">Submission school year and semester<select value={requirementPeriodId || portalData.requirementWave?.academicPeriodId || ''} disabled={loadingRequirements || Boolean(uploadingRequirement)} onChange={(event) => setRequirementPeriodId(event.target.value)}>{portalData.continuingPeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}</option>)}</select></label>}
             <p className="scholar-panel-copy">{portalData.requirementWave?.periodLabel}</p>
             <div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{requirementsComplete ? 'REQUIREMENTS COMPLETE' : rejectedCount > 0 ? 'CORRECTION REQUIRED' : 'ACTION NEEDED'}</p><h2>{!continuingOpen ? 'Continuing requirements' : requirementsComplete ? 'Continuing requirements approved' : rejectedCount > 0 ? 'Review returned documents' : 'Upload continuing requirements'}</h2></div><FileCheck2 size={21} className="scholar-heading-icon" /></div>
@@ -425,11 +424,12 @@ function ScholarDashboard({ token, user, onLogout }) {
                       </small>
                     </span>
                     <span className="scholar-requirement-actions">
-                      {reviewStatus !== 'missing' && <span className={`scholar-review-badge ${reviewStatus}`}>{reviewStatus === 'approved' ? 'Approved' : reviewStatus === 'rejected' ? 'Rejected' : 'Pending'}</span>}
+                      {reviewStatus !== 'missing' && <span className={`scholar-review-badge ${reviewStatus}`}>{requirementStatusLabels[reviewStatus]}</span>}
                       {reviewStatus !== 'approved' && <label className={`scholar-upload-button ${item?.fileName ? 'submitted' : ''} ${requirementsSubmissionClosed ? 'closed' : ''}`}>
                         {requirementsSubmissionClosed ? 'Closed' : isUploading ? 'Uploading…' : reviewStatus === 'rejected' ? 'Upload again' : item?.fileName ? 'Replace' : 'Upload'}
                         <input
                           type="file"
+                          aria-label={"Upload " + label}
                           accept=".pdf,.jpg,.jpeg,.png"
                           onChange={(event) => uploadRequirement(key, event.target.files?.[0])}
                           disabled={requirementsSubmissionClosed || loadingRequirements || Boolean(uploadingRequirement)}
@@ -441,9 +441,10 @@ function ScholarDashboard({ token, user, onLogout }) {
               })}
             </div>
             </section>
-            <article className="scholar-panel scholar-profile-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">ACCOUNT DETAILS</p><h2>My profile</h2></div><UserRound size={20} className="scholar-heading-icon" /></div><div className="scholar-profile-detail"><span>Scholar ID</span><strong>{portalData.scholar?.scholarId || 'Not assigned'}</strong></div><div className="scholar-profile-detail"><span>Control number</span><strong>{user?.controlNumber || 'Not assigned'}</strong></div><div className="scholar-profile-detail"><span>Email address</span><strong>{user?.email || 'Not provided'}</strong></div><button type="button" className="scholar-text-button" onClick={() => setProfileOpen(true)}>View profile <ChevronRight size={15} /></button></article>
+
+              </div>
+            </section>
           </div>
-        </div>
         </>}
         <footer className="scholar-footer"><CalendarDays size={14} /> Need help? Contact the Community Affairs Office for assistance.</footer>
       </main>

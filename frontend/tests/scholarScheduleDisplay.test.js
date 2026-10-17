@@ -12,11 +12,12 @@ test('latest targeted schedule updates remain in the existing announcement area 
   const source = await readFile(new URL('../src/ScholarDashboard.jsx', import.meta.url), 'utf8');
   assert.match(source, /\/notifications\/me/);
   assert.match(source, /const latestScholarNotification = scholarNotifications\[0\] \|\| null/);
-  assert.match(source, /latestScholarNotification\?\.type === 'payout_schedule'/);
-  assert.match(source, /PAYOUT SCHEDULE UPDATE/);
-  assert.match(source, /Your latest update/);
-  assert.match(source, /latestScholarNotification\?\.message/);
-  assert.match(source, /latestAnnouncement\.content/);
+  const updates = await readFile(new URL('../src/components/ScholarUpdates.jsx', import.meta.url), 'utf8');
+  assert.match(updates, /personal\?\.type === 'payout_schedule'/);
+  assert.match(updates, /PAYOUT SCHEDULE UPDATE/);
+  assert.match(updates, /Your latest update/);
+  assert.match(updates, /personal.message/);
+  assert.match(updates, /announcement.content/);
   assert.match(source, /scholarNotifications\.map/);
   assert.match(source, /markNotificationRead/);
 });
