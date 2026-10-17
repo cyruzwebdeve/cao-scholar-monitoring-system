@@ -132,9 +132,9 @@ export async function buildPayrollWorkbook({ records, batch, activePeriod, prepa
     ? 'Draft for staff review. This copy does not create official list membership.'
     : 'The names above are included in the official PGCEAP payroll list for the indicated academic period.';
   const blocks = [
-    { title: 'PREPARED AND VERIFIED CORRECT BY:', text: 'Scholar details and recorded grant amounts checked for list preparation.', role: 'Prepared by' },
-    { title: 'CERTIFIED:', text: 'The listed scholars are recorded PGCEAP grantees for the indicated academic period.', role: 'Community Affairs Officer IV' },
-    { title: 'REVIEWED FOR LIST GENERATION:', text: 'Reviewed for preparation of the official payroll list.', role: 'Authorized reviewer' },
+    { title: 'PREPARED AND VERIFIED CORRECT BY:', text: 'Scholar details and recorded grant amounts checked for list preparation.', name: 'MARCIAL P. FERRER', role: 'Administrative Assistant II' },
+    { title: 'CERTIFIED:', text: 'The listed scholars are recorded PGCEAP grantees for the indicated academic period.', name: 'CHRISTABELL R. ABANO, RN, MPA', role: 'Community Affairs Officer IV' },
+    { title: 'REVIEWED FOR LIST GENERATION:', text: 'Reviewed for preparation of the official payroll list.', name: 'RICARTE R. PADILLA', role: 'Governor' },
     { title: 'LIST RECORD:', text: officialDescription, reference: preparationCopy ? 'PREPARATION COPY' : batch.batchNumber, role: `${records.length} scholar${records.length === 1 ? '' : 's'} · ${period}` },
   ];
   const columnEnds = Array.from({ length: physicalCount }, (_, index) => index + 1);
@@ -154,7 +154,7 @@ export async function buildPayrollWorkbook({ records, batch, activePeriod, prepa
     const options = { border: { left: thin, right: thin }, font: { size: 8 } };
     mergeText(footerRow, start, end, block.title, { ...options, font: { size: 8, bold: true }, border: { top: thin, left: thin, right: thin } });
     mergeText(footerRow + 1, start, end, block.text, options);
-    mergeText(footerRow + 2, start, end, block.reference || '', { ...options, alignment: { horizontal: 'center' }, border: { ...options.border, ...(!block.reference ? { bottom: thin } : {}) } });
+    mergeText(footerRow + 2, start, end, block.name || block.reference || '', { ...options, alignment: { horizontal: 'center' }, border: { ...options.border, ...(!block.reference ? { bottom: thin } : {}) } });
     mergeText(footerRow + 3, start, end, block.role, { ...options, alignment: { horizontal: 'center' }, border: { bottom: thin, left: thin, right: thin } });
   });
   [22, narrow ? 78 : 32, 20, narrow ? 32 : 18].forEach((height, index) => { sheet.getRow(footerRow + index).height = height; });

@@ -1,5 +1,7 @@
 # Word list generation and Excel preparation exports — 2026-10-17
 
+Current signatory update: Payroll Excel uses the three supplied template names and matching roles as editable defaults. Previous blank-name guidance is superseded; edit the name cells directly in Excel and save. New exports start with template defaults.
+
 Frontend release `6643da7` verified live: entry `/assets/index-sk2wsdmR.js`, admin `Dashboard-DPObRlBy.js`; Payroll Word/history and both Excel paths confirmed. API/database healthy. No backend/migration. Earlier Word-only Billing and Payroll Generate Excel guidance is superseded.
 
 1. Refresh Payroll, choose an active period and queue eligible dedicated test scholars.

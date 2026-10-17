@@ -5,6 +5,24 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-17 - Prefilled Editable Payroll Excel Signatories
+
+**TL;DR**
+- Payroll Excel now pre-fills three signatory-name spaces and matching roles from the supplied template.
+- Staff can replace the names in Excel; workbook and cells remain unprotected and editable.
+- Existing list-only footer wording, Word downloads and Billing exports remain unchanged. No backend or migration.
+- Artifact, edit/save/reopen, lint/build and print checks passed; deployment pending.
+
+Objective/reason and previous/new behavior: the user requested the template names after finding empty signatory lines in Payroll Excel. The three preparation, certification and review blocks now start with the supplied names and corresponding roles. Each name is an ordinary editable cell value. Staff may update names in the exported file; each new export starts with template defaults. No centrally managed signatory setting is added.
+
+Affected roles/workflows/implementation/files: authorized staff exporting Payroll Excel. `frontend/src/utils/payrollWorkbook.js` adds name defaults and matching role captions to the existing footer blocks and writes each name in the existing merged name row. Default and custom column layouts share this footer. Amounts, selected fields/order, records, preparation banner and scope-safe footer descriptions remain unchanged. Billing Excel and both Word downloads are untouched.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: frontend only; no API/backend, schema/migration, dependency, hosting configuration, permission or security-control changes. No additional scholar fields or external services. Template names are not repeated in change documentation. Workbook text remains editable with wrapping and signature lines and no sheet/workbook protection. Deployment uses the existing frontend pipeline. Payment/disbursement attestations remain excluded; legacy monetary functionality remains untouched and the workflow ends at list generation.
+
+Validation: existing Payroll workbook artifact tests, lint and production build passed. Actual default and single-column XLSX files were serialized/reloaded: all three names were prefilled, XML contained no sheet/workbook protection, and replacing names with synthetic values persisted after save/reopen. LibreOffice rendered both outputs on one page, with the names fully present; the longer name wraps in the narrow layout. No production records changed. Public deployment verification pending.
+
+Limitations/rollback/next work: these are editable template defaults rather than current-appointment verification; staff edits affect the downloaded file only. Native Excel/physical printing remains staff acceptance. Rollback restores blank name lines without data changes. Refresh, export Payroll Excel, confirm prefilled names and test changing one before save/reopen.
+
 ## 2026-10-17 - Complete Payroll Batch in One Word List
 
 **TL;DR**
