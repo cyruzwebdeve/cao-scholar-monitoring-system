@@ -1,6 +1,6 @@
 # Word list generation and Excel preparation exports — 2026-10-17
 
-Frontend-only change; deployment verification pending. No backend/migration. Earlier Word-only Billing and Payroll Generate Excel guidance is superseded.
+Frontend release `6643da7` verified live: entry `/assets/index-sk2wsdmR.js`, admin `Dashboard-DPObRlBy.js`; Payroll Word/history and both Excel paths confirmed. API/database healthy. No backend/migration. Earlier Word-only Billing and Payroll Generate Excel guidance is superseded.
 
 1. Refresh Payroll, choose an active period and queue eligible dedicated test scholars.
 2. Open Export Excel. Confirm the existing seven-column form defaults, then select/reorder columns and download. Check the preparation banner, matching headings/values and unchanged queue; no official list should be created.
