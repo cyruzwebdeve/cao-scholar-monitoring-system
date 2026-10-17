@@ -50,7 +50,10 @@ export async function createBillingCertificationDocument({ records, batch, activ
     const grid = element('tblGrid'); widths.forEach((width) => grid.append(element('gridCol', { w: width }))); node.append(grid);
     const rows = [];
     for (let index = 0; index < scholars.length; index += 2) {
-      rows.push([scholars[index].name, scholars[index + 1]?.name || '']);
+      rows.push([
+        `${index + 1}. ${scholars[index].name}`,
+        scholars[index + 1] ? `${index + 2}. ${scholars[index + 1].name}` : '',
+      ]);
     }
     rows.forEach((values) => {
       const row = element('tr'); const rowProperties = element('trPr');

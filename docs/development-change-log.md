@@ -5,6 +5,22 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-17 - Numbered Two-Column Billing Word Lists
+
+**TL;DR**
+- Billing staff now receive numbered scholar names in both Generate certification list and history Download Word.
+- Numbering reads across each row and restarts at 1 for each school's separate letter; the two-column layout and saved official records remain.
+- Browser-created DOCX checks with 65 synthetic scholars/two schools, odd-row checks, LibreOffice layout review, lint and build passed.
+- Frontend-only change with no API/schema/migration or permission impact; deployment in progress.
+
+Objective and behavior: add numbering to the existing two-column scholar-name list. Previously cells contained unnumbered names; now each populated cell contains its sequential number followed by the name. Order remains left to right, then downward. Each school's letter starts at 1, and an odd final row has a blank right cell without an extra number. Authorized Billing staff receive this format from both official generation and history re-download.
+
+Implementation/data flow/files: `frontend/src/utils/billingCertificationDocument.js` prefixes each scholar name using the existing school-local row index. Existing template loading, XML text escaping, school grouping, period/reference/date population and official batch persistence are retained. Updated the staff QA checklist and change logs. No API, database, schema, configuration, dependency, security/permission, privacy or backend deployment changes. Accessibility retains readable editable text and existing download controls. Workflow still ends at official list generation; legacy monetary functionality is untouched.
+
+Validation: browser-generated DOCX with 65 synthetic scholars across two schools passed exact sequence checks for every populated cell, first and last pairs, per-school restart, two cells per row and blank odd final cell. Template geometry, escaped characters, reference/date and absence of other table fields passed. LibreOffice rendering was visually reviewed; numbered names fit the two-column layout. ESLint and production build passed with the existing chunk-size advisory. No production records were modified during tests. Deployment is authorized and pending live verification.
+
+Limitations/rollback/next work: numbering is generated display text and is not a stored identifier. It restarts for each separate school letter and can change if retained history/profile data changes. Native Microsoft Word rendering was not available. Revert this utility change to restore unnumbered cells without data changes. After deployment verify numbering through Generate or Download Word, including a letter with an odd scholar count.
+
 ## 2026-10-17 - Two-Column Scholar Names in Billing Word Lists
 
 **TL;DR**
