@@ -1,5 +1,7 @@
 # Billing Word certification verification — 2026-10-17
 
+Current behavior update: see [Word generation and Excel exports](list-word-and-excel.md). Generate in both sections downloads Word; Export Excel is available in both sections. Earlier Word-only Billing/Payroll Generate Excel statements below describe the prior release.
+
 Scope: Generate certification list and certification-history downloads use the supplied certification letter template as DOCX. The existing server transaction retains official references, membership and grant snapshots. Billing exports Word lists only. Payroll retains configurable preparation and official Excel downloads.
 
 ## Initial-release verification performed

@@ -1,0 +1,14 @@
+# Word list generation and Excel preparation exports — 2026-10-17
+
+Frontend-only change; deployment verification pending. No backend/migration. Earlier Word-only Billing and Payroll Generate Excel guidance is superseded.
+
+1. Refresh Payroll, choose an active period and queue eligible dedicated test scholars.
+2. Open Export Excel. Confirm the existing seven-column form defaults, then select/reorder columns and download. Check the preparation banner, matching headings/values and unchanged queue; no official list should be created.
+3. Click Generate payroll list. Confirm one saved PAY-reference batch and a `.docx` download using the Billing letter template with **Payroll reference**, period, school and numbered names in two columns. No Excel is automatically generated.
+4. In Payroll history, choose Download Word for the saved list; verify the same reference and listed names without another generation request.
+5. In Billing, queue eligible Private scholars. Confirm Export Excel is restored; select/reorder columns and verify its preparation workbook without a Signature column. The queue must remain and no batch should be created by Excel export.
+6. Generate certification list in Billing and re-download from Billing history. Confirm existing Word formatting and BILL reference remain correct.
+7. Where safely simulated locally/staging, fail the Word-template download after a successful process response. Confirm the notice says the list was saved but Word failed, the saved batch appears in history, and Download Word succeeds after restoring access without a duplicate process request. Do not fault-inject production.
+8. Print-preview Word in the staff environment; names are the only table content, two columns with numbering, odd final cell blank and separate letters for different schools. Confirm no payment/disbursement attestation is added.
+
+Completed: frontend regression suite, Billing XLSX artifact round-trips, lint/build; eight actual desktop/mobile mode/success/failure browser workflows; multi-school actual DOCX parsing including XML-safe names and odd rows. Payroll XLSX tests remain green. LibreOffice rendered actual Payroll DOCX: one school on one page and two schools on two pages; text and preview verified preserved letterhead, Payroll reference, names and signature block. All fixtures are local/synthetic; no production records were written. Native Microsoft Word/Excel and physical printers remain staff acceptance checks.

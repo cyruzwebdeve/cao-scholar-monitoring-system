@@ -1,5 +1,7 @@
 # Payroll form template verification — 2026-10-17
 
+Current behavior update: see [Word generation and Excel exports](list-word-and-excel.md). Generate in both sections downloads Word; Export Excel is available in both sections. Earlier Word-only Billing/Payroll Generate Excel statements below describe the prior release.
+
 The supplied image is recreated as an editable Excel form. Both Payroll Generate and Payroll Export Excel use it. Billing remains Word-only.
 
 ## Expected layout and data

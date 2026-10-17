@@ -5,10 +5,12 @@ const MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.doc
 
 // Keep the supplied letter's page setup, typography, artwork and signatory.
 // Only the marked paragraphs and scholar table are populated from system records.
-export async function createBillingCertificationDocument({ records, batch, activePeriod, issuedAt }) {
+export async function createBillingCertificationDocument({ records, batch, activePeriod, issuedAt, mode = 'billing' }) {
+  if (!['billing', 'payroll'].includes(mode)) throw new Error('Invalid list type.');
+  const isPayroll = mode === 'payroll';
   const reference = batch?.batchNumber || batch?.billingReference;
   if (!records?.length || !reference || !activePeriod?.schoolYear || !activePeriod?.semester) {
-    throw new Error('A saved billing reference, academic period and scholar list are required.');
+    throw new Error('A saved list reference, academic period and scholar list are required.');
   }
   const date = new Date(issuedAt || batch?.processedAt || batch?.createdAt || Date.now());
   if (Number.isNaN(date.getTime())) throw new Error('The certification date is invalid.');
@@ -80,8 +82,8 @@ export async function createBillingCertificationDocument({ records, batch, activ
   [...schools].forEach(([school, scholars], index) => {
     if (index) { const p = element('p'); const run = element('r'); run.append(element('br', { type: 'page' })); p.append(run); body.append(p); }
     const replacements = {
-      '{{CERTIFICATION_INTRO}}': `This is to certify that the following students are SCHOLARSHIP GRANTEES of the Camarines Norte Provincial Government College Education Assistance Program (CNPGCEAP) and are enrolled at ${school} for ${activePeriod.semester}, SY ${activePeriod.schoolYear}. They are included in the certification list below.`,
-      '{{BILLING_REFERENCE}}': `Billing reference: ${reference}`,
+      '{{CERTIFICATION_INTRO}}': `This is to certify that the following students are SCHOLARSHIP GRANTEES of the Camarines Norte Provincial Government College Education Assistance Program (CNPGCEAP) and are enrolled at ${school} for ${activePeriod.semester}, SY ${activePeriod.schoolYear}. They are included in the ${isPayroll ? 'payroll' : 'certification'} list below.`,
+      '{{BILLING_REFERENCE}}': `${isPayroll ? 'Payroll' : 'Billing'} reference: ${reference}`,
       '{{ISSUED_DATE}}': `Issued on ${issued} to facilitate processing of the corresponding payroll list and for whatever legal purposes this may serve.`,
     };
     letter.forEach((original) => {
