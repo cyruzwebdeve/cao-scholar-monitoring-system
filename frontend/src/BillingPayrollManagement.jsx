@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
+import { downloadBillingCertificationDocument } from './utils/billingCertificationDocument';
 import CsvExportModal from './components/CsvExportModal';
 import ScholarSchoolIdentity from './components/ScholarSchoolIdentity';
 import RequirementsWarning from './components/RequirementsWarning';
@@ -432,11 +433,11 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
         if (isPayroll) {
           await downloadPayrollWorkbook({ records: downloadRecords, batch: body.batch, activePeriod: body.activePeriod });
         } else {
-          await downloadCertificationWorkbook({ records: downloadRecords, batch: body.batch, activePeriod: body.activePeriod });
+          await downloadBillingCertificationDocument({ records: downloadRecords, batch: body.batch, activePeriod: body.activePeriod });
         }
       } catch (downloadError) {
         const listName = isPayroll ? 'payroll list' : 'certification list';
-        downloadWarning = ` The ${listName} was generated, but the Excel download failed: ${downloadError.message}`;
+        downloadWarning = ` The ${listName} was generated, but the ${isPayroll ? 'Excel' : 'Word'} download failed: ${downloadError.message}`;
       }
       setQueuedIds([]);
       setSourceSelection([]);
@@ -464,8 +465,9 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
 
   const downloadHistoricalCertification = async (batch) => {
     try {
-      await downloadCertificationWorkbook({
+      await downloadBillingCertificationDocument({
         records: batch.records,
+        issuedAt: batch.dateProcessed,
         batch: { batchNumber: batch.reference, billingReference: batch.reference },
         activePeriod: { schoolYear: batch.schoolYear, semester: batch.semester },
       });
@@ -608,7 +610,7 @@ export default function BillingPayrollManagement({ token, mode = 'billing' }) {
           <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Total payroll amount' : 'Total certification amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing || Boolean(routingApplicant)}>{processing ? 'Processing…' : isPayroll ? 'Generate payroll list' : 'Generate certification list'}</button></footer>
         </article>
       </section>
-      {!isPayroll && !loadError && <section className="billing-certification-history"><header><div><span>CERTIFICATION RECORDS</span><h3>Certification history</h3><p>Review generated Private-scholar lists and download a previous workbook again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount || 5000), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download XLSX</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>No certification history yet</strong><span>Generated Private-scholar certification lists will appear here.</span></div>}</section>}
+      {!isPayroll && !loadError && <section className="billing-certification-history"><header><div><span>CERTIFICATION RECORDS</span><h3>Certification history</h3><p>Review generated Private-scholar lists and download a previous Word list again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount || 5000), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download Word</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>No certification history yet</strong><span>Generated Private-scholar certification lists will appear here.</span></div>}</section>}
       {exportOpen && <CsvExportModal title={`Export ${isPayroll ? 'payroll' : 'billing'} queue`} description={`Choose columns and arrange their order. The Excel download uses the ${isPayroll ? 'Payroll' : 'Billing'} template and is marked as a preparation copy.`} columns={isPayroll ? configurablePayrollColumns : configurableBillingColumns} allowReorder formatLabel="EXCEL EXPORT" exportLabel="Export Excel" rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={exportWorkbook} />}
 
     </div>

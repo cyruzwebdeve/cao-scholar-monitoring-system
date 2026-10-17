@@ -5,6 +5,26 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-17 - Billing Certification Word Template
+
+**TL;DR**
+- Billing staff now receive DOCX certification letters from Generate certification list and Download Word in certification history.
+- Official list persistence, references, membership and grant snapshots remain in the existing system records; download failures retain the generated batch.
+- Each school receives a separate letter with period/reference and a scholar table, retaining the supplied template's letterhead/footer, page geometry and signatory.
+- Synthetic browser/document/recovery checks, LibreOffice rendering, existing workbook checks, frontend regression tests and lint/build passed. No backend or migration; deployment authorized and in progress.
+
+Objective and behavior: replace the official Billing certification Excel formatting with the supplied Word certification letter. Previously Generate and certification history downloaded an eleven-column workbook. Now those actions download `.docx`; the configurable preparation Export Excel and Payroll generation retain their behavior. This affects authorized Billing staff and their generated certification lists. The product still ends at official list generation; this does not record fund release, claiming, disbursement or monetary audit events.
+
+Implementation/data flow: the processing component continues posting the selected academic period and applicant IDs to the existing Billing process endpoint. Only after its successful persistence does it generate the Word file. The document utility loads a sanitized template ZIP using JSZip, groups returned scholars by school, fills academic period, reference and issue date, and creates a numbered scholar table containing control number, name, course/program and year level. Table headers repeat; cells use DOM text nodes for XML escaping; each school letter starts on a new page. Historical downloads use the retained reference/period and processing date. Failed downloads report the correct format while keeping history available. Template sample text, author metadata and custom XML were removed; sample two-column sections were normalized to fit the table. The letter avoids asserting complete requirements because official list generation permits incomplete documents and does not change approvals.
+
+Areas changed: `frontend/src/BillingPayrollManagement.jsx`, new `frontend/src/utils/billingCertificationDocument.js`, new `frontend/src/assets/templates/billing-certification.docx`, frontend dependency manifests, and the matching QA checklist. JSZip, already present transitively through ExcelJS, is now an explicit dependency at the existing installed version.
+
+API/database/security/privacy/configuration/deployment impact: no API, backend, schema, migration, server configuration or permission changes. Official records remain stored by the existing transaction; no new monetary workflow. The static template contains organizational artwork/signatory but no scholar data; downloaded files contain only the fields of the authorized list. No external document service or upload is used. Accessibility retains named native Generate/history buttons and existing notices. Deployment is authorized for testing; this frontend change requires no migration.
+
+Validation: actual browser-created DOCX checks with 65 synthetic scholars and two schools passed for school grouping, reference/period/date, XML escaping, row counts, header repetition, template geometry, metadata removal and invalid-input rejection. Mocked actual-component generation confirmed one persistence POST, a DOCX download, history re-download without another POST, cleared queue, and retained history on template-download failure. LibreOffice opened and rendered three pages; visual inspection confirmed fit, letterhead/footer and school separation. Existing Billing/Payroll workbook artifact checks, frontend regression suite, ESLint and production build passed. Existing large-chunk build advisory remains. No production data was mutated and no live deployment claim is made. Detailed staff steps: `docs/qa/2026-10-17/billing-word-certification.md`.
+
+Limitations/rollback/next work: the supplied signatory/artwork are static template content. On-demand history downloads use retained membership plus current profile fields exposed by the existing API, not immutable historical Word binaries; profile changes may affect later downloads. Historical issue dates use stored processing date when present, otherwise download date. Native Microsoft Word rendering was not available; LibreOffice and package validation passed. Rollback restores the two official download calls/history label to Excel; saved lists are unchanged and need no data rollback. After deployment, verify the checklist with an authorized testing account.
+
 ## 2026-10-17 - Configurable Payroll Excel Queue Export
 
 **TL;DR**
