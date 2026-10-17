@@ -5,6 +5,24 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-17 - Payout Schedule Layout Refinement
+
+**TL;DR**
+- Payroll staff see a clearer header, separate schedule-details and recipient panels, and grouped saved schedules.
+- Review shows one summary and the complete recipient list with a Preview badge; editing fields stay hidden until Back to editing.
+- Desktop panels stack on phones, selected rows are highlighted and action spacing is consistent. No API, data or migration changes.
+- Lint/build and desktop/mobile/narrow workflow and visual checks passed; frontend deployment pending.
+
+Objective/reason and previous/new behavior: improve the newly added scheduling screen at the user's request. The former long form placed recipients below all details and repeated disabled controls above the review. The new editor uses a two-column layout on wider screens, a recipient placeholder before batch selection, and a two-step indicator for preparation/review. Phones and tablets stack panels with readable fields/actions. The review shows the schedule and selected names side by side, marked Preview before publication, with Back to editing retained. Saved schedules have their own heading/count and responsive cards.
+
+Affected users/workflows/implementation/files: staff using Payroll Payout schedules. `PayoutSchedules.jsx` changes structure, headings and section grouping; `components/PayoutSchedules.css` adds scoped workspace, responsive editor/review, selected-row and card styles; `PayoutScheduleCard.jsx` adds an optional presentation-only preview badge. The default shared Scholar card rendering is unchanged. Form state, selected IDs, timezone conversion, disabled/blocking states, requests, publication/cancellation and queue preservation remain. Replaced repeated disabled fields with a hidden, retained fieldset during review, preserving Back to editing and draft input.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: frontend only. No backend/API, database/schema/migration, environment/dependency, hosting configuration, permissions or security controls changed. No additional personal fields or external services. Existing authentication, recipient guards and optimistic concurrency remain server-enforced. Native labels/validation, keyboard cancellation controls and accessible notices remain; section headings and an aria-current step indicator improve navigation, while selected states also retain native checked controls. No release/claiming/disbursement functionality is added; legacy monetary code remains untouched. Existing feature backend/migration confirmation for release `cabab0c` is still pending independently of this visual update.
+
+Validation: lint and production build passed with the existing chunk-size advisory. Actual component workflows at 1280, 390 and 320 pixels passed filtering, draft privacy, failed-save retention, preview, publication, Scholar visibility, assignment lock, editing, cancellation and keyboard/Escape behavior without horizontal overflow. Editor/review screenshots inspected at desktop and phone widths; details and recipients form two panels on desktop and a single column on phones. Review retains the full selected list without a duplicated form. Additional final check verifies Preview labeling. Fixtures were local/synthetic; no production schedules/notifications were created. Public frontend verification pending.
+
+Limitations/rollback/next work: visual changes do not resolve pending hosted backend/migration verification for the feature. Long recipient lists still scroll within their existing list container. Native browser date controls vary by platform. Rollback restores the previous JSX/CSS and badge default without data changes. Refresh Payout schedules and inspect Create schedule, batch selection, Review schedule, Back to editing and saved cards on desktop/phone.
+
 ## 2026-10-17 - Informational Payout Scheduling
 
 **TL;DR**
