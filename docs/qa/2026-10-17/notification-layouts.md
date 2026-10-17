@@ -55,3 +55,7 @@ All workflow requests used local synthetic API fixtures. No production records o
 6. Repeat on a narrow phone. Confirm messages wrap, controls remain reachable, dismissible feedback closes by keyboard and blocking errors remain visible.
 
 These public and synthetic checks do not replace authenticated acceptance testing of every message on every role/device. Physical camera hardware and screen-reader announcements were not exhaustively tested. No payroll eligibility, grant computation, deadline, exam timer/submission or list-locking rules were changed.
+
+## Continuing submission card follow-up
+
+The Scholar drawer Continuing submission paragraph now uses the shared status card: blue for pending initial verification, green for open uploads and amber for closed uploads. Existing condition priority, text and upload rules are retained. This persistent state has no dismiss control. Actual drawer checks at 1280px/390px passed all three states, 12px copy, no overflow and unchanged reopening guidance. Lint/build passed; frontend deployment in progress. After deployment refresh and open Scholar details to check the status against its existing submission state.

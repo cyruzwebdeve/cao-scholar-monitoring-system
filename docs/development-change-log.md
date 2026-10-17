@@ -5,6 +5,24 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-17 - Continuing Submission Status Card
+
+**TL;DR**
+- Scholar drawer Continuing submission guidance now uses the shared readable notification card instead of a bare paragraph.
+- Closed uploads appear amber, open uploads green and pending initial verification blue; existing messages and access rules remain unchanged.
+- Actual drawer checks for all three states at desktop/mobile widths, lint and build passed.
+- Frontend deployment in progress; no backend, API, database or migration changes.
+
+Objective/previous/new behavior: apply the same notification layout to the Continuing submission message highlighted by the user. Previously the status appeared as plain text beneath the section title. It now has a meaningful heading, icon, colored background/border, spacing and readable 12px copy. Existing guidance tells staff where to reopen uploads. This is persistent status guidance, so no dismiss button hides it.
+
+Implementation/users/files: updated `frontend/src/ScholarsManagement.jsx` to use the existing shared Notification component. The existing condition priority remains: waiting_initial first, then isOpen, otherwise closed. Staff viewing Scholar details receive the presentation change; existing Continuing Requirements controls, upload availability and approval rules are unchanged. Updated the matching QA notes/change logs. Legacy monetary functionality remains untouched outside scope; the supported workflow still ends at official list generation.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: none to backend/API payloads, schema, migrations, dependencies, configuration or permissions. No additional personal data or external service. The shared card supplies role=status, decorative icons, readable wrapping and outcome text in addition to color. This is a frontend-only release requiring no backend revision confirmation.
+
+Validation: the actual Scholar drawer was tested with synthetic records for waiting_initial, open and closed at 1280px and 390px. All six cases passed tone/title/status role, computed 12px body copy, no overflow, retained guidance and absence of dismiss controls. Screenshots were reviewed. Mocked API calls were reads only. ESLint and production build passed with the existing chunk-size advisory; no production data was changed. Live verification is pending.
+
+Limitations/rollback/next work: the component displays the state supplied by the existing API and does not open submissions or fix missing initial approvals. Rollback restores the prior paragraph with no data changes. After deployment hard-refresh, open Scholar → View details and confirm the status card agrees with Continuing Requirements settings and initial approval state.
+
 ## 2026-10-17 - Consistent Notification Layouts Across System Workflows
 
 **TL;DR**
