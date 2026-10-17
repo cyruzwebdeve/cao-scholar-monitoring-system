@@ -5,6 +5,26 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-17 - Complete Payroll Batch in One Word List
+
+**TL;DR**
+- Payroll Word downloads now combine the complete batch across schools in one two-column table, numbered continuously.
+- Existing saved batches use the fix through Download Word without regenerating membership or changing the batch count/reference.
+- Billing retains separate school letters; both Excel export paths remain unchanged. No backend, database or migration changes.
+- Grouping/frontend regressions, lint/build and four-scholar desktop/mobile generation/history checks passed; deployment pending.
+
+Objective/reason and previous/new behavior: a staff screenshot showed a four-scholar history batch but only one scholar on the first Word page. The shared Billing template exporter split the batch by school, restarting numbering and placing each school on a separate letter page. For Payroll this made the first page appear incomplete. Payroll now uses one combined table in the original batch order and continuous numbering. Its introduction refers to scholars enrolled in their respective schools, rather than claiming everyone attends the first school. Large tables can still paginate naturally. Billing retains its school-addressed letters and per-school numbering.
+
+Affected roles/workflows/implementation: authorized staff generating or re-downloading Payroll Word lists. Added a small `certificationListGroups.js` utility: one complete group for Payroll, school-specific validated groups for Billing. The shared Word renderer consumes these groups and keeps the existing artwork, letter typography, two equal name columns, odd-cell handling, reference/date/period and signatory formatting. Payroll names-only downloads no longer require school metadata, since their introduction does not name one school; Billing retains its missing-school validation. Both Generate and history call the same renderer, so existing saved records are fixed on re-download with no new process request. The displayed count is not altered to hide the grouping issue.
+
+Files and data flow: shared Word utility, grouping helper and tests, staff/workflow and change documentation. No backend/API, database/schema/migration, environment/dependency/configuration or permission changes. Official generation continues to save through the same guarded endpoints. No saved membership, amounts, references or approvals change. Existing Excel workbooks and their configurable UI remain untouched. Frontend-only deployment through the existing pipeline.
+
+Security/privacy/accessibility/scope: no added personal fields, external service or permissions. The same authorized names are shown together in original record order; editable text and two-column reading order remain. Tests/docs use synthetic data. No release, payment-claiming, disbursement, reconciliation or monetary-audit workflow is added; legacy database structures remain untouched list-membership storage. Payroll generation remains the end of scope.
+
+Validation: grouping tests reproduce four scholars across three schools, verify Payroll retains all four in one group in order, preserve Billing grouping and missing-school validation, and reject invalid mode/empty input. Frontend regression suite, lint and build passed. Actual desktop/mobile browser tests for Payroll and Billing each generate a four-scholar batch, parse actual DOCX, download history, refresh and re-download existing records. Payroll contains one table numbered 1–4 with no school page break; Billing retains three school letters and per-school numbering. All names occur exactly once, references/period remain and each mode sends exactly one process POST. Excel remains available. LibreOffice rendering and text/visual inspection confirm the four scholars together on one page, numbered 1–4 in two columns with the retained letter artwork/reference/signatory. No production records were modified. Public deployment verification pending.
+
+Limitations/rollback/next work: the supplied screenshot alone does not expose every page of its Word file; the cause is confirmed by the exporter's school-grouping code and reproduced mixed-school fixture. Long combined lists may span pages naturally. Downloads still reflect currently available identity details rather than immutable stored binaries. Rollback restores school grouping without data changes. Refresh and re-download the existing Payroll batch; staff should confirm its displayed batch count matches all numbered names in the combined list. Native Microsoft Word/printer acceptance remains recommended.
+
 ## 2026-10-17 - Payroll Word Generation and Restored Billing Excel
 
 **TL;DR**

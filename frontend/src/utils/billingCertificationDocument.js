@@ -1,3 +1,4 @@
+import { certificationListGroups } from './certificationListGroups';
 import templateUrl from '../assets/templates/billing-certification.docx?url';
 
 const WORD_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
@@ -70,19 +71,13 @@ export async function createBillingCertificationDocument({ records, batch, activ
     });
     return node;
   };
-  const schools = new Map();
-  records.forEach((record) => {
-    const school = String(record.school || '').trim();
-    if (!school) throw new Error('A listed scholar has no school. Correct the school record before downloading.');
-    if (!schools.has(school)) schools.set(school, []);
-    schools.get(school).push(record);
-  });
+  const groups = certificationListGroups(records, mode);
   body.replaceChildren();
   const issued = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Manila' });
-  [...schools].forEach(([school, scholars], index) => {
+  groups.forEach(({ school, scholars }, index) => {
     if (index) { const p = element('p'); const run = element('r'); run.append(element('br', { type: 'page' })); p.append(run); body.append(p); }
     const replacements = {
-      '{{CERTIFICATION_INTRO}}': `This is to certify that the following students are SCHOLARSHIP GRANTEES of the Camarines Norte Provincial Government College Education Assistance Program (CNPGCEAP) and are enrolled at ${school} for ${activePeriod.semester}, SY ${activePeriod.schoolYear}. They are included in the ${isPayroll ? 'payroll' : 'certification'} list below.`,
+      '{{CERTIFICATION_INTRO}}': `This is to certify that the following students are SCHOLARSHIP GRANTEES of the Camarines Norte Provincial Government College Education Assistance Program (CNPGCEAP) and are enrolled${isPayroll ? ' in their respective schools' : ` at ${school}`} for ${activePeriod.semester}, SY ${activePeriod.schoolYear}. They are included in the ${isPayroll ? 'payroll' : 'certification'} list below.`,
       '{{BILLING_REFERENCE}}': `${isPayroll ? 'Payroll' : 'Billing'} reference: ${reference}`,
       '{{ISSUED_DATE}}': `Issued on ${issued} to facilitate processing of the corresponding payroll list and for whatever legal purposes this may serve.`,
     };

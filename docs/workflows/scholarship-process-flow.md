@@ -120,7 +120,7 @@ Private Payroll preparation retains its existing grant-save and Payroll-opening 
 
 Staff may generate **multiple regular batches for the same academic period**, using different, unlisted Scholars.
 
-- Public regular continuing records use Payroll. Generate payroll list saves an official batch and downloads Word using the Billing letter template, with a Payroll reference and numbered names in two columns. Payroll history supports Download Word again.
+- Public regular continuing records use Payroll. Generate payroll list saves an official batch and downloads Word using the Billing letter template, with a Payroll reference and one combined batch list of numbered names in two columns, across all schools. Payroll history supports Download Word again.
 - Private regular continuing records use Billing/certification. Billing saves the official list in the system and downloads Word (`.docx`); saved lists can be downloaded again from Billing history.
 - Both sections offer **Export Excel** for a configurable preparation copy: select columns/order without saving a batch or clearing the queue. Payroll retains the provided seven-column form; unrecorded breakdowns remain blank. Billing restores its previous spreadsheet layout without a Signature column.
 - Each generated batch receives its own reference.
