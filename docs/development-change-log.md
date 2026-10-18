@@ -8772,3 +8772,30 @@ Frontend suite: 145 passed. Backend suite: 381 passed, one skipped, zero failure
 
 ### Limitations, rollback and next work
 Manual staff explanations are no longer collected by this drawer; automatic provenance provides who/when/what changed, not a substantive human explanation. Backend revision cannot be proven solely by public health because tester/auth gates protect write endpoints; verify with a controlled staff test record after rollout. Older cached clients may retain their own required UI until hard refreshed. Reverting frontend/backend together restores required remarks for future saves; existing records/history without staff comments remain valid and should not be deleted. Public rollout observations follow below.
+
+### Deployment observation
+Published release 4d5490c to origin/main through the existing frontend/backend hosting pipeline. The live homepage references index-VZ-EbpsZ.js; Dashboard-blmcoJIr.js returns HTTP 200 with the score-save action and publication modal retained, without the remarks textarea class or mandatory-comment message. Dashboard-BOA7JtGI.css returns HTTP 200 with score-field styles retained and obsolete remarks styles absent. Public API health returns HTTP 200 with database connected. This confirms frontend rollout and backend availability, not the backend commit revision or an authenticated score write. No real scores were recorded/corrected/published and no production records were accessed during rollout verification.
+
+
+## 2026-10-18 - Consistent initial-verification document panel
+
+**TL;DR**
+- Results applicant-drawer initial documents now match the Scholar Document submissions panel styling shown in the reference image.
+- Added period heading, shared bordered row structure, upload/attachment sublabels, status colors and inline View actions that do not wrap below status text.
+- Same server-provided initial documents, status values, authenticated file endpoints and initial-verification/acceptance rules; no data/API/database changes.
+- Frontend 149 tests, lint/build and whitespace checks passed; deployment requested for testing.
+
+### Objective and previous/new behavior
+Replace the plain initial-verification checklist with the same rounded bordered document-panel structure used in Scholar Management. Previously long document names caused the larger generic View control and status to wrap inconsistently, and rows lacked upload-wave/attachment metadata. InitialVerificationDocuments now uses the existing scholars-document-list, scholars-document-entry and scholars-document-actions structures with narrowly scoped styles, a Document submissions heading including the supplied school year/semester, and Initial ? CAO upload / Attached descriptions. Approved is green, unavailable files are muted, and returned/pending states retain distinct text colors.
+
+### Roles, workflows, implementation and data flow
+Existing authorized Examination staff see the panel after the same posted-passer intake loads in Results. The component receives intake and token unchanged. Its rows come exclusively from intake.initialDocuments, preserving optional Indigency and server-selected public/private requirements; it does not introduce continuing-upload rows or extra requirements before Scholar acceptance. Existing DocumentViewButton handles private previews through the unchanged application/requirement/academic-period initial-wave endpoint. Missing/unavailable metadata does not create a View action. Initial upload/capture, refresh, posted-passer eligibility and initialVerified acceptance gates are untouched.
+
+### Files and impacts
+ResultsManagement.jsx; components/InitialVerificationDocuments.jsx; styles/initial-verification-documents.css; tests/initialVerificationDocuments.test.js; updated scholarPortalLayout.test.js to follow the extracted secure View component; required logs. API/backend/database/schema/migration/configuration: no impact. Security/privacy: existing auth/roles/section checks retained, no extra data fetched, labels remain escaped and file requests stay authenticated. Accessibility/UX: labelled submissions region, readable text statuses independent of color, long names wrap without forcing actions to a second line, consistent View labels and 44px mobile touch targets. Only this initial-verification panel receives the new compact View styling; shared previews and the reference Scholar panel remain unchanged. Deployment uses the existing main-branch hosting pipeline without infrastructure or data changes. Legacy payment-oriented areas remain untouched and retained outside the approved payroll-list-generation boundary.
+
+### Validation
+All 149 frontend tests passed; lint, production build and git diff --check passed with the existing large-bundle warning. Synthetic render/prop tests verify period heading, shared row classes, row count, initial/attached descriptions, escaped text, approved/returned/missing statuses, View only on available saved records, exact authenticated file scope/token, authoritative document set, unchanged intake/acceptance gates and responsive no-wrap action rules. Existing secure-view tests now point to the extracted component instead of the former inline list. No private records or documents were accessed. Backend tests were not rerun for this isolated frontend presentation change; browser screenshot inspection is unavailable in the current environment.
+
+### Limitations, rollback and next work
+This aligns presentation only; document statuses and eligibility continue to come from the backend. Verify the drawer with a controlled staff session on desktop and phone after rollout, including long requirement names and an optional missing document. Revert this frontend commit to restore the prior inline checklist; no database rollback is required. Public rollout observations follow below.

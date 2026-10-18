@@ -83,7 +83,7 @@ test('view controls are authenticated and available to staff, applicants, and sc
   assert.doesNotMatch(html, /synthetic-token|<iframe|applications\/me/);
   const source = await readFile(new URL('../src/components/DocumentViewButton.jsx', import.meta.url), 'utf8');
   for (const guard of ['authHeaders(token)', 'URL.revokeObjectURL(url)', 'controller.abort()', "cache: 'no-store'", "'application/pdf', 'image/jpeg', 'image/png'", 'aria-modal="true"']) assert.ok(source.includes(guard), guard);
-  for (const [file, guard] of [['ApplicantDashboard.jsx', 'document.fileName && <DocumentViewButton'], ['ScholarDashboard.jsx', 'initialRequirements[key]?.fileName && <DocumentViewButton'], ['ResultsManagement.jsx', 'document.submitted && <DocumentViewButton'], ['InitialRequirementCapture.jsx', 'selected?.submitted && selected.applicationId && <DocumentViewButton']]) {
+  for (const [file, guard] of [['ApplicantDashboard.jsx', 'document.fileName && <DocumentViewButton'], ['ScholarDashboard.jsx', 'initialRequirements[key]?.fileName && <DocumentViewButton'], ['components/InitialVerificationDocuments.jsx', 'document.submitted && document.applicationId && document.requirementKey && <DocumentViewButton'], ['InitialRequirementCapture.jsx', 'selected?.submitted && selected.applicationId && <DocumentViewButton']]) {
     const screen = await readFile(new URL(`../src/${file}`, import.meta.url), 'utf8'); assert.ok(screen.includes(guard), file);
   }
 });

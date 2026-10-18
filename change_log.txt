@@ -450,3 +450,6 @@
 2026-10-18 - Reviewed-result modal release 19c215b deployed; live modal/backdrop assets verified HTTP 200 and the old publication browser prompt removed. API healthy/database connected; publishing rules unchanged.
 
 2026-10-18 - Removed Results applicant-drawer remarks input and mandatory-comment checks for paper score recording/correction. API accepts omitted remarks; historical notes and automatic actor/time/before-after history retained. Frontend 145 passed, backend 381 passed/one skipped, lint/build passed; deployment requested.
+2026-10-18 - Results remarks-removal release 4d5490c published; live drawer/assets verified without remarks entry and API healthy/database connected. Historical notes and automatic operational history retained; authenticated score-write check remains for controlled testing.
+
+2026-10-18 - Matched Results initial-verification documents to the Scholar Document submissions panel: period heading, rounded bordered rows, Initial/CAO upload/Attached details, status colors and consistently aligned View buttons. Existing files, view authorization and acceptance gates retained. Frontend 149 tests, lint/build passed; deployment requested.

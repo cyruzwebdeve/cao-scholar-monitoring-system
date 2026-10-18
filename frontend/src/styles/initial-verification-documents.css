@@ -1,0 +1,15 @@
+.initial-verification-documents { min-width: 0; margin-top: 16px; }
+.initial-verification-documents > h4 { margin: 0 0 11px; color: #405b49; font-size: 11px; font-weight: 600; line-height: 1.6; }
+.initial-verification-documents .scholars-document-list { border: 1px solid #e3ebe5; border-radius: 10px; overflow: hidden; }
+.initial-verification-documents .scholars-document-entry { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; padding: 10px 12px; border-bottom: 1px solid #edf2ee; }
+.initial-verification-documents .scholars-document-entry:last-child { border-bottom: 0; }
+.initial-verification-documents .initial-verification-document-copy { min-width: 0; flex: 1; color: #536159; font-size: 10px; line-height: 1.6; overflow-wrap: anywhere; }
+.initial-verification-documents .initial-verification-document-copy small { display: block; margin-top: 3px; color: #168a42; font-size: 8px; font-weight: 700; line-height: 1.6; }
+.initial-verification-documents .scholars-document-actions { display: flex; align-items: center; justify-content: flex-end; flex: 0 0 auto; flex-wrap: nowrap; gap: 7px; }
+.initial-verification-documents .scholars-document-actions > strong { font-size: 9px; font-weight: 700; white-space: nowrap; color: #a26708; }
+.initial-verification-documents .scholars-document-actions > strong.approved { color: #168a42; }
+.initial-verification-documents .scholars-document-actions > strong.rejected { color: #b94333; }
+.initial-verification-documents .scholars-document-actions > strong.not-submitted { color: #87988e; }
+.initial-verification-documents .document-view-button { min-height: 29px; padding: 5px 8px; border-radius: 7px; background: #f0f9f3; color: #177a40; font-size: 9px; font-weight: 700; gap: 4px; }
+.initial-verification-documents .document-view-button svg { width: 13px; height: 13px; }
+@media (max-width: 520px) { .initial-verification-documents .scholars-document-entry { gap: 8px; padding: 10px; } .initial-verification-documents .document-view-button { min-height: 44px; } }
