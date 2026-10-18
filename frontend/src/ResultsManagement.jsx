@@ -1,3 +1,5 @@
+import MetricDetailsCard from './components/MetricDetailsCard';
+import { resultMetricRows } from './utils/metricDetails';
 import PublishResultModal from './components/PublishResultModal';
 import InitialVerificationDocuments from './components/InitialVerificationDocuments';
 import Notification from './components/Notification';
@@ -333,7 +335,7 @@ export default function ResultsManagement({ token }) {
       <nav className="examination-workspace-tabs" aria-label="Results sections"><button type="button" className={view === 'results' ? 'active' : ''} aria-pressed={view === 'results'} onClick={() => setView('results')}>Examination results</button><button type="button" className={view === 'passers' ? 'active' : ''} aria-pressed={view === 'passers'} onClick={() => setView('passers')}>Passer Lists</button></nav>
       {view === 'passers' && <PasserLists applicants={applicants} token={token} onPosted={async () => { setSelected(null); await loadResults(); }} />}
       {view === 'results' && <>
-      <div className="rm-stats">{stats.map(({ label, value, detail, tone, Icon }) => <article key={label} className={tone}><div><span>{label}</span><strong>{loading || (loadError && !applicants.length) ? '—' : value}</strong><small>{detail}</small></div><i className="rm-stat-icon"><Icon size={20} /></i></article>)}</div>
+      <div className="rm-stats">{stats.map(({ label, value, detail, tone, Icon }) => <MetricDetailsCard title={label} rows={resultMetricRows(applicants, label)} columns={[{ key: 'name', label: 'Name' }, { key: 'control', label: 'Control no.' }, { key: 'score', label: 'Score' }, { key: 'status', label: 'Status' }]} disabled={loading || Boolean(loadError && !applicants.length)} key={label} className={tone}><div><span>{label}</span><strong>{loading || (loadError && !applicants.length) ? '—' : value}</strong><small>{detail}</small></div><i className="rm-stat-icon"><Icon size={20} /></i></MetricDetailsCard>)}</div>
 
       {loadError && <div className="rm-alert error"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadResults({ showLoader: true })}>Retry</button></div>}
       {!!pendingCount && <div className="rm-alert"><Clock3 size={17} /><span><b>{pendingCount} {pendingCount === 1 ? 'result is' : 'results are'} awaiting review.</b> Open each record to verify the examination details.</span></div>}

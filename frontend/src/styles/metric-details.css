@@ -1,0 +1,27 @@
+.metric-details-card { position: relative; }
+.metric-details-trigger { position: absolute; inset: 0; z-index: 1; width: 100%; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+.metric-details-trigger:hover:not(:disabled) { background: #167c3909; box-shadow: inset 0 0 0 1px #168a4240; }
+.metric-details-trigger:focus-visible { outline: 3px solid #167c39; outline-offset: 3px; }
+.metric-details-trigger:disabled { cursor: default; }
+.metric-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.metric-records-modal { width: min(900px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); box-sizing: border-box; padding: 0; border: 1px solid #dce8df; border-radius: 18px; color: #233e2c; background: #fff; box-shadow: 0 25px 90px #102f2540; }
+.metric-records-modal::backdrop { background: #10271c99; }
+.metric-records-modal header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 22px 24px 12px; }
+.metric-records-modal header span { color: #168a42; font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+.metric-records-modal h2 { margin: 6px 0; font-size: 22px; }
+.metric-records-modal header p { margin: 0; color: #65766a; font-size: 12px; line-height: 1.6; }
+.metric-records-modal button { padding: 9px 12px; border: 1px solid #dce8df; border-radius: 8px; background: #f8fbf9; color: #275e39; font: inherit; font-size: 12px; cursor: pointer; }
+.metric-records-modal button:disabled { opacity: .45; cursor: default; }
+.metric-records-modal button:focus-visible, .metric-records-search:focus-within { outline: 2px solid #168a42; outline-offset: 2px; }
+.metric-records-search { display: flex; align-items: center; gap: 9px; margin: 8px 24px 14px; padding: 11px 12px; border: 1px solid #dce8df; border-radius: 9px; }
+.metric-records-search input { width: 100%; min-width: 0; border: 0; outline: 0; font: inherit; font-size: 13px; background: transparent; color: inherit; }
+.metric-records-content { padding: 0 24px; min-height: 150px; max-height: 53dvh; overflow: auto; }
+.metric-records-count { font-size: 12px; color: #65766a; }
+.metric-records-table { overflow-x: auto; }
+.metric-records-modal table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+.metric-records-modal th { padding: 12px; background: #f3f8f5; color: #496150; white-space: nowrap; }
+.metric-records-modal td { padding: 12px; border-bottom: 1px solid #e7eee9; overflow-wrap: anywhere; min-width: 100px; max-width: 350px; }
+.metric-records-message { padding: 30px 10px; text-align: center; color: #65766a; font-size: 13px; }
+.metric-records-modal footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px; border-top: 1px solid #e7eee9; font-size: 12px; color: #65766a; }
+.metric-records-modal footer div { display: flex; gap: 7px; }
+@media(max-width: 600px) { .metric-records-modal header { padding: 18px 16px 10px; } .metric-records-search { margin-inline: 16px; } .metric-records-content { padding-inline: 16px; } .metric-records-modal footer { padding: 14px 16px; flex-wrap: wrap; } .metric-records-modal h2 { font-size: 19px; } }

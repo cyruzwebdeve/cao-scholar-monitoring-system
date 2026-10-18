@@ -1,3 +1,4 @@
+import MetricDetailsCard from './components/MetricDetailsCard';
 import ApplicantEligibilityFilter from './components/ApplicantEligibilityFilter';
 import { matchesApplicantEligibility } from './utils/applicantEligibilityFilter';
 import './styles/applicant-eligibility-filter.css';
@@ -618,6 +619,7 @@ function DashboardOverview({ token, onSectionChange, onSessionExpired }) {
     stats: { activeScholars: 0, forfeitedAccounts: 0 },
     recentApplications: [],
     recentActivity: [],
+    metricAccess: {},
   });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -640,6 +642,7 @@ function DashboardOverview({ token, onSectionChange, onSessionExpired }) {
             stats: { activeScholars: 0, forfeitedAccounts: 0, ...(data.stats || {}) },
             recentApplications: data.recentApplications || [],
             recentActivity: data.recentActivity || [],
+            metricAccess: data.metricAccess || {},
           });
           setLoadError('');
           setLastUpdated(new Date());
@@ -657,8 +660,8 @@ function DashboardOverview({ token, onSectionChange, onSessionExpired }) {
   }, [token, reloadKey, onSessionExpired]);
 
   const metrics = [
-    { ...superAdminOverview.stats[0], value: String(overview.stats.activeScholars), detail: 'Currently active scholarship accounts' },
-    { ...superAdminOverview.stats[1], value: String(overview.stats.forfeitedAccounts), detail: 'Accounts requiring follow-up' },
+    { ...superAdminOverview.stats[0], metric: 'activeScholars', value: String(overview.stats.activeScholars), detail: 'Currently active scholarship accounts' },
+    { ...superAdminOverview.stats[1], metric: 'forfeitedAccounts', value: String(overview.stats.forfeitedAccounts), detail: 'Accounts requiring follow-up' },
   ];
 
   return (
@@ -673,7 +676,7 @@ function DashboardOverview({ token, onSectionChange, onSessionExpired }) {
       <div className="dashboard-stat-grid">
         {metrics.map((stat) => {
           const Icon = stat.icon;
-          return <article key={stat.label} className={`dashboard-stat-card dashboard-stat-card-${stat.tone}`}><div><p className="dashboard-stat-label">{stat.label}</p><h3>{loading || (loadError && !lastUpdated) ? '—' : stat.value}</h3><small>{stat.detail}</small></div><div className={`dashboard-stat-icon dashboard-stat-icon-${stat.accent}`}><Icon size={22} strokeWidth={2.1} /></div></article>;
+          return <MetricDetailsCard key={stat.label} title={stat.label} token={token} endpoint={`/dashboard/metrics/${stat.metric}`} searchPlaceholder="Search names or municipality" onSessionExpired={onSessionExpired} disabled={loading || !overview.metricAccess[stat.metric]} description={stat.metric === 'forfeitedAccounts' ? 'Forfeited examination-slot records. A person may appear more than once for different examinations, matching the card total.' : 'All currently active scholarship accounts. Use search or the page controls to see every record.'} columns={[{ key: 'name', label: 'Name' }, { key: 'reference', label: stat.metric === 'activeScholars' ? 'Scholar ID' : 'Examination' }, { key: 'municipality', label: 'Municipality' }, { key: 'status', label: 'Status' }]} className={`dashboard-stat-card dashboard-stat-card-${stat.tone}`}><div><p className="dashboard-stat-label">{stat.label}</p><h3>{loading || (loadError && !lastUpdated) ? '—' : stat.value}</h3><small>{stat.detail}</small></div><div className={`dashboard-stat-icon dashboard-stat-icon-${stat.accent}`}><Icon size={22} strokeWidth={2.1} /></div></MetricDetailsCard>;
         })}
       </div>
 
@@ -895,7 +898,7 @@ function ApplicantsManagement({ token }) {
   return <>
     <div className="applicants-management">
       <header className="applicants-heading"><div><span className="applicants-eyebrow">APPLICANT RECORDS</span><h2>Manage Applicants</h2><p>Review registrations, examination progress, and applicant activity.</p></div><button type="button" className="applicants-export" onClick={() => setExportOpen(true)} disabled={!sortedApplicants.length}><Download size={15} />Export CSV</button></header>
-      <div className="applicant-metrics">{metricCards.map(([label, value, Icon, tone]) => <article className={tone} key={label}><div><span>{label}</span><strong>{value}</strong><small>{label === 'Total Applicants' ? 'Registered records' : label === 'Scheduled for Exam' ? 'Matched to municipality schedules' : label === 'Exam Completed' ? 'Results submitted' : 'Qualified applicants'}</small></div><i className={`applicant-metric-icon ${tone}`}><Icon size={20} strokeWidth={2.2} /></i></article>)}</div>
+      <div className="applicant-metrics">{metricCards.map(([label, value, Icon, tone]) => <MetricDetailsCard title={label} disabled={loading || Boolean(loadError && !data.applicants.length)} rows={label === 'Total Applicants' ? data.applicants : data.metricRecords?.[label === 'Scheduled for Exam' ? 'scheduled' : label === 'Exam Completed' ? 'completed' : 'passed'] || []} description={label === 'Exam Completed' || label === 'Passed Applicants' ? 'Examination result records matching the card total. A person may appear more than once for different examinations. Directory filters are not applied.' : 'Applicant records matching this summary total. Directory filters are not applied.'} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNo', label: 'Control no.' }, { key: 'municipality', label: 'Municipality' }, { key: 'status', label: 'Status' }, ...(['Exam Completed', 'Passed Applicants'].includes(label) ? [{ key: 'examination', label: 'Examination' }] : [])]} className={tone} key={label}><div><span>{label}</span><strong>{value}</strong><small>{label === 'Total Applicants' ? 'Registered records' : label === 'Scheduled for Exam' ? 'Matched to municipality schedules' : label === 'Exam Completed' ? 'Results submitted' : 'Qualified applicants'}</small></div><i className={`applicant-metric-icon ${tone}`}><Icon size={20} strokeWidth={2.2} /></i></MetricDetailsCard>)}</div>
       {loadError && <div className="applicants-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => { setLoading(true); setReloadKey((current) => current + 1); }}>Retry</button></div>}
       <section className="applicant-records-panel">
         <div className="applicant-panel-heading"><div><h3>Applicant directory</h3><p>{filtered.length} of {data.stats.total} applicants</p></div>{hasActiveFilters && <button type="button" className="applicant-clear-filters" onClick={clearFilters}><X size={13} />Clear filters</button>}</div>

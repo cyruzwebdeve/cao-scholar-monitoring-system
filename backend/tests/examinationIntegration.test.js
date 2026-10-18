@@ -30,6 +30,23 @@ let application;
 let emailReceipts;
 let transactionEvents;
 
+test('Applicants card details preserve scheduled-person and examination-result cardinalities', async () => {
+  const results = [
+    { id: 20, applicant_id: 7, exam_id: 3, passed: true, created_at: new Date() },
+    { id: 21, applicant_id: 7, exam_id: 4, passed: false, created_at: new Date() },
+  ];
+  prisma.results.findMany = async () => results;
+  const res = response(); await getApplicantManagement({ user: { role: 'SuperAdmin' } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.stats.scheduled, res.body.metricRecords.scheduled.length);
+  assert.equal(res.body.stats.completed, res.body.metricRecords.completed.length);
+  assert.equal(res.body.stats.passed, res.body.metricRecords.passed.length);
+  assert.equal(res.body.metricRecords.completed.length, 2);
+  assert.equal(res.body.metricRecords.completed[0].name, 'TEST APPLICANT');
+  assert.notEqual(res.body.metricRecords.completed[0].id, res.body.metricRecords.completed[1].id);
+  assert.equal(writes.length, 0);
+});
+
 beforeEach(() => {
   writes = [];
   emailReceipts = [];

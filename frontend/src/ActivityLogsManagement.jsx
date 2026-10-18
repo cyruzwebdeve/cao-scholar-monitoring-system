@@ -1,3 +1,4 @@
+import MetricDetailsCard from './components/MetricDetailsCard';
 import {
   Activity,
   ClipboardList,
@@ -105,10 +106,10 @@ function ActivityLogsManagement({ token }) {
 
       <div className="audit-metrics">
         {metrics.map(([label, value, Icon, tone, helper]) => (
-          <article className={tone} key={label}>
+          <MetricDetailsCard title={label} token={token} responseKey='logs' endpoint={`/activity-logs?metric=${({ Today: 'today', 'Last 7 days': 'week', 'Sign-ins': 'signIns', 'Admin actions': 'adminActions' })[label]}`} disabled={loading || Boolean(error && !data.logs.length)} description='Operational system-access and record-change events matching this total, independent of directory filters. Not a monetary audit.' columns={[{ key: 'actorName', label: 'User' }, { key: 'action', label: 'Activity' }, { key: 'description', label: 'Details' }, { key: 'createdAt', label: 'Recorded at' }]} className={tone} key={label}>
             <div><span>{label}</span><strong>{loading || (error && !data.logs.length) ? '—' : value}</strong><small>{helper}</small></div>
             <i><Icon size={20} /></i>
-          </article>
+          </MetricDetailsCard>
         ))}
       </div>
 

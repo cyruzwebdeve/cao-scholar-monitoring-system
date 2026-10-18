@@ -1,3 +1,5 @@
+import MetricDetailsCard from './components/MetricDetailsCard';
+import { staffMetricRows } from './utils/metricDetails';
 import {
   Eye,
   EyeOff,
@@ -325,7 +327,7 @@ function StaffManagement({ token, onLogout }) {
 
       <div className="staff-metrics">
         {metrics.map(([label, value, Icon, tone, helper]) => (
-          <article className={tone} key={label}><div><span>{label}</span><strong>{loading || (error && !data.staff.length) ? '—' : value}</strong><small>{helper}</small></div><i><Icon size={21} /></i></article>
+          <MetricDetailsCard title={label} rows={staffMetricRows(data.staff, label)} columns={[{ key: 'fullName', label: 'Name' }, { key: 'email', label: 'Email' }, { key: 'role', label: 'Role' }]}  disabled={loading || Boolean(error && !data.staff.length)} className={tone} key={label}><div><span>{label}</span><strong>{loading || (error && !data.staff.length) ? '—' : value}</strong><small>{helper}</small></div><i><Icon size={21} /></i></MetricDetailsCard>
         ))}
       </div>
 

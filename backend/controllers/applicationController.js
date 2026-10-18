@@ -1,3 +1,4 @@
+const { getScheduledApplicantIds } = require('../services/examAssignments');
 const { isFirstYearEntry } = require('../services/initialAcademicEvidence');
 const { grantBreakdown, preparationBlocker, snapshotPrivateGrants } = require('../services/grantPreparation');
 const { getPostedPasser, canRecordInitial, initialChecklist, initialApproved } = require('../services/passerIntake');
@@ -1923,6 +1924,7 @@ const getDashboardSummary = async (req, res) => {
     const controlNumbers = new Map(accounts.map((account) => [account.applicant_id, account.control_number]));
     return res.json({
       stats: { activeScholars, forfeitedAccounts },
+      metricAccess: { activeScholars: hasSectionAccess(req.user, 'scholars'), forfeitedAccounts: hasSectionAccess(req.user, 'examination') },
       recentApplications: applicants.map((applicant) => ({ name: [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' ').toUpperCase(), controlNo: controlNumbers.get(applicant.id) || `Applicant #${applicant.id}`, status: applicant.status })),
       recentActivity: activity.map((entry) => ({ title: entry.action, detail: entry.description || 'System activity recorded', status: 'INFO', time: entry.created_at })),
     });
@@ -2020,8 +2022,20 @@ const getApplicantManagement = async (req, res) => {
       legacySchoolYear: STALE_DEFAULT_SCHOOL_YEAR,
     });
     const scholarByApplicant = new Map(scholarAccounts.map((scholar) => [scholar.applicant_id, scholar]));
+    const metricPersonById = new Map(applicants.map(applicant => [applicant.id, {
+      name: [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' ').toUpperCase(),
+      controlNo: accountByApplicant.get(applicant.id)?.control_number || 'Not assigned', municipality: applicant.municipality || 'Not specified',
+    }]));
+    const scheduledIds = getScheduledApplicantIds({ applicants, exams, slots, academicYear: activePeriod.school_year, legacySchoolYear: STALE_DEFAULT_SCHOOL_YEAR });
+    const resultMetricRecords = results.map(result => ({ id: `result-${result.id}`, ...metricPersonById.get(result.applicant_id), status: result.passed ? 'Passed' : 'Failed', examination: examById.get(result.exam_id)?.title || `Examination #${result.exam_id}` }));
+
     return res.json({
       stats: { total: applicants.length, scheduled: scheduledApplicantCount, completed: results.length, passed: results.filter(({ passed }) => passed).length },
+      metricRecords: {
+        scheduled: scheduledIds.map(id => ({ id, ...metricPersonById.get(id), status: 'Scheduled' })),
+        completed: resultMetricRecords,
+        passed: resultMetricRecords.filter(row => row.status === 'Passed'),
+      },
       applicants: applicants.map((applicant) => {
         const account = accountByApplicant.get(applicant.id);
         const scholar = scholarByApplicant.get(applicant.id);

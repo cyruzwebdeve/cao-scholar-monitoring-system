@@ -37,7 +37,7 @@ const buildExamSlotAssignments = ({ applicants, exams, academicYear }) => {
   return assignments;
 };
 
-const countScheduledApplicants = ({ applicants, exams, slots, academicYear, legacySchoolYear = null }) => {
+const getScheduledApplicantIds = ({ applicants, exams, slots, academicYear, legacySchoolYear = null }) => {
   const schedules = indexExamsByMunicipality(exams, academicYear);
   const currentExamIds = new Set(
     exams.filter((exam) => exam.academic_year === academicYear).map((exam) => exam.id),
@@ -61,8 +61,10 @@ const countScheduledApplicants = ({ applicants, exams, slots, academicYear, lega
     }
   });
 
-  return scheduledApplicants.size;
+  return [...scheduledApplicants];
 };
+
+const countScheduledApplicants = (options) => getScheduledApplicantIds(options).length;
 
 const assignApplicantToMunicipalityExam = async (client, { applicantId, municipality, academicYear }) => {
   const normalizedMunicipality = String(municipality || '').trim();
@@ -117,6 +119,7 @@ module.exports = {
   assignApplicantsToMunicipalityExams,
   buildExamSlotAssignments,
   countScheduledApplicants,
+  getScheduledApplicantIds,
   indexExamsByMunicipality,
   normalizeMunicipality,
 };

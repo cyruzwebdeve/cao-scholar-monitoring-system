@@ -1,3 +1,5 @@
+import MetricDetailsCard from './components/MetricDetailsCard';
+import { billingMetricRows } from './utils/metricDetails';
 import PayoutSchedules from './PayoutSchedules';
 import Notification from './components/Notification';
 import { matchesPayrollListStatus } from './utils/payrollListStatus';
@@ -362,7 +364,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
         <label className="billing-period-selector"><span>Processing period</span><select value={selectedPeriodId} disabled={loading || processing || Boolean(routingApplicant) || !activePeriods.length} onChange={(event) => { setSelectedPeriodId(event.target.value); setQueuedIds([]); setSourceSelection([]); setQueueSelection([]); setOperationNotice(null); setPage(1); }}><option value="" disabled>Select active period</option>{activePeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}{period.isPrimary ? ' (Primary)' : ''}</option>)}</select></label>
       </header>
 
-      <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !records.length) ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></article>)}</section>
+      <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <MetricDetailsCard title={label} rows={billingMetricRows(routedRecords, label)} description={label === 'Grant (PHP)' ? 'Fixed private tuition support is PHP 5,000. These are the current private-route scholar records; this is not payment release or confirmation.' : 'Current-period records in this processing route, matching the card total. Directory search and queue filters are not applied.'} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'school', label: 'School' }, { key: 'status', label: 'Status' }]} disabled={loading || Boolean(loadError && !records.length)} className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !records.length) ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></MetricDetailsCard>)}</section>
 
       {loadError && <div className="billing-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadRecords({ showLoader: true })}>Retry</button></div>}
 

@@ -28,10 +28,16 @@ const getActivityLogs = async (req, res) => {
         ],
       } : {}),
     };
+    const metric = String(req.query.metric || '');
+    if (metric && !['today', 'week', 'signIns', 'adminActions'].includes(metric)) return res.status(400).json({ message: 'Unknown activity metric.' });
     const now = new Date();
     const startOfToday = getStartOfPhilippineDay(now);
     const startOfWeek = new Date(startOfToday);
     startOfWeek.setDate(startOfWeek.getDate() - 6);
+    if (metric === 'today') where.created_at = { gte: startOfToday };
+    if (metric === 'week') where.created_at = { gte: startOfWeek };
+    if (metric === 'signIns') where.action = 'USER_LOGIN';
+    if (metric === 'adminActions') where.actor_type = 'admin';
 
     const [logs, total, today, week, signIns, adminActions] = await Promise.all([
       prisma.activity_logs.findMany({

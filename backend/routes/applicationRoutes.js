@@ -1,3 +1,4 @@
+const { getDashboardDetails } = require('../controllers/dashboardDetailsController');
 const payoutSchedules = require('../controllers/payoutScheduleController');
 const { sendToPayroll } = require('../controllers/payrollPreparationController');
 const grantPreparation = require('../controllers/grantPreparationController');
@@ -110,7 +111,8 @@ router.put('/academic-periods/:id/requirements-deadline', authenticate, checkRol
 router.put('/academic-periods/:id/primary', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), setPrimaryAcademicPeriod);
 router.put('/academic-periods/:id/deactivate', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), deactivateAcademicPeriod);
 
-router.get('/dashboard/summary', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('dashboard'), getDashboardSummary);
+router.get('/dashboard/summary', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('dashboard'), privateResponse, getDashboardSummary);
+router.get('/dashboard/metrics/:metric', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('dashboard'), privateResponse, getDashboardDetails);
 router.get('/schools/catalog', authenticate, checkRole(['SuperAdmin']), getSchoolCatalog);
 router.get('/activity-logs', authenticate, checkRole(['SuperAdmin']), getActivityLogs);
 router.get('/reports/lifecycle', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('reports'), getLifecycleReport);

@@ -1,3 +1,4 @@
+import MetricDetailsCard from './components/MetricDetailsCard';
 import Notification from './components/Notification';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -219,10 +220,10 @@ export default function AnnouncementsManagement({ token }) {
       </header>
 
       <section className="announcement-metrics">
-        <article className="green"><div><span>Total announcements</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.total}</strong><small>All communication records</small></div><i><Megaphone size={20} /></i></article>
-        <article className="blue"><div><span>Published records</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.published}</strong><small>Includes expired published records</small></div><i><Send size={20} /></i></article>
-        <article className="orange"><div><span>Scheduled</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.scheduled}</strong><small>Waiting for publication</small></div><i><CalendarClock size={20} /></i></article>
-        <article className="violet"><div><span>Drafts</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.drafts}</strong><small>Unpublished working copies</small></div><i><FilePenLine size={20} /></i></article>
+        <MetricDetailsCard title='Total announcements' rows={announcements} disabled={loading || Boolean(loadError && !announcements.length)} columns={[{ key: 'title', label: 'Title' }, { key: 'audience', label: 'Audience' }, { key: 'status', label: 'Stored publication status' }]}  className="green"><div><span>Total announcements</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.total}</strong><small>All communication records</small></div><i><Megaphone size={20} /></i></MetricDetailsCard>
+        <MetricDetailsCard title='Published records' rows={announcements.filter(item => item.status === 'published')} disabled={loading || Boolean(loadError && !announcements.length)} columns={[{ key: 'title', label: 'Title' }, { key: 'audience', label: 'Audience' }, { key: 'status', label: 'Stored publication status' }]}  className="blue"><div><span>Published records</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.published}</strong><small>Includes expired published records</small></div><i><Send size={20} /></i></MetricDetailsCard>
+        <MetricDetailsCard title='Scheduled' rows={announcements.filter(item => item.status === 'scheduled')} disabled={loading || Boolean(loadError && !announcements.length)} columns={[{ key: 'title', label: 'Title' }, { key: 'audience', label: 'Audience' }, { key: 'status', label: 'Stored publication status' }]}  className="orange"><div><span>Scheduled</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.scheduled}</strong><small>Waiting for publication</small></div><i><CalendarClock size={20} /></i></MetricDetailsCard>
+        <MetricDetailsCard title='Drafts' rows={announcements.filter(item => item.status === 'draft')} disabled={loading || Boolean(loadError && !announcements.length)} columns={[{ key: 'title', label: 'Title' }, { key: 'audience', label: 'Audience' }, { key: 'status', label: 'Stored publication status' }]}  className="violet"><div><span>Drafts</span><strong>{loading || (loadError && !announcements.length) ? '—' : metrics.drafts}</strong><small>Unpublished working copies</small></div><i><FilePenLine size={20} /></i></MetricDetailsCard>
       </section>
 
       {notice && <Notification tone={notice.tone} title={notice.tone === 'error' ? 'Announcement needs attention' : 'Announcement updated'} onDismiss={() => setNotice(null)}>{notice.text}</Notification>}

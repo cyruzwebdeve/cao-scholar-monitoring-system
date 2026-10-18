@@ -1,3 +1,5 @@
+import MetricDetailsCard from './components/MetricDetailsCard';
+import { documentMetricRows } from './utils/metricDetails';
 import Notification from './components/Notification';
 import {
   CheckCircle2,
@@ -290,7 +292,7 @@ function DocumentReviewManagement({ token }) {
   return (
     <div className="document-reviews">
       <header className="document-review-heading"><div><span>CONTENT MODERATION</span><h2>Document Reviews</h2><p>Verify applicant eligibility proofs and scholar requirement uploads.</p></div><button type="button" onClick={loadReviews} disabled={loading}><RefreshCw size={16} className={loading ? 'spinning' : ''} />Refresh queue</button></header>
-      <div className="document-review-metrics">{metrics.map(([label, value, Icon, tone, helper]) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading || (error && !data.reviews.length) ? '—' : value}</strong><small>{helper}</small></div><i><Icon size={21} /></i></article>)}</div>
+      <div className="document-review-metrics">{metrics.map(([label, value, Icon, tone, helper]) => <MetricDetailsCard title={label} rows={documentMetricRows(data.reviews, label)} columns={[{ key: 'scholarName', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'requirementLabel', label: 'Document' }, { key: 'status', label: 'Status' }]} disabled={loading || Boolean(error && !data.reviews.length)} className={tone} key={label}><div><span>{label}</span><strong>{loading || (error && !data.reviews.length) ? '—' : value}</strong><small>{helper}</small></div><i><Icon size={21} /></i></MetricDetailsCard>)}</div>
       {notice && <div className={`document-review-notice ${notice.tone}`} role="status">{notice.tone === 'success' ? <CheckCircle2 size={18} /> : <TriangleAlert size={18} />}<span>{notice.message}</span><button type="button" onClick={() => setNotice(null)} aria-label="Dismiss"><X size={16} /></button></div>}
       {error && <div className="document-review-notice error" role="status"><TriangleAlert size={18} /><span>{error}</span><button type="button" onClick={loadReviews}>Retry</button></div>}
       <section className="document-review-directory">

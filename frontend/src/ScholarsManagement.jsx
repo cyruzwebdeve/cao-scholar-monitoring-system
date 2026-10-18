@@ -1,3 +1,5 @@
+import MetricDetailsCard from './components/MetricDetailsCard';
+import { scholarMetricRows } from './utils/metricDetails';
 import DocumentVersionHistory from './components/DocumentVersionHistory';
 import Notification from './components/Notification';
 import { canManageStaffSection } from './utils/staffAccess';
@@ -486,7 +488,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
 
       <nav className="examination-workspace-tabs scholars-section-tabs" aria-label="Scholars sections"><button type="button" aria-pressed={sectionTab === 'directory'} className={sectionTab === 'directory' ? 'active' : ''} onClick={() => setSectionTab('directory')}>Scholar</button><button type="button" aria-pressed={sectionTab === 'continuing'} className={sectionTab === 'continuing' ? 'active' : ''} onClick={() => setSectionTab('continuing')}>Continuing Requirements</button></nav>
       {sectionTab === 'continuing' ? <ContinuingRequirementsSettings token={token} periods={academicPeriods} scholars={scholars} canEdit={canUploadScholarRequirements} onPeriodChange={async (periodId) => { setSchedulePeriodId(periodId); await loadScholars({ academicPeriodId: periodId }); }} /> : <>
-      <div className="scholars-admin-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <article className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !scholars.length) ? '—' : value}</strong><small>{detail}</small></div><i><Icon size={20} /></i></article>)}</div>
+      <div className="scholars-admin-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <MetricDetailsCard title={label} rows={scholarMetricRows(scholars, label)} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Municipality' }, { key: 'status', label: 'Status' }, { key: 'documentStatus', label: 'Documents' }]} disabled={loading || Boolean(loadError && !scholars.length)} className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !scholars.length) ? '—' : value}</strong><small>{detail}</small></div><i><Icon size={20} /></i></MetricDetailsCard>)}</div>
 
       {loadError && <div className="scholars-admin-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadScholars({ showLoader: true })}>Retry</button></div>}
 
