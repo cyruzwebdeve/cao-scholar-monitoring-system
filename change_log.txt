@@ -510,3 +510,7 @@
 2026-10-19 - Deployed Payroll Excel cleanup release 6940dad through main. Live JavaScript confirms requested labels/prose absent and preparation-copy identity retained; API healthy/database connected.
 
 2026-10-19 - Copied the client-supplied printed Payroll signatory footer, retaining legacy unsigned certification language and a blank Disbursing Officer line; no payment tracking or data changes. Draft/reference safeguards preserved; not deployed.
+
+2026-10-19 - Deployed supplied Payroll signatory footer release 9f98ccb via main; live JavaScript contains requested unsigned form wording and retained preparation-copy marker; API healthy/database connected.
+
+2026-10-19 - Removed Payroll Excel preparation-copy banner; compact spacer replaces colored band. Unsaved reference handling, preparation filename, data/totals and signatory footer unchanged; not deployed.

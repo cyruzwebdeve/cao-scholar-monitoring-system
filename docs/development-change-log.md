@@ -9285,3 +9285,35 @@ API, database, configuration, authorization/security and privacy controls: no im
 Serialized XLSX tests check the exact supplied wording/roles, three existing signatory names, blank officer name, preserved draft/reference safeguards, removed header labels, data/totals and adjusted print area. Full frontend suite, lint, build and whitespace results are recorded below. No real records or emails were used. Visual Excel/print-preview review remains outstanding. Revert the utility and tests to restore the prior list-only footer; no data rollback required. Recommended next work: client visual approval of the footer and explicit reconciliation of legacy form language with the documented business scope before operational use.
 
 Validation outcome: 191 frontend tests passed; lint, production build and git diff --check passed. Existing large-chunk build advisory remains. No deployment performed.
+
+
+### Deployment observation - 2026-10-19 (supplied Payroll signatory footer)
+
+**TL;DR**
+- Release 9f98ccb was normally pushed to main at the user's request, triggering the connected deployment.
+- Production JavaScript contains the supplied certification/approval footer wording and preparation-copy marker; API reports healthy/database connected.
+- Only the unsigned printed template changed; no payment status, real-record changes or test emails were introduced.
+
+Entry index-Frztsgj0.js references Dashboard-BsGCsHv5.js. The asset returned HTTP 200 with JavaScript MIME type and both supplied certification sentences, the approval heading, blank-officer role label and retained draft marker. This confirms template code publication, not authenticated Excel rendering, signed certification or actual payment receipt. The prior 191 frontend tests, lint, production build and whitespace checks passed. No additional API, database, configuration, authorization/security, privacy or accessibility changes were required for deployment. Legacy payment-oriented printed form language is retained at the user's explicit request; the application still does not implement payment release, claiming, receipt confirmation, reconciliation or monetary auditing. Rollback is a frontend revert/redeployment with no migration. Recommended next work: visually check a freshly exported workbook and obtain responsible-office approval before using unsigned certification language operationally.
+
+
+## 2026-10-19 - Remove Payroll Excel preparation banner
+
+**TL;DR**
+- Removed the highlighted preparation-copy banner and colored band from Payroll exports.
+- Unsaved exports still have no official reference: the existing Not assigned reference, preparation filename and backend draft/list distinction remain unchanged.
+- Frontend worksheet presentation only; signatory footer, scholar data, totals and print structure retained. Validation results recorded below; not deployed.
+
+### Objective and previous/new behavior
+The user requested removing the highlighted preparation-copy banner from the template. Queue exports previously rendered that message across row 3 with a colored fill; now row 3 is a compact six-point spacer, matching the saved-list layout. Table headers and data retain their existing row numbers. No official reference or membership is created by exporting an unsaved queue.
+
+### Roles, implementation and files
+Staff using Payroll Export Excel receive the cleaner worksheet. Updated frontend/src/utils/payrollWorkbook.js and frontend/tests/payrollWorkbook.test.js. The banner branch is removed; all remaining preparationCopy checks, download filename, reference validation, record mapping, custom column selection, totals and supplied unsigned signatory footer are untouched. Billing export is not changed.
+
+### Impacts
+API, database, configuration, authorization/security, privacy and email delivery: no impact. Accessibility/print: one decorative band removed and spacer shortened; no application interaction changes. Deployment: local only, no release requested in this message. Existing legacy payment-oriented unsigned footer language is retained unchanged; no payment release, claim tracking, receipt confirmation, reconciliation or monetary auditing added. Exporting a workbook still does not establish payment.
+
+### Validation, limitations, rollback and next work
+Serialized XLSX regressions check banner absence, blank compact row 3, retained Not assigned reference, saved-reference requirement, exact footer content and preserved totals/print bounds. Full frontend suite, lint, production build and whitespace outcomes recorded below. No real data or emails used. Actual Excel/print-preview review remains outstanding. Revert utility/tests to restore the band; no migration or data rollback required. Without the banner, staff must distinguish unsaved exports by their Not assigned reference and preparation filename; recommended next work is visual review of a new download.
+
+Validation outcome: all 191 frontend tests, lint, production build and git diff --check passed. Existing large-chunk build advisory remains. No deployment performed.

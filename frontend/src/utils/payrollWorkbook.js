@@ -62,10 +62,7 @@ export async function buildPayrollWorkbook({ records, batch, activePeriod, prepa
   mergeText(2, 1, physicalCount, `PAYROLL LIST · ${period}`, { alignment: { horizontal: 'center' } });
   sheet.getRow(1).height = narrow ? 36 : 18;
   sheet.getRow(2).height = narrow ? 30 : 16;
-  if (preparationCopy) {
-    mergeText(3, 1, physicalCount, 'PREPARATION COPY — NO OFFICIAL LIST GENERATED', { font: { bold: true, color: { argb: 'FF875314' } }, alignment: { horizontal: 'center' }, fill: 'FFFFF4D9' });
-    sheet.getRow(3).height = narrow ? 26 : 17;
-  } else sheet.getRow(3).height = 6;
+  sheet.getRow(3).height = 6;
   mergeText(4, 1, physicalCount - 4, 'Agency: Community Affairs Office');
   mergeText(4, physicalCount - 3, physicalCount, `Reference #: ${preparationCopy ? 'Not assigned' : batch.batchNumber}`, { font: { bold: true }, alignment: { horizontal: 'right' } });
   sheet.getRow(4).height = narrow ? 32 : 18;

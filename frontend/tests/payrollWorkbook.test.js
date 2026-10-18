@@ -42,12 +42,13 @@ test('official serialized form has the supplied columns, recorded breakdowns and
 
 test('preparation copy uses the form without claiming a saved reference or membership', async () => {
   const sheet = await serialized({ preparationCopy: true, batch: undefined });
-  assert.match(sheet.getCell('A3').value, /PREPARATION COPY/);
+  assert.equal(sheet.getCell('A3').value, null);
+  assert.equal(sheet.getRow(3).height, 6);
   assert.equal(sheet.getCell('K4').value, 'Reference #: Not assigned');
   const text = sheet.getSheetValues().flat(2).join(' ');
   assert.doesNotMatch(text, /PAY-0043/);
   assert.doesNotMatch(text, /does not create official list membership|The names above are included/);
-  assert.match(text, /PREPARATION COPY/);
+  assert.doesNotMatch(text, /PREPARATION COPY|NO OFFICIAL LIST GENERATED/);
 });
 
 test('custom ordered columns retain values, currency and totals without overwriting cells', async () => {
@@ -105,7 +106,8 @@ test('payroll footer reproduces the supplied unsigned form while retaining draft
     assert.match(text, /Administrative Assistant II/);
     assert.match(text, /Community Affairs Officer IV/);
     assert.match(text, /Governor/);
-    assert.match(text, preparationCopy ? /PREPARATION COPY/ : /PAY-0043/);
+    assert.match(text, preparationCopy ? /Reference #: Not assigned/ : /PAY-0043/);
+    assert.doesNotMatch(text, /PREPARATION COPY|NO OFFICIAL LIST GENERATED/);
     assert.equal(sheet.getCell('A1').value, 'PROVINCIAL GOVERNMENT COLLEGE EDUCATIONAL ASSISTANCE PROGRAM');
     assert.match(sheet.getCell('A2').value, /PAYROLL LIST/);
     assert.ok(sheet.model.merges.includes('A1:N1'));
