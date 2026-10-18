@@ -466,3 +466,7 @@
 2026-10-18 - Clickable summary-card release 4a1c60a deployed; live record-dialog/search/pagination and responsive CSS verified HTTP 200, API healthy/database connected, unauthenticated detail access denied HTTP 401. No production records accessed or changed.
 
 2026-10-18 - Explicitly centered the shared record-details dialog horizontally and vertically in the viewport, overriding global margin resets while retaining responsive sizing/scrolling. Frontend 166 tests passed; lint/build verification and requested deployment recorded in detailed log. No data/API/access changes.
+2026-10-18 - Modal-centering release 51c3eb6 deployed; live Dashboard CSS verified with fixed viewport position, zero insets and auto margins. No API, data or access changes.
+
+2026-10-18 - Added informational one-week (7-day) payout claiming reminder to schedule previews/history, publication/reschedule portal messages and Gmail text/HTML. Cancellation notices, schedule dates and workflow permissions unchanged; no claim tracking/enforcement. Backend 399 pass/1 skip, frontend 167 pass; lint/build passed. Not deployed.
+2026-10-18 - User requested deployment of the verified one-week payout notice through the existing connected main-branch pipeline. No migration, claiming enforcement or historical notification resend.

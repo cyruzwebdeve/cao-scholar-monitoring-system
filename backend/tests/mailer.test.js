@@ -132,6 +132,12 @@ test('schedule publication/update/cancellation mail is private, escaped and info
   }
   assert.match(messages[1].text, /instead of the previous notice/);
   assert.match(messages[2].text, /cancelled.*Do not follow/);
+  for (const message of messages.slice(0, 2)) {
+    assert.match(message.text, /one week \(7 days\) only to claim their payout/);
+    assert.match(message.html, /one week \(7 days\) only to claim their payout/);
+  }
+  assert.doesNotMatch(messages[2].text, /one week|claim their payout/);
+  assert.doesNotMatch(messages[2].html, /one week|claim their payout/);
 });
 
 test('exam receipt does not expose the examination score', async () => {

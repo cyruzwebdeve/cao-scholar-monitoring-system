@@ -1,3 +1,4 @@
+const { PAYOUT_CLAIM_NOTICE } = require('./payoutSchedulePolicy');
 const nodemailer = require('nodemailer');
 
 const DEFAULT_APP_URL = 'http://localhost:5173';
@@ -224,6 +225,7 @@ const createMailer = ({
       { label: 'Starts (Philippine time)', value: formatDate(startsAt) },
       ...(endsAt ? [{ label: 'Ends (Philippine time)', value: formatDate(endsAt) }] : []),
       { label: 'Venue', value: venue },
+      ...(event !== 'cancelled' ? [{ label: 'Important claiming-period notice', value: PAYOUT_CLAIM_NOTICE }] : []),
     ];
     const body = event === 'cancelled'
       ? `This schedule has been cancelled. Do not follow the previous schedule.${cancellationReason ? ` Reason: ${clean(cancellationReason)}` : ''}`

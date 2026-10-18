@@ -23,3 +23,12 @@ test('targeted notices show Philippine time and venue and describe informational
  assert.match(scheduleMessage(row, 'PAY-0001', 'rescheduled'), /Updated schedule/);
  assert.match(scheduleMessage(row, 'PAY-0001', 'cancelled'), /cancelled.*Venue unavailable/);
 });
+
+
+test('publication and reschedule notices include the one-week reminder without changing dates or cancelled notices', () => {
+ const row = { title: 'Synthetic schedule', starts_at: new Date('2030-01-01T01:00:00Z'), ends_at: new Date('2030-01-01T02:00:00Z'), venue: 'Test venue', instructions: '' };
+ const before = JSON.stringify(row);
+ for (const event of ['published', 'rescheduled']) assert.match(scheduleMessage(row, 'TEST', event), /one week \(7 days\) only to claim their payout/);
+ assert.doesNotMatch(scheduleMessage(row, 'TEST', 'cancelled'), /one week|claim their payout/);
+ assert.equal(JSON.stringify(row), before);
+});

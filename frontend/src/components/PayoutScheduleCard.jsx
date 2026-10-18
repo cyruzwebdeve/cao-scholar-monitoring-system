@@ -1,5 +1,5 @@
 import { CalendarDays, MapPin } from 'lucide-react';
-import { scheduleTime } from '../utils/payoutSchedules';
+import { scheduleTime, PAYOUT_CLAIM_NOTICE } from '../utils/payoutSchedules';
 import './PayoutSchedules.css';
 export default function PayoutScheduleCard({ schedule, reference, children, preview = false }) {
   const cancelled = schedule.status === 'cancelled';
@@ -8,6 +8,7 @@ export default function PayoutScheduleCard({ schedule, reference, children, prev
     <p className="payout-card-detail"><CalendarDays size={17} aria-hidden="true" /><span>{scheduleTime(schedule.startsAt)}{schedule.endsAt ? ` – ${scheduleTime(schedule.endsAt)}` : ''}<small>Philippine time</small></span></p>
     <p className="payout-card-detail"><MapPin size={17} aria-hidden="true" /><span>{schedule.venue}</span></p>
     {schedule.instructions && <p className="payout-instructions">{schedule.instructions}</p>}
+    {!cancelled && <p className="payout-claim-notice"><strong>Important notice:</strong> {PAYOUT_CLAIM_NOTICE}</p>}
     {cancelled && <p className="payout-cancel-note"><strong>This schedule is cancelled.</strong> {schedule.cancellationReason}</p>}
     {children}
   </article>;

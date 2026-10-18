@@ -1,3 +1,4 @@
+const PAYOUT_CLAIM_NOTICE = 'Scholars have one week (7 days) only to claim their payout. Follow the claiming dates and instructions announced by CAO.';
 const fail = (message, status = 400) => { const error = new Error(message); error.status = status; throw error; };
 const positiveId = value => (typeof value === 'number' || (typeof value === 'string' && /^\d+$/.test(value))) && Number.isSafeInteger(Number(value)) && Number(value) > 0 ? Number(value) : fail('A valid record is required.');
 const isPayrollBatch = batch => batch && batch.total_scholars > 0 && String(batch.status).toLowerCase() !== 'draft' && !String(batch.batch_number).startsWith('BILL-') && String(batch.status).toLowerCase() !== 'billed';
@@ -26,6 +27,6 @@ function scheduleMessage(row, reference, event) {
   const end = row.ends_at ? ` – ${new Date(row.ends_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' })}` : '';
   return event === 'cancelled'
     ? `${row.title} (${reference}) has been cancelled.${row.cancellation_reason ? ` ${row.cancellation_reason}` : ''}`
-    : `${event === 'rescheduled' ? 'Updated schedule' : 'Payout schedule'}: ${row.title}. ${time}${end} (Philippine time). Venue: ${row.venue}. ${row.instructions}`.trim();
+    : `${event === 'rescheduled' ? 'Updated schedule' : 'Payout schedule'}: ${row.title}. ${time}${end} (Philippine time). Venue: ${row.venue}. ${row.instructions || ''} ${PAYOUT_CLAIM_NOTICE}`.trim();
 }
-module.exports = { fail, positiveId, isPayrollBatch, scheduleInput, scheduleMessage };
+module.exports = { PAYOUT_CLAIM_NOTICE, fail, positiveId, isPayrollBatch, scheduleInput, scheduleMessage };

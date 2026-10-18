@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { scheduleIso, scheduleLocalInput, scheduleTime, filterScheduleScholars } from '../src/utils/payoutSchedules.js';
+import { PAYOUT_CLAIM_NOTICE, scheduleIso, scheduleLocalInput, scheduleTime, filterScheduleScholars } from '../src/utils/payoutSchedules.js';
 test('schedule inputs always use Philippine time independent of browser timezone', () => {
   assert.equal(scheduleIso('2026-11-01T09:30'), '2026-11-01T01:30:00.000Z');
   assert.equal(scheduleLocalInput('2026-11-01T01:30:00.000Z'), '2026-11-01T09:30');
@@ -22,4 +22,25 @@ test('schedule workspace discloses automatic Gmail and displays delivery states 
   assert.match(source, /row\.emailDeliveries\?\.sent/);
   assert.match(source, /row\.emailDeliveries\?\.failed/);
   assert.doesNotMatch(source, /notifyEmail|type="checkbox"[^>]*[Ee]mail/);
+});
+
+
+test('the one-week notice is consistent across the admin preview, saved card and backend messages', async () => {
+  const { createServer } = await import('vite');
+  const { fileURLToPath } = await import('node:url');
+  const { createElement } = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const server = await createServer({ root: fileURLToPath(new URL('../', import.meta.url)), server: { middlewareMode: true, hmr: false }, appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] } });
+  try {
+    const Card = (await server.ssrLoadModule('/src/components/PayoutScheduleCard.jsx')).default;
+    const schedule = { title: 'Synthetic schedule', startsAt: '2030-01-01T01:00:00Z', venue: 'Test venue' };
+    for (const status of ['draft', 'published']) {
+      const html = renderToStaticMarkup(createElement(Card, { schedule: { ...schedule, status }, preview: status === 'draft' }));
+      assert.ok(html.includes(PAYOUT_CLAIM_NOTICE)); assert.match(html, /Important notice:/);
+    }
+    const cancelled = renderToStaticMarkup(createElement(Card, { schedule: { ...schedule, status: 'cancelled' } }));
+    assert.ok(!cancelled.includes(PAYOUT_CLAIM_NOTICE)); assert.match(cancelled, /This schedule is cancelled/);
+    const backend = await readFile(new URL('../../backend/services/payoutSchedulePolicy.js', import.meta.url), 'utf8');
+    assert.ok(backend.includes(PAYOUT_CLAIM_NOTICE));
+  } finally { await server.close(); }
 });

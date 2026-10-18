@@ -8923,3 +8923,33 @@ API/database/configuration: none; no migration, settings or dependencies. Securi
 
 ### Validation, limitations and rollback
 All 166 frontend tests passed, including the centering regression and existing modal/data-access behavior checks. ESLint, production build and git diff --check passed before deployment; existing non-fatal large-chunk build warning remains. Backend tests are not rerun for this CSS-only fix. No browser-rendered screenshot or authenticated production interaction is claimed. Recommended client check: refresh, open Active Scholars and confirm centering on desktop/mobile. Rollback by reverting the CSS/test change; no stored data needs reversal.
+
+### Deployment observation
+Release 51c3eb6 was pushed to origin/main through the connected hosting pipeline. The live homepage references index-svugYVy_.js and Dashboard-lmzUymjX.css. The stylesheet returns HTTP 200 CSS with fixed positioning, zero insets and automatic margins on the shared record modal, confirming the centering rule is deployed. Verification is of the live CSS, not an authenticated browser screenshot; no production records were accessed or changed.
+
+
+## 2026-10-18 - One-week informational payout claiming notice
+
+**TL;DR**
+- Schedule notices state that scholars have one week (7 days) only to claim their payout, following CAO-announced dates and instructions.
+- Appears in admin previews/saved schedule cards, new publication/reschedule portal notifications and Gmail text/HTML. Cancelled schedules do not display the reminder.
+- Informational legacy schedule wording only: no claim tracking, deadline calculation/enforcement, date changes, fund-release workflow or payment confirmation.
+- Backend 399 tests passed (one database-dependent test skipped), frontend 167 passed; lint/build and whitespace checks passed. Not deployed.
+
+### Objective and behavior
+The user requested a visible one-week claiming-period notice. Previously schedule messages carried dates, venue and optional instructions without this fixed reminder. Non-cancelled schedule cards now show a highlighted Important notice, and publication/reschedule notifications include the same wording automatically. Email includes a labelled claiming-period notice in both plain text and HTML. Cancellation messages remain cancellation-only, preventing a misleading invitation to follow a cancelled schedule. Draft cards show the reminder for staff review, but drafts still send no notifications.
+
+### Roles, implementation and data flow
+CAO/staff can see the notice in the existing PayoutScheduleCard used for preview and saved history. Backend payoutSchedulePolicy defines the notice and appends it to newly generated publication/reschedule portal messages. The mailer reuses that constant when rendering schedule email; the existing selected-recipient outbox and Gmail delivery checks are unchanged. The frontend schedule helper carries identical display wording, verified against the backend constant by regression. Scholars receive the notice through existing targeted notification/message rendering; no new endpoint or additional self-service workflow is introduced. Previous stored portal notifications and already-sent emails are not rewritten or resent.
+
+### Files and impacts
+Changed backend/services/payoutSchedulePolicy.js, backend/services/mailer.js and their tests; frontend/src/utils/payoutSchedules.js, frontend/src/components/PayoutScheduleCard.jsx, PayoutSchedules.css and frontend/tests/payoutSchedules.test.js; both required change logs. API: no endpoint or response schema change, only generated message content. Database: no schema/migration or historical data edits. Configuration: none, no new dependency or secrets. Security/privacy: existing authorization, selected recipients, escaping and private delivery retained. Accessibility: readable textual highlighted notice; no blocking alert, extra checkbox or new control. Deployment: not deployed; implementation is prepared in the release worktree for a later requested publication. Existing legacy schedule notifications are retained as informational functionality outside the core payroll-list-generation boundary; no fund release, claim capture, disbursement confirmation, reconciliation or monetary audit behavior is added.
+
+### Validation
+Full safe runner: backend 399 passed, zero failures, one database-dependent migration test skipped; frontend 167 passed, zero failures. Added assertions cover publication/reschedule portal messages, both email formats, cancellation exclusion, identical frontend/backend wording, preview/published card display, cancellation-card suppression and unchanged schedule-date objects. Existing recipient, draft, workflow and mail privacy checks pass. ESLint, production frontend build and git diff --check passed; existing large-chunk warning remains non-fatal. No production record, notification or email was accessed or sent; no authenticated browser acceptance test is claimed.
+
+### Limitations, rollback and next work
+This is policy text, not a computed expiry: no start-anchor, exact deadline timestamp, working-day rule, late-claim consequence or automatic date enforcement is inferred. CAO remains responsible for publishing consistent dates/instructions. Existing notifications remain historically accurate and unchanged; only newly generated messages include the reminder. Revert these source changes to roll back; no stored data cleanup is appropriate. After a requested deployment, verify a test schedule preview and test publication email/portal notice, including cancellation wording, without using real scholar records.
+
+### Deployment preparation
+The user requested publication of the tested notice. Remote main was verified at 51c3eb6 before release. The implementation, its regressions and required logs are included; generated build/test outputs and unrelated workspace changes are excluded. Existing validation remains applicable because implementation files have not changed since the passing 399-backend/167-frontend test, lint and build run. No database migration, credential update, production record mutation or historical notification resend is required. Deployment uses the existing connected frontend/backend pipeline; the legacy schedule notice remains informational only.
