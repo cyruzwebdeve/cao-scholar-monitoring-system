@@ -3924,8 +3924,7 @@
   margin-top: 14px;
 }
 .rm-reevaluation-scores label,
-.rm-reevaluation-scores > div,
-.rm-reevaluation-remarks {
+.rm-reevaluation-scores > div {
   display: grid;
   gap: 6px;
 }
@@ -3937,7 +3936,6 @@
   background: #fff;
 }
 .rm-reevaluation-scores span,
-.rm-reevaluation-remarks > span,
 .rm-reevaluation-preview > span {
   color: #718096;
   font-size: 9px;
@@ -3948,8 +3946,7 @@
   color: #385043;
   font-size: 15px;
 }
-.rm-reevaluation-scores input,
-.rm-reevaluation-remarks textarea {
+.rm-reevaluation-scores input {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid #cfddd2;
@@ -3964,22 +3961,9 @@
   height: 39px;
   padding: 0 11px;
 }
-.rm-reevaluation-remarks {
-  margin-top: 12px;
-}
-.rm-reevaluation-remarks textarea {
-  resize: vertical;
-  min-height: 76px;
-  padding: 10px 11px;
-  line-height: 1.45;
-}
-.rm-reevaluation-scores input:focus,
-.rm-reevaluation-remarks textarea:focus {
+.rm-reevaluation-scores input:focus {
   border-color: #0b8f4f;
   box-shadow: 0 0 0 3px rgba(11, 143, 79, 0.1);
-}
-.rm-reevaluation-remarks b {
-  color: #c43e3e;
 }
 .rm-reevaluation-preview {
   display: flex;

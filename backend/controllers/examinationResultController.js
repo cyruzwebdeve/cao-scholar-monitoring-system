@@ -17,8 +17,8 @@ const validateScores = (body, correction = false) => {
   if (!correction && (typeof body.passingScore !== 'number' || !Number.isFinite(body.passingScore) || body.passingScore < 1 || body.passingScore > 20 || !hasTwoDecimalPlaces(body.passingScore))) {
     throw fault(400, 'Enter a passing score between 1 and 20 with at most two decimal places.');
   }
-  if (typeof body.remarks !== 'string' || !body.remarks.trim() || body.remarks.length > 2000) {
-    throw fault(400, correction ? 'A correction reason of at most 2,000 characters is required.' : 'Add a recording remark of at most 2,000 characters.');
+  if (body.remarks !== undefined && (typeof body.remarks !== 'string' || body.remarks.length > 2000)) {
+    throw fault(400, 'Optional remarks must be text of at most 2,000 characters.');
   }
 };
 
@@ -30,6 +30,9 @@ const createExaminationResultController = (client = prisma) => {
       if (!Number.isSafeInteger(applicantId) || applicantId <= 0 || !Number.isSafeInteger(examId) || examId <= 0) throw fault(400, 'A valid examination and applicant are required.');
       const body = req.body || {};
       if (operation !== 'publish') validateScores(body, operation === 'correct');
+      const remarks = operation === 'publish' ? '' : (body.remarks?.trim() || '');
+      const reviewReason = remarks || (operation === 'record' ? 'Score recorded without an additional staff remark.' : operation === 'correct' ? 'Score corrected without an additional staff remark.' : 'CAO published the reviewed result');
+      const reasonSource = remarks ? 'staff' : 'system';
       if (operation !== 'record' && (!Number.isSafeInteger(body.resultId) || typeof body.updatedAt !== 'string' || Number.isNaN(new Date(body.updatedAt).getTime()))) throw fault(400, 'Reload the result before changing or publishing it.');
       let timestamp = new Date();
       const result = await client.$transaction(async (tx) => {
@@ -55,8 +58,8 @@ const createExaminationResultController = (client = prisma) => {
           saved = await tx.results.create({ data: {
             exam_slot_id: slot.id, applicant_id: applicantId, exam_id: examId,
             score: body.score, passing_score: body.passingScore, passed: body.score >= body.passingScore,
-            delivery_mode: 'paper', recorded_by: req.user.id, remarks: body.remarks.trim(), updated_at: timestamp,
-            review_history: [{ operation: 'record', actorId: req.user.id, at: timestamp.toISOString(), score: body.score, passingScore: body.passingScore, reason: body.remarks.trim() }],
+            delivery_mode: 'paper', recorded_by: req.user.id, remarks, updated_at: timestamp,
+            review_history: [{ operation: 'record', actorId: req.user.id, at: timestamp.toISOString(), score: body.score, passingScore: body.passingScore, reason: reviewReason, reasonSource }],
           } });
         } else {
           if (!existing || existing.id !== body.resultId || new Date(existing.updated_at).getTime() !== new Date(body.updatedAt).getTime()) throw fault(409, 'The result changed. Reload before continuing.');
@@ -65,15 +68,15 @@ const createExaminationResultController = (client = prisma) => {
           timestamp = new Date(Math.max(Date.now(), new Date(existing.updated_at).getTime() + 1));
           const data = operation === 'publish'
             ? { published_at: timestamp, published_by: req.user.id, updated_at: timestamp }
-            : { score: body.score, passed: body.score >= Number(existing.passing_score ?? 14), remarks: body.remarks.trim(), recorded_by: req.user.id, published_at: null, published_by: null, updated_at: timestamp };
-          data.review_history = [...(Array.isArray(existing.review_history) ? existing.review_history : []), { operation, actorId: req.user.id, at: timestamp.toISOString(), previousScore: existing.score === null || existing.score === undefined ? null : Number(existing.score), score: operation === 'correct' ? body.score : Number(existing.score), passingScore: Number(existing.passing_score ?? 14), previousPublishedAt: existing.published_at ? new Date(existing.published_at).toISOString() : null, reason: operation === 'correct' ? body.remarks.trim() : 'CAO published the reviewed result' }];
+            : { score: body.score, passed: body.score >= Number(existing.passing_score ?? 14), remarks: remarks || existing.remarks || '', recorded_by: req.user.id, published_at: null, published_by: null, updated_at: timestamp };
+          data.review_history = [...(Array.isArray(existing.review_history) ? existing.review_history : []), { operation, actorId: req.user.id, at: timestamp.toISOString(), previousScore: existing.score === null || existing.score === undefined ? null : Number(existing.score), score: operation === 'correct' ? body.score : Number(existing.score), passingScore: Number(existing.passing_score ?? 14), previousPublishedAt: existing.published_at ? new Date(existing.published_at).toISOString() : null, reason: reviewReason, reasonSource }];
           const changed = await tx.results.updateMany({ where: { id: existing.id, updated_at: existing.updated_at }, data });
           if (changed.count !== 1) throw fault(409, 'The result changed. Reload before continuing.');
           saved = await tx.results.findUnique({ where: { id: existing.id } });
         }
         await tx.application_submissions.updateMany({ where: { id: application.id }, data: { status: 'Examined' } });
         res.locals.auditDescription = operation === 'correct'
-          ? `Corrected examination result ${saved.id}: score ${existing.score} to ${saved.score}. Reason: ${body.remarks.trim()}. Publication reset for CAO review.`
+          ? `Corrected examination result ${saved.id}: score ${existing.score} to ${saved.score}. Reason: ${reviewReason}. Publication reset for CAO review.`
           : operation === 'publish' ? `Published examination result ${saved.id}.` : `Recorded paper examination result ${saved.id}.`;
         return saved;
       }, { isolationLevel: 'Serializable' });

@@ -8742,3 +8742,33 @@ Frontend suite: 143 passed, zero failures. ESLint, production build and git diff
 
 ### Limitations, rollback and next work
 After rollout, verify opening/cancelling and keyboard focus using a controlled staff session before confirming any real publication. Native PDF/file viewers are unrelated to this modal. If a result has changed on the server, the existing server conflict must still be resolved by refreshing/reviewing; the modal does not bypass it. Revert this frontend commit to restore the browser confirmation; no data rollback is needed. Public asset verification follows deployment.
+
+### Deployment observation
+Published release 19c215b to origin/main through the existing hosting pipeline. The live homepage references index-BPCnTEWi.js; Dashboard-BbbSN2K5.js returns HTTP 200 with the in-app publication modal, labelled title/summary, native modal opening and no former browser confirm call for this publication message. Dashboard-D7tBVCaa.css returns HTTP 200 with the modal and backdrop styles. Public API health returns HTTP 200 with database connected. This verifies public code/style rollout and backend availability, not an authenticated modal interaction or actual publication. No real result was published and no production records were accessed or changed during verification.
+
+
+## 2026-10-18 - Save reviewed examination scores without manual remarks
+
+**TL;DR**
+- Removed the required Review remarks textarea reused by Record paper score and Correct score in the Results applicant drawer.
+- Recording/correction no longer needs a comment; backend validation now accepts omitted/blank remarks while preserving other score, attendance, role and version guards.
+- Historical notes are not deleted; automatic operational change history retains actor/time/score provenance and explicitly identifies system versus staff reasons.
+- Frontend 145 passed; backend 381 passed and one skipped; lint/build passed. Frontend/backend deployment requested.
+
+### Objective and previous/new behavior
+Eliminate repeated manual comment entry that slows staff score processing. The drawer contained one remarks input reused in both first paper-score entry and subsequent score correction, with matching mandatory client/server checks. Its UI/state/resets/payload field and mandatory gate are removed from both paths, along with orphaned textarea CSS. Staff still enter a valid score, and first recording still needs a valid passing threshold. Saving remains separate from publication and Scholar acceptance.
+
+### Roles, workflow, implementation and data flow
+Existing authorized Examination staff use the same POST/PUT score routes. ResultsManagement sends the same score/threshold/result-ID/version payload minus remarks. examinationResultController permits omitted or blank optional remarks; malformed supplied types and text beyond 2,000 characters are rejected for backward compatibility. First records without notes store an empty remarks value. Corrections without a new note preserve any existing historical remarks rather than clearing them. Each operational review-history event still records operation, actor, timestamp and before/after scores; an explicit system-generated procedural reason is used when no staff note is supplied, tagged reasonSource=system. Legacy clients supplying a valid optional remark remain supported and get reasonSource=staff. Publication history is marked system-generated as well. No fabricated substantive correction justification is attributed to staff. Existing historical events are unchanged.
+
+### Scope and affected areas
+Changed ResultsManagement.jsx, removed unused remarks selectors in admin.css, updated examinationResultController.js and examinationResults.test.js, added resultRemarksRemoval.test.js, and updated required logs. Only remarks entry in this applicant drawer is removed. Historical Remarks export data, optional legacy API notes, Passer List revision reasons and document-review feedback outside this drawer are retained. No applicant/scholar records, scores or notes are deleted.
+
+### API, database, configuration, security and accessibility
+API behavior changes additively: score-record/correct remarks becomes optional; authentication, role/section access, assignment, Present attendance for paper entry, active year, score/precision/threshold limits, online-score computation, Scholar locks, optimistic concurrency and publication-reset behavior are unchanged. Database schema/migration/configuration: no impact; automatic reasonSource is additive JSON history metadata in the existing field. Existing staff-origin notes remain bounded. Operational logs remain system/record-change logs, not monetary audits. Legacy payment-oriented code is untouched and retained outside the approved payroll-list-generation boundary. Accessibility/UX: removes an unnecessary required textarea and its error gate; score labels/focus and the publication modal remain. Deployment must include frontend/backend together through the existing main-branch hosting pipeline; no infrastructure change.
+
+### Validation
+Frontend suite: 145 passed. Backend suite: 381 passed, one skipped, zero failures. ESLint, production build and git diff --check passed with the existing large-bundle warning. New coverage verifies omitted/empty/whitespace remarks accepted, automatic history and actor retained, historical notes preserved on correction, before/after scores and publication reset preserved, valid legacy optional notes accepted and malformed supplied remarks rejected. Existing concurrency, role/assignment/attendance/online/threshold/Scholar acceptance gates continue to pass. UI tests assert no comment/remarks textarea or payload gate remains, historical export notes and separate publication modal are retained, and score focus styles survive CSS cleanup. No live score writes or result publication were performed.
+
+### Limitations, rollback and next work
+Manual staff explanations are no longer collected by this drawer; automatic provenance provides who/when/what changed, not a substantive human explanation. Backend revision cannot be proven solely by public health because tester/auth gates protect write endpoints; verify with a controlled staff test record after rollout. Older cached clients may retain their own required UI until hard refreshed. Reverting frontend/backend together restores required remarks for future saves; existing records/history without staff comments remain valid and should not be deleted. Public rollout observations follow below.

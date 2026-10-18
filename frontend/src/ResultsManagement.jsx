@@ -72,7 +72,6 @@ export default function ResultsManagement({ token }) {
   const [acceptError, setAcceptError] = useState('');
   const [reevaluationOpen, setReevaluationOpen] = useState(false);
   const [reevaluationScore, setReevaluationScore] = useState('');
-  const [reevaluationRemarks, setReevaluationRemarks] = useState('');
   const [reevaluating, setReevaluating] = useState(false);
   const [reevaluationError, setReevaluationError] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
@@ -195,7 +194,6 @@ export default function ResultsManagement({ token }) {
     setReevaluationOpen(false);
     setPassingScore(String(applicant.passingScore ?? 14));
     setReevaluationScore(String(applicant.score ?? ''));
-    setReevaluationRemarks(applicant.notes || '');
     setReevaluationError('');
   };
 
@@ -221,10 +219,6 @@ export default function ResultsManagement({ token }) {
       setReevaluationError('Enter a score between 0 and 20.');
       return;
     }
-    if (!reevaluationRemarks.trim()) {
-      setReevaluationError('Add a remark explaining the score recording or correction.');
-      return;
-    }
     if (isFirstResult && (!passingScore.trim() || !Number.isFinite(Number(passingScore)) || Number(passingScore) < 1 || Number(passingScore) > 20)) {
       setReevaluationError('Enter a passing score between 1 and 20.');
       return;
@@ -235,7 +229,7 @@ export default function ResultsManagement({ token }) {
       const response = await fetch(`${API_BASE}/examinations/${selected.examId}/results/${selected.id}`, {
         method: isFirstResult ? 'POST' : 'PUT',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score, passingScore: Number(passingScore), remarks: reevaluationRemarks.trim(), resultId: selected.resultId, updatedAt: selected.resultUpdatedAt }),
+        body: JSON.stringify({ score, passingScore: Number(passingScore), resultId: selected.resultId, updatedAt: selected.resultUpdatedAt }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Unable to re-evaluate this result.');
@@ -397,7 +391,6 @@ export default function ResultsManagement({ token }) {
                 <label><span>Score out of 20</span><input type="number" min="0" max="20" step="0.01" value={reevaluationScore} onChange={(event) => { setReevaluationScore(event.target.value); setReevaluationError(''); }} /></label>
                 {!selected.resultId ? <label><span>Passing score</span><input type="number" min="1" max="20" step="0.01" value={passingScore} onChange={(event) => setPassingScore(event.target.value)} /></label> : <div><span>Passing score</span><strong>{selected.passingScore ?? 14}</strong></div>}
               </div>
-              <label className="rm-reevaluation-remarks"><span>Review remarks <b>*</b></span><textarea rows="3" maxLength="2000" value={reevaluationRemarks} onChange={(event) => { setReevaluationRemarks(event.target.value); setReevaluationError(''); }} placeholder="Record the paper-checking note or explain the score correction." /></label>
               {reevaluationScore !== '' && <div className="rm-reevaluation-preview"><span>Updated outcome</span><StatusBadge status={Number(reevaluationScore) >= Number(selected.passingScore ?? passingScore) ? 'Passed' : 'Failed'} /></div>}
               {reevaluationError && <Notification tone="error" title="Unable to save examination score">{reevaluationError}</Notification>}
               <button type="button" className="rm-save-reevaluation" disabled={reevaluating} onClick={saveReevaluation}><Save size={15} />{reevaluating ? 'Saving score…' : 'Save score for review'}</button>
@@ -405,7 +398,7 @@ export default function ResultsManagement({ token }) {
           )}
 
           <footer className="rm-scholar-action">
-            {!reevaluationOpen && <button type="button" className="rm-reevaluate-trigger" disabled={selected.isScholar || publishing || ((!selected.resultId) && (deliveryMode !== 'paper' || selected.attendanceStatus !== 'Present' || !selected.examId))} onClick={() => { setReevaluationOpen(true); setReevaluationScore(String(selected.score ?? '')); setReevaluationRemarks(''); setReevaluationError(''); }}><RefreshCw size={16} />{selected.isScholar ? 'Result locked after acceptance' : !selected.resultId ? deliveryMode === 'online' ? 'Online score computed on submission' : selected.attendanceStatus !== 'Present' ? 'Confirm Present attendance before recording' : 'Record paper score' : 'Correct score'}</button>}
+            {!reevaluationOpen && <button type="button" className="rm-reevaluate-trigger" disabled={selected.isScholar || publishing || ((!selected.resultId) && (deliveryMode !== 'paper' || selected.attendanceStatus !== 'Present' || !selected.examId))} onClick={() => { setReevaluationOpen(true); setReevaluationScore(String(selected.score ?? '')); setReevaluationError(''); }}><RefreshCw size={16} />{selected.isScholar ? 'Result locked after acceptance' : !selected.resultId ? deliveryMode === 'online' ? 'Online score computed on submission' : selected.attendanceStatus !== 'Present' ? 'Confirm Present attendance before recording' : 'Record paper score' : 'Correct score'}</button>}
             {selected.resultId && !selected.resultPublishedAt && !selected.isScholar && !reevaluationOpen && <button type="button" className="rm-save-reevaluation" disabled={publishing || reevaluating} onClick={() => { setPublishError(''); setPublishConfirmation({ ...selected }); }}>{publishing ? 'Publishing…' : 'Publish reviewed result'}</button>}
             {reevaluationOpen && <p>Saving keeps the result under review. Correcting a published score hides the outcome until CAO republishes it.</p>}
             {acceptError && <Notification tone="error" title="Result processing needs attention">{acceptError}</Notification>}

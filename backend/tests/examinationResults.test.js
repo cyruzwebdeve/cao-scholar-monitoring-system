@@ -54,8 +54,8 @@ test('zero is a valid paper score and does not mean passed', async () => {
   assert.equal(r.statusCode, 201); assert.equal(f.state.result.score, 0); assert.equal(f.state.result.passed, false);
 });
 
-test('rejects invalid or empty scores, thresholds and remarks before writing', async () => {
-  for (const body of [ { score: '' }, { score: null }, { score: -1 }, { score: 21 }, { score: Infinity }, { score: 13.999 }, { passingScore: 14.001 }, { passingScore: 0 }, { passingScore: 21 }, { remarks: ' ' }, { remarks: 'x'.repeat(2001) } ]) {
+test('rejects invalid scores, thresholds and malformed optional remarks before writing', async () => {
+  for (const body of [ { score: '' }, { score: null }, { score: -1 }, { score: 21 }, { score: Infinity }, { score: 13.999 }, { passingScore: 14.001 }, { passingScore: 0 }, { passingScore: 21 }, { remarks: 42 }, { remarks: null }, { remarks: 'x'.repeat(2001) } ]) {
     const f = fixture(); const r = await f.call('record', { score: 14, passingScore: 14, remarks: 'Checked paper', ...body });
     assert.equal(r.statusCode, 400); assert.equal(f.state.result, null);
   }
@@ -87,10 +87,10 @@ test('publication exposes passed/failed outcome without granting scholarship acc
   }
 });
 
-test('correction keeps threshold, requires reason, clears publication and retains history', async () => {
+test('correction keeps threshold, supports optional remarks, clears publication and retains history', async () => {
   const f = fixture(); await f.call('record'); await f.call('publish', f.revision());
   const before = f.revision();
-  assert.equal((await f.call('correct', { ...before, score: 5, remarks: '' })).statusCode, 400);
+  assert.equal((await f.call('correct', { ...before, score: 5, remarks: 42 })).statusCode, 400);
   assert.equal((await f.call('correct', { ...before, score: 5, remarks: 'Corrected addition', passingScore: 1 })).statusCode, 200);
   assert.equal(f.state.result.passing_score, 14); assert.equal(f.state.result.passed, false);
   assert.equal(f.state.result.published_at, null); assert.equal(f.state.result.published_by, null);
@@ -143,4 +143,31 @@ test('paper result mutations reject terminal and unknown application states with
     const f = fixture(); f.state.application.status = status;
     assert.equal((await f.call('record')).statusCode, 409); assert.equal(f.state.result, null);
   }
+});
+
+test('recording a paper score requires no manual remark and retains automatic operational history', async () => {
+  for (const extras of [{}, {remarks:''}, {remarks:'   '}]) {
+    const f=fixture(); const r=await f.call('record',{score:14,passingScore:14,...extras});
+    assert.equal(r.statusCode,201); assert.equal(f.state.result.remarks,'');
+    assert.equal(f.state.result.review_history[0].reasonSource,'system');
+    assert.equal(f.state.result.review_history[0].actorId,2);
+    assert.equal(f.state.result.review_history[0].reason,'Score recorded without an additional staff remark.');
+  }
+});
+test('correction without remarks preserves historical notes, records before/after and requires republication', async () => {
+  const f=fixture(); await f.call('record'); await f.call('publish',f.revision());
+  const r=await f.call('correct',{...f.revision(),score:10});
+  assert.equal(r.statusCode,200); assert.equal(f.state.result.remarks,'Checked paper');
+  assert.equal(f.state.result.published_at,null); assert.equal(f.state.result.passing_score,14);
+  const event=f.state.result.review_history.at(-1);
+  assert.equal(event.previousScore,14); assert.equal(event.score,10); assert.equal(event.actorId,2);
+  assert.equal(event.reasonSource,'system'); assert.equal(event.reason,'Score corrected without an additional staff remark.');
+});
+test('blank legacy correction remarks do not erase prior notes, while supplied text is still accepted', async () => {
+  const f=fixture(); await f.call('record');
+  assert.equal((await f.call('correct',{...f.revision(),score:15,remarks:' '})).statusCode,200);
+  assert.equal(f.state.result.remarks,'Checked paper');
+  assert.equal((await f.call('correct',{...f.revision(),score:16,remarks:'Optional legacy note'})).statusCode,200);
+  assert.equal(f.state.result.remarks,'Optional legacy note');
+  assert.equal(f.state.result.review_history.at(-1).reasonSource,'staff');
 });

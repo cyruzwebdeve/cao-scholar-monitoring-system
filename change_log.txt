@@ -447,3 +447,6 @@
 2026-10-18 - Passer Lists layout release 1abfd20 deployed; live preparation/history components and styles verified HTTP 200, API healthy/database connected. Posting and eligibility rules unchanged.
 
 2026-10-18 - Replaced Publish reviewed result browser confirmation with an in-app modal showing applicant, score/outcome, Cancel/Publish actions and pending/error states. Versioned publish API and eligibility rules retained; frontend 143 tests, lint/build passed. Deployment requested.
+2026-10-18 - Reviewed-result modal release 19c215b deployed; live modal/backdrop assets verified HTTP 200 and the old publication browser prompt removed. API healthy/database connected; publishing rules unchanged.
+
+2026-10-18 - Removed Results applicant-drawer remarks input and mandatory-comment checks for paper score recording/correction. API accepts omitted remarks; historical notes and automatic actor/time/before-after history retained. Frontend 145 passed, backend 381 passed/one skipped, lint/build passed; deployment requested.
