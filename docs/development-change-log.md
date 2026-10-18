@@ -9037,7 +9037,7 @@ Successfully pushed release 25134ba to origin/main, advancing remote main from 4
 - The wide-desktop section navigator is now fixed at the viewport's left-side vertical centre, instead of moving with sticky/container boundaries.
 - Reserved content space prevents overlap; a bounded, scrollable rail keeps links accessible on short windows. Compact desktop and phone navigation remain unchanged.
 - CSS-only application behavior change; no API, data, permissions or workflow impact.
-- Frontend 178 tests passed, plus lint, production build and whitespace checks. Not deployed.
+- Frontend 178 tests passed, plus lint, production build and whitespace checks. Release 890bff9 deployed; live fixed-centering CSS and API health verified.
 
 ### Objective and previous/new behavior
 The user reported awkward movement when navigating to lower Scholar Portal sections. The desktop rail previously used sticky positioning, a 120px top margin and containing-grid constraints, so its screen position changed with scrolling. At widths of at least 1024px it now uses fixed positioning, top: 50% and translateY(-50%), with no top margin. The horizontal offset follows the existing centred 1280px layout and 28px minimum outer gutter. Its width remains 140px, matching the reserved column, and dynamic-viewport height bounds/internal scrolling retain access to links on short windows. The smaller-desktop horizontal strip remains sticky; phone quick links are untouched.
@@ -9046,7 +9046,7 @@ The user reported awkward movement when navigating to lower Scholar Portal secti
 Affects scholars using the wide-desktop portal. Only frontend/src/styles/scholar-desktop-navigation.css and frontend/tests/scholarDesktopNavigation.test.js change, plus required logs. Existing native anchors, current-section tracking, active highlight and observer/listener cleanup remain intact. The main content stays in column two even though the rail is now out of normal flow; no record-loading or mutation path changes.
 
 ### Impacts
-API/database/configuration: none; no migration, dependency or setting changes. Security/privacy: no new permissions, personal fields, storage access or requests. Accessibility: native link labels, keyboard focus and current-location semantics remain; bounded internal scrolling avoids losing lower links on short screens. Existing mobile/compact layouts and reduced-motion behavior remain unchanged. Deployment: not deployed; ready for later requested publication through the connected pipeline. Product scope remains official payroll-list generation; legacy payment-oriented functionality is retained unchanged and not extended.
+API/database/configuration: none; no migration, dependency or setting changes. Security/privacy: no new permissions, personal fields, storage access or requests. Accessibility: native link labels, keyboard focus and current-location semantics remain; bounded internal scrolling avoids losing lower links on short screens. Existing mobile/compact layouts and reduced-motion behavior remain unchanged. Deployment: published as release 890bff9 through the connected main-branch pipeline at the user request. Product scope remains official payroll-list generation; legacy payment-oriented functionality is retained unchanged and not extended.
 
 ### Validation
 All 178 frontend tests passed. Updated regressions explicitly require fixed centering, layout-aligned horizontal placement, zero rail margins, reserved content column, bounded scrolling and retained compact-mode sticky behavior. Existing anchor, active-section, mobile, upload and permission-preservation checks pass. ESLint, production build and git diff --check passed; the existing non-fatal large-chunk advisory remains. Backend tests are not rerun for a CSS-only change. No rendered browser screenshot or authenticated production interaction is claimed.
@@ -9056,3 +9056,30 @@ Only wide-desktop mode changes; smaller-desktop horizontal navigation intentiona
 
 ### Deployment preparation
 The user requested publication of the verified positioning fix. Include only the desktop navigation CSS/regression and required logs; generated outputs and unrelated workspace changes are excluded. The implementation is unchanged since the passing 178-test frontend run, ESLint and production build. Publish with a normal non-force push through the existing connected main-branch pipeline, then verify the live fixed-centering rule. No migration, configuration change or production record mutation is required.
+
+### Deployment observation
+Successfully pushed release 890bff9 to origin/main, advancing remote main from 25134ba. The live homepage references index-DO5tvcao.js; ScholarDashboard-AH1GwdUi.css returns HTTP 200 CSS containing position: fixed, top: 50% and translateY(-50%) on the wide-desktop navigation rule. Public API health returns HTTP 200, healthy with database connected. This verifies live CSS rollout and API availability, not a rendered browser scroll test. No scholar records were accessed or changed. Recommended short-window, desktop-scroll and mobile regression acceptance checks remain as documented.
+
+
+## 2026-10-18 - Smooth Scholar Portal section scrolling
+
+**TL;DR**
+- Scholar Portal section links now scroll smoothly on desktop and mobile when users have not requested reduced motion.
+- Reduced-motion preferences retain immediate scrolling; other portals/screens are unaffected.
+- CSS-only behavior change, preserving native anchors, current-section tracking, fixed rail and all workflows.
+- Frontend 179 tests passed; lint, production build and whitespace checks passed. Not deployed.
+
+### Objective and behavior
+The user requested smooth scrolling after the desktop navigator positioning fix. Existing native section links previously jumped to their anchors. The document scroller now receives scroll-behavior: smooth only under prefers-reduced-motion: no-preference while html:has(.scholar-dashboard) matches. A corresponding reduced-motion rule explicitly restores auto scrolling. This covers desktop navigation, mobile quick links and the next-step requirements link without replacing their native href behavior or adding animation code.
+
+### Implementation, roles and files
+Affects scholars navigating their own portal. Updated frontend/src/styles/scholar-portal-layout.css with scoped document-scroller rules and frontend/tests/scholarDesktopNavigation.test.js with regression coverage, plus required logs. Native link history/focus behavior, existing scroll margins, current-section tracking and the fixed left-centre desktop rail remain unchanged. CSS matching automatically stops applying after leaving Scholar Portal; no lifecycle class, additional listener, API call or scrolling library is added.
+
+### Impacts
+API/database/configuration: none; no migration, settings or dependency changes. Security/privacy: no record, authorization or private-document behavior changes. Accessibility: reduced-motion preferences explicitly disable the new animation; native keyboard-operable anchors and existing focus/offset behavior remain. Other portals do not match the rule. Deployment: not deployed; prepared for later requested publication through the existing pipeline. Product scope remains official payroll-list generation; legacy payment-oriented features are retained unchanged and not extended.
+
+### Validation, limitations and rollback
+All 179 frontend tests passed, including scoped no-preference/reduced-motion rules and preserved native links without forced JavaScript animation. ESLint, production build and git diff --check passed; existing non-fatal large-chunk build advisory remains. Backend tests are not rerun for this CSS-only change. No rendered browser animation or authenticated production interaction is claimed. Browsers without :has or smooth-scroll support safely retain their default immediate scrolling; duration/easing are browser-controlled. After a requested deployment, verify desktop/mobile anchor movement and OS/browser reduced-motion behavior. Revert the CSS/test additions to roll back; no stored data needs reversal.
+
+### Deployment preparation
+The user requested final publication for tonight. Include only the scoped smooth-scroll CSS, its regression and required logs; exclude generated outputs and unrelated workspace work. Implementation files have not changed since the passing 179-test frontend run, ESLint and production build. Publish with a normal non-force push through the existing connected pipeline, then verify live no-preference and reduced-motion document-scroller rules. No API, migration, configuration or production record changes are required.

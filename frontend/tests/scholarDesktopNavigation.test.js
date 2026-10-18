@@ -53,3 +53,15 @@ test('wide desktop rail stays fixed at the left viewport centre and remains scro
   assert.match(wide, /grid-template-columns: 140px minmax\(0, 1fr\)/);
   assert.match(css.split('@media (min-width: 1024px)')[0], /position: sticky/);
 });
+
+
+test('section links scroll smoothly only in Scholar Portal when reduced motion is not requested', async () => {
+  const css = await readFile(new URL('../src/styles/scholar-portal-layout.css', import.meta.url), 'utf8');
+  assert.match(css, /@media \(prefers-reduced-motion: no-preference\)\s*\{\s*html:has\(\.scholar-dashboard\)\s*\{\s*scroll-behavior: smooth;/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*\{\s*html:has\(\.scholar-dashboard\)\s*\{\s*scroll-behavior: auto !important;/);
+  for (const file of ['ScholarDesktopNavigation', 'ScholarMobileNavigation', 'ScholarNextStep']) {
+    const source = await readFile(new URL(`../src/components/${file}.jsx`, import.meta.url), 'utf8');
+    assert.match(source, /href=/);
+    assert.doesNotMatch(source, /scrollIntoView|behavior: ['"]smooth|preventDefault/);
+  }
+});

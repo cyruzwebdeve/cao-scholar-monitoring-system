@@ -484,3 +484,7 @@
 
 2026-10-18 - Fixed the Scholar desktop section rail at the left viewport centre so it no longer shifts with page/container scrolling; reserved content gutter and short-screen internal scrolling retained. Compact/mobile navigation unchanged. Frontend 178 tests, lint/build passed. Not deployed.
 2026-10-18 - User requested deployment of the tested fixed left-centre desktop navigator; publishing through the existing main-branch pipeline with no data/API changes.
+2026-10-18 - Fixed-centre desktop rail release 890bff9 deployed; live fixed viewport positioning/vertical centering CSS verified HTTP 200, API healthy/database connected. No production data accessed or changed.
+
+2026-10-18 - Added native smooth scrolling for Scholar Portal section links on desktop/mobile, scoped to the Scholar document and disabled for reduced-motion users. Existing offsets, fixed rail and workflows unchanged. Frontend 179 tests, lint/build passed. Not deployed.
+2026-10-18 - User requested deployment of the verified smooth-scroll update through the connected main-branch pipeline; reduced-motion preference retained, no API/data changes.

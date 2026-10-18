@@ -99,3 +99,11 @@
   .scholar-dashboard .scholar-footer { align-items: flex-start; font-size: 11px; }
 }
 @media (prefers-reduced-motion: reduce) { .scholar-dashboard *, .scholar-dashboard *::before, .scholar-dashboard *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
+
+/* Apply to the document scroller only while Scholar Portal is mounted. */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.scholar-dashboard) { scroll-behavior: smooth; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:has(.scholar-dashboard) { scroll-behavior: auto !important; }
+}
