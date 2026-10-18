@@ -1,8 +1,9 @@
+import PublishResultModal from './components/PublishResultModal';
 import DocumentViewButton from './components/DocumentViewButton';
 import Notification from './components/Notification';
 import PasserLists from './PasserLists';
 import InitialRequirementCapture from './InitialRequirementCapture';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpDown,
   BadgeCheck,
@@ -54,6 +55,9 @@ export default function ResultsManagement({ token }) {
   const [deliveryMode, setDeliveryMode] = useState('');
   const [passingScore, setPassingScore] = useState('14');
   const [publishing, setPublishing] = useState(false);
+  const [publishConfirmation, setPublishConfirmation] = useState(null);
+  const [publishError, setPublishError] = useState('');
+  const publishRequest = useRef(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [query, setQuery] = useState('');
@@ -122,10 +126,10 @@ export default function ResultsManagement({ token }) {
 
   useEffect(() => {
     if (!selected) return undefined;
-    const closeOnEscape = (event) => { if (event.key === 'Escape' && !publishing && !reevaluating && !acceptingScholar) setSelected(null); };
+    const closeOnEscape = (event) => { if (event.key === 'Escape' && !publishConfirmation && !publishing && !reevaluating && !acceptingScholar) setSelected(null); };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [selected, publishing, reevaluating, acceptingScholar]);
+  }, [selected, publishConfirmation, publishing, reevaluating, acceptingScholar]);
 
   const municipalities = useMemo(() => [...new Set(applicants.map((item) => item.municipality).filter(Boolean))].sort(), [applicants]);
   const barangays = useMemo(() => [...new Set(applicants
@@ -259,21 +263,27 @@ export default function ResultsManagement({ token }) {
   };
 
   const publishResult = async () => {
-    if (!selected?.resultId || selected.isScholar || publishing) return;
-    if (!window.confirm('Publish this reviewed score and outcome to the applicant dashboard?')) return;
+    const result = publishConfirmation;
+    if (!result?.resultId || result.isScholar || result.resultPublishedAt || publishing || publishRequest.current) return;
+    if (!selected || selected.id !== result.id || selected.resultId !== result.resultId || selected.resultUpdatedAt !== result.resultUpdatedAt) {
+      setPublishError('This result changed. Cancel and reopen the confirmation before publishing.'); return;
+    }
+    publishRequest.current = true;
     setPublishing(true);
+    setPublishError('');
     setAcceptError('');
     try {
-      const response = await fetch(`${API_BASE}/examinations/${selected.examId}/results/${selected.id}/publish`, {
+      const response = await fetch(`${API_BASE}/examinations/${result.examId}/results/${result.id}/publish`, {
         method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resultId: selected.resultId, updatedAt: selected.resultUpdatedAt }),
+        body: JSON.stringify({ resultId: result.resultId, updatedAt: result.resultUpdatedAt }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Unable to publish the result.');
       setSelected((current) => ({ ...current, resultUpdatedAt: payload.result.updatedAt, resultPublishedAt: payload.result.publishedAt }));
+      setPublishConfirmation(null);
       await loadResults();
-    } catch (error) { setAcceptError(error.message); }
-    finally { setPublishing(false); }
+    } catch (error) { setPublishError(error.message || 'Unable to publish the result.'); }
+    finally { publishRequest.current = false; setPublishing(false); }
   };
 
   const acceptAsScholar = async () => {
@@ -396,7 +406,7 @@ export default function ResultsManagement({ token }) {
 
           <footer className="rm-scholar-action">
             {!reevaluationOpen && <button type="button" className="rm-reevaluate-trigger" disabled={selected.isScholar || publishing || ((!selected.resultId) && (deliveryMode !== 'paper' || selected.attendanceStatus !== 'Present' || !selected.examId))} onClick={() => { setReevaluationOpen(true); setReevaluationScore(String(selected.score ?? '')); setReevaluationRemarks(''); setReevaluationError(''); }}><RefreshCw size={16} />{selected.isScholar ? 'Result locked after acceptance' : !selected.resultId ? deliveryMode === 'online' ? 'Online score computed on submission' : selected.attendanceStatus !== 'Present' ? 'Confirm Present attendance before recording' : 'Record paper score' : 'Correct score'}</button>}
-            {selected.resultId && !selected.resultPublishedAt && !selected.isScholar && !reevaluationOpen && <button type="button" className="rm-save-reevaluation" disabled={publishing || reevaluating} onClick={publishResult}>{publishing ? 'Publishing…' : 'Publish reviewed result'}</button>}
+            {selected.resultId && !selected.resultPublishedAt && !selected.isScholar && !reevaluationOpen && <button type="button" className="rm-save-reevaluation" disabled={publishing || reevaluating} onClick={() => { setPublishError(''); setPublishConfirmation({ ...selected }); }}>{publishing ? 'Publishing…' : 'Publish reviewed result'}</button>}
             {reevaluationOpen && <p>Saving keeps the result under review. Correcting a published score hides the outcome until CAO republishes it.</p>}
             {acceptError && <Notification tone="error" title="Result processing needs attention">{acceptError}</Notification>}
             <button type="button" className={selected.isScholar ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || (selected.resultId && !selected.resultPublishedAt) || publishing || acceptingScholar || (!selected.isScholar && !intake?.initialVerified)} onClick={acceptAsScholar}><UserCheck size={16} />{acceptingScholar ? 'Recording decision…' : selected.isScholar ? 'Accepted as Scholar' : selected.status !== 'Passed' ? 'Latest exam result is not passing' : selected.resultId && !selected.resultPublishedAt ? 'Publish result before acceptance' : !intake?.initialVerified ? 'Verify initial documents before acceptance' : 'Accept as Scholar'}</button>
@@ -405,5 +415,6 @@ export default function ResultsManagement({ token }) {
         </aside>
       </div>
     )}
+    {publishConfirmation && <PublishResultModal result={publishConfirmation} busy={publishing} error={publishError} onCancel={() => { if (!publishing && !publishRequest.current) { setPublishConfirmation(null); setPublishError(''); } }} onConfirm={publishResult} />}
   </>;
 }

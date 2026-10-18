@@ -8715,3 +8715,30 @@ Frontend suite: 139 passed, zero failures. ESLint, production build and git diff
 
 ### Limitations, rollback and next work
 Synthetic rendering does not replace in-account desktop/phone testing. Existing behavior for stale candidates, result version checks and locked-list revisions remains unchanged and may still surface backend validation messages. After rollout, review the workspace with a controlled staff session; do not post a real list just to test appearance. Reverting this frontend commit restores the former layout with no database rollback.
+
+### Deployment observation
+Published release 1abfd20 to origin/main through the existing hosting pipeline. The live homepage references index-RqLAFgFH.js; Dashboard-PPktRl14.js returns HTTP 200 with the preparation/history grid, aligned form fields, separate candidate scores, retained panels, status badges and existing saved-draft posting action. Dashboard-DJGdkeya.css returns HTTP 200 with the new workspace/history styles. Public API health returns HTTP 200 with database connected. This verifies public frontend/code/style rollout and backend availability, not an authenticated posting or visual browser session. No real lists were posted/revised and no production records were accessed or changed during verification.
+
+
+## 2026-10-18 - In-app reviewed-result publication modal
+
+**TL;DR**
+- Clicking Publish reviewed result opens an in-app confirmation modal instead of the browser confirm prompt.
+- Staff see the applicant, reviewed score/outcome, Cancel and Publish result actions, publishing progress and retryable errors.
+- Same authenticated versioned publication endpoint and backend gates retained; no result is published just by opening/cancelling the modal.
+- All 143 frontend tests, lint/build and whitespace checks passed; deployment requested.
+
+### Objective and previous/new behavior
+Replace the browser-native confirmation prompt used by Publish reviewed result with a consistent application modal. The initial drawer action now snapshots the currently reviewed record and opens the dialog without a network write. Confirm sends the same POST payload containing resultId and updatedAt; Cancel/Escape closes without publishing. Successful publication closes the modal and refreshes results as before. Failed requests retain the modal and show an error so staff can retry or cancel.
+
+### Roles, workflow, implementation and data flow
+Existing authorized Examination staff keep the same publish button eligibility and publication API. PublishResultModal displays applicant name, score and outcome from the selected snapshot, with a reminder that result publication does not itself post a Passer List, verify initial documents or accept a Scholar. A synchronous request ref prevents duplicate confirmation submissions; the existing pending state disables actions. A local ID/result-version check prevents sending a snapshot if the selected record changed; backend version/eligibility validation remains authoritative. The parent drawer Escape handler defers while the modal is open so cancelling does not also close applicant details. Other browser confirmations elsewhere are unchanged.
+
+### Files and impacts
+ResultsManagement.jsx; components/PublishResultModal.jsx; styles/publish-result-modal.css; tests/publishResultModal.test.js; required change logs. API/backend/database/schema/migration/configuration: no impact. Security/privacy: unchanged staff authentication/role checks and server publication rules; existing record fields only, React escaping retained, no new endpoint, data collection or messages/emails introduced. Accessibility: labelled/described native modal dialog, browser-managed focus isolation, initial focus on Cancel, restored trigger focus, Escape handling, background scroll locking, pending status/error announcements, keyboard focus outlines and 44px mobile controls. The native dialog requires a modern supported browser. Legacy payment-oriented areas remain untouched and retained outside the approved payroll-list-generation boundary. Deployment uses the existing main-branch hosting pipeline without infrastructure or data migration.
+
+### Validation
+Frontend suite: 143 passed, zero failures. ESLint, production build and git diff --check passed with the existing large-bundle warning. New tests cover dialog labels/snapshot content/escaping, separate-workflow copy, busy disabling and errors, absence of browser alert/confirm in Results, initial action opening confirmation rather than publishing, same API/version payload, duplicate/stale guards, successful modal close, parent Escape coordination, focus/scroll cleanup and responsive CSS. No production results were published and no live accounts/records were accessed. Backend tests were not rerun for this frontend-only interaction change; browser screenshot/interaction validation is unavailable in this environment.
+
+### Limitations, rollback and next work
+After rollout, verify opening/cancelling and keyboard focus using a controlled staff session before confirming any real publication. Native PDF/file viewers are unrelated to this modal. If a result has changed on the server, the existing server conflict must still be resolved by refreshing/reviewing; the modal does not bypass it. Revert this frontend commit to restore the browser confirmation; no data rollback is needed. Public asset verification follows deployment.

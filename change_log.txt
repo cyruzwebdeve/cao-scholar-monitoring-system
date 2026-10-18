@@ -444,3 +444,6 @@
 2026-10-18 - Template-based attendance release 8a0ed2f deployed; live generator/template module verified HTTP 200 and deployed DOCX matches supplied original byte-for-byte. API healthy/database connected.
 
 2026-10-18 - Redesigned Examination Passer Lists with separate preparation/history panels, aligned form fields, clearer applicant/score rows, draft/posted badges and responsive actions. Posting, revision, eligibility and request-idempotency rules retained. Frontend 139 tests, lint/build passed; deployment requested.
+2026-10-18 - Passer Lists layout release 1abfd20 deployed; live preparation/history components and styles verified HTTP 200, API healthy/database connected. Posting and eligibility rules unchanged.
+
+2026-10-18 - Replaced Publish reviewed result browser confirmation with an in-app modal showing applicant, score/outcome, Cancel/Publish actions and pending/error states. Versioned publish API and eligibility rules retained; frontend 143 tests, lint/build passed. Deployment requested.

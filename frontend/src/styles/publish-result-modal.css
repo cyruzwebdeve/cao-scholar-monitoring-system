@@ -1,0 +1,19 @@
+.publish-result-modal { box-sizing: border-box; width: min(480px, calc(100% - 32px)); max-height: calc(100dvh - 40px); margin: auto; padding: 26px; overflow: auto; border: 1px solid #d9e6dc; border-radius: 16px; background: white; color: #31513b; box-shadow: 0 24px 80px #0b251a40; }
+.publish-result-modal::backdrop { background: #102a22a6; }
+.publish-result-icon { display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: 18px; border-radius: 13px; background: #edf7ed; color: #257446; }
+.publish-result-modal .publish-result-eyebrow { margin: 0 0 9px; color: #53745c; font-size: 10px; font-weight: 750; letter-spacing: .1em; }
+.publish-result-modal h2 { margin: 0 0 12px; color: #254c32; font-size: 22px; letter-spacing: -.025em; }
+.publish-result-modal p { color: #617467; font-size: 13px; line-height: 1.7; }
+.publish-result-summary { display: grid; gap: 12px; margin: 20px 0; padding: 16px; border: 1px solid #e0e9df; border-radius: 10px; background: #f8faf6; }
+.publish-result-summary > div { display: grid; grid-template-columns: 85px minmax(0, 1fr); gap: 12px; font-size: 12px; line-height: 1.6; }
+.publish-result-summary dt { color: #718475; }
+.publish-result-summary dd { margin: 0; color: #31553b; font-weight: 650; overflow-wrap: anywhere; }
+.publish-result-modal .publish-result-note { font-size: 11px; }
+.publish-result-modal .publish-result-error { padding: 11px; border: 1px solid #efccc5; border-radius: 8px; background: #fff6f4; color: #9b392b; }
+.publish-result-modal .publish-result-progress { color: #2f6f45; }
+.publish-result-modal footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.publish-result-modal footer button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 11px 16px; border: 1px solid #cdded1; border-radius: 8px; background: white; color: #375c42; font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
+.publish-result-modal footer .publish-result-confirm { border-color: #218049; background: #218049; color: white; }
+.publish-result-modal button:disabled { opacity: .6; cursor: wait; }
+.publish-result-modal button:focus-visible { outline: 3px solid #78a954; outline-offset: 3px; }
+@media (max-width: 520px) { .publish-result-modal { padding: 21px; } .publish-result-modal footer { display: grid; grid-template-columns: 1fr; } }
