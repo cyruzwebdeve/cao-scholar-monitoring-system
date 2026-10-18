@@ -494,3 +494,7 @@
 2026-10-19 - Examination UI release 0dc3d2a deployed; live assigned-applicant search/modal styling and structured result-review/acceptance guidance verified HTTP 200, API healthy/database connected. No production records accessed or changed.
 
 2026-10-19 - Refined admin/scholar legacy payout schedule layouts, reminder grouping, mobile actions and email-delivery chips; no backend/data/email changes. 188 frontend tests, lint/build and whitespace checks passed; not deployed.
+
+2026-10-19 - Deployed payout layout release f8d40b8 via normal push to main; production admin/scholar JavaScript assets return HTTP 200 with new layout markers, and API health is healthy/database connected. No authenticated visual or email test performed.
+
+2026-10-19 - Alternative payout layout: compact calendar-ticket staff cards and split-content scholar notice; unchanged legacy scheduling/email/data behavior. Frontend validation recorded in detailed log; not deployed.

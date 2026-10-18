@@ -9142,3 +9142,36 @@ Changed frontend/src/PayoutSchedules.jsx, components/PayoutScheduleCard.jsx, com
 
 ### Validation, limitations and rollback
 188 frontend tests pass, including escaped message text, exactly one reminder, cancellation/legacy fallback, read-state controls and ordinary updates. Lint, production build and git diff --check pass. Build retains its existing large-chunk warning. No real records were changed and no emails sent. No authenticated browser or device visual verification was available; review at phone/desktop widths is recommended before deployment. Notification APIs expose a plain message rather than structured schedule facts, so the scholar message remains intact rather than guessing date/venue fields from prose. Roll back the listed frontend files together; no data rollback or migration is required. Examination-year archiving remains unimplemented and untouched.
+
+
+### Deployment observation - 2026-10-19 (payout schedule layout)
+
+**TL;DR**
+- Release f8d40b8 was pushed normally to main, triggering the connected deployment.
+- Both new staff and scholar layout bundles are publicly available with HTTP 200; API health reports healthy/database connected.
+- No records or emails were changed for verification; authenticated visual/device testing remains outstanding.
+
+The user's deployment request supersedes the earlier local-only status. Production entry index-BZtw7fLO.js references Dashboard-CSDD2WFy.js and ScholarDashboard-DcHXlX9y.js. Both JavaScript responses have the expected MIME type and include the new delivery-summary or scholar-reminder markup. API health returned HTTP 200. This confirms asset publication and service availability, not an authenticated rendered workflow or the exact backend revision. API/database/configuration/security/privacy impacts remain none; legacy payment-related functionality remains retained unchanged. Rollback is to redeploy the prior frontend release; no migration is involved. Recommended next work is staff/scholar desktop and mobile visual acceptance testing.
+
+
+## 2026-10-19 - Alternative calendar-ticket schedule layout
+
+**TL;DR**
+- Replaced the first redesign with compact calendar-ticket cards for staff and an icon-led, split-content notice for scholars.
+- Existing message text, recipients, delivery counts, actions and notification behavior remain unchanged.
+- Legacy payout/claim functionality is retained unchanged, not extended beyond the approved payroll-list-generation boundary.
+- Validation: frontend tests, lint, production build and whitespace checks; results recorded below. No deployment or authenticated visual/device test performed.
+
+### Objective and previous/new behavior
+The user requested a different visual direction after the initial layout deployment. Staff cards now use a prominent Philippine-time calendar stamp, a divided header, open detail rows and a slim reminder rather than a shaded facts box. Scholars see an icon-led heading with the message and existing reminder side by side on wide screens and stacked below 800px. The full date/time remains visible as text; the decorative stamp is hidden from assistive technology. The notification creation timestamp is not represented as the schedule date.
+
+### Roles, implementation and affected files
+Authorized staff retain existing preview, draft, edit/reschedule and cancellation actions. Scholars retain mark-as-read and notification history. Frontend rendering only: updated components/PayoutScheduleCard.jsx, components/PayoutSchedules.css, components/ScholarUpdates.jsx and components/PayoutNotice.css; added a calendar timezone/fallback rendering regression in frontend/tests/payoutSchedules.test.js. The calendar uses the existing startsAt field with Asia/Manila formatting; notifications still use existing plain message props and do not infer dates from prose. No requests or backend flows were added.
+
+### Impacts
+API, database, configuration, security/authorization, privacy and email delivery: no impact. Accessibility: full textual date remains, decorative icons/stamp are hidden, text wraps, existing focus indication and 44px actions remain. Deployment: local only; previously deployed design remains live. Existing legacy payout/claim text and controls are retained unchanged; no payment release, claim enforcement, reconciliation or monetary auditing added. Examination archiving remains untouched.
+
+### Validation, limitations, rollback and next work
+See validation outcome below. No real records were changed and no emails were sent. Authenticated browser/device visual review remains outstanding. Roll back the four presentation files together to restore the first redesign; no migration or data rollback is required. Review staff preview/saved cards and scholar notices at phone and desktop widths before deployment.
+
+Validation outcome: 189 frontend tests passed, including Philippine-date rollover and missing-date fallback; lint, production build and git diff --check passed. The build retains its existing large-chunk advisory. Not deployed.

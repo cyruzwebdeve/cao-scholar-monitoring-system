@@ -70,3 +70,23 @@ test('scholar schedule layout separates the existing reminder without inventing 
     assert.doesNotMatch(ordinary, /scholar-payout-notice|scholar-payout-reminder/);
   } finally { await server.close(); }
 });
+
+
+test('calendar ticket uses the Philippine schedule date, not the UTC date', async () => {
+  const { createServer } = await import('vite');
+  const { fileURLToPath } = await import('node:url');
+  const { createElement } = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const server = await createServer({ root: fileURLToPath(new URL('../', import.meta.url)), server: { middlewareMode: true, hmr: false }, appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] } });
+  try {
+    const Card = (await server.ssrLoadModule('/src/components/PayoutScheduleCard.jsx')).default;
+    const schedule = { title: 'Synthetic schedule', startsAt: '2030-01-01T17:00:00Z', venue: 'Test venue', status: 'published' };
+    const html = renderToStaticMarkup(createElement(Card, { schedule }));
+    assert.match(html, /payout-ticket-heading/);
+    assert.match(html, /<span>Jan<\/span><strong>02<\/strong>/);
+    assert.match(html, /Philippine time/);
+    const empty = renderToStaticMarkup(createElement(Card, { schedule: { ...schedule, startsAt: null } }));
+    assert.match(empty, /<span>--<\/span><strong>--<\/strong>/);
+    assert.doesNotMatch(empty, /Invalid Date/);
+  } finally { await server.close(); }
+});
