@@ -506,3 +506,7 @@
 2026-10-19 - Deployed venue/readability fix 2da9247; live scholar JavaScript verified HTTP 200 with labeled-details and emphasized-deadline markers, API healthy/database connected.
 
 2026-10-19 - Removed obsolete form/revision labels and explanatory signature-footer prose from Payroll Excel exports; retained data/totals/signatories/reference and draft identification. Frontend-only; not deployed.
+
+2026-10-19 - Deployed Payroll Excel cleanup release 6940dad through main. Live JavaScript confirms requested labels/prose absent and preparation-copy identity retained; API healthy/database connected.
+
+2026-10-19 - Copied the client-supplied printed Payroll signatory footer, retaining legacy unsigned certification language and a blank Disbursing Officer line; no payment tracking or data changes. Draft/reference safeguards preserved; not deployed.

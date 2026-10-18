@@ -9252,3 +9252,36 @@ API, database, configuration, security/authorization and privacy: no impact. Acc
 Serialized XLSX regression checks cover absent labels/prose in both official and preparation copies, preserved headings/signatory roles/reference/draft markers, valid full-width merges, adjusted print bounds, custom column orders, single-column exports, currency/totals and large lists. Full frontend suite, lint, production build and whitespace results are recorded below. Synthetic data only; no real scholar records changed. Actual Excel/print-preview visual review remains outstanding. Revert the workbook utility and tests to roll back; no data migration required. Recommended next work: visually check a downloaded workbook before deployment.
 
 Validation outcome: all 191 frontend tests passed; lint, production build and git diff --check passed. Existing large-chunk build advisory remains. No deployment performed.
+
+
+### Deployment observation - 2026-10-19 (Payroll Excel cleanup)
+
+**TL;DR**
+- Release 6940dad was normally pushed to main at the user's request, triggering the connected deployment.
+- Production serves the cleaned workbook generator with the requested text absent and preparation-copy labeling retained; API reports healthy/database connected.
+- No real scholar records or emails were used; authenticated workbook download and Excel print-preview review remain outstanding.
+
+Production entry index-yPkvnPMD.js references Dashboard-ytPVfauT.js, which returned HTTP 200 with JavaScript MIME type. The bundle retains the program title and preparation-copy identity while omitting both obsolete header labels and the requested explanatory footer sentences. This verifies frontend publication, not an authenticated download or exact backend revision. The prior 191-test frontend suite, lint and production build passed. No additional API, database, configuration, security, privacy or accessibility changes were made for deployment. Legacy payment functionality remains retained unchanged; official payroll-list generation is not payment release. Rollback is a revert/redeployment of the workbook presentation change; no migration required. Recommended next work: download a synthetic preparation and saved-list workbook and visually review in Excel.
+
+
+## 2026-10-19 - Restore client-supplied printed payroll signatory section
+
+**TL;DR**
+- Reproduced the supplied four-block signatory footer, including its exact certification/approval wording, supplied signatory identities/roles and blank Disbursing Officer line.
+- This is an unsigned legacy document template, not application confirmation that funds were approved or received. No payment-tracking workflow, records or API was added.
+- Preparation-copy banner and unassigned-reference safeguard remain; the previously removed form/revision header labels stay removed.
+- Validation results recorded below; no deployment performed for this request.
+
+### Objective and previous/new behavior
+After clarifying the request with repeated template images, the user explicitly requested copying the names and contents of the bottom signatory section rather than substituting payroll-list wording. Previously the third block was list-generation review and the fourth was List Record. The footer now contains the supplied prepared/verified block, qualified-grantee certification, approval-for-payment signature block and disbursing certification with a blank officer name/signature line. Wording is transcribed as supplied, including its grammatical phrasing. A descriptive-text row and signature space are restored only where the supplied footer requires them. The removed general-form and revision labels are not restored.
+
+### Roles, implementation, scope and data flow
+Staff exports and saved-list downloads share the template. Existing names and roles come from the supplied form; no signatures, officer identity, payment date or paid status are invented or filled. Updated frontend/src/utils/payrollWorkbook.js and frontend/tests/payrollWorkbook.test.js. Worksheet values, selected columns, recorded amounts/totals and draft versus saved-reference checks are unchanged. Footer row heights and print bounds accommodate the restored content. The user's specific template instruction is treated as a presentation-only exception for retained legacy payment-oriented form language, not a redefinition of official payroll-list generation as payment release. The application workflow remains at payroll-list generation; no claiming, disbursement confirmation, reconciliation or monetary auditing implemented.
+
+### Impacts
+API, database, configuration, authorization/security and privacy controls: no impact. Existing draft banner and reference identification remain visible, so a preparation copy is not represented as a saved official list. Accessibility/print: wrapped text and blank signature space; no interface keyboard/touch changes. Deployment: local only. The payment certification is printed form wording requiring the responsible official's actual acknowledgement, not proof produced by this application.
+
+### Validation, limitations, rollback and next work
+Serialized XLSX tests check the exact supplied wording/roles, three existing signatory names, blank officer name, preserved draft/reference safeguards, removed header labels, data/totals and adjusted print area. Full frontend suite, lint, build and whitespace results are recorded below. No real records or emails were used. Visual Excel/print-preview review remains outstanding. Revert the utility and tests to restore the prior list-only footer; no data rollback required. Recommended next work: client visual approval of the footer and explicit reconciliation of legacy form language with the documented business scope before operational use.
+
+Validation outcome: 191 frontend tests passed; lint, production build and git diff --check passed. Existing large-chunk build advisory remains. No deployment performed.

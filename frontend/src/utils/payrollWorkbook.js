@@ -126,11 +126,13 @@ export async function buildPayrollWorkbook({ records, batch, activePeriod, prepa
       sheet.getRow(row).height = 15;
     }
   }
+  // Printed form wording supplied by the client. These are unsigned certification
+  // fields, not system confirmation of payment; no payment state is recorded.
   const blocks = [
-    { title: 'PREPARED AND VERIFIED CORRECT BY:', name: 'MARCIAL P. FERRER', role: 'Administrative Assistant II' },
-    { title: 'CERTIFIED:', name: 'CHRISTABELL R. ABANO, RN, MPA', role: 'Community Affairs Officer IV' },
-    { title: 'REVIEWED FOR LIST GENERATION:', name: 'RICARTE R. PADILLA', role: 'Governor' },
-    { title: 'LIST RECORD:', reference: preparationCopy ? 'PREPARATION COPY' : batch.batchNumber, role: `${records.length} scholar${records.length === 1 ? '' : 's'} · ${period}` },
+    { title: 'PREPARED and VERIFIED CORRECT BY:', text: '', name: 'MARCIAL P. FERRER', role: 'Administrative Assistant II' },
+    { title: 'CERTIFIED:', text: 'Each person whose name appears on this roll are qualified grantees of CNPGCEAP.', name: 'CHRISTABELL R. ABANO, RN, MPA', role: 'Community Affairs Officer IV' },
+    { title: 'Approved for payment:', text: '', name: 'RICARTE R. PADILLA', role: 'Governor' },
+    { title: 'CERTIFIED:', text: 'Each person whose name appears on the above roll has been paid the amount stated opposite his/her name after identifying him/her.', name: '', role: 'DISBURSING OFFICER' },
   ];
   const columnEnds = Array.from({ length: physicalCount }, (_, index) => index + 1);
   const cumulativeWidths = columnEnds.map(end => columnEnds.slice(0, end).reduce((sum, column) => sum + sheet.getColumn(column).width, 0));
@@ -148,12 +150,13 @@ export async function buildPayrollWorkbook({ records, batch, activePeriod, prepa
     const end = footerEnds[index];
     const options = { border: { left: thin, right: thin }, font: { size: 8 } };
     mergeText(footerRow, start, end, block.title, { ...options, font: { size: 8, bold: true }, border: { top: thin, left: thin, right: thin } });
-    mergeText(footerRow + 1, start, end, block.name || block.reference || '', { ...options, alignment: { horizontal: 'center' }, border: { ...options.border, ...(!block.reference ? { bottom: thin } : {}) } });
-    mergeText(footerRow + 2, start, end, block.role, { ...options, alignment: { horizontal: 'center' }, border: { bottom: thin, left: thin, right: thin } });
+    mergeText(footerRow + 1, start, end, block.text, options);
+    mergeText(footerRow + 2, start, end, block.name, { ...options, alignment: { horizontal: 'center', vertical: 'bottom' }, border: { ...options.border, bottom: thin } });
+    mergeText(footerRow + 3, start, end, block.role, { ...options, alignment: { horizontal: 'center' }, border: { bottom: thin, left: thin, right: thin } });
   });
-  [22, 20, narrow ? 32 : 18].forEach((height, index) => { sheet.getRow(footerRow + index).height = height; });
+  [22, narrow ? 90 : 48, 24, narrow ? 32 : 18].forEach((height, index) => { sheet.getRow(footerRow + index).height = height; });
   const lastColumn = sheet.getColumn(physicalCount).letter;
-  sheet.pageSetup.printArea = `A1:${lastColumn}${footerRow + 2}`;
+  sheet.pageSetup.printArea = `A1:${lastColumn}${footerRow + 3}`;
   return workbook;
 }
 

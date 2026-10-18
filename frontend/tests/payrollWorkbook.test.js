@@ -35,8 +35,9 @@ test('official serialized form has the supplied columns, recorded breakdowns and
   assert.equal(sheet.pageSetup.orientation, 'landscape');
   const text = sheet.getSheetValues().flat(2).filter(value => typeof value === 'string').join(' ');
   assert.doesNotMatch(text, /General Form No\. 5|Revised January 1992/);
-  assert.match(text, /REVIEWED FOR LIST GENERATION/);
-  assert.doesNotMatch(text, /has been paid|Approved for payment|DISBURSING OFFICER|50,000\.00/);
+  assert.match(text, /Approved for payment:/);
+  assert.match(text, /DISBURSING OFFICER/);
+  assert.doesNotMatch(text, /50,000\.00/);
 });
 
 test('preparation copy uses the form without claiming a saved reference or membership', async () => {
@@ -75,7 +76,7 @@ test('large lists retain every scholar with repeated headings and automatic page
   const sheet = await serialized({ records: large });
   assert.equal(sheet.pageSetup.printTitlesRow, '1:5');
   assert.equal(sheet.pageSetup.fitToHeight, 0);
-  assert.equal(sheet.pageSetup.printArea, 'A1:N75');
+  assert.equal(sheet.pageSetup.printArea, 'A1:N76');
   for (let index = 0; index < large.length; index += 1) assert.equal(sheet.getCell(index + 6, 3).value, large[index].name);
 });
 
@@ -86,15 +87,21 @@ test('official lists require saved identity and empty exports fail explicitly', 
 });
 
 
-test('clean payroll template omits explanatory row while retaining signatories, reference and draft identity', async () => {
+test('payroll footer reproduces the supplied unsigned form while retaining draft and reference safeguards', async () => {
   for (const preparationCopy of [false, true]) {
     const sheet = await serialized({ preparationCopy });
     const text = sheet.getSheetValues().flat(2).filter(value => typeof value === 'string').join(' ');
     assert.doesNotMatch(text, /General Form No|Revised January|Scholar details and recorded grant amounts|The listed scholars are recorded|Reviewed for preparation|Draft for staff review|The names above are included/);
-    assert.match(text, /PREPARED AND VERIFIED CORRECT BY/);
+    assert.match(text, /PREPARED and VERIFIED CORRECT BY/);
     assert.match(text, /CERTIFIED:/);
-    assert.match(text, /REVIEWED FOR LIST GENERATION:/);
-    assert.match(text, /LIST RECORD:/);
+    assert.match(text, /Approved for payment:/);
+    assert.match(text, /Each person whose name appears on this roll are qualified grantees of CNPGCEAP\./);
+    assert.match(text, /Each person whose name appears on the above roll has been paid the amount stated opposite his\/her name after identifying him\/her\./);
+    assert.match(text, /DISBURSING OFFICER/);
+    assert.doesNotMatch(text, /REVIEWED FOR LIST GENERATION|LIST RECORD:/);
+    const footerValues = [1, 4, 7, 11].map(column => sheet.getCell(40, column).value);
+    assert.deepEqual(footerValues.slice(0, 3), ['MARCIAL P. FERRER', 'CHRISTABELL R. ABANO, RN, MPA', 'RICARTE R. PADILLA']);
+    assert.equal(footerValues[3], '');
     assert.match(text, /Administrative Assistant II/);
     assert.match(text, /Community Affairs Officer IV/);
     assert.match(text, /Governor/);
@@ -103,6 +110,6 @@ test('clean payroll template omits explanatory row while retaining signatories, 
     assert.match(sheet.getCell('A2').value, /PAYROLL LIST/);
     assert.ok(sheet.model.merges.includes('A1:N1'));
     assert.ok(sheet.model.merges.includes('A2:N2'));
-    assert.equal(sheet.pageSetup.printArea, 'A1:N40');
+    assert.equal(sheet.pageSetup.printArea, 'A1:N41');
   }
 });
