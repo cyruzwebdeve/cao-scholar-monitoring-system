@@ -8661,3 +8661,30 @@ All 131 frontend tests passed; lint, production build and git diff --check passe
 
 ### Limitations, rollback and recommended next work
 The generated document was structurally validated but not rendered in Microsoft Word in this environment. Post-deployment, download a controlled attendance list and check print pagination in the staff's Word version. The existing municipality-based record scope is deliberately preserved rather than changed to another exam/year-selection rule. CSV imports and other exports are not converted. Revert this frontend commit to restore the former attendance CSV; no data rollback is needed. Public rollout observations follow below.
+
+### Deployment observation
+Published commit 4d7a583 to origin/main through the existing hosting pipeline. The live homepage references index-BpAx0L4-.js; Dashboard-D4WEKzaT.js returns HTTP 200 and contains the .docx attendance button plus Word-generation progress state. Its lazy attendanceDocument-CXyCJkVA.js asset returns HTTP 200 and contains the Word MIME, real DOCX package parts and original attendance field headings. Public API health returns HTTP 200 with database connected. This verifies public frontend/code rollout and backend availability, not an authenticated production download or rendering in Microsoft Word. No production attendance records were accessed or changed.
+
+
+## 2026-10-18 - Use supplied PGCEAP attendance Word template
+
+**TL;DR**
+- The attendance export now uses the user-supplied Word template rather than the generated seven-column landscape document.
+- Original artwork, header/footer parts, styles, numbering and portrait long-paper page setup are retained; municipality, venue, date and five-column attendance rows are populated.
+- Forty template rows are retained for short/empty lists; longer lists expand without dropping applicants. No attendance-record/API/database changes.
+- All 134 frontend tests, lint/build and independent template-integrity/XML checks passed; deployment requested.
+
+### Objective and previous/new behavior
+Match the supplied official attendance format. Packaged an exact byte-for-byte copy of the root PGCEAP-ATTENDANCE-TEMPLATE.docx as a frontend template asset. Instead of building a new landscape table, the exporter loads that asset and edits only the document body metadata and attendance cells. It preserves the original program title, artwork, page dimensions/margins, fonts/styles, borders, column widths, header/footer relationships and automatic No. numbering. No changes are made to the root original.
+
+### Roles, workflow, implementation and data flow
+Authorized examination staff use the existing Download attendance (.docx) action. The same municipality-scoped applicant records populate Name; attendance status populates Remarks with Pending as the existing fallback; appearedAt populates Date Recorded and Time Recorded separately in Asia/Manila time. Municipality, Venue and Date are filled from the selected schedule and its displayed date range. The supplied template has five columns, so the prior custom document's extra email/control-number/municipality/venue table columns are intentionally omitted rather than changing the official layout; municipality and venue appear in the form metadata. Forty existing numbered rows remain, including blank rows when fewer applicants exist. Lists beyond forty clone the template row styling and continue its numbering, with a repeating table header for subsequent pages.
+
+### Changed areas and impacts
+assets/templates/pgceap-attendance.docx; utils/attendanceDocument.js; tests/attendanceDocument.test.js; required change logs. No new dependency: existing JSZip handles the package. A new read-only static-template fetch replaces direct document generation; no new API route, role change, backend/database/schema/migration or environment configuration is needed. Invalid/unavailable templates fail through the existing visible generation error rather than silently using a different format. Security/privacy: existing staff access and municipality scope retained; XML-safe text insertion and safe filenames remain; the blank static asset includes no system applicant records. Document contents now follow the template's five requested columns. Browser object-URL cleanup remains. Accessibility/UX: the explicit Word download action/progress state stays unchanged, with repeating table headings and the supplied form formatting. Legacy payment-oriented areas remain untouched and retained outside the approved payroll-list-generation boundary. Deployment uses the existing main-branch hosting pipeline; the blank asset must be deployed with the updated generator.
+
+### Validation
+All 134 frontend tests passed; lint, production build and git diff --check passed with the existing large-bundle warning. Tests cover the correct template tables/columns/page dimensions, field mapping, default/empty 40-row form, independent date/time, XML text safety, literal replacement characters, malformed templates, lists beyond forty, original numbering, unchanged other exports and byte-identical non-document package parts. Independent Python validation of a generated 65-record file confirmed ZIP integrity, parsable XML/relationships, five cells per row, repeated heading, correct numbering, unchanged page section and identical artwork/styles/relationships. SHA-256 comparison confirmed the packaged asset exactly matches the supplied root template. No live applicant data or attendance writes were used. Backend tests were not rerun for this frontend-only template change.
+
+### Limitations, rollback and next work
+The generated file was structurally validated but not rendered in Microsoft Word in this environment. Preserve the template's long-paper page setting when printing; Word pagination can vary with installed fonts/printer settings. Check a controlled staff download in Word after rollout, especially lists above forty. Revert this frontend commit to restore the prior generated layout; no data rollback is needed. Public asset/code rollout observations follow below.

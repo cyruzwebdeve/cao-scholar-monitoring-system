@@ -1,39 +1,69 @@
 import JSZip from 'jszip';
 
 export const ATTENDANCE_WORD_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-const NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const xml = value => Array.from(String(value ?? '')).filter(character => {
   const code = character.codePointAt(0);
   return [9, 10, 13].includes(code) || (code >= 32 && code <= 0xD7FF) || (code >= 0xE000 && code <= 0xFFFD) || code >= 0x10000;
 }).join('')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-const paragraph = (value, { bold = false, size = 20 } = {}) => `<w:p><w:pPr><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>${bold ? '<w:b/>' : ''}<w:sz w:val="${size}"/></w:rPr><w:t xml:space="preserve">${xml(value)}</w:t></w:r></w:p>`;
-const recordedAt = value => {
-  const date = value ? new Date(value) : null;
-  return date && Number.isFinite(+date) ? date.toLocaleString('en-PH', { timeZone: 'Asia/Manila' }) : '';
-};
-
 export const attendanceWordFilename = (municipality, now = new Date()) => {
   const name = String(municipality || 'examination').normalize('NFKD').replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 100) || 'examination';
   return `attendance-${name}-${now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })}.docx`;
 };
 
-export async function createAttendanceDocument({ exam, applicants, dateLabel, now = new Date() }) {
-  // Preserve the same municipality scope and seven fields as the former CSV export.
+const rowsOf = table => [...table.matchAll(/<w:tr(?:\s[^>]*)?>[\s\S]*?<\/w:tr>/g)].map(match => match[0]);
+const fillCell = (cell, value) => {
+  const properties = cell.match(/<w:tcPr(?:\s[^>]*)?>[\s\S]*?<\/w:tcPr>/)?.[0] || '';
+  const paragraphProperties = cell.match(/<w:pPr(?:\s[^>]*)?>[\s\S]*?<\/w:pPr>/)?.[0] || '';
+  const runProperties = cell.match(/<w:rPr(?:\s[^>]*)?>[\s\S]*?<\/w:rPr>/)?.[0] || '';
+  return cell.replace(/^(<w:tc(?:\s[^>]*)?>)[\s\S]*(<\/w:tc>)$/, (_, open, close) =>
+    open + properties + '<w:p>' + paragraphProperties + '<w:r>' + runProperties + '<w:t xml:space="preserve">' + xml(value) + '</w:t></w:r></w:p>' + close);
+};
+const fillRow = (row, values) => {
+  let index = 0;
+  return row.replace(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g, cell => {
+    const value = values[index++];
+    return value === null ? cell : fillCell(cell, value);
+  });
+};
+const recordedParts = value => {
+  const date = value ? new Date(value) : null;
+  return date && Number.isFinite(+date) ? [date.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }), date.toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila' })] : ['', ''];
+};
+
+export async function createAttendanceDocument({ exam, applicants, dateLabel, templateData }) {
+  if (!templateData) {
+    const { default: templateUrl } = await import('../assets/templates/pgceap-attendance.docx?url');
+    const response = await fetch(templateUrl);
+    if (!response.ok) throw new Error('Unable to load the PGCEAP attendance Word template. Please try again.');
+    templateData = await response.arrayBuffer();
+  }
+  const zip = await JSZip.loadAsync(templateData);
+  const part = zip.file('word/document.xml');
+  if (!part) throw new Error('Invalid PGCEAP attendance template.');
+  const document = await part.async('string');
+  const tables = [...document.matchAll(/<w:tbl(?:\s[^>]*)?>[\s\S]*?<\/w:tbl>/g)];
+  const metadata = tables[0]?.[0], attendance = tables[1]?.[0];
+  const metadataRows = metadata ? rowsOf(metadata) : [];
+  const attendanceRows = attendance ? rowsOf(attendance) : [];
+  if (metadataRows.length !== 3 || attendanceRows.length !== 41 || !['No.', 'Name', 'Remarks', 'Date Recorded', 'Time Recorded'].every(label => attendanceRows[0].includes(label))) throw new Error('Unexpected PGCEAP attendance template layout.');
+  const labels = [`Municipality: ${exam.municipality || 'Not specified'}`, `Venue: ${exam.venue || 'Not specified'}`, `Date: ${dateLabel || exam.date || 'Not set'}`];
+  let populatedMetadata = metadata;
+  metadataRows.forEach((row, index) => { populatedMetadata = populatedMetadata.replace(row, () => fillRow(row, [labels[index]])); });
+  // Retain the template's automatic No. numbering, header/footer artwork and page setup.
   const records = applicants.filter(applicant => applicant.municipality === exam.municipality);
-  const headings = ['Control number', 'Applicant', 'Email', 'Municipality', 'Venue', 'Attendance', 'Recorded at'];
-  const widths = [1700, 2400, 3000, 1700, 2700, 1500, 2300];
-  const row = (cells, header = false) => `<w:tr><w:trPr><w:cantSplit/>${header ? '<w:tblHeader/>' : ''}</w:trPr>${cells.map((cell, index) => `<w:tc><w:tcPr><w:tcW w:w="${widths[index]}" w:type="dxa"/>${header ? '<w:shd w:fill="E8F1EB"/>' : ''}</w:tcPr>${paragraph(cell, { bold: header })}</w:tc>`).join('')}</w:tr>`;
-  const dataRows = records.map(applicant => row([
-    applicant.controlNo, applicant.name, applicant.email, applicant.municipality, exam.venue,
-    applicant.attendanceStatus || 'Pending', recordedAt(applicant.appearedAt),
-  ])).join('');
-  const table = `<w:tbl><w:tblPr><w:tblW w:w="15300" w:type="dxa"/><w:tblBorders>${['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(edge => `<w:${edge} w:val="single" w:sz="4" w:color="B8C9BE"/>`).join('')}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="100" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${widths.map(width => `<w:gridCol w:w="${width}"/>`).join('')}</w:tblGrid>${row(headings, true)}${dataRows}</w:tbl>`;
-  const document = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="${NS}"><w:body>${paragraph('PGCEAP Examination Attendance', { bold: true, size: 32 })}${paragraph(`Municipality: ${exam.municipality || 'Not specified'}`)}${paragraph(`Venue: ${exam.venue || 'Not specified'}`)}${paragraph(`Examination date: ${dateLabel || exam.date || 'Not set'}`)}${paragraph(`Generated: ${recordedAt(now)} (Asia/Manila)`)}${table}${!records.length ? paragraph('No applicants are currently assigned to this municipality.') : ''}<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr></w:body></w:document>`;
-  const zip = new JSZip();
-  zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
-  zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
-  zip.file('word/document.xml', document);
+  const header = attendanceRows[0].includes('<w:tblHeader') ? attendanceRows[0]
+    : attendanceRows[0].includes('</w:trPr>') ? attendanceRows[0].replace('</w:trPr>', '<w:tblHeader/></w:trPr>')
+      : attendanceRows[0].replace(/^(<w:tr(?:\s[^>]*)?>)/, '$1<w:trPr><w:tblHeader/></w:trPr>');
+  const rows = Array.from({ length: Math.max(40, records.length) }, (_, index) => {
+    const base = attendanceRows[index + 1] || attendanceRows[40].replace(/\s+w14:(?:paraId|textId)="[^"]*"/g, '');
+    const applicant = records[index];
+    if (!applicant) return base;
+    return fillRow(base, [null, applicant.name || '', applicant.attendanceStatus || 'Pending', ...recordedParts(applicant.appearedAt)]);
+  });
+  let rowIndex = 0;
+  const populatedAttendance = attendance.replace(/<w:tr(?:\s[^>]*)?>[\s\S]*?<\/w:tr>/g, () => rowIndex++ === 0 ? header + rows.join('') : '');
+  zip.file('word/document.xml', document.replace(metadata, () => populatedMetadata).replace(attendance, () => populatedAttendance));
   return zip.generateAsync({ type: 'blob', mimeType: ATTENDANCE_WORD_MIME, compression: 'DEFLATE' });
 }
 
