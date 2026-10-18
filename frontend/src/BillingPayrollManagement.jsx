@@ -20,7 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
-import { downloadPayrollWorkbook, payrollTemplateColumns } from './utils/payrollWorkbook';
+import { downloadPayrollWorkbook } from './utils/payrollWorkbook';
 import { downloadBillingWorkbook, billingTemplateColumns } from './utils/billingWorkbook';
 import { downloadBillingCertificationDocument } from './utils/billingCertificationDocument';
 import CsvExportModal from './components/CsvExportModal';
@@ -60,11 +60,6 @@ const payrollMetadataColumns = [
   { key: 'school', label: 'School', group: 'Academic' },
   { key: 'schoolType', label: 'School Type', group: 'Academic', value: (record) => record.schoolType || 'Public' },
   { key: 'dateProcessed', label: 'Date Processed', group: 'Processing', value: (record) => formatDate(record.dateProcessed) },
-];
-
-const configurablePayrollColumns = [
-  ...payrollTemplateColumns,
-  ...payrollMetadataColumns.filter(column => !payrollTemplateColumns.some(template => template.key === column.key) && !['claimAmount', 'payReference'].includes(column.key)).map(column => ({ ...column, width: 24, defaultSelected: false })),
 ];
 
 const configurableBillingColumns = [
@@ -312,10 +307,11 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
       const downloadRecords = processedRecords.map((record) => ({ ...record, ...snapshotByApplicant.get(record.applicantId) }));
       let downloadWarning = '';
       try {
-        await downloadBillingCertificationDocument({ records: downloadRecords, batch: body.batch, activePeriod: body.activePeriod, mode });
+        const download = isPayroll ? downloadPayrollWorkbook : downloadBillingCertificationDocument;
+        await download({ records: downloadRecords, batch: body.batch, activePeriod: body.activePeriod, mode });
       } catch (downloadError) {
         const listName = isPayroll ? 'payroll list' : 'certification list';
-        downloadWarning = ` The ${listName} was generated, but the Word download failed: ${downloadError.message}`;
+        downloadWarning = ` The ${listName} was generated, but the ${isPayroll ? 'Excel' : 'Word'} download failed: ${downloadError.message}`;
       }
       setQueuedIds([]);
       setSourceSelection([]);
@@ -329,22 +325,23 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
     }
   };
 
-  const exportWorkbook = async (selectedColumns) => {
+  const exportQueueDocument = async (selectedColumns) => {
     if (!queuedRecords.length || exportingWorkbook || processing) return;
     setExportingWorkbook(true); setOperationNotice(null);
     try {
       const period = activePeriods.find((item) => String(item.id) === String(selectedPeriodId));
       if (!period) throw new Error('Select an active processing period before exporting.');
-      const download = isPayroll ? downloadPayrollWorkbook : downloadBillingWorkbook;
-      await download({ records: [...queuedRecords], activePeriod: period, preparationCopy: true, selectedColumns });
-      setOperationNotice({ tone: 'success', text: `${isPayroll ? 'Payroll' : 'Billing'} preparation workbook downloaded. No official list was generated.` });
-    } catch (failure) { setOperationNotice({ tone: 'error', text: `Unable to export ${isPayroll ? 'Payroll' : 'Billing'} workbook: ${failure.message}` }); }
+      const download = isPayroll ? downloadBillingCertificationDocument : downloadBillingWorkbook;
+      await download({ records: [...queuedRecords], activePeriod: period, preparationCopy: true, selectedColumns, mode });
+      setOperationNotice({ tone: 'success', text: `${isPayroll ? 'Payroll Word preparation document' : 'Billing preparation workbook'} downloaded. No official list was generated.` });
+    } catch (failure) { setOperationNotice({ tone: 'error', text: `Unable to export ${isPayroll ? 'Payroll Word document' : 'Billing workbook'}: ${failure.message}` }); }
     finally { setExportingWorkbook(false); }
   };
 
   const downloadHistoricalCertification = async (batch) => {
     try {
-      await downloadBillingCertificationDocument({
+      const download = isPayroll ? downloadPayrollWorkbook : downloadBillingCertificationDocument;
+      await download({
         records: batch.records,
         mode,
         issuedAt: batch.dateProcessed,
@@ -469,7 +466,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
         <article className="billing-transfer-panel billing-target-panel">
           <header className="billing-transfer-header">
             <div><strong>{isPayroll ? 'For Payroll' : 'For Billing'}</strong><small>Incomplete requirements can still be listed.</small></div>
-            <button type="button" className="billing-queue-export" onClick={() => setExportOpen(true)} disabled={!queuedRecords.length || exportingWorkbook || processing}><Download size={14} />{exportingWorkbook ? 'Exporting…' : 'Export Excel'}</button>
+            <button type="button" className="billing-queue-export" onClick={() => isPayroll ? exportQueueDocument() : setExportOpen(true)} disabled={!queuedRecords.length || exportingWorkbook || processing}><Download size={14} />{exportingWorkbook ? 'Exporting...' : isPayroll ? 'Export Word' : 'Export Excel'}</button>
           </header>
           <div className="billing-queue-table billing-target-table">
             <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>School year</span><span>Sem</span><span>Amount</span></div>
@@ -490,8 +487,8 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
           <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Total payroll amount' : 'Total certification amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing || Boolean(routingApplicant)}>{processing ? 'Processing…' : isPayroll ? 'Generate payroll list' : 'Generate certification list'}</button></footer>
         </article>
       </section>
-      {!loadError && <section className="billing-certification-history"><header><div><span>{isPayroll ? 'PAYROLL RECORDS' : 'BILLING RECORDS'}</span><h3>{isPayroll ? 'Payroll history' : 'Billing history'}</h3><p>Review generated lists and download a previous Word list again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount ?? 0), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download Word</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>{isPayroll ? 'No payroll history yet' : 'No billing history yet'}</strong><span>{isPayroll ? 'Generated payroll lists' : 'Generated Private-scholar billing lists'} will appear here.</span></div>}</section>}
-      {exportOpen && <CsvExportModal title={`Export ${mode} queue`} description={`Choose columns and arrange their order. The Excel download uses the ${isPayroll ? 'Payroll' : 'Billing'} template and is marked as a preparation copy.`} columns={isPayroll ? configurablePayrollColumns : configurableBillingColumns} allowReorder formatLabel="EXCEL EXPORT" exportLabel="Export Excel" rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={exportWorkbook} />}
+      {!loadError && <section className="billing-certification-history"><header><div><span>{isPayroll ? 'PAYROLL RECORDS' : 'BILLING RECORDS'}</span><h3>{isPayroll ? 'Payroll history' : 'Billing history'}</h3><p>Review generated lists and download a previous {isPayroll ? 'Excel' : 'Word'} list again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount ?? 0), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download {isPayroll ? 'Excel' : 'Word'}</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>{isPayroll ? 'No payroll history yet' : 'No billing history yet'}</strong><span>{isPayroll ? 'Generated payroll lists' : 'Generated Private-scholar billing lists'} will appear here.</span></div>}</section>}
+      {!isPayroll && exportOpen && <CsvExportModal title={`Export ${mode} queue`} description="Choose columns and arrange their order. The Excel download uses the Billing template and is marked as a preparation copy." columns={configurableBillingColumns} allowReorder formatLabel="EXCEL EXPORT" exportLabel="Export Excel" rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={exportQueueDocument} />}
 
     </div>
 

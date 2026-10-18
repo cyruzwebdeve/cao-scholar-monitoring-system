@@ -1,3 +1,4 @@
+import { certificationDocumentContent } from './certificationDocumentContent';
 import { certificationListGroups } from './certificationListGroups';
 import templateUrl from '../assets/templates/billing-certification.docx?url';
 
@@ -6,15 +7,9 @@ const MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.doc
 
 // Keep the supplied letter's page setup, typography, artwork and signatory.
 // Only the marked paragraphs and scholar table are populated from system records.
-export async function createBillingCertificationDocument({ records, batch, activePeriod, issuedAt, mode = 'billing' }) {
-  if (!['billing', 'payroll'].includes(mode)) throw new Error('Invalid list type.');
-  const isPayroll = mode === 'payroll';
-  const reference = batch?.batchNumber || batch?.billingReference;
-  if (!records?.length || !reference || !activePeriod?.schoolYear || !activePeriod?.semester) {
-    throw new Error('A saved list reference, academic period and scholar list are required.');
-  }
-  const date = new Date(issuedAt || batch?.processedAt || batch?.createdAt || Date.now());
-  if (Number.isNaN(date.getTime())) throw new Error('The certification date is invalid.');
+export async function createBillingCertificationDocument(options) {
+  const { records, mode = 'billing' } = options;
+  const content = certificationDocumentContent(options);
   const { default: JSZip } = await import('jszip');
   const response = await fetch(templateUrl);
   if (!response.ok) throw new Error('Unable to load the certification Word template.');
@@ -73,13 +68,13 @@ export async function createBillingCertificationDocument({ records, batch, activ
   };
   const groups = certificationListGroups(records, mode);
   body.replaceChildren();
-  const issued = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Manila' });
   groups.forEach(({ school, scholars }, index) => {
     if (index) { const p = element('p'); const run = element('r'); run.append(element('br', { type: 'page' })); p.append(run); body.append(p); }
     const replacements = {
-      '{{CERTIFICATION_INTRO}}': `This is to certify that the following students are SCHOLARSHIP GRANTEES of the Camarines Norte Provincial Government College Education Assistance Program (CNPGCEAP) and are enrolled${isPayroll ? ' in their respective schools' : ` at ${school}`} for ${activePeriod.semester}, SY ${activePeriod.schoolYear}. They are included in the ${isPayroll ? 'payroll' : 'certification'} list below.`,
-      '{{BILLING_REFERENCE}}': `${isPayroll ? 'Payroll' : 'Billing'} reference: ${reference}`,
-      '{{ISSUED_DATE}}': `Issued on ${issued} to facilitate processing of the corresponding payroll list and for whatever legal purposes this may serve.`,
+      'CERTIFICATION': content.title,
+      '{{CERTIFICATION_INTRO}}': content.introduction(school),
+      '{{BILLING_REFERENCE}}': content.referenceText,
+      '{{ISSUED_DATE}}': content.issuedText,
     };
     letter.forEach((original) => {
       const node = original.cloneNode(true);
@@ -99,7 +94,7 @@ export async function downloadBillingCertificationDocument(options) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `${String(options.batch.batchNumber || options.batch.billingReference).replace(/[^a-z0-9_-]/gi, '_')}.docx`;
+  anchor.download = certificationDocumentContent(options).filename;
   document.body.append(anchor); anchor.click(); anchor.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

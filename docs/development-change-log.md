@@ -9317,3 +9317,36 @@ API, database, configuration, authorization/security, privacy and email delivery
 Serialized XLSX regressions check banner absence, blank compact row 3, retained Not assigned reference, saved-reference requirement, exact footer content and preserved totals/print bounds. Full frontend suite, lint, production build and whitespace outcomes recorded below. No real data or emails used. Actual Excel/print-preview review remains outstanding. Revert utility/tests to restore the band; no migration or data rollback required. Without the banner, staff must distinguish unsaved exports by their Not assigned reference and preparation filename; recommended next work is visual review of a new download.
 
 Validation outcome: all 191 frontend tests, lint, production build and git diff --check passed. Existing large-chunk build advisory remains. No deployment performed.
+
+
+### Deployment observation - 2026-10-19 (Payroll preparation-banner removal)
+
+**TL;DR**
+- Release 0ed62ce was normally pushed to main at the user's request, triggering the connected deployment.
+- Production JavaScript no longer contains the removed banner text and retains reference handling and the supplied signatory footer; API is healthy/database connected.
+- No data, payment states or email activity were changed; authenticated Excel download/print review remains outstanding.
+
+Entry index-0E-PmCYD.js references Dashboard-CVE-s5qu.js. The asset returned HTTP 200 with JavaScript MIME type, no removed banner text, and retained reference/unassigned and signatory content. This confirms code publication, not an authenticated workbook render or exact backend revision. The prior 191 frontend tests, lint, build and whitespace checks passed. No additional API, database, configuration, authorization/security, privacy or accessibility changes were required. Legacy unsigned payment-related footer language remains retained unchanged; payroll-list generation does not confirm payment receipt. Rollback: revert/redeploy the presentation change; no migration needed. Recommended next work: export a new workbook and visually confirm the banner is absent and reference handling remains clear.
+
+
+## 2026-10-19 - Swap Payroll generated Excel and queue Word downloads
+
+**TL;DR**
+- Generate payroll list now saves the official list through the existing endpoint and downloads the Excel template using the returned payroll reference and recorded grant breakdowns.
+- Payroll queue export is now Export Word: the existing letter template is populated as an unsaved preparation document without generating a reference or list record.
+- Payroll history now re-downloads the saved list as Excel, enabling recovery if the initial download fails. Billing generation/export/history formats remain unchanged.
+- Frontend validation results recorded below; no deployment or real-record processing performed.
+
+### Objective and previous/new behavior
+The user requested moving the Excel template to Generate payroll list and moving the Word format to the queue export action, so saved Excel files contain the genuine payroll number. Previously generation downloaded Word, queue Export Excel produced an unassigned preparation workbook, and history downloaded Word. Now successful Payroll generation downloads the full Excel template with the server-assigned batch number. The former Payroll Export Excel button is labeled Export Word and directly downloads a fixed-format Word preparation letter; its obsolete Excel-column modal is no longer presented for Payroll. Billing retains its configurable preparation Excel export, generated Word certification and Word history download.
+
+### Roles, implementation and data flow
+Authorized Payroll staff use the same processing period, scholar queue and server validation. The existing POST response supplies batch identity, active period and grant breakdown snapshots; only after success does the UI call the Excel builder without preparationCopy. File failure does not repeat list generation: the existing saved-list notice and refreshed history provide recovery. Queue Word export makes no processing request, uses selected scholar/period data and labels the letter PAYROLL PREPARATION with a Not assigned reference and neutral preparation wording rather than claiming official membership. The original Word page setup, artwork, signatory and two-column name table remain; saved Billing certifications retain their previous text. History uses its saved reference and period for an Excel download.
+
+### Files and impacts
+Updated frontend/src/BillingPayrollManagement.jsx and frontend/src/utils/billingCertificationDocument.js; added utils/certificationDocumentContent.js for independently testable document text/validation and tests/payrollDocumentFlow.test.js. API, database, configuration, authorization/security and privacy controls: no impact; the existing processing endpoint remains the sole reference allocator. Accessibility/UX: file-type labels and failure/history text now match actual downloads; the fixed-format Word export does not show irrelevant column controls. Deployment: local only. Payroll uses its complete default Excel template when generating/re-downloading, rather than the former queue-only configurable columns. Existing unsigned legacy payment-oriented footer language is retained unchanged, with no new release, claiming, receipt confirmation, reconciliation or monetary auditing. Official list generation remains distinct from payment release.
+
+### Validation, limitations, rollback and next work
+Tests cover non-saving Word preparation text/filename, Philippine-date formatting, refusal to invent a reference even if a batch is accidentally passed, unchanged saved Billing/Payroll certification content, input validation, generation/history routing to official Excel and queue routing to Word, plus the existing serialized workbook totals/reference tests. Full frontend suite, lint, build and whitespace outcomes recorded below. No real lists were generated and no emails sent. Authenticated browser download and rendered Word/Excel review remain outstanding; pure content and source-wiring tests do not prove end-to-end browser file behavior. Original Word template is loaded at runtime and must remain available. Revert the presentation/utility changes together to restore prior file routing; no database rollback needed. Recommended next work: use synthetic records to verify generation/reference, history recovery and Word preparation in an authorized test environment.
+
+Validation outcome: 195 frontend tests passed; lint, production build and git diff --check passed. Existing large-chunk build advisory remains. No deployment performed.

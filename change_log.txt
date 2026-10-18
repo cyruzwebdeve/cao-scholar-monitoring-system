@@ -514,3 +514,7 @@
 2026-10-19 - Deployed supplied Payroll signatory footer release 9f98ccb via main; live JavaScript contains requested unsigned form wording and retained preparation-copy marker; API healthy/database connected.
 
 2026-10-19 - Removed Payroll Excel preparation-copy banner; compact spacer replaces colored band. Unsaved reference handling, preparation filename, data/totals and signatory footer unchanged; not deployed.
+
+2026-10-19 - Deployed Payroll banner removal release 0ed62ce via main; live workbook generator no longer contains banner text and retains reference handling/signatory footer. API healthy/database connected.
+
+2026-10-19 - Payroll generation/history now download official-reference Excel; queue Export Word downloads the existing letter as unsaved preparation without creating a reference. Billing formats unchanged. Frontend-only; not deployed.
