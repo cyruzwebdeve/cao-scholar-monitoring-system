@@ -428,3 +428,7 @@
 
 2026-10-18 - Fixed Previous document versions layout with distinct file rows, separated filename/period/wave details, readable status badges, aligned View buttons and mobile wrapping. Existing document history and scoped file-view requests retained; frontend-only change, not deployed.
 2026-10-18 - User requested deployment of the verified previous-document-version layout; publishing frontend changes through the existing main-branch pipeline without API/database changes.
+2026-10-18 - Document-history layout release 782468c deployed; new staff dashboard and history styles verified live over HTTP 200, API healthy/database connected. No data or document-version changes.
+
+2026-10-18 - Added separate Municipality and dependent Barangay filters to Reports Priority locations, using stable location codes. Search, coverage priority, view level and filtered CSV export remain supported; frontend-only change, not deployed.
+2026-10-18 - User requested deployment of separate Reports Municipality/Barangay filters; publishing the tested frontend through the existing main-branch pipeline without API/database changes.

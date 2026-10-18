@@ -8575,3 +8575,35 @@ Final validation: 116 frontend tests passed after the loading-label guard correc
 
 ### Deployment preparation
 Remote main was confirmed at release 8020bfa before publication. Only the document-history component, its scoped styles, Scholar Management integration, regression tests and required logs are included. Existing unrelated local work and synthetic preview artifacts are excluded. No migration, credential change or production data mutation is needed.
+
+### Deployment observation
+Published commit 782468c to origin/main through the existing hosting pipeline. The live homepage now references index-URMvLZEP.js. Dashboard-Dipd9qGz.js returns HTTP 200 JavaScript and includes the new history list, separate filename/metadata/status elements and document-specific View labels. Dashboard-D4D2j18i.css returns HTTP 200 CSS with the new history-row and long-name wrapping styles. Public API health returns HTTP 200 with database connected. This verifies public frontend/code/style rollout and backend availability; authenticated live history/file opening was not exercised and no private records were read or changed.
+
+
+## 2026-10-18 - Separate Reports municipality and barangay filters
+
+**TL;DR**
+- Staff can filter Priority locations by Municipality and then by a barangay within that municipality.
+- Changing municipality clears a stale barangay; choosing a barangay automatically switches the table to barangay rows.
+- Existing location search, coverage priority, view level and priority-location CSV filtering remain; other report metrics are unchanged.
+- Frontend-only implementation; no API/database/configuration or role changes. Validation results follow below; user has now requested deployment.
+
+### Objective and previous/new behavior
+The Priority locations toolbar previously offered one combined text search and a municipality/barangay display-level switch, not independent geographic selections. Added separately labelled Municipality and Barangay dropdowns. All municipalities restores the geographic scope; the barangay selector is disabled with an explanatory option until a municipality is chosen, then lists that municipality's catalog barangays alphabetically, including locations with no scholars. Existing controls are now visibly labelled Search locations, View by and Coverage priority to distinguish display level from geographic selection.
+
+### Roles, workflows, implementation and data flow
+Authorized staff with existing Reports access use the same report requests and active-scholar data. Catalog codes, not names, identify geographic selections to avoid collisions between same-name barangays. Coverage rows retain their existing counts and gain municipality-code metadata; the geographic predicates are combined with the existing search and low/no-coverage predicates. Municipality changes clear the selected barangay and expanded row. A specific barangay switches View by to Barangays; switching back to Municipalities clears the barangay selection to avoid hidden conflicting filters. Exports continue to consume filteredCoverage, so the Priority locations CSV section matches the geographic table selection. Graduating scholars, lifecycle reporting and summary/distribution cards remain governed by their existing school-year scope, not the new table-only geographic filters.
+
+### Changed files and impacts
+ReportsManagement.jsx; components/ReportLocationFilters.jsx; utils/reportLocationFilters.js; styles/report-location-filters.css; tests/reportLocationFilters.test.js; required change logs. API/backend/database/schema/migration/configuration: no impact. Security/privacy: unchanged authentication, role access and fetched fields; no extra requests or personal data exposure. Accessibility: native labelled selects, disabled-state guidance, keyboard focus styling and responsive stacked controls with mobile touch targets. Deployment: user requested publication through the existing main-branch hosting pipeline; no infrastructure change. No data deletion or scholar-status change. Legacy payment-oriented areas are untouched and retained outside the approved payroll-list-generation boundary.
+
+### Validation
+Tests cover municipality-scoped alphabetically sorted options without mutating catalogs, no-selection/unknown-municipality handling, code-based geographic matching, same-name barangays in different municipalities, default rendered labels/disabled state, clearing incompatible selections, automatic barangay display mode and preservation of combined search/priority/export data flow. Final frontend suite/lint/build output follows below. No live accounts or records are accessed for tests. Backend tests are not required for this isolated frontend-only change and have not been rerun.
+
+### Limitations, rollback and next work
+The existing Low or no scholars priority can legitimately hide a selected location with more than two active scholars; this criterion and location-level summary behavior are intentionally unchanged. Geographic filters affect Priority locations only and do not filter the Graduating scholars export section. Report data is still periodically refreshed through existing subscriptions. After rollout, check municipality changes, same-name barangays, priority intersections and CSV contents with a controlled staff session. Revert these frontend files to restore the previous toolbar without a database rollback.
+
+Final validation: all 122 frontend regression tests passed, including independent select callbacks and enabling only the chosen municipality's barangay options. ESLint, production build and git diff --check passed; the build retains its existing large-bundle warning. Deployment requested; public rollout observations follow below.
+
+### Deployment preparation
+Remote main was confirmed at release 782468c before staging the tested Reports changes. Only the Reports component, new filter component/helper/styles, regression tests and required logs are included. Synthetic previews, test-output files and unrelated local work are excluded. No migration, account changes or production data mutation is required.

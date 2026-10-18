@@ -1,3 +1,6 @@
+import ReportLocationFilters from './components/ReportLocationFilters';
+import { getReportBarangayOptions, matchesReportLocation } from './utils/reportLocationFilters';
+import './styles/report-location-filters.css';
 import Notification from './components/Notification';
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -57,6 +60,9 @@ export default function ReportsManagement({ token }) {
   const [query, setQuery] = useState('');
   const [schoolYear, setSchoolYear] = useState('All School Years');
   const [locationLevel, setLocationLevel] = useState('municipality');
+  const [municipalityFilter, setMunicipalityFilter] = useState('');
+  const [barangayFilter, setBarangayFilter] = useState('');
+  const barangayOptions = useMemo(() => getReportBarangayOptions(barangaysData, municipalityFilter), [municipalityFilter]);
   const [coverageFilter, setCoverageFilter] = useState('attention');
   const [expandedMunicipality, setExpandedMunicipality] = useState(null);
   const [lifecycleReport, setLifecycleReport] = useState(null);
@@ -115,6 +121,7 @@ export default function ReportsManagement({ token }) {
     if (locationLevel === 'municipality') {
       return municipalitiesData.map((municipality) => ({
         id: municipality.code,
+        municipalityCode: municipality.code,
         location: municipality.name,
         municipality: municipality.name,
         type: 'Municipality',
@@ -126,6 +133,7 @@ export default function ReportsManagement({ token }) {
       const municipality = municipalityByCode.get(barangay.municipalityCode) || 'Not specified';
       return {
         id: barangay.code,
+        municipalityCode: barangay.municipalityCode,
         location: barangay.name,
         municipality,
         type: 'Barangay',
@@ -174,9 +182,9 @@ export default function ReportsManagement({ token }) {
         : coverageFilter === 'low'
           ? row.count > 0 && row.count <= 2
           : row.count <= 2;
-      return matchesQuery && matchesCoverage;
+      return matchesQuery && matchesCoverage && matchesReportLocation(row, municipalityFilter, barangayFilter);
     })
-    .sort((left, right) => left.count - right.count || left.location.localeCompare(right.location)), [barangayCoverageByMunicipality, coverageFilter, coverageRows, locationLevel, query]);
+    .sort((left, right) => left.count - right.count || left.location.localeCompare(right.location)), [barangayCoverageByMunicipality, coverageFilter, coverageRows, locationLevel, query, municipalityFilter, barangayFilter]);
 
   const graduatingScholars = useMemo(() => activeScholars
     .filter((scholar) => isGraduating(scholar.yearLevel))
@@ -356,10 +364,13 @@ export default function ReportsManagement({ token }) {
       <section className="reports-content-grid">
         <article className="reports-surface reports-coverage-panel">
           <header><div><h2>Priority locations</h2><p>Barangays and municipalities needing scholarship outreach.</p></div><span>{filteredCoverage.length} locations</span></header>
+          <ReportLocationFilters municipalities={municipalitiesData} barangays={barangayOptions} municipality={municipalityFilter} barangay={barangayFilter}
+            onMunicipalityChange={(value) => { setMunicipalityFilter(value); setBarangayFilter(''); setExpandedMunicipality(null); }}
+            onBarangayChange={(value) => { setBarangayFilter(value); if (value) setLocationLevel('barangay'); setExpandedMunicipality(null); }} />
           <div className="reports-table-tools">
-            <label className="reports-search"><div><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search municipality or barangay" /></div></label>
-            <select aria-label="Location level" value={locationLevel} onChange={(event) => { setLocationLevel(event.target.value); setExpandedMunicipality(null); }}><option value="municipality">Municipalities</option><option value="barangay">Barangays</option></select>
-            <select aria-label="Coverage priority" value={coverageFilter} onChange={(event) => { setCoverageFilter(event.target.value); setExpandedMunicipality(null); }}><option value="attention">Low or no scholars</option><option value="none">No scholars only</option><option value="low">Low coverage only</option></select>
+            <label className="reports-search"><span>Search locations</span><div><Search size={15} /><input aria-label="Search locations" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search municipality or barangay" /></div></label>
+            <label className="reports-secondary-filter"><span>View by</span><select aria-label="Location level" value={locationLevel} onChange={(event) => { setLocationLevel(event.target.value); if (event.target.value === 'municipality') setBarangayFilter(''); setExpandedMunicipality(null); }}><option value="municipality">Municipalities</option><option value="barangay">Barangays</option></select></label>
+            <label className="reports-secondary-filter"><span>Coverage priority</span><select aria-label="Coverage priority" value={coverageFilter} onChange={(event) => { setCoverageFilter(event.target.value); setExpandedMunicipality(null); }}><option value="attention">Low or no scholars</option><option value="none">No scholars only</option><option value="low">Low coverage only</option></select></label>
           </div>
           <div className="reports-table-wrap">
             <table>
