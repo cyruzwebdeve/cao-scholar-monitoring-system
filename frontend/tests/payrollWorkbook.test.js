@@ -34,7 +34,7 @@ test('official serialized form has the supplied columns, recorded breakdowns and
   assert.equal(sheet.pageSetup.paperSize, 9);
   assert.equal(sheet.pageSetup.orientation, 'landscape');
   const text = sheet.getSheetValues().flat(2).filter(value => typeof value === 'string').join(' ');
-  assert.match(text, /General Form No\. 5/);
+  assert.doesNotMatch(text, /General Form No\. 5|Revised January 1992/);
   assert.match(text, /REVIEWED FOR LIST GENERATION/);
   assert.doesNotMatch(text, /has been paid|Approved for payment|DISBURSING OFFICER|50,000\.00/);
 });
@@ -45,7 +45,8 @@ test('preparation copy uses the form without claiming a saved reference or membe
   assert.equal(sheet.getCell('K4').value, 'Reference #: Not assigned');
   const text = sheet.getSheetValues().flat(2).join(' ');
   assert.doesNotMatch(text, /PAY-0043/);
-  assert.match(text, /does not create official list membership/);
+  assert.doesNotMatch(text, /does not create official list membership|The names above are included/);
+  assert.match(text, /PREPARATION COPY/);
 });
 
 test('custom ordered columns retain values, currency and totals without overwriting cells', async () => {
@@ -74,7 +75,7 @@ test('large lists retain every scholar with repeated headings and automatic page
   const sheet = await serialized({ records: large });
   assert.equal(sheet.pageSetup.printTitlesRow, '1:5');
   assert.equal(sheet.pageSetup.fitToHeight, 0);
-  assert.equal(sheet.pageSetup.printArea, 'A1:N76');
+  assert.equal(sheet.pageSetup.printArea, 'A1:N75');
   for (let index = 0; index < large.length; index += 1) assert.equal(sheet.getCell(index + 6, 3).value, large[index].name);
 });
 
@@ -82,4 +83,26 @@ test('official lists require saved identity and empty exports fail explicitly', 
   await assert.rejects(buildPayrollWorkbook({ ...options, batch: undefined }), /saved Payroll reference/);
   await assert.rejects(buildPayrollWorkbook({ ...options, selectedColumns: [] }), /at least one export column/);
   await assert.rejects(buildPayrollWorkbook({ ...options, records: [] }), /at least one scholar/);
+});
+
+
+test('clean payroll template omits explanatory row while retaining signatories, reference and draft identity', async () => {
+  for (const preparationCopy of [false, true]) {
+    const sheet = await serialized({ preparationCopy });
+    const text = sheet.getSheetValues().flat(2).filter(value => typeof value === 'string').join(' ');
+    assert.doesNotMatch(text, /General Form No|Revised January|Scholar details and recorded grant amounts|The listed scholars are recorded|Reviewed for preparation|Draft for staff review|The names above are included/);
+    assert.match(text, /PREPARED AND VERIFIED CORRECT BY/);
+    assert.match(text, /CERTIFIED:/);
+    assert.match(text, /REVIEWED FOR LIST GENERATION:/);
+    assert.match(text, /LIST RECORD:/);
+    assert.match(text, /Administrative Assistant II/);
+    assert.match(text, /Community Affairs Officer IV/);
+    assert.match(text, /Governor/);
+    assert.match(text, preparationCopy ? /PREPARATION COPY/ : /PAY-0043/);
+    assert.equal(sheet.getCell('A1').value, 'PROVINCIAL GOVERNMENT COLLEGE EDUCATIONAL ASSISTANCE PROGRAM');
+    assert.match(sheet.getCell('A2').value, /PAYROLL LIST/);
+    assert.ok(sheet.model.merges.includes('A1:N1'));
+    assert.ok(sheet.model.merges.includes('A2:N2'));
+    assert.equal(sheet.pageSetup.printArea, 'A1:N40');
+  }
 });

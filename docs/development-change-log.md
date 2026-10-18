@@ -9208,3 +9208,47 @@ API, database, configuration, authorization/security and privacy: no impact. Sch
 Tests cover date/venue grouping, venue periods and multiline instructions without loss, cancellation/unknown fallback, escaped user text and highlighted reminder rendering. Frontend suite, lint, build and whitespace results appear below. No authenticated browser/device visual verification performed. Strict recognition intentionally falls back to the complete message if the prose format changes; future structured notification snapshots would avoid prose recognition but are not part of this presentation fix. Revert these frontend files together and redeploy to roll back; no migration required. Review scholar and staff views at desktop and phone widths.
 
 Validation result: 190 frontend tests passed, including rendered structured notice and escaping checks; lint, production build and git diff --check passed. Existing large-chunk build warning remains.
+
+
+### Deployment observation - 2026-10-19 (venue readability)
+
+**TL;DR**
+- Release 2da9247 was pushed normally to main at the user's request.
+- Production publishes the new scholar labeled-details and bold-deadline markup; API health is healthy/database connected.
+- No real data or email tests were performed; authenticated visual review remains outstanding.
+
+Entry index-5d1eFbgG.js references ScholarDashboard-B_Y63b82.js, which returned HTTP 200 with JavaScript MIME type and both new layout markers. This confirms frontend publication and API availability, not an authenticated rendered workflow or exact backend revision. Deployment adds no API, database, configuration, authorization/security, privacy or accessibility change beyond the documented frontend presentation update. Existing legacy payment-related behavior remains retained unchanged. Rollback is a frontend revert/redeployment with no migration. Recommended next work is staff/scholar desktop and phone visual acceptance testing.
+
+
+## 2026-10-19 - Manuscript defence reviewer (documentation only)
+
+**TL;DR**
+- Created a detailed study aid in Word and Markdown based on the supplied Chapters 1-3, with sample panel answers, methodology revision notes and a preparation checklist.
+- Clearly separates manuscript claims, implementation context, proposed features and missing evidence; no application, manuscript, data or deployment changes.
+- DOCX archive/XML integrity and key-section checks passed; Word pagination/rendering was not visually tested.
+
+Objective: help the project presenter understand and defend the manuscript without inventing evaluation findings or claiming undocumented features. Previously no dedicated reviewer existed; the new MANUSCRIPT-DEFENSE-REVIEWER.md and matching .docx contain approximately 4,500 words, a one-minute explanation, chapter summaries, research-method and weighted-mean practice, 20 likely panel questions, scope distinctions and a last-minute revision sheet. Intended user: project presenter; no operational staff/scholar workflow changes. The Word file is generated from the Markdown using standard OOXML headings, bold text and page-number footer; no external service or package installation was used.
+
+API, database, configuration, application security, privacy controls and deployment: no impact. No credentials, personal scholar records or private document locations included. The original manuscript was not edited. Accessibility uses semantic Word heading styles and readable text; visual pagination remains unverified. The source's citations are not independently verified, and the reviewer explicitly marks hypothetical calculations and missing evaluation evidence. Legacy payment functionality remains retained unchanged; repository payroll-list scope and manuscript wording are distinguished rather than silently redefined. Validation: DOCX ZIP CRC and all XML parts parsed successfully, with required chapter/calculation/scope content present. No application tests necessary for this documentation-only work. Rollback: remove only the two generated reviewer files; recommended next work is human review in Word and adviser confirmation of scope/evaluation details.
+
+
+## 2026-10-19 - Clean Payroll Excel template headings and signature footer
+
+**TL;DR**
+- Removed the two obsolete form/revision labels and the descriptive sentence row shown in the user's Payroll Excel screenshots.
+- Preserved scholar data, selected columns/order, recorded amounts/totals, signatory names/roles, saved reference and preparation-copy identification.
+- Frontend workbook formatting only; no payroll membership, database or legacy payment behavior changed. Validation results recorded below; not deployed.
+
+### Objective and previous/new behavior
+The user requested removing specific text from the Payroll Export Excel template. Previously the first two rows reserved a left area for a general-form identifier and revision date; four footer blocks contained explanatory prose. The program and payroll titles now span the full worksheet width, those two labels are absent, and the footer's prose row is removed rather than leaving a tall empty gap. Both saved official exports and queue preparation copies use the cleaner format. Official descriptions in that removed row are removed consistently; preparation copies still carry their prominent preparation banner, unassigned-reference label and footer identity, so a draft is not represented as an official list.
+
+### Roles, implementation and files
+Staff using the Payroll export and saved-list download receive the new worksheet layout. Updated frontend/src/utils/payrollWorkbook.js and frontend/tests/payrollWorkbook.test.js. Existing records flow through the same selected-column value mapping, amount formatting and total calculation; footer name and role rows move up one row and print area shrinks accordingly. Title rows retain their original row numbers, as do table headings, data and totals. No additional requests or persistence introduced.
+
+### Impacts
+API, database, configuration, security/authorization and privacy: no impact. Accessibility/print presentation: full-width readable headings and a compact signature footer; no application keyboard/touch changes. Deployment: local only, no push or release requested for this task. The approved workflow still ends at official payroll-list generation. Existing legacy payment-oriented functionality is retained unchanged and not expanded into release, claiming, disbursement confirmation, reconciliation or monetary auditing.
+
+### Validation, limitations, rollback and next work
+Serialized XLSX regression checks cover absent labels/prose in both official and preparation copies, preserved headings/signatory roles/reference/draft markers, valid full-width merges, adjusted print bounds, custom column orders, single-column exports, currency/totals and large lists. Full frontend suite, lint, production build and whitespace results are recorded below. Synthetic data only; no real scholar records changed. Actual Excel/print-preview visual review remains outstanding. Revert the workbook utility and tests to roll back; no data migration required. Recommended next work: visually check a downloaded workbook before deployment.
+
+Validation outcome: all 191 frontend tests passed; lint, production build and git diff --check passed. Existing large-chunk build advisory remains. No deployment performed.
