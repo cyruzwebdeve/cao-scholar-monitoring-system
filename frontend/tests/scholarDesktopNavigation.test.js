@@ -32,7 +32,7 @@ test('scroll tracking follows actual visual positions rather than an assumed DOM
 test('desktop rail reserves its own column, collapses for smaller desktops and stays hidden on phones', async () => {
   const css = await readFile(new URL('../src/styles/scholar-desktop-navigation.css', import.meta.url), 'utf8');
   for (const text of ['display: none', '@media (min-width: 761px)', '@media (min-width: 1024px)', 'grid-template-columns: 140px minmax(0, 1fr)', 'position: sticky', 'a::before', 'a::after', 'aria-current="location"', ':focus-visible', 'flex-wrap: wrap']) assert.ok(css.includes(text), text);
-  assert.doesNotMatch(css, /scroll-behavior:\s*smooth|position:\s*fixed/);
+  assert.doesNotMatch(css, /scroll-behavior:\s*smooth/);
 });
 test('desktop integration preserves mobile quick links and existing workflows and handles dynamic content cleanup', async () => {
   const source = await readFile(new URL('../src/ScholarDashboard.jsx', import.meta.url), 'utf8');
@@ -41,4 +41,15 @@ test('desktop integration preserves mobile quick links and existing workflows an
   const nav = await readFile(new URL('../src/components/ScholarDesktopNavigation.jsx', import.meta.url), 'utf8');
   for (const text of ["passive: true", 'window.requestAnimationFrame', 'window.cancelAnimationFrame', "removeEventListener('scroll'", 'ResizeObserver', 'observer?.disconnect()', 'media.matches']) assert.ok(nav.includes(text), text);
   assert.doesNotMatch(nav, /fetch\(|API_BASE|authHeaders|localStorage/);
+});
+
+
+test('wide desktop rail stays fixed at the left viewport centre and remains scrollable on short screens', async () => {
+  const css = await readFile(new URL('../src/styles/scholar-desktop-navigation.css', import.meta.url), 'utf8');
+  const wide = css.split('@media (min-width: 1024px)')[1];
+  const rail = wide.match(/\.scholar-dashboard \.scholar-desktop-navigation \{([^}]+)\}/)[1];
+  for (const rule of ['position: fixed', 'top: 50%', 'transform: translateY(-50%)', 'left: max(28px, calc((100vw - 1280px) / 2))', 'width: 140px', 'max-height: max(44px, calc(100dvh - 160px))', 'overflow-y: auto', 'overscroll-behavior: contain', 'margin: 0']) assert.ok(rail.includes(rule), rule);
+  assert.doesNotMatch(rail, /position:\s*sticky|margin:\s*120px/);
+  assert.match(wide, /grid-template-columns: 140px minmax\(0, 1fr\)/);
+  assert.match(css.split('@media (min-width: 1024px)')[0], /position: sticky/);
 });

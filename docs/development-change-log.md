@@ -9004,7 +9004,7 @@ The latest user-requested retry successfully pushed release 4dad8c2 to origin/ma
 - Added a desktop left-side section rail inspired by the supplied reference, using Overview, Summary, Next step, Updates and Requirements instead of placeholder labels.
 - Current-section highlighting follows scrolling; a dedicated grid column prevents content overlap. Smaller desktops use a compact horizontal strip; mobile quick links remain unchanged.
 - Read-only in-page navigation only; no API, database, upload, notification or scholarship-workflow changes.
-- Frontend 177 tests passed, plus ESLint, production build and whitespace checks. Not deployed; rendered desktop/browser acceptance remains recommended.
+- Frontend 177 tests passed, plus ESLint, production build and whitespace checks. Release 25134ba deployed; live navigation/CSS and API health verified. Rendered desktop/browser acceptance remains recommended.
 
 ### Objective and previous/new behavior
 The user requested a desktop navigation treatment like the screenshot's vertical line, branch markers and section labels. Desktop scholars previously had to scroll manually or use the next-step requirement action; mobile already had quick links. The portal now provides five named anchor links with a visible current-section marker. At widths of at least 1024px the rail remains on the left as the page scrolls; widths 761-1023px use a wrapping horizontal strip. It is hidden at phone widths so the existing mobile navigation remains the sole quick-link control there.
@@ -9016,7 +9016,7 @@ Affects scholars viewing their own portal. ScholarDesktopNavigation mounts only 
 New frontend/src/components/ScholarDesktopNavigation.jsx, frontend/src/utils/scholarSectionNavigation.js, frontend/src/styles/scholar-desktop-navigation.css and frontend/tests/scholarDesktopNavigation.test.js. Updated frontend/src/ScholarDashboard.jsx for the reserved navigation/content layout and frontend/src/components/ScholarNextStep.jsx for its anchor. Required logs updated; historical deployment observations preserved.
 
 ### API, database, configuration, security, privacy, accessibility and deployment impacts
-API/database/configuration: none; no new dependencies, settings, endpoints, migration or production writes. Security/privacy: no new record fields, permissions, public data or private-document paths; existing owner-scoped upload/view and notifications remain unchanged. Accessibility: labelled native navigation, descriptive destinations, keyboard-focus outlines, focusable section targets, readable wrapping and current-location semantics. Mobile layout and profile focus behavior remain intact. Deployment: implementation prepared locally, not published by this task; later user-requested deployment can use the existing connected main-branch hosting pipeline. Product scope remains official CAO payroll-list generation. Legacy payment-oriented functionality is retained unchanged and not extended into fund release, claim tracking, disbursement, reconciliation or monetary auditing.
+API/database/configuration: none; no new dependencies, settings, endpoints, migration or production writes. Security/privacy: no new record fields, permissions, public data or private-document paths; existing owner-scoped upload/view and notifications remain unchanged. Accessibility: labelled native navigation, descriptive destinations, keyboard-focus outlines, focusable section targets, readable wrapping and current-location semantics. Mobile layout and profile focus behavior remain intact. Deployment: initially prepared locally, then published as release 25134ba through the existing connected main-branch hosting pipeline at the user request. Product scope remains official CAO payroll-list generation. Legacy payment-oriented functionality is retained unchanged and not extended into fund release, claim tracking, disbursement, reconciliation or monetary auditing.
 
 ### Validation and results
 All 177 frontend tests passed, zero failures. Added tests verify five labelled anchors, a single current-location indicator, active-section calculation with visual-order differences/missing positions/bottom handling, reserved desktop layout column, compact breakpoint behavior, line/dot/focus styles, retained mobile links/upload guards, dynamic-content observation and event/frame cleanup without additional API/storage operations. ESLint, production build and git diff --check passed. Existing non-fatal large-chunk build advisory remains. Backend tests are not rerun because backend behavior is unchanged. Checks are SSR/source/logic regressions, not a rendered browser screenshot or authenticated production interaction.
@@ -9026,3 +9026,33 @@ The rail is an in-page navigator, not a new sidebar for unrelated account workfl
 
 ### Deployment preparation
 The user requested publication of the verified desktop navigator. Include only the navigation component/helper/styles, dashboard/next-step anchor integration, regressions and required logs; exclude generated outputs and unrelated workspace changes. The implementation is unchanged since the passing 177-test frontend run, lint and production build. Publish using a normal non-force push from the existing release branch; Git will reject a divergent remote. No database migration, API, credential or production record change is needed. Verify live ScholarDashboard navigation markup and responsive rail CSS after rollout; rendered browser acceptance remains recommended.
+
+### Deployment observation
+Successfully pushed release 25134ba to origin/main, advancing remote main from 4dad8c2. The live homepage references index-DE6Maewe.js. ScholarDashboard-DfvGvmGh.js returns HTTP 200 JavaScript containing the labelled Scholar portal sections navigator and ON THIS PAGE caption. ScholarDashboard-Ugy18dtP.css returns HTTP 200 CSS with the desktop navigation and reserved 140px rail column. Public API health returns HTTP 200, healthy with database connected. This confirms public frontend/style rollout and API availability, not a rendered browser screenshot or authenticated scholar interaction. No production records were read or changed; recommended desktop/compact/mobile visual smoke tests remain as documented.
+
+
+## 2026-10-18 - Keep desktop Scholar navigation fixed at left centre
+
+**TL;DR**
+- The wide-desktop section navigator is now fixed at the viewport's left-side vertical centre, instead of moving with sticky/container boundaries.
+- Reserved content space prevents overlap; a bounded, scrollable rail keeps links accessible on short windows. Compact desktop and phone navigation remain unchanged.
+- CSS-only application behavior change; no API, data, permissions or workflow impact.
+- Frontend 178 tests passed, plus lint, production build and whitespace checks. Not deployed.
+
+### Objective and previous/new behavior
+The user reported awkward movement when navigating to lower Scholar Portal sections. The desktop rail previously used sticky positioning, a 120px top margin and containing-grid constraints, so its screen position changed with scrolling. At widths of at least 1024px it now uses fixed positioning, top: 50% and translateY(-50%), with no top margin. The horizontal offset follows the existing centred 1280px layout and 28px minimum outer gutter. Its width remains 140px, matching the reserved column, and dynamic-viewport height bounds/internal scrolling retain access to links on short windows. The smaller-desktop horizontal strip remains sticky; phone quick links are untouched.
+
+### Roles, implementation and files
+Affects scholars using the wide-desktop portal. Only frontend/src/styles/scholar-desktop-navigation.css and frontend/tests/scholarDesktopNavigation.test.js change, plus required logs. Existing native anchors, current-section tracking, active highlight and observer/listener cleanup remain intact. The main content stays in column two even though the rail is now out of normal flow; no record-loading or mutation path changes.
+
+### Impacts
+API/database/configuration: none; no migration, dependency or setting changes. Security/privacy: no new permissions, personal fields, storage access or requests. Accessibility: native link labels, keyboard focus and current-location semantics remain; bounded internal scrolling avoids losing lower links on short screens. Existing mobile/compact layouts and reduced-motion behavior remain unchanged. Deployment: not deployed; ready for later requested publication through the connected pipeline. Product scope remains official payroll-list generation; legacy payment-oriented functionality is retained unchanged and not extended.
+
+### Validation
+All 178 frontend tests passed. Updated regressions explicitly require fixed centering, layout-aligned horizontal placement, zero rail margins, reserved content column, bounded scrolling and retained compact-mode sticky behavior. Existing anchor, active-section, mobile, upload and permission-preservation checks pass. ESLint, production build and git diff --check passed; the existing non-fatal large-chunk advisory remains. Backend tests are not rerun for a CSS-only change. No rendered browser screenshot or authenticated production interaction is claimed.
+
+### Limitations, rollback and recommended next work
+Only wide-desktop mode changes; smaller-desktop horizontal navigation intentionally retains its existing placement. Extremely short windows may require scrolling within the rail. After a requested deployment, verify a long portal page at 1024/1280/1440px and short-window heights, click every destination and confirm the rail stays at the same viewport centre while the active label changes. Recheck mobile/compact breakpoints. Rollback by reverting the CSS/test change; no data rollback is needed.
+
+### Deployment preparation
+The user requested publication of the verified positioning fix. Include only the desktop navigation CSS/regression and required logs; generated outputs and unrelated workspace changes are excluded. The implementation is unchanged since the passing 178-test frontend run, ESLint and production build. Publish with a normal non-force push through the existing connected main-branch pipeline, then verify the live fixed-centering rule. No migration, configuration change or production record mutation is required.

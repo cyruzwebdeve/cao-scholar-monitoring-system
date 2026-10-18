@@ -480,3 +480,7 @@
 
 2026-10-18 - Added Scholar Portal desktop section navigation with a left-side line/dot rail, five named anchors and current-section highlighting; compact horizontal navigation on smaller desktops, existing phone quick links retained. Frontend 177 tests, lint/build passed. No API/data/workflow changes. Not deployed.
 2026-10-18 - User requested deployment of the tested Scholar desktop section navigator through the existing connected main-branch pipeline. No migration or production record changes.
+2026-10-18 - Scholar desktop navigator release 25134ba deployed; live named section links, left-rail CSS and API health verified HTTP 200. Existing mobile navigation retained; no production records accessed or changed.
+
+2026-10-18 - Fixed the Scholar desktop section rail at the left viewport centre so it no longer shifts with page/container scrolling; reserved content gutter and short-screen internal scrolling retained. Compact/mobile navigation unchanged. Frontend 178 tests, lint/build passed. Not deployed.
+2026-10-18 - User requested deployment of the tested fixed left-centre desktop navigator; publishing through the existing main-branch pipeline with no data/API changes.

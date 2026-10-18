@@ -12,7 +12,7 @@
 @media (min-width: 1024px) {
   .scholar-dashboard .scholar-desktop-layout { display: grid; grid-template-columns: 140px minmax(0, 1fr); align-items: start; gap: 28px; width: min(1280px, calc(100% - 56px)); margin-inline: auto; }
   .scholar-dashboard .scholar-desktop-layout > .scholar-dashboard-main { grid-column: 2; width: 100%; min-width: 0; margin-inline: 0; }
-  .scholar-dashboard .scholar-desktop-navigation { grid-column: 1; grid-row: 1; top: 32px; margin: 120px 0 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+  .scholar-dashboard .scholar-desktop-navigation { position: fixed; top: 50%; left: max(28px, calc((100vw - 1280px) / 2)); transform: translateY(-50%); width: 140px; max-height: max(44px, calc(100dvh - 160px)); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; margin: 0; padding: 4px; border: 0; border-radius: 0; background: transparent; }
   .scholar-section-nav-caption { margin: 0 0 18px; color: #6b8070; font-size: 9px; }
   .scholar-desktop-navigation > div { position: relative; display: grid; gap: 6px; padding-block: 8px; }
   .scholar-desktop-navigation > div::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 1px; background: #d1ded4; }
