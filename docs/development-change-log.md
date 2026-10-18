@@ -8688,3 +8688,30 @@ All 134 frontend tests passed; lint, production build and git diff --check passe
 
 ### Limitations, rollback and next work
 The generated file was structurally validated but not rendered in Microsoft Word in this environment. Preserve the template's long-paper page setting when printing; Word pagination can vary with installed fonts/printer settings. Check a controlled staff download in Word after rollout, especially lists above forty. Revert this frontend commit to restore the prior generated layout; no data rollback is needed. Public asset/code rollout observations follow below.
+
+### Deployment observation
+Published release 8a0ed2f to origin/main through the existing hosting pipeline. The live homepage references index-DzNM9yVR.js and Dashboard--3lYbTRH.js. attendanceDocument-GD3G1RwN.js returns HTTP 200 with template-based five-column generation. Its pgceap-attendance-USpvjkJo.js template module resolves pgceap-attendance-CjFvVXG_.docx, which returns HTTP 200 with 945790 bytes; SHA-256 verification confirms the deployed Word template is byte-identical to the supplied root original. Public API health returns HTTP 200 with database connected. This verifies code/static-template rollout and backend availability, not rendering in Microsoft Word or an authenticated production attendance download. No applicant records were read or changed during verification.
+
+
+## 2026-10-18 - Clearer Examination Passer Lists workspace
+
+**TL;DR**
+- Examination staff now have separate Prepare a list and Retained lists panels with clearer form, candidate and history layout.
+- Applicant identity and score are separated; drafts/posted lists have readable status badges, member rows and native expand/collapse details.
+- Candidate eligibility, maximum 500 selection, revision validation, idempotent payloads and posting/locking rules remain unchanged; no API/database change.
+- All 139 frontend tests, lint/build and whitespace checks passed; deployment requested for testing.
+
+### Objective and previous/new behavior
+Improve the Passer Lists section's crowded form/list presentation. The prior single bordered block mixed title/revision fields, candidate checkboxes, actions and inline retained-list summaries. A scoped responsive workspace now places preparation and retained history in distinct cards on wide screens and stacks them on smaller screens. Title/revision fields align, revision reasons have a multiline field with the original limit, candidate names/control numbers/municipalities and scores have separate visual positions, and selected rows are highlighted. Save draft and Post & lock remain explicit actions with a reminder of their existing effects.
+
+### Roles, workflow, implementation and data flow
+Only existing authorized Examination users' presentation changes. The shared PasserLists component retains its prior state, fetch/send/save logic, candidate predicate, request-key lifecycle, 500-record selection cap, title/reason constraints, error handling and refresh callbacks. RetainedPasserLists presents the existing list records without changing their order, contents, revision reasons, posted dates or scores. Only draft records show Post & lock saved draft, and that action forwards the same original list ID to the existing posting route. Locked lists are not made editable. Initial verification before Scholar acceptance and all backend validation remain authoritative and unchanged.
+
+### Files and impacts
+PasserLists.jsx; components/RetainedPasserLists.jsx; styles/passer-lists.css; tests/passerListsLayout.test.js; required change logs. API/backend/database/schema/migration/configuration: no impact. Security/privacy: existing role/section checks and data requests unchanged, React text escaping retained, no new personal fields or records exposed. Accessibility: existing native checkboxes gain applicant-specific labels, selection count is announced, labelled fieldset and native history details remain, visible keyboard focus and mobile touch targets added. Long names/titles wrap, history member lists scroll, and actions stack on narrow screens. Deployment uses the existing main-branch hosting pipeline without infrastructure changes. No scholar/attendance/result/list data mutation is part of this layout release. Legacy payment-oriented areas remain untouched and retained outside the approved payroll-list-generation boundary.
+
+### Validation
+Frontend suite: 139 passed, zero failures. ESLint, production build and git diff --check passed with the existing large-bundle warning. New synthetic render/callback checks cover eligibility-filtered candidate rows and labelled selection, preparation/history separation, escaped titles, draft/locked badges, member/score details, revision references, draft-only actions, busy disabling, exact list-ID callbacks, loading/empty states, preserved request-key/payload/limit/revision guards, and responsive/focus/long-text CSS rules. No production accounts or records were used, and no lists were posted during validation. Backend tests were not rerun for this isolated frontend presentation change. Browser screenshot inspection is unavailable in the current environment; live asset verification follows rollout.
+
+### Limitations, rollback and next work
+Synthetic rendering does not replace in-account desktop/phone testing. Existing behavior for stale candidates, result version checks and locked-list revisions remains unchanged and may still surface backend validation messages. After rollout, review the workspace with a controlled staff session; do not post a real list just to test appearance. Reverting this frontend commit restores the former layout with no database rollback.

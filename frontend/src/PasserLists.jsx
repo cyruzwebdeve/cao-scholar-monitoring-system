@@ -1,3 +1,6 @@
+import { RefreshCw, Save, LockKeyhole, UsersRound } from 'lucide-react';
+import RetainedPasserLists from './components/RetainedPasserLists';
+import './styles/passer-lists.css';
 import Notification from './components/Notification';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { API_BASE, authHeaders } from './services/api';
@@ -27,16 +30,24 @@ export default function PasserLists({ applicants, token, onPosted }) {
   // A changed selection represents a different request, not a retry of a lost response.
   const choose = (ids) => { setSelected(ids); requestKey.current = null; };
   const invalid = busy || !ready || !title.trim() || !selected.length || selected.length > 500 || (previous && !reason.trim());
-  return <section className="passer-lists" aria-label="Passer Lists">
-    <div className="passer-list-heading"><div><h3>Passer Lists</h3><p>Save a draft or post reviewed passers now. Posting publishes their results and locks a retained list. Initial verification comes before Scholar acceptance.</p></div><button type="button" disabled={busy} onClick={() => act(load)}>Refresh lists</button></div>
+  return <section className="passer-lists passer-workspace" aria-label="Passer Lists">
+    <div className="passer-list-heading"><div><span className="passer-eyebrow">EXAMINATION RESULTS</span><h3>Passer Lists</h3><p>Prepare reviewed passers for initial document verification and Scholar acceptance.</p></div><button type="button" className="passer-refresh" disabled={busy} onClick={() => act(load)}><RefreshCw size={15} aria-hidden="true" />Refresh lists</button></div>
     {busy && <Notification tone="progress" title="Saving passer list">Keep this page open while records are checked and saved.</Notification>}{notice && <Notification tone="success" title="Passer list saved" onDismiss={() => setNotice('')}>{notice}</Notification>}{error && <Notification tone="error" title="Passer list needs attention">{error}</Notification>}
-    <fieldset disabled={busy}><legend>Prepare a list</legend><label>List title<input maxLength={160} value={title} onChange={(event) => { setTitle(event.target.value); requestKey.current = null; }} /></label>
-      <label>Revision of<select value={previous} onChange={(event) => { setPrevious(event.target.value); requestKey.current = null; }}><option value="">New list</option>{lists.filter((list) => list.status === 'posted' && !lists.some((revision) => revision.supersedes_id === list.id && revision.status === 'posted')).map((list) => <option key={list.id} value={list.id}>#{list.id} · {list.title}</option>)}</select></label>
-      {previous && <label>Revision reason<input maxLength={2000} value={reason} onChange={(event) => { setReason(event.target.value); requestKey.current = null; }} /></label>}
-      <div className="passer-selection-heading"><span>{selected.length} selected · {candidates.length} available passers</span><button type="button" onClick={() => choose(selected.length ? [] : candidates.slice(0, 500).map((item) => item.id))}>{selected.length ? 'Clear selection' : 'Select available passers'}</button></div>
-      <div className="passer-candidates">{candidates.map((item) => <label key={item.id}><input type="checkbox" checked={selected.includes(item.id)} onChange={(event) => choose(event.target.checked ? [...selected, item.id] : selected.filter((id) => id !== item.id))} /><span><strong>{item.name}</strong><small>{item.control} · {item.municipality} · Score {item.score}</small></span></label>)}{!candidates.length && <p>No unaccepted applicants with recorded passing scores. Record and review scores first.</p>}</div>
-      <div className="capture-actions"><button type="button" disabled={invalid} onClick={() => save('draft')}>Save draft</button><button type="button" className="capture-submit" disabled={invalid} onClick={() => save('posted')}>Post &amp; lock list</button></div>
-    </fieldset>
-    <h3>Retained lists</h3>{lists.length ? lists.map((list) => <details key={list.id}><summary>#{list.id} · {list.title} · {list.status === 'posted' ? 'Posted · Locked' : 'Saved draft'} · {list.members.length} passers</summary><p>{list.posted_at ? `Posted ${new Date(list.posted_at).toLocaleString()}` : `Saved ${new Date(list.created_at).toLocaleString()}`}{list.supersedes_id ? ` · Revision of #${list.supersedes_id}: ${list.revision_reason}` : ''}</p><ul>{list.members.map((member) => <li key={member.id}>{member.snapshot.name} · Score {member.snapshot.score}</li>)}</ul>{list.status === 'draft' && <button type="button" disabled={busy} onClick={() => act(() => send(`/passer-lists/${list.id}/post`, {}))}>Post &amp; lock saved draft</button>}</details>) : <p>{ready ? 'No saved lists yet.' : 'Loading saved lists…'}</p>}
+    <div className="passer-workspace-grid">
+      <fieldset className="passer-prepare-panel" disabled={busy}>
+        <legend>Prepare a list</legend>
+        <p className="passer-panel-description">Enter the list details, then select the applicants to include.</p>
+        <div className="passer-form-fields">
+          <label>List title<input maxLength={160} value={title} onChange={(event) => { setTitle(event.target.value); requestKey.current = null; }} /></label>
+          <label>Revision of<select value={previous} onChange={(event) => { setPrevious(event.target.value); requestKey.current = null; }}><option value="">New list</option>{lists.filter((list) => list.status === 'posted' && !lists.some((revision) => revision.supersedes_id === list.id && revision.status === 'posted')).map((list) => <option key={list.id} value={list.id}>#{list.id} - {list.title}</option>)}</select></label>
+          {previous && <label className="passer-revision-reason">Revision reason<textarea maxLength={2000} rows={3} value={reason} onChange={(event) => { setReason(event.target.value); requestKey.current = null; }} /></label>}
+        </div>
+        <div className="passer-selection-heading"><div><h4><UsersRound size={16} aria-hidden="true" />Select passers</h4><span aria-live="polite">{selected.length} selected ? {candidates.length} available</span></div><button type="button" onClick={() => choose(selected.length ? [] : candidates.slice(0, 500).map((item) => item.id))}>{selected.length ? 'Clear selection' : 'Select available passers'}</button></div>
+        <div className="passer-candidates">{candidates.map((item) => <label key={item.id} className={selected.includes(item.id) ? 'selected' : ''}><input type="checkbox" aria-label={`Select ${item.name}`} checked={selected.includes(item.id)} onChange={(event) => choose(event.target.checked ? [...selected, item.id] : selected.filter((id) => id !== item.id))} /><span className="passer-candidate-copy"><strong>{item.name}</strong><small>{item.control} ? {item.municipality}</small></span><span className="passer-candidate-score"><small>Score</small><strong>{item.score}</strong></span></label>)}{!candidates.length && <p className="passer-empty">No unaccepted applicants with recorded passing scores. Record and review scores first.</p>}</div>
+        <p className="passer-posting-note">Posting publishes the selected results and locks the retained list. Initial document verification comes before Scholar acceptance.</p>
+        <div className="passer-list-actions"><button type="button" disabled={invalid} onClick={() => save('draft')}><Save size={15} aria-hidden="true" />Save draft</button><button type="button" className="passer-primary-action" disabled={invalid} onClick={() => save('posted')}><LockKeyhole size={15} aria-hidden="true" />Post &amp; lock list</button></div>
+      </fieldset>
+      <RetainedPasserLists lists={lists} ready={ready} busy={busy} onPostDraft={(id) => act(() => send(`/passer-lists/${id}/post`, {}))} />
+    </div>
   </section>;
 }

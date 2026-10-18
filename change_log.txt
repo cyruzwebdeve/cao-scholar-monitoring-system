@@ -441,3 +441,6 @@
 2026-10-18 - Word attendance release 4d7a583 deployed; live .docx download action and genuine Word generator assets verified HTTP 200, API healthy/database connected. Attendance records and other CSV exports unchanged.
 
 2026-10-18 - Attendance Word exports now populate the supplied PGCEAP attendance template, preserving artwork, page setup, formatting, five columns and 40-row form; longer lists extend rows. Status maps to Remarks and recorded timestamps split into date/time. Frontend 134 tests, lint/build and template-integrity/XML checks passed; deployment requested.
+2026-10-18 - Template-based attendance release 8a0ed2f deployed; live generator/template module verified HTTP 200 and deployed DOCX matches supplied original byte-for-byte. API healthy/database connected.
+
+2026-10-18 - Redesigned Examination Passer Lists with separate preparation/history panels, aligned form fields, clearer applicant/score rows, draft/posted badges and responsive actions. Posting, revision, eligibility and request-idempotency rules retained. Frontend 139 tests, lint/build passed; deployment requested.
