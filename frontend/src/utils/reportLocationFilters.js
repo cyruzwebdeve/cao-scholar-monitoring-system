@@ -7,3 +7,6 @@ export const matchesReportLocation = (row, municipalityCode = '', barangayCode =
   (!municipalityCode || row.municipalityCode === municipalityCode)
   && (!barangayCode || (row.type === 'Barangay' && row.id === barangayCode))
 );
+
+// Province-wide view summarizes municipalities; choosing one reveals its barangays.
+export const getReportLocationLevel = municipalityCode => municipalityCode ? 'barangay' : 'municipality';

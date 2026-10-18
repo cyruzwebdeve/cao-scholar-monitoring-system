@@ -8607,3 +8607,30 @@ Final validation: all 122 frontend regression tests passed, including independen
 
 ### Deployment preparation
 Remote main was confirmed at release 782468c before staging the tested Reports changes. Only the Reports component, new filter component/helper/styles, regression tests and required logs are included. Synthetic previews, test-output files and unrelated local work are excluded. No migration, account changes or production data mutation is required.
+
+### Deployment observation
+Published commit df8b723 to origin/main through the existing hosting pipeline. The live homepage now references index-GA9oyY34.js. Dashboard-DlSK7tBj.js returns HTTP 200 JavaScript and contains the separate geographic filter group, municipality selection, dependent barangay guidance, All barangays option and View by label. Dashboard-CSh1mA5y.css returns HTTP 200 CSS with reports-location-filters styles. Public API health returns HTTP 200 with database connected. This verifies public frontend/code/style rollout and backend availability; authenticated Reports filtering/CSV download was not exercised and no production records were accessed or changed.
+
+
+## 2026-10-18 - Simplified Reports toolbar without View by
+
+**TL;DR**
+- Removed the redundant View by dropdown and aligned Municipality, Barangay, Search locations and Coverage priority in one responsive toolbar.
+- All municipalities displays municipality summaries; choosing a municipality displays its barangays, and choosing a barangay narrows that list.
+- Existing coverage/search predicates, code-based geographic matching and filtered CSV export remain; no API/database or permission changes.
+- All 125 frontend tests, lint/build and whitespace checks passed; user requested deployment for testing.
+
+### Objective and previous/new behavior
+Reduce duplicated display controls and fix the uneven filter layout. Previously geographic selects and a separate three-control toolbar included a manual location-level switch. There is now one labelled two-column desktop toolbar that stacks on narrow screens, with consistent field height, readable labels and a search icon. Location level is derived from municipality selection instead of stored as an independent setting. Choosing a municipality with All barangays now actually shows all its barangay rows subject to existing search/coverage-priority criteria. Clearing the municipality returns to municipality summaries.
+
+### Roles, workflow, implementation and data flow
+Existing authorized Reports staff use the same fetched scholar data and geographic catalogs. getReportLocationLevel derives municipality/barangay display from the selected municipality. Municipality changes still reset stale barangays and expanded rows. Selecting or clearing a barangay does not require another dropdown. The existing filteredCoverage pipeline continues to drive the table and priority-location CSV export. Summary cards, lifecycle data, graduating scholars and school-year behavior remain unchanged.
+
+### Changed areas and impacts
+ReportsManagement.jsx; ReportLocationFilters.jsx; report-location-filters.css; reportLocationFilters.js; reportLocationFilters.test.js; required logs. API/backend/database/schema/migration/configuration: no impact. Security/privacy: existing authentication and roles unchanged; no new requests, fields, account changes or personal data exposure. Accessibility: four native labelled controls, visible focus, disabled barangay guidance, 42px consistent fields and 44px stacked mobile fields. Legacy payment-oriented areas are untouched and retained outside the approved payroll-list-generation boundary. Deployment uses the existing main-branch hosting pipeline, without infrastructure changes or data migration.
+
+### Validation and results
+Frontend suite: 125 passed, zero failures. ESLint, production build and git diff --check passed; existing large-bundle warning remains. Tests cover automatic location levels, absence of View by/manual-level state, exactly three selects plus one search field, callbacks, stale-selection clearing, geographic matching, same-name barangays, coverage/search combination and export data flow. Synthetic SSR preview HTML generated successfully; screenshot inspection could not run because no Chrome/Edge executable is available in the current environment. No production records accessed or modified. Backend tests were not rerun for this frontend-only change.
+
+### Limitations, rollback and recommended next work
+Existing low/no-coverage criteria can hide well-covered locations; this behavior is intentionally unchanged. Geographic selections affect only Priority locations, not other report cards or graduating-scholar exports. After rollout, test desktop/phone layout and a controlled staff CSV export. Reverting this frontend commit restores the former toolbar/manual view selector with no data rollback. Public rollout observations follow below.

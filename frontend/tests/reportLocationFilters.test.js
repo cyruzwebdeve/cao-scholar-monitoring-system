@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
-import { getReportBarangayOptions, matchesReportLocation } from '../src/utils/reportLocationFilters.js';
+import { getReportBarangayOptions, matchesReportLocation, getReportLocationLevel } from '../src/utils/reportLocationFilters.js';
 
 const barangays = [
   { code: 'a2', municipalityCode: 'a', name: 'Zulu' },
@@ -51,8 +51,9 @@ test('Reports renders separate labelled geographic selectors without making a li
 test('filter transitions clear stale barangays and selecting one switches to barangay results', async () => {
   const source = await readFile(new URL('../src/ReportsManagement.jsx', import.meta.url), 'utf8');
   assert.match(source, /setMunicipalityFilter\(value\); setBarangayFilter\(''\)/);
-  assert.match(source, /setBarangayFilter\(value\); if \(value\) setLocationLevel\('barangay'\)/);
-  assert.match(source, /if \(event.target.value === 'municipality'\) setBarangayFilter\(''\)/);
+  assert.match(source, /setBarangayFilter\(value\); setExpandedMunicipality\(null\)/);
+  assert.match(source, /const locationLevel = getReportLocationLevel\(municipalityFilter\)/);
+  assert.doesNotMatch(source, /View by|Location level|setLocationLevel|reports-table-tools/);
   assert.match(source, /matchesQuery && matchesCoverage && matchesReportLocation/);
   assert.match(source, /filteredCoverage.map\(\(record\) => coverageColumns.map/);
 });
@@ -66,4 +67,24 @@ test('the two selects forward independent geographic codes and enable valid scop
   assert.doesNotMatch(html, /disabled=/);
   assert.match(html, /value="a1" selected=""/);
   assert.doesNotMatch(html, /value="b1"/);
+});
+
+test('geographic selection alone determines summary versus barangay rows', () => {
+  assert.equal(getReportLocationLevel(''), 'municipality');
+  assert.equal(getReportLocationLevel('a'), 'barangay');
+  assert.equal(getReportLocationLevel(null), 'municipality');
+});
+test('the unified toolbar has exactly four labelled controls and no View by selector', () => {
+  const html = renderToStaticMarkup(createElement(Filters, { municipalities: [], barangays: [], municipality: '', barangay: '' }));
+  assert.equal((html.match(/<select/g) || []).length, 3);
+  assert.equal((html.match(/<input/g) || []).length, 1);
+  assert.match(html, /Search locations/); assert.match(html, /Coverage priority/);
+  assert.doesNotMatch(html, /View by|Location level/);
+});
+test('search and priority controls retain independent callbacks', () => {
+  let query, coverage;
+  const tree = Filters({ municipalities: [], barangays: [], municipality: '', barangay: '', onQueryChange: value => { query = value; }, onCoverageChange: value => { coverage = value; } });
+  tree.props.children[2].props.children[1].props.children[1].props.onChange({ target: { value: 'Common' } });
+  tree.props.children[3].props.children[1].props.onChange({ target: { value: 'none' } });
+  assert.equal(query, 'Common'); assert.equal(coverage, 'none');
 });

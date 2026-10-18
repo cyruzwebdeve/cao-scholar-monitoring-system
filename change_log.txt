@@ -432,3 +432,6 @@
 
 2026-10-18 - Added separate Municipality and dependent Barangay filters to Reports Priority locations, using stable location codes. Search, coverage priority, view level and filtered CSV export remain supported; frontend-only change, not deployed.
 2026-10-18 - User requested deployment of separate Reports Municipality/Barangay filters; publishing the tested frontend through the existing main-branch pipeline without API/database changes.
+2026-10-18 - Reports geographic-filter release df8b723 deployed; separate Municipality/Barangay controls and styles verified live over HTTP 200. API healthy/database connected; no API/database changes.
+
+2026-10-18 - Simplified the Reports priority-location toolbar into four aligned controls and removed View by. Results automatically show municipality summaries province-wide or barangays within a selected municipality. Frontend 125 tests, lint and build passed; deployment requested.

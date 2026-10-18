@@ -1,9 +1,10 @@
-.reports-location-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 13px 13px 0; background: #fbfcfb; }
-.reports-location-filters label { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: #43564a; font-size: 11px; font-weight: 600; }
-.reports-location-filters select { width: 100%; min-width: 0; min-height: 40px; padding: 8px 10px; border: 1px solid #d2ddd5; border-radius: 7px; background: white; color: #354e3e; font: inherit; font-size: 12px; font-weight: 400; }
+.reports-location-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; padding: 16px; border-bottom: 1px solid #e2e9e4; background: #fbfcfb; }
+.reports-location-filters label { display: flex; flex-direction: column; gap: 7px; min-width: 0; color: #43564a; font-size: 11px; font-weight: 600; }
+.reports-location-filters select, .reports-location-filters input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 42px; padding: 9px 11px; border: 1px solid #d2ddd5; border-radius: 8px; background: white; color: #354e3e; font: inherit; font-size: 12px; font-weight: 400; }
 .reports-location-filters select:disabled { background: #f1f4f0; color: #6c7d70; cursor: not-allowed; }
-.reports-location-filters select:focus-visible { outline: 3px solid #168c51; outline-offset: 2px; }
-@media (max-width: 520px) { .reports-location-filters { grid-template-columns: 1fr; } .reports-location-filters select { min-height: 44px; } }
-
-.reports-coverage-panel .reports-table-tools > label { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: #43564a; font-size: 11px; font-weight: 600; }
-.reports-coverage-panel .reports-table-tools select { width: 100%; min-width: 0; min-height: 40px; }
+.reports-location-filters :is(select,input):focus-visible { outline: 3px solid #168c51; outline-offset: 2px; }
+.reports-location-search > div { position: relative; min-width: 0; }
+.reports-location-search svg { position: absolute; top: 50%; left: 11px; transform: translateY(-50%); color: #7b9182; pointer-events: none; }
+.reports-location-filters .reports-location-search input { padding-left: 35px; }
+.reports-location-search input::placeholder { color: #728679; opacity: 1; }
+@media (max-width: 520px) { .reports-location-filters { grid-template-columns: 1fr; gap: 12px; padding: 14px; } .reports-location-filters select, .reports-location-filters input { min-height: 44px; } }

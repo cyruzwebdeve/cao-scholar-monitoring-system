@@ -1,5 +1,5 @@
 import ReportLocationFilters from './components/ReportLocationFilters';
-import { getReportBarangayOptions, matchesReportLocation } from './utils/reportLocationFilters';
+import { getReportBarangayOptions, matchesReportLocation, getReportLocationLevel } from './utils/reportLocationFilters';
 import './styles/report-location-filters.css';
 import Notification from './components/Notification';
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
@@ -11,7 +11,6 @@ import {
   GraduationCap,
   MapPin,
   RefreshCw,
-  Search,
   UsersRound,
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
@@ -59,9 +58,9 @@ export default function ReportsManagement({ token }) {
   const [hasLoadedReport, setHasLoadedReport] = useState(false);
   const [query, setQuery] = useState('');
   const [schoolYear, setSchoolYear] = useState('All School Years');
-  const [locationLevel, setLocationLevel] = useState('municipality');
   const [municipalityFilter, setMunicipalityFilter] = useState('');
   const [barangayFilter, setBarangayFilter] = useState('');
+  const locationLevel = getReportLocationLevel(municipalityFilter);
   const barangayOptions = useMemo(() => getReportBarangayOptions(barangaysData, municipalityFilter), [municipalityFilter]);
   const [coverageFilter, setCoverageFilter] = useState('attention');
   const [expandedMunicipality, setExpandedMunicipality] = useState(null);
@@ -365,13 +364,10 @@ export default function ReportsManagement({ token }) {
         <article className="reports-surface reports-coverage-panel">
           <header><div><h2>Priority locations</h2><p>Barangays and municipalities needing scholarship outreach.</p></div><span>{filteredCoverage.length} locations</span></header>
           <ReportLocationFilters municipalities={municipalitiesData} barangays={barangayOptions} municipality={municipalityFilter} barangay={barangayFilter}
+            query={query} coverage={coverageFilter}
             onMunicipalityChange={(value) => { setMunicipalityFilter(value); setBarangayFilter(''); setExpandedMunicipality(null); }}
-            onBarangayChange={(value) => { setBarangayFilter(value); if (value) setLocationLevel('barangay'); setExpandedMunicipality(null); }} />
-          <div className="reports-table-tools">
-            <label className="reports-search"><span>Search locations</span><div><Search size={15} /><input aria-label="Search locations" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search municipality or barangay" /></div></label>
-            <label className="reports-secondary-filter"><span>View by</span><select aria-label="Location level" value={locationLevel} onChange={(event) => { setLocationLevel(event.target.value); if (event.target.value === 'municipality') setBarangayFilter(''); setExpandedMunicipality(null); }}><option value="municipality">Municipalities</option><option value="barangay">Barangays</option></select></label>
-            <label className="reports-secondary-filter"><span>Coverage priority</span><select aria-label="Coverage priority" value={coverageFilter} onChange={(event) => { setCoverageFilter(event.target.value); setExpandedMunicipality(null); }}><option value="attention">Low or no scholars</option><option value="none">No scholars only</option><option value="low">Low coverage only</option></select></label>
-          </div>
+            onBarangayChange={(value) => { setBarangayFilter(value); setExpandedMunicipality(null); }}
+            onQueryChange={setQuery} onCoverageChange={(value) => { setCoverageFilter(value); setExpandedMunicipality(null); }} />
           <div className="reports-table-wrap">
             <table>
               <thead><tr><th>Location</th><th>{locationLevel === 'municipality' ? 'Barangay coverage' : 'Municipality'}</th><th>Active scholars</th><th>Priority</th></tr></thead>
