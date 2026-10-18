@@ -997,6 +997,7 @@ function ExaminationManagement({ token }) {
   const [scheduleSaveError, setScheduleSaveError] = useState('');
   const [attendanceSaveError, setAttendanceSaveError] = useState('');
   const [attendanceSavingId, setAttendanceSavingId] = useState(null);
+  const [attendanceDownloading, setAttendanceDownloading] = useState(false);
   const [activeExamMunicipalities, setActiveExamMunicipalities] = useState(() => {
     try { return JSON.parse(localStorage.getItem('activeExamMunicipalities') || '[]'); } catch { return []; }
   });
@@ -1210,23 +1211,16 @@ function ExaminationManagement({ token }) {
     examinations.some((exam) => exam.municipality === applicant.municipality)
   )).length;
 
-  const downloadAttendanceList = (exam) => {
-    const records = applicants.filter((applicant) => applicant.municipality === exam.municipality);
-    downloadCsv({
-      filename: `attendance-${exam.municipality}-${new Date().toISOString().slice(0, 10)}.csv`,
-      rows: [
-        ['Control number', 'Applicant', 'Email', 'Municipality', 'Venue', 'Attendance', 'Recorded at'],
-        ...records.map((applicant) => [
-          applicant.controlNo,
-          applicant.name,
-          applicant.email,
-          applicant.municipality,
-          exam.venue,
-          applicant.attendanceStatus || 'Pending',
-          applicant.appearedAt ? new Date(applicant.appearedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' }) : '',
-        ]),
-      ],
-    });
+  const downloadAttendanceList = async (exam) => {
+    if (attendanceDownloading || applicantsLoadError) return;
+    setAttendanceDownloading(true);
+    setAttendanceSaveError('');
+    try {
+      const { downloadAttendanceDocument } = await import('./utils/attendanceDocument');
+      await downloadAttendanceDocument({ exam, applicants, dateLabel: formatExamDateRange(exam.date, exam.endDate) });
+    } catch (error) {
+      setAttendanceSaveError(error.message || 'Unable to prepare the attendance Word document. Please try again.');
+    } finally { setAttendanceDownloading(false); }
   };
 
   const updateAttendance = async (applicant, status) => {
@@ -1322,7 +1316,7 @@ function ExaminationManagement({ token }) {
             <div className="exam-activation-panel">
               <div><strong>Exam Activation</strong><small>{activeExamMunicipalities.includes(selectedExam.municipality) ? 'Schedule active. Online questions still require Present attendance.' : 'Applicants cannot access this examination yet.'}</small></div>
               <div className="exam-activation-actions">
-                <button type="button" className="exam-attendance-button" onClick={() => downloadAttendanceList(selectedExam)}><Download size={14} />Download attendance</button>
+                <button type="button" className="exam-attendance-button" disabled={attendanceDownloading || Boolean(applicantsLoadError)} onClick={() => downloadAttendanceList(selectedExam)}><Download size={14} />{attendanceDownloading ? 'Preparing Word file...' : 'Download attendance (.docx)'}</button>
                 <button type="button" className={`exam-activation-button ${activeExamMunicipalities.includes(selectedExam.municipality) ? 'active' : ''}`} onClick={() => toggleExamActivation(selectedExam.municipality)}>{activeExamMunicipalities.includes(selectedExam.municipality) ? 'Deactivate exam' : 'Activate exam'}</button>
               </div>
             </div>

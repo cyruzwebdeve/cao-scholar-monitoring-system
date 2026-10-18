@@ -435,3 +435,6 @@
 2026-10-18 - Reports geographic-filter release df8b723 deployed; separate Municipality/Barangay controls and styles verified live over HTTP 200. API healthy/database connected; no API/database changes.
 
 2026-10-18 - Simplified the Reports priority-location toolbar into four aligned controls and removed View by. Results automatically show municipality summaries province-wide or barangays within a selected municipality. Frontend 125 tests, lint and build passed; deployment requested.
+2026-10-18 - Simplified Reports toolbar release 2c89925 deployed; unified four-control layout/styles and removal of View by verified live, API healthy/database connected.
+
+2026-10-18 - Replaced the examination attendance CSV/Excel-openable download with a genuine Word DOCX, preserving municipality scope and all seven attendance fields. Added landscape table, repeating headers, clear file label and generation/error handling. Frontend 131 tests, lint/build and DOCX validation passed; deployment requested.

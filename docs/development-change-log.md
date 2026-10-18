@@ -8634,3 +8634,30 @@ Frontend suite: 125 passed, zero failures. ESLint, production build and git diff
 
 ### Limitations, rollback and recommended next work
 Existing low/no-coverage criteria can hide well-covered locations; this behavior is intentionally unchanged. Geographic selections affect only Priority locations, not other report cards or graduating-scholar exports. After rollout, test desktop/phone layout and a controlled staff CSV export. Reverting this frontend commit restores the former toolbar/manual view selector with no data rollback. Public rollout observations follow below.
+
+### Deployment observation
+Published commit 2c89925 to origin/main through the existing hosting pipeline. The live homepage now references index-Yxv5aGIJ.js; Dashboard-B2QwCabL.js returns HTTP 200 JavaScript with all four toolbar controls and unified search layout, and without View by or Location level labels. Dashboard-D08UiqyL.css returns HTTP 200 with the unified filter/search styles. Public API health returns HTTP 200 with database connected. This verifies public frontend/code/style rollout and backend availability, not an authenticated end-to-end report session. No production records, document contents or exports were accessed or changed during rollout verification.
+
+
+## 2026-10-18 - Download examination attendance as Word
+
+**TL;DR**
+- Examination staff now download attendance as a genuine .docx Word document instead of the former CSV opened in Excel.
+- The same municipality-scoped records and seven fields are retained in a landscape table with repeating column headers.
+- No attendance-record, API, database, role or configuration changes; unrelated CSV exports remain available.
+- Frontend 131 tests, lint/build and independent ZIP/XML validation passed; deployment requested for testing.
+
+### Objective and previous/new behavior
+Replace the attendance downloadable format with Word as requested. The previous Download attendance action produced a CSV file rather than a native Excel workbook. It now produces a standards-based Office Open XML Word package with .docx extension and matching MIME, not an HTML document renamed as Word. The button explicitly identifies the Word format, shows preparation progress, prevents duplicate requests and reports generation failures in the existing attendance error area.
+
+### Roles, workflow, implementation and data flow
+Existing authorized Examination staff open the same examination/assigned-applicant drawer. A lazy-loaded attendanceDocument utility uses the already installed JSZip dependency to build the Word package in the browser; no new dependency or server request is introduced. Record selection remains the existing exact municipality match. Control number, applicant name, email, municipality, venue, attendance status and recorded-at time are preserved; missing attendance remains Pending. Recorded timestamps and generated filename date use Asia/Manila. The document includes examination municipality, venue, displayed date range and generation time. Its seven-column A4 landscape table uses fixed column widths, cell padding/borders, no row splitting and repeating header rows for longer lists. Empty lists contain the table header and an explicit empty-state note.
+
+### Changed files and system impacts
+Dashboard.jsx; utils/attendanceDocument.js; tests/attendanceDocument.test.js; required change logs. API/backend/database/schema/migration/configuration and account-role assignments: no impact. Security/privacy: XML escapes text and removes invalid XML characters; filenames are sanitized; no external resources, macros or private URLs are added. The file contains the same applicant fields already included in the prior download and should be handled as personal data. Temporary browser object URLs are revoked after download. Accessibility/UX: native download button clearly states .docx, disables on generation or applicant-load errors, and reports errors; Word has an actual header row and text-based table. Existing examination attendance persistence/scoring gates are unchanged. Other CSV exports and legacy payment-oriented areas are untouched, with the latter retained outside the approved payroll-list-generation workflow boundary. Deployment uses the existing main-branch hosting pipeline; no migration or infrastructure change is required.
+
+### Validation
+All 131 frontend tests passed; lint, production build and git diff --check passed, with the existing large-bundle warning. New tests verify real DOCX parts/relationships and MIME, seven columns, municipality-only rows, all original fields and Pending fallback, Manila timestamps, safe XML/text, empty lists, sanitized .docx filenames and the UI's lazy Word action while preserving other CSV exports. An independent Python standard-library check validated ZIP integrity and parsed every XML/relationship part of a synthetic 80-record DOCX, verifying 81 seven-cell rows including the repeatable header. No production data or attendance writes were used. Backend tests were not rerun for this frontend-only export-format change.
+
+### Limitations, rollback and recommended next work
+The generated document was structurally validated but not rendered in Microsoft Word in this environment. Post-deployment, download a controlled attendance list and check print pagination in the staff's Word version. The existing municipality-based record scope is deliberately preserved rather than changed to another exam/year-selection rule. CSV imports and other exports are not converted. Revert this frontend commit to restore the former attendance CSV; no data rollback is needed. Public rollout observations follow below.
