@@ -488,3 +488,6 @@
 
 2026-10-18 - Added native smooth scrolling for Scholar Portal section links on desktop/mobile, scoped to the Scholar document and disabled for reduced-motion users. Existing offsets, fixed rail and workflows unchanged. Frontend 179 tests, lint/build passed. Not deployed.
 2026-10-18 - User requested deployment of the verified smooth-scroll update through the connected main-branch pipeline; reduced-motion preference retained, no API/data changes.
+2026-10-18 - Smooth-scroll release 1c74582 deployed; live Scholar-only smooth scrolling and reduced-motion safeguard CSS verified HTTP 200, API healthy/database connected. No production records accessed or changed.
+
+2026-10-19 - Refined result-review/acceptance guidance and redesigned the Assigned Applicants attendance dialog with a wider responsive layout, search/filter, totals, save feedback and locked-result explanations. Existing acceptance, attendance, activation and DOCX behavior preserved. Backend 399 pass/1 skip, frontend 187 pass, lint/build passed; deployment requested.

@@ -1,3 +1,4 @@
+import AssignedApplicantsModal from './components/AssignedApplicantsModal';
 import MetricDetailsCard from './components/MetricDetailsCard';
 import ApplicantEligibilityFilter from './components/ApplicantEligibilityFilter';
 import { matchesApplicantEligibility } from './utils/applicantEligibilityFilter';
@@ -1318,23 +1319,7 @@ function ExaminationManagement({ token }) {
           {!filteredExaminations.length && <div className="exam-no-results"><Search size={24} /><strong>No examination venues found</strong><span>Try another search term or status filter.</span><button type="button" onClick={() => { setExamQuery(''); setExamStatusFilter('all'); }}>Clear filters</button></div>}
         </div>
       </section>
-      {selectedExam && (
-        <div className="exam-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedExam(null); }}>
-          <section className="exam-applicant-modal" role="dialog" aria-modal="true" aria-labelledby="exam-applicant-modal-title">
-            <div className="exam-modal-header"><div><span>ASSIGNED APPLICANTS</span><h3 id="exam-applicant-modal-title">{selectedExam.municipality}</h3><p>{selectedExam.venue} · {formatExamDateRange(selectedExam.date, selectedExam.endDate)}</p></div><button type="button" className="exam-modal-close" onClick={() => setSelectedExam(null)} aria-label="Close applicant list">×</button></div>
-            <div className="exam-activation-panel">
-              <div><strong>Exam Activation</strong><small>{activeExamMunicipalities.includes(selectedExam.municipality) ? 'Schedule active. Online questions still require Present attendance.' : 'Applicants cannot access this examination yet.'}</small></div>
-              <div className="exam-activation-actions">
-                <button type="button" className="exam-attendance-button" disabled={attendanceDownloading || Boolean(applicantsLoadError)} onClick={() => downloadAttendanceList(selectedExam)}><Download size={14} />{attendanceDownloading ? 'Preparing Word file...' : 'Download attendance (.docx)'}</button>
-                <button type="button" className={`exam-activation-button ${activeExamMunicipalities.includes(selectedExam.municipality) ? 'active' : ''}`} onClick={() => toggleExamActivation(selectedExam.municipality)}>{activeExamMunicipalities.includes(selectedExam.municipality) ? 'Deactivate exam' : 'Activate exam'}</button>
-              </div>
-            </div>
-            {attendanceSaveError && <div className="exam-attendance-error" role="alert">{attendanceSaveError}</div>}
-            <div className="exam-attendance-heading"><div><strong>Examination Attendance</strong><span>Present moves an applicant to For review unless a later outcome exists. It does not record completion or a passing result. Paper is primary; online access is optional.</span></div><small>Changes save automatically</small></div>
-            <div className="exam-applicant-list">{applicantsLoadError ? <Notification tone="error" title="Unable to load assigned applicants">{applicantsLoadError}</Notification> : applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).length ? applicants.filter((applicant) => applicant.municipality === selectedExam.municipality).map((applicant) => <div className="exam-applicant-row" key={applicant.id}><span className="exam-applicant-avatar">{applicant.initials || applicant.name?.slice(0, 2).toUpperCase() || 'AP'}</span><div><strong>{applicant.name || 'Unnamed applicant'}</strong><small>{applicant.email || applicant.controlNo || 'No contact information'}</small><small>Application/review status: {applicant.status || 'Pending'}</small></div><label className="exam-attendance-control"><span>Attendance</span><select value={applicant.attendanceStatus === 'Present' ? 'Present' : 'Pending'} disabled={attendanceSavingId === applicant.id || Number.isFinite(applicant.examScore)} onChange={(event) => updateAttendance(applicant, event.target.value)} aria-label={`Attendance for ${applicant.name || 'applicant'}`}><option value="Pending">Pending</option><option value="Present">Present</option></select></label></div>) : <p className="exam-empty-state">No applicants are currently assigned to this venue.</p>}</div>
-          </section>
-        </div>
-      )}
+      {selectedExam && <AssignedApplicantsModal key={selectedExam.municipality} exam={selectedExam} dateLabel={formatExamDateRange(selectedExam.date, selectedExam.endDate)} applicants={applicants.filter(applicant => applicant.municipality === selectedExam.municipality)} active={activeExamMunicipalities.includes(selectedExam.municipality)} applicantsLoadError={applicantsLoadError} attendanceSaveError={attendanceSaveError} attendanceSavingId={attendanceSavingId} attendanceDownloading={attendanceDownloading} onDownload={() => downloadAttendanceList(selectedExam)} onToggleActivation={() => toggleExamActivation(selectedExam.municipality)} onAttendanceChange={updateAttendance} onClose={() => setSelectedExam(null)} />}
       {showDeactivateAllDialog && (
         <div className="admin-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowDeactivateAllDialog(false); }}>
           <section className="admin-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="deactivate-all-title" aria-describedby="deactivate-all-description">

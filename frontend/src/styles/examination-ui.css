@@ -1,0 +1,79 @@
+/* Staff examination review and attendance surfaces only. */
+.rm-drawer .rm-scholar-action { display: grid; gap: 12px; margin-top: 24px; padding-top: 20px; }
+.rm-drawer .rm-scholar-action > button { min-height: 46px; margin: 0; line-height: 1.5; white-space: normal; }
+.rm-drawer .rm-scholar-action > .rm-reevaluate-trigger { margin: 0; }
+.rm-review-note, .rm-acceptance-notice { display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 13px 14px; border: 1px solid #dce6e0; border-radius: 10px; background: #f7faf8; color: #4b6554; }
+.rm-review-note > svg, .rm-acceptance-notice > svg { flex-shrink: 0; margin-top: 2px; }
+.rm-review-note > div, .rm-acceptance-notice > div { min-width: 0; }
+.rm-review-note strong, .rm-acceptance-notice strong { display: block; color: #34583f; font-size: 13px; line-height: 1.5; }
+.rm-review-note p, .rm-acceptance-notice p { margin: 5px 0 0; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.rm-review-note { background: #f0f6fb; border-color: #d6e4ef; color: #516a7b; }
+.rm-review-note strong { color: #345a74; }
+.rm-acceptance-notice.waiting { background: #fffaf0; border-color: #ebdfbe; color: #756342; }
+.rm-acceptance-notice.waiting strong { color: #715323; }
+.rm-acceptance-notice.complete, .rm-acceptance-notice.ready { background: #f0f8f1; border-color: #cde3d0; }
+.rm-drawer .rm-scholar-action > button:disabled:not(.accepted) { background: #edf1ee; color: #67786c; border: 1px solid #dce4df; }
+dialog.exam-roster-modal { position: fixed; inset: 0; display: flex; flex-direction: column; width: min(820px, calc(100vw - 40px)); height: min(860px, calc(100dvh - 48px)); max-width: calc(100vw - 24px); max-height: calc(100dvh - 48px); box-sizing: border-box; margin: auto; padding: 0; border: 1px solid #dae6de; border-radius: 18px; overflow: hidden; color: #284c35; background: #fff; box-shadow: 0 24px 80px #10281e40; }
+dialog.exam-roster-modal:not([open]) { display: none; }
+dialog.exam-roster-modal::backdrop { background: #10281e99; }
+.exam-roster-modal .exam-modal-header { flex-shrink: 0; align-items: flex-start; gap: 16px; padding: 22px 24px 18px; background: #f7faf6; }
+.exam-roster-modal .exam-modal-header > div { min-width: 0; }
+.exam-roster-modal .exam-modal-header h3 { font-size: 24px; line-height: 1.3; overflow-wrap: anywhere; }
+.exam-roster-modal .exam-modal-header p { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.exam-roster-modal .exam-modal-close { display: grid; place-items: center; flex-shrink: 0; min-width: 44px; min-height: 44px; border: 1px solid #dce7df; border-radius: 10px; background: #fff; }
+.exam-roster-toolbar { flex-shrink: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 16px 24px; border-bottom: 1px solid #e5ece7; }
+.exam-roster-activation { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 10px; min-width: 0; }
+.exam-roster-activation > strong { font-size: 13px; }
+.exam-roster-activation > p { flex-basis: 100%; margin: 0; color: #62776a; font-size: 12px; line-height: 1.6; }
+.exam-roster-state { padding: 3px 8px; border-radius: 6px; background: #edf1ee; color: #64766a; font-size: 11px; font-weight: 700; }
+.exam-roster-state.active { background: #e5f3e8; color: #267340; }
+.exam-roster-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.exam-roster-actions button { min-height: 44px; padding: 10px 12px; font-size: 12px; white-space: normal; }
+.exam-roster-actions button:disabled { opacity: .6; cursor: wait; }
+.exam-roster-attendance { flex-shrink: 0; padding: 16px 24px 8px; }
+.exam-roster-attendance > div { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.exam-roster-attendance h4 { margin: 0; color: #2a4a35; font-size: 15px; }
+.exam-roster-save-state { display: inline-flex; align-items: center; gap: 5px; color: #367747; font-size: 11px; }
+.exam-roster-attendance > p { display: flex; align-items: flex-start; gap: 7px; margin: 9px 0 0; color: #667c6e; font-size: 12px; line-height: 1.65; }
+.exam-roster-attendance > p svg { flex-shrink: 0; margin-top: 3px; }
+.exam-roster-error { flex-shrink: 0; padding: 0 24px; max-height: 130px; overflow-y: auto; }
+.exam-roster-filters { flex-shrink: 0; display: grid; grid-template-columns: minmax(0, 1fr) 165px; align-items: end; gap: 12px; padding: 12px 24px; }
+.exam-roster-search { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid #d4e1d8; border-radius: 9px; }
+.exam-roster-search svg { flex-shrink: 0; }
+.exam-roster-search input { width: 100%; min-width: 0; padding: 10px 0; border: 0; outline: none; background: transparent; color: #2b4c35; font: inherit; font-size: 13px; }
+.exam-roster-filter { display: grid; gap: 5px; min-width: 0; color: #62776a; font-size: 11px; }
+.exam-roster-filter select { width: 100%; min-height: 44px; padding: 8px 10px; border: 1px solid #d4e1d8; border-radius: 9px; color: #345b40; background: #fff; font: inherit; font-size: 13px; }
+.exam-roster-modal .exam-applicant-list { display: flex; flex-direction: column; gap: 10px; min-height: 0; padding: 4px 24px 18px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.exam-roster-modal .exam-applicant-row { display: grid; grid-template-columns: 38px minmax(0, 1fr) 130px; flex-shrink: 0; gap: 12px; padding: 14px; border-color: #dfe9e2; }
+.exam-roster-modal .exam-applicant-row strong, .exam-roster-modal .exam-applicant-row small { white-space: normal; overflow-wrap: anywhere; overflow: visible; text-overflow: clip; }
+.exam-roster-modal .exam-applicant-row strong { font-size: 13px; line-height: 1.5; }
+.exam-roster-modal .exam-applicant-row small { font-size: 12px; line-height: 1.6; color: #6c7f72; }
+.exam-roster-application-status { display: block; margin-top: 4px; color: #596f61; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.exam-roster-modal .exam-roster-lock { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #68796e; }
+.exam-roster-modal .exam-attendance-control { min-width: 0; gap: 6px; }
+.exam-roster-modal .exam-attendance-control > span { font-size: 10px; }
+.exam-roster-modal .exam-attendance-control select { min-height: 44px; font-size: 13px; font-weight: 600; }
+.exam-roster-modal .exam-attendance-control select:disabled { cursor: not-allowed; opacity: .7; }
+.exam-roster-empty { padding: 24px 12px; text-align: center; color: #6a7e70; font-size: 13px; line-height: 1.7; }
+.exam-roster-footer { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 13px 24px; border-top: 1px solid #e5ece7; background: #f8fbf9; color: #5d7365; font-size: 12px; }
+.exam-roster-modal button:focus-visible, .exam-roster-modal select:focus-visible, .exam-roster-search:focus-within { outline: 3px solid #87b85d; outline-offset: 2px; }
+@media (max-width: 720px) {
+  .exam-roster-toolbar { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .exam-roster-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+@media (max-width: 600px), (max-height: 650px) {
+  dialog.exam-roster-modal { height: auto; max-height: calc(100dvh - 24px); overflow-y: auto; }
+  .exam-roster-modal .exam-applicant-list { flex: none; overflow-y: visible; }
+  .exam-roster-modal .exam-modal-header { position: sticky; top: 0; z-index: 1; }
+}
+@media (max-width: 600px) {
+  .exam-roster-modal .exam-modal-header { padding: 16px; }
+  .exam-roster-toolbar, .exam-roster-attendance, .exam-roster-filters { padding-inline: 16px; }
+  .exam-roster-filters { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .exam-roster-filter { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; }
+  .exam-roster-search input, .exam-roster-filter select, .exam-roster-modal .exam-attendance-control select { font-size: 16px; }
+  .exam-roster-modal .exam-applicant-list { padding-inline: 16px; }
+  .exam-roster-modal .exam-applicant-row { grid-template-columns: 35px minmax(0, 1fr); gap: 10px; padding: 12px; }
+  .exam-roster-modal .exam-attendance-control { grid-column: 2; }
+  .exam-roster-footer { padding: 13px 16px; }
+}

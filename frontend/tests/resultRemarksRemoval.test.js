@@ -14,7 +14,9 @@ test('legacy notes remain retained for historical exports and publication stays 
   assert.match(source, /key: 'notes', label: 'Remarks'/);
   assert.match(source, /notes: payload.result.remarks/);
   assert.match(source, /<PublishResultModal/);
-  assert.match(source, /Saving keeps the result under review/);
+  assert.match(source, /<ResultReviewNotice/);
+  const reminder = await readFile(new URL('../src/components/ResultReviewNotice.jsx', import.meta.url), 'utf8');
+  assert.match(reminder, /Saving keeps the result under review/);
   const css = await readFile(new URL('../src/styles/admin.css', import.meta.url), 'utf8');
   assert.doesNotMatch(css, /rm-reevaluation-remarks/);
   assert.match(css, /\.rm-reevaluation-scores input:focus/);

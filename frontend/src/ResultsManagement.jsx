@@ -1,3 +1,5 @@
+import ResultReviewNotice from './components/ResultReviewNotice';
+import ResultAcceptanceNotice from './components/ResultAcceptanceNotice';
 import MetricDetailsCard from './components/MetricDetailsCard';
 import { resultMetricRows } from './utils/metricDetails';
 import PublishResultModal from './components/PublishResultModal';
@@ -402,10 +404,10 @@ export default function ResultsManagement({ token }) {
           <footer className="rm-scholar-action">
             {!reevaluationOpen && <button type="button" className="rm-reevaluate-trigger" disabled={selected.isScholar || publishing || ((!selected.resultId) && (deliveryMode !== 'paper' || selected.attendanceStatus !== 'Present' || !selected.examId))} onClick={() => { setReevaluationOpen(true); setReevaluationScore(String(selected.score ?? '')); setReevaluationError(''); }}><RefreshCw size={16} />{selected.isScholar ? 'Result locked after acceptance' : !selected.resultId ? deliveryMode === 'online' ? 'Online score computed on submission' : selected.attendanceStatus !== 'Present' ? 'Confirm Present attendance before recording' : 'Record paper score' : 'Correct score'}</button>}
             {selected.resultId && !selected.resultPublishedAt && !selected.isScholar && !reevaluationOpen && <button type="button" className="rm-save-reevaluation" disabled={publishing || reevaluating} onClick={() => { setPublishError(''); setPublishConfirmation({ ...selected }); }}>{publishing ? 'Publishing…' : 'Publish reviewed result'}</button>}
-            {reevaluationOpen && <p>Saving keeps the result under review. Correcting a published score hides the outcome until CAO republishes it.</p>}
+            {reevaluationOpen && <ResultReviewNotice />}
             {acceptError && <Notification tone="error" title="Result processing needs attention">{acceptError}</Notification>}
-            <button type="button" className={selected.isScholar ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || (selected.resultId && !selected.resultPublishedAt) || publishing || acceptingScholar || (!selected.isScholar && !intake?.initialVerified)} onClick={acceptAsScholar}><UserCheck size={16} />{acceptingScholar ? 'Recording decision…' : selected.isScholar ? 'Accepted as Scholar' : selected.status !== 'Passed' ? 'Latest exam result is not passing' : selected.resultId && !selected.resultPublishedAt ? 'Publish result before acceptance' : !intake?.initialVerified ? 'Verify initial documents before acceptance' : 'Accept as Scholar'}</button>
-            <small>{selected.isScholar ? `Scholar account active${selected.scholarId ? ` · ${selected.scholarId}` : ''}.` : selected.status === 'Passed' ? 'A versioned recommendation snapshot and the staff decision will be recorded.' : 'Only applicants whose latest examination result is passing can be accepted.'}</small>
+            <ResultAcceptanceNotice result={selected} initialVerified={intake?.initialVerified} />
+            <button type="button" aria-describedby="rm-acceptance-guidance" className={selected.isScholar ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || (selected.resultId && !selected.resultPublishedAt) || publishing || acceptingScholar || (!selected.isScholar && !intake?.initialVerified)} onClick={acceptAsScholar}><UserCheck size={16} />{acceptingScholar ? 'Recording decision...' : selected.isScholar ? 'Accepted as Scholar' : 'Accept as Scholar'}</button>
           </footer>
         </aside>
       </div>

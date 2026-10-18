@@ -59,8 +59,10 @@ test('examination download uses the lazy Word generator without changing other C
   assert.match(handler, /import\('\.\/utils\/attendanceDocument'\)/);
   assert.match(handler, /downloadAttendanceDocument\(\{ exam, applicants, dateLabel:/);
   assert.doesNotMatch(handler, /downloadCsv|\.csv|\.xlsx/);
-  assert.match(source, /Download attendance \(\.docx\)/);
-  assert.match(source, /attendanceDownloading \|\| Boolean\(applicantsLoadError\)/);
+  assert.match(source, /<AssignedApplicantsModal/);
+  const modal = await readFile(new URL('../src/components/AssignedApplicantsModal.jsx', import.meta.url), 'utf8');
+  assert.match(modal, /Download attendance \(\.docx\)/);
+  assert.match(modal, /attendanceDownloading \|\| Boolean\(applicantsLoadError\)/);
   assert.match(source, /import \{ buildRecordRows, downloadCsv \}/);
 });
 
