@@ -463,3 +463,6 @@
 2026-10-18 - Report-card alternative release a25cef9 pushed/deployed; live staff and Scholar guidance verified HTTP 200 JavaScript, API healthy/database connected. Authenticated production upload/acceptance remains for test-account smoke verification.
 
 2026-10-18 - Made live administrative summary cards open searchable, paginated, read-only record modals across Dashboard, Applicants, Scholars, Examination Results, Documents, Announcements, Reports, Staff and operational logs; added permission-scoped dashboard detail reads and exact applicant/activity metric membership. Backend 398 pass/1 skip, frontend 165 pass, lint/build passed; user requested deployment.
+2026-10-18 - Clickable summary-card release 4a1c60a deployed; live record-dialog/search/pagination and responsive CSS verified HTTP 200, API healthy/database connected, unauthenticated detail access denied HTTP 401. No production records accessed or changed.
+
+2026-10-18 - Explicitly centered the shared record-details dialog horizontally and vertically in the viewport, overriding global margin resets while retaining responsive sizing/scrolling. Frontend 166 tests passed; lint/build verification and requested deployment recorded in detailed log. No data/API/access changes.

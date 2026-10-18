@@ -67,3 +67,10 @@ test('all operational summary card sections use the common read-only modal; rest
   const dashboard = await readFile(new URL('../src/Dashboard.jsx', import.meta.url), 'utf8');
   assert.match(dashboard, /!overview\.metricAccess\[stat\.metric\]/); assert.match(dashboard, /data\.metricRecords/);
 });
+
+
+test('record dialog explicitly centers in the viewport despite global margin resets', async () => {
+  const css = await readFile(new URL('../src/styles/metric-details.css', import.meta.url), 'utf8');
+  const dialogRule = css.match(/\.metric-records-modal \{([^}]+)\}/)[1];
+  for (const declaration of ['position: fixed', 'inset: 0', 'margin: auto', 'overflow: auto', 'max-height: calc(100dvh - 40px)', 'width: min(900px, calc(100vw - 32px))']) assert.ok(dialogRule.includes(declaration), declaration);
+});

@@ -8899,3 +8899,27 @@ Full safe regression runner: backend 398 passed, zero failures, one database-dep
 
 ### Limitations, rollback and recommended next work
 These are live operational summary cards, not an expansion of legacy placeholder/template cards or report charts into new workflows. Lists use current authorized data; records can change between a summary refresh and modal opening. Most workspace modals reuse the already-loaded full dataset and update with workspace refresh; Dashboard and Activity Logs read complete server-paginated populations on demand. Name/municipality search is provided for main Dashboard. Exact production backend revision cannot be inferred from a healthy health endpoint alone. Recommended test-account smoke checks: click Active Scholars, search a known test name, traverse pages and close via Escape; compare count/membership with Scholars, inspect Forfeited Accounts and a Passed Applicants card, and repeat with a staff account lacking directory permission. Check responsive dialog layout on mobile. Revert this release to roll back; there are no data writes/migrations to undo. Future scaling can replace in-memory workspace modal datasets with matching server-paginated membership endpoints if directory sizes demand it.
+
+### Deployment observation
+Published release 4a1c60a to origin/main through the existing connected hosting pipeline. The live homepage now references index-CnRGUQr5.js; Dashboard-B1_4J0tu.js returns HTTP 200 JavaScript with the dashboard metric endpoint/access flags, native labelled record dialog, searchable/paginated record details and applicant metricRecords integration. Dashboard-I4jxm1Sg.css returns HTTP 200 CSS with the modal and keyboard-focus styles. Public API health returns HTTP 200, healthy with database connected. The new dashboard details URL refuses unauthenticated access with HTTP 401. This confirms public frontend/style rollout, API availability and an authentication boundary, not an authenticated production record interaction or an exact backend revision. No production applicant records were read or changed. The documented test-account checks remain recommended for client acceptance.
+
+
+## 2026-10-18 - Center record-details modal in the viewport
+
+**TL;DR**
+- Shared record-details modals now explicitly center horizontally and vertically instead of appearing at the upper-left edge.
+- All staff summary-card modals inherit the fix; mobile viewport bounds and internal scrolling remain intact.
+- CSS-only behavior change; no API, database, permissions or record-content changes.
+- Frontend 166 tests passed; lint/build and whitespace checks verified before publication. User requested deployment for testing.
+
+### Objective, previous and new behavior
+The client screenshot showed the new dialog pinned near the top-left. Its stylesheet relied on native dialog centering defaults without explicitly restoring auto margins after the application's global reset. The shared modal now sets fixed viewport positioning, inset: 0 and margin: auto, with overflow: auto. Its existing bounded width/height and responsive controls remain unchanged. This centers all record-details modals, not the underlying dashboard content.
+
+### Roles, implementation and files
+Affects authorized staff using clickable summary cards throughout the administrative workspaces, including Billing/Payroll accounts. Only frontend/src/styles/metric-details.css and the matching frontend/tests/metricDetails.test.js regression change, plus required logs. The test asserts explicit fixed positioning, zero insets, automatic margins, viewport bounds and scrolling on the modal's own rule. Record loading, search, pagination, focus management and close behavior are unchanged.
+
+### Impacts
+API/database/configuration: none; no migration, settings or dependencies. Security/privacy: no permission, endpoint, personal-data or private-file handling changes. Accessibility: native dialog semantics, focus containment/restoration, keyboard close and search remain unchanged; viewport limits retain access to content on small screens. Deployment: publish the frontend CSS update through the existing connected main-branch pipeline. No backend behavior change or production record write is required. Product scope remains official payroll-list generation; legacy payment-oriented functionality is retained unchanged and not extended.
+
+### Validation, limitations and rollback
+All 166 frontend tests passed, including the centering regression and existing modal/data-access behavior checks. ESLint, production build and git diff --check passed before deployment; existing non-fatal large-chunk build warning remains. Backend tests are not rerun for this CSS-only fix. No browser-rendered screenshot or authenticated production interaction is claimed. Recommended client check: refresh, open Active Scholars and confirm centering on desktop/mobile. Rollback by reverting the CSS/test change; no stored data needs reversal.
