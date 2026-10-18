@@ -13,3 +13,5 @@
 .initial-verification-documents .document-view-button { min-height: 29px; padding: 5px 8px; border-radius: 7px; background: #f0f9f3; color: #177a40; font-size: 9px; font-weight: 700; gap: 4px; }
 .initial-verification-documents .document-view-button svg { width: 13px; height: 13px; }
 @media (max-width: 520px) { .initial-verification-documents .scholars-document-entry { gap: 8px; padding: 10px; } .initial-verification-documents .document-view-button { min-height: 44px; } }
+
+.initial-academic-alternative-note { margin: 0 0 12px; color: #536159; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }

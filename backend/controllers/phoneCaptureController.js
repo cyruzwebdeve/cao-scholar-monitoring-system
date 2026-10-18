@@ -1,3 +1,4 @@
+const { isFirstYearEntry } = require('../services/initialAcademicEvidence');
 const { canRecordInitial } = require('../services/passerIntake');
 const { randomUUID } = require('node:crypto');
 const prisma = require('../config/prisma');
@@ -42,7 +43,7 @@ const create = safe(async (req, res) => {
   if (!['Public', 'Private'].includes(type)) throw failure('Correct the school classification first.', 409);
   await prisma.phone_capture_sessions.deleteMany({ where: { owner_admin_id: req.user.id, applicant_id: applicantId, academic_period_id: periodId } });
   if (await prisma.phone_capture_sessions.count({ where: { owner_admin_id: req.user.id } }) >= 3) throw failure('Close another phone capture session before opening one.', 409);
-  const context = { scholarName: [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' '), periodLabel: `${period.school_year} · ${period.semester}`, requirementKeys: INITIAL_KEYS.filter((key) => type === 'Private' || key !== 'tuition_receipt') };
+  const context = { scholarName: [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' '), periodLabel: `${period.school_year} · ${period.semester}`, requirementKeys: INITIAL_KEYS.filter((key) => (type === 'Private' || key !== 'tuition_receipt') && (key !== 'report_card' || isFirstYearEntry(application.school_plan?.incomingYearLevel))) };
   const session = await prisma.phone_capture_sessions.create({ data: { id: randomUUID(), owner_admin_id: req.user.id, applicant_id: applicantId, academic_period_id: periodId, context, expires_at: new Date(Date.now() + 20 * 60 * 1000) } });
   res.locals.auditTargetId = applicantId;
   return res.status(201).json({ session: { id: session.id, expiresAt: session.expires_at, remainingMs: Math.max(0, new Date(session.expires_at).getTime() - Date.now()), ...context } });

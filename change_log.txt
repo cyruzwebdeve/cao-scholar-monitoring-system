@@ -457,3 +457,6 @@
 
 2026-10-18 - Added Applicant Eligibility criteria filtering for the seven application declarations, plus any/none choices; combines with existing filters and filtered CSV export, resets pagination and Clear filters. Declaration-only, no eligibility/priority/acceptance change. Validation follows; not deployed.
 2026-10-18 - User requested deployment of the verified Applicants eligibility-declaration filter through the existing main-branch hosting pipeline; no API/database changes.
+2026-10-18 - Applicants eligibility-filter release 78e4588 deployed; live declaration-only selector/options and responsive styles verified HTTP 200. API healthy/database connected; no eligibility or proof decisions changed.
+
+2026-10-18 - Added optional Grade 12 Report Card as an initial COG alternative for incoming/first-year college; either approved academic document satisfies initial verification, while continuing COG and CAO-only initial uploads remain unchanged. Backend 388 pass/1 skip, frontend 157 pass, lint/build passed; deployment requested.

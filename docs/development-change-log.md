@@ -8831,3 +8831,33 @@ Final validation: 154 frontend tests passed with zero failures. ESLint, producti
 
 ### Deployment preparation
 Remote main was confirmed at release 2c79b41 before publication. Only the Applicants integration, eligibility selector/helper/styles, regression tests and required logs are included. Unrelated work, generated test output and synthetic preview files are excluded. No migration, API, credentials or production records need to change.
+
+### Deployment observation
+Published release 78e4588 to origin/main through the existing hosting pipeline. The live homepage references index-BYY8lwLY.js; Dashboard-NI4Nselv.js returns HTTP 200 JavaScript with the Eligibility criteria selector, All/Any/None choices and declaration-not-proof guidance. Dashboard-usa4MJnf.css returns HTTP 200 CSS with the new filter and responsive toolbar styles. Public API health returns HTTP 200 with database connected. This verifies public frontend/code/style rollout and backend availability, not an authenticated directory/CSV interaction. No applicant records or eligibility decisions were accessed or changed during verification.
+
+
+## 2026-10-18 - Optional first-year Grade 12 report card for initial requirements
+
+**TL;DR**
+- Incoming/first-year college applicants can use either an approved COG or Grade 12 report card as initial academic evidence; both are not required.
+- CAO uploads initial files individually; applicants/scholars retain private View access. Higher-year and continuing COG requirements are unchanged.
+- Existing versioned document JSON storage is reused; no migration, credentials or new upload permissions.
+- Backend 388 tests passed (one database test skipped), frontend 157 passed; lint, build and whitespace checks passed. User requested deployment through the existing hosting pipeline.
+
+### Objective and behavior
+Allow incoming/first-year students without registrar-issued college grades to use their Grade 12 report card in the initial CAO intake. Previously initial verification always required COG. Now an approved COG OR report card satisfies the initial academic-document group for a confirmed first-year entry. The report card remains optional when COG exists; COG is not additionally required when the report card is approved. All other required documents, private-school tuition receipts, and posted/locked Passer List safeguards remain unchanged. Missing, pending or rejected evidence cannot complete the group. Higher-year or unknown entry-year records still require COG. Continuing submissions still require college grades and cannot substitute a report card.
+
+### Roles, implementation and data flow
+The original application school-plan incoming year controls eligibility, not a later scholar year. Backend initialAcademicEvidence recognizes explicit first-year/incoming-first-year values. Initial requirement definitions add report_card; staff uploads validate the entry year before storage and again within transactional updates. Checklist metadata marks COG/report card as alternatives; common initial approval evaluates either approved file only for eligible entries. Continuing access, acceptance, certification/payroll-list readiness use that shared rule. Staff phone capture includes report cards only for qualifying applications. Private storage, per-document approval/version history and authenticated owner/staff streaming are reused. Report cards are never aliased to continuing grades. Scholar progress counts the academic group once, including when both files exist. Existing report-card files remain viewable after entry-year metadata changes but do not waive higher-year COG. Initial uploads remain CAO-owned, not applicant self-service.
+
+### Files and system areas
+Backend: initialAcademicEvidence helper; requirementWaves, continuingSchedule, documentReview, passerIntake services; application, passer-list, lifecycle-report, phone-capture controllers and tests. Frontend: initialAcademicEvidence helper, InitialRequirementCapture, InitialVerificationDocuments and styles, ApplicantDashboard, ScholarDashboard, PhoneCapturePage and tests. Both required logs updated; prior deployment observations retained.
+
+### API, data, security and deployment impacts
+API: additive initial report_card key, optional/alternative-group metadata and entry-year response field; existing upload/view endpoints reused. Database: no schema or migration, existing JSON/waves store the added document. Configuration: no new environment variables/settings. Security/privacy: existing staff-only initial uploads, active-account, period, ownership, private-file access and concurrency protections retained; no public document URLs or real records in tests. Accessibility: labeled controls, textual guidance/status and existing accessible View buttons retained; note wraps responsively. Deployment: commit/push using the existing connected frontend/backend hosting pipeline; no production record mutations during validation. Product scope still ends at official payroll-list generation. Legacy payment-oriented functionality is retained unchanged, not extended into release, claims, reconciliation or monetary audit.
+
+### Validation
+Full safe runner: backend 388 passed, zero failures, one database-dependent migration test skipped; frontend 157 passed, zero failures. Added tests cover first-year recognition, either-document approval, missing/pending/rejected evidence, higher/unknown-year restrictions, private tuition requirements, optional checklist metadata, private preview, staff upload restrictions, separate continuing COG and one-group progress counts. Existing document/access regressions pass. ESLint, production frontend build and git diff --check passed; existing large-chunk build advisory is non-fatal. Synthetic tests do not mutate production. Browser visual and authenticated production end-to-end tests are not performed here.
+
+### Limitations, rollback and next work
+Only explicit first-year entry metadata activates the alternative; incorrect source data should be corrected rather than bypassed. Recommended live smoke test: use a test first-year applicant with other initial files approved and report card without COG, verify initial acceptance readiness, both document View paths and separate continuing COG. Rollback by reverting the release, preserving all stored report-card files. Older code will not recognize report-card-only approval and would require COG again; no destructive cleanup is appropriate.

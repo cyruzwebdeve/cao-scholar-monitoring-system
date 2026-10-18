@@ -13,12 +13,12 @@ const {
 
 test('scholar checklist uses individual requirement records instead of a combined applicant scan', () => {
   assert.equal(REQUIREMENT_DEFINITIONS.initial_requirement_scan, undefined);
-  ['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form', 'tuition_receipt']
+  ['tax_exemption', 'indigency', 'valid_id', 'grades', 'report_card', 'registration_form', 'tuition_receipt']
     .forEach((key) => assert.ok(REQUIREMENT_DEFINITIONS[key]));
 });
 
 test('admin owns all initial files while Scholar owns the same academic files only in continuing submission', () => {
-  assert.deepEqual(ADMIN_INITIAL_REQUIREMENT_KEYS, ['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form', 'tuition_receipt']);
+  assert.deepEqual(ADMIN_INITIAL_REQUIREMENT_KEYS, ['tax_exemption', 'indigency', 'valid_id', 'grades', 'report_card', 'registration_form', 'tuition_receipt']);
   assert.deepEqual(SCHOLAR_SEMESTER_REQUIREMENT_KEYS, ['grades', 'registration_form', 'tuition_receipt']);
   assert.equal(SCHOLAR_SEMESTER_REQUIREMENT_KEYS.every((key) => ADMIN_INITIAL_REQUIREMENT_KEYS.includes(key)), true);
 });

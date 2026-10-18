@@ -101,6 +101,27 @@ const review = async (key, document, decision = 'approved', extra = {}) => {
   const res = response(); await reviewDocument({ params: { applicationId: '1', requirementKey: key }, body: { academicPeriodId: 10, submissionWave: 'continuing', versionId: document.versionId, revision: document.revision, decision, notes: decision === 'rejected' ? 'Please provide a readable scan.' : '', ...extra }, user: { id: 11 } }, res); return res;
 };
 
+test('first-year report card can replace initial COG but cannot replace continuing college grades', async () => {
+  setup({ schoolType: 'public' }); application.school_plan = { incomingYearLevel: '1st Year' };
+  for (const key of ['tax_exemption', 'valid_id', 'report_card', 'registration_form']) assert.equal((await adminUpload(key)).statusCode, 200);
+  assert.equal((await ownDocument('report_card')).statusCode, 200);
+  const initial = clone(getWaveSet(application.initial_docs, 10, 'initial'));
+  assert.equal(initial.requirements.grades, undefined);
+  assert.equal((await scholarUpload('report_card')).statusCode, 400);
+  assert.equal((await scholarUpload('grades')).statusCode, 200);
+  assert.deepEqual(getWaveSet(application.initial_docs, 10, 'initial'), initial);
+  assert.equal(getWaveSet(application.initial_docs, 10, 'continuing').requirements.report_card, undefined);
+  assert.equal(getWaveSet(application.initial_docs, 10, 'continuing').requirements.grades.status, 'Pending');
+});
+
+test('initial report-card uploads fail closed for higher-year or unknown entry level', async () => {
+  for (const year of ['2nd Year', null]) {
+    setup(); application.school_plan = { incomingYearLevel: year };
+    assert.equal((await adminUpload('report_card')).statusCode, 400);
+    assert.equal(writes, 0);
+  }
+});
+
 test('Admin can record all six initial files for Private scholars without overwriting legacy data', async () => {
   setup();
   for (const key of ['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form', 'tuition_receipt']) assert.equal((await adminUpload(key)).statusCode, 200);

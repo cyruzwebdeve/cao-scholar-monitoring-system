@@ -1,3 +1,4 @@
+import { initialRequirementItemsFor, initialRequirementProgress, isFirstYearEntry } from './utils/initialAcademicEvidence';
 import DocumentViewButton from './components/DocumentViewButton';
 import Notification from './components/Notification';
 import {
@@ -220,11 +221,12 @@ function ScholarDashboard({ token, user, onLogout }) {
   const unreadScholarNotifications = scholarNotifications.filter(({ isRead }) => !isRead);
   const latestScholarNotification = scholarNotifications[0] || null;
   const activeRequirementsTab = requirementsTab || (continuingOpen ? 'continuing' : 'initial');
-  const initialRequirementItems = [{ key: 'tax_exemption', label: 'Certificate of Tax Exemption' }, { key: 'indigency', label: 'Barangay Indigency (optional)' }, { key: 'valid_id', label: 'Valid ID' }, ...visibleRequirementItems];
-  const requiredInitialItems = initialRequirementItems.filter(({ key }) => key !== 'indigency');
-  const initialApprovedCount = requiredInitialItems.filter(({ key }) => getRequirementReviewStatus(initialRequirements[key]) === 'approved').length;
+  const entryYearLevel = portalData.requirementWave?.entryYearLevel || application?.school_plan?.incomingYearLevel;
+  const initialRequirementItems = initialRequirementItemsFor(visibleRequirementItems, entryYearLevel, initialRequirements);
+  const initialProgress = initialRequirementProgress(initialRequirementItems, initialRequirements, entryYearLevel, getRequirementReviewStatus);
+  const initialApprovedCount = initialProgress.approved;
   const summaryApproved = continuingOpen ? approvedCount : initialApprovedCount;
-  const summaryTotal = continuingOpen ? uploadableRequirements.length : requiredInitialItems.length;
+  const summaryTotal = continuingOpen ? uploadableRequirements.length : initialProgress.total;
   const nextStep = buildScholarNextStep({ loading: loadingRequirements, error: requirementsError,
     continuingOpen, uploadsClosed: requirementsSubmissionClosed, rejectedCount, missingCount, pendingReviewCount,
     requirementsComplete, listed: useCertification ? certificationDate !== 'Not generated' : Boolean(payrollList), guidance: portalData.guidance });
@@ -380,7 +382,7 @@ function ScholarDashboard({ token, user, onLogout }) {
         {application && <>
           <section className="scholar-stat-grid scholar-summary-strip" aria-label="Scholarship summary">
             <article className="scholar-stat-card"><div className="scholar-stat-icon green"><CheckCircle2 size={21} aria-hidden="true" /></div><div><span>Scholarship status</span><strong>{portalData.scholar?.isActive ? 'Active Scholar' : 'Scholar record unavailable'}</strong><small>{portalData.scholar?.issuedAt ? 'Approved ' + formatPortalDate(portalData.scholar.issuedAt) : 'Approval date unavailable'}</small></div></article>
-            <article className="scholar-stat-card"><div className="scholar-stat-icon blue"><FileCheck2 size={21} aria-hidden="true" /></div><div><span>{continuingOpen ? 'Continuing documents' : 'Initial documents'}</span><strong>{summaryApproved} of {summaryTotal} approved</strong><progress value={summaryApproved} max={summaryTotal || 1} aria-label="Approved documents" /><small>{continuingOpen ? 'Your uploads - selected submission period' : 'Managed by CAO - optional indigency excluded'}</small></div></article>
+            <article className="scholar-stat-card"><div className="scholar-stat-icon blue"><FileCheck2 size={21} aria-hidden="true" /></div><div><span>{continuingOpen ? 'Continuing documents' : 'Initial documents'}</span><strong>{summaryApproved} of {summaryTotal} approved</strong><progress value={summaryApproved} max={summaryTotal || 1} aria-label="Approved documents" /><small>{continuingOpen ? 'Your uploads - selected submission period' : 'Managed by CAO - required document groups'}</small></div></article>
             <article className="scholar-stat-card"><div className="scholar-stat-icon gold"><ClipboardList size={21} aria-hidden="true" /></div><div><span>{useCertification ? 'Certification list' : 'Payroll list'}</span><strong>{listDate}</strong><small>{listSubtitle}</small></div></article>
           </section>
           <ScholarNextStep step={nextStep} timeline={portalData.guidance?.timeline} onOpenRequirements={openRequirements} />
@@ -390,8 +392,8 @@ function ScholarDashboard({ token, user, onLogout }) {
               <div className="scholar-panel-heading"><div><p className="scholar-eyebrow">KEEP YOUR RECORD COMPLETE</p><h2 id="scholar-requirements-title" tabIndex={-1}>Requirements</h2><p className="scholar-panel-copy">Initial documents are managed by CAO. Continuing documents are your uploads.</p></div><FileCheck2 size={22} className="scholar-heading-icon" aria-hidden="true" /></div>
               <ScholarRequirementsTabs activeTab={activeRequirementsTab} onChange={setRequirementsTab} />
               <div role="tabpanel" id="scholar-panel-initial" aria-labelledby="scholar-tab-initial" hidden={activeRequirementsTab !== 'initial'}>
-            <section className="scholar-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">INITIAL SUBMISSION · CAO UPLOAD</p><h2>Initial requirements</h2></div></div><p className="scholar-panel-copy">CAO records these documents. You do not need to upload this initial set again.</p><div className="scholar-requirements-list">{initialRequirementItems.map(({ key, label }) => <div key={key} className="scholar-requirement-item"><div><strong>{label}</strong><small>{initialRequirements[key]?.fileName || (key === 'indigency' ? 'Optional · provide if available' : 'Awaiting CAO upload')}</small></div><div className="initial-document-actions">{initialRequirements[key]?.fileName && <DocumentViewButton token={token} label={label} endpoint={`/applications/me/requirements/${key}/file?academicPeriodId=${portalData.requirementWave?.academicPeriodId}&submissionWave=initial`} />}
-<span className={'scholar-review-badge ' + getRequirementReviewStatus(initialRequirements[key])}>{key === 'indigency' && !initialRequirements[key]?.fileName ? 'Optional' : requirementStatusLabels[getRequirementReviewStatus(initialRequirements[key])]}</span></div></div>)}</div></section>
+            <section className="scholar-panel"><div className="scholar-panel-heading"><div><p className="scholar-eyebrow">INITIAL SUBMISSION · CAO UPLOAD</p><h2>Initial requirements</h2></div></div><p className="scholar-panel-copy">CAO records these documents. You do not need to upload this initial set again.</p>{isFirstYearEntry(entryYearLevel) && <p className="scholar-panel-copy">For incoming/first-year college, either an approved COG or Grade 12 report card satisfies the initial academic record. You do not need both. Continuing submissions still require college grades.</p>}<div className="scholar-requirements-list">{initialRequirementItems.map(({ key, label, optional }) => <div key={key} className="scholar-requirement-item"><div><strong>{label}</strong><small>{initialRequirements[key]?.fileName || (optional ? 'Optional · provide if available' : 'Awaiting CAO upload')}</small></div><div className="initial-document-actions">{initialRequirements[key]?.fileName && <DocumentViewButton token={token} label={label} endpoint={`/applications/me/requirements/${key}/file?academicPeriodId=${portalData.requirementWave?.academicPeriodId}&submissionWave=initial`} />}
+<span className={'scholar-review-badge ' + getRequirementReviewStatus(initialRequirements[key])}>{optional && !initialRequirements[key]?.fileName ? 'Optional' : requirementStatusLabels[getRequirementReviewStatus(initialRequirements[key])]}</span></div></div>)}</div></section>
 
               </div>
               <div role="tabpanel" id="scholar-panel-continuing" aria-labelledby="scholar-tab-continuing" hidden={activeRequirementsTab !== 'continuing'}>

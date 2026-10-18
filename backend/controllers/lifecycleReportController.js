@@ -88,7 +88,7 @@ const getLifecycleReport = async (req, res) => {
       const requirement = requirementByApplicant.get(scholar.applicant_id);
       const school = schedule ? resolveScholarSchool({ applicant: applicants.find((item) => item.id === scholar.applicant_id), requirement, application,
         schoolById: new Map(catalog.map((item) => [item.id, item])), schoolByName: new Map(catalog.map((item) => [normalizeSchoolName(item.name), item])), schoolHistory: histories.get(scholar.applicant_id) }) : null;
-      const access = evaluateContinuingSchedule({ schedule, period, docs: application?.initial_docs, applicantId: scholar.applicant_id, schoolType: school?.school_type, legacyPeriodId });
+      const access = evaluateContinuingSchedule({ schedule, period, docs: application?.initial_docs, applicantId: scholar.applicant_id, schoolType: school?.school_type, legacyPeriodId, entryYearLevel: application?.school_plan?.incomingYearLevel });
       return evaluateBillingEligibility({ isActive: scholar.is_active, alreadyBilled: false,
         initialDocs: getEffectiveRequirements(projectContinuingAccess(application?.initial_docs, period.id, access), period.id, legacyPeriodId),
         requirement: application?.initial_docs?.requirementSets || access.visible && schedule ? undefined : requirement,

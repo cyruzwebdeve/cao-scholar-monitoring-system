@@ -1,5 +1,5 @@
 const { randomUUID, createHash } = require('node:crypto');
-const INITIAL_KEYS = Object.freeze(['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form', 'tuition_receipt']);
+const INITIAL_KEYS = Object.freeze(['tax_exemption', 'indigency', 'valid_id', 'grades', 'report_card', 'registration_form', 'tuition_receipt']);
 const CONTINUING_KEYS = Object.freeze(['grades', 'registration_form', 'tuition_receipt']);
 const WAVES = new Set(['initial', 'continuing']);
 const clone = (value) => JSON.parse(JSON.stringify(value || {}));

@@ -1,7 +1,7 @@
 const { PRIORITY_PROOFS } = require('./priorityEligibility');
-const { getWaveSet } = require('./requirementWaves');
+const { getWaveSet, INITIAL_KEYS } = require('./requirementWaves');
 
-const ADMIN_INITIAL_REQUIREMENT_KEYS = Object.freeze(['tax_exemption', 'indigency', 'valid_id', 'grades', 'registration_form', 'tuition_receipt']);
+const ADMIN_INITIAL_REQUIREMENT_KEYS = INITIAL_KEYS;
 const SCHOLAR_SEMESTER_REQUIREMENT_KEYS = Object.freeze(['grades', 'registration_form', 'tuition_receipt']);
 
 const REQUIREMENT_DEFINITIONS = Object.freeze({
@@ -9,6 +9,7 @@ const REQUIREMENT_DEFINITIONS = Object.freeze({
   indigency: Object.freeze({ label: 'Barangay Indigency', statusField: 'barangay_indigency_review_status' }),
   valid_id: Object.freeze({ label: 'Photocopy of ID (any valid ID)', statusField: 'valid_id_photocopy_review_status' }),
   grades: Object.freeze({ label: 'Certificate of Grades (previous semester attended)', statusField: 'grade_report_review_status' }),
+  report_card: Object.freeze({ label: 'Grade 12 Report Card (optional alternative to initial COG for incoming/1st-year college)', statusField: null }),
   registration_form: Object.freeze({ label: 'Registration Form (currently enrolled semester)', statusField: 'registration_form_review_status' }),
   tuition_receipt: Object.freeze({ label: 'Official Receipt of Tuition Fee', statusField: 'tuition_fee_receipt_review_status' }),
   ...PRIORITY_PROOFS,

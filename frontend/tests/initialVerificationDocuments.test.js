@@ -30,7 +30,7 @@ test('initial verification matches the Scholar submissions panel structure and d
 });
 test('View retains the original authenticated application, requirement and period scope', () => {
   const tree = Documents({ intake, token: 'synthetic' });
-  const rows = tree.props.children[1].props.children;
+  const rows = tree.props.children[2].props.children;
   const view = rows[0].props.children[1].props.children[1];
   assert.equal(view.props.endpoint, '/document-reviews/1/tax_exemption/file?academicPeriodId=10&submissionWave=initial');
   assert.equal(view.props.token, 'synthetic');

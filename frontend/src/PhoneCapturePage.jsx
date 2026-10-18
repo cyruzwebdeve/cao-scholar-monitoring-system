@@ -7,7 +7,7 @@ import AuthPageShell from './components/AuthPageShell';
 import LoginForm from './components/LoginForm';
 import { readCaptureFile, renderCapture } from './utils/documentCapture';
 import './styles/document-capture.css';
-const labels = { tax_exemption: 'Certificate of Tax Exemption', indigency: 'Barangay Indigency (optional)', valid_id: 'Photocopy of ID', grades: 'Certificate of Grades', registration_form: 'Registration Form', tuition_receipt: 'Official Receipt of Tuition Fee' };
+const labels = { tax_exemption: 'Certificate of Tax Exemption', indigency: 'Barangay Indigency (optional)', valid_id: 'Photocopy of ID', grades: 'Certificate of Grades', report_card: 'Grade 12 Report Card (optional, incoming/1st-year college)', registration_form: 'Registration Form', tuition_receipt: 'Official Receipt of Tuition Fee' };
 export default function PhoneCapturePage({ token, user, onLogin, onLogout }) {
   const sessionId = new URLSearchParams(window.location.search).get('session') || '';
   const [session, setSession] = useState(null), [key, setKey] = useState(''), [photo, setPhoto] = useState(null), [notice, setNotice] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [camera, setCamera] = useState(false), [expired, setExpired] = useState(false);
