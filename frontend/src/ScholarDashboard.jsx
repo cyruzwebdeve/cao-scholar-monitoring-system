@@ -1,3 +1,5 @@
+import { containScholarProfileFocus } from './utils/scholarMobileLayout';
+import ScholarMobileNavigation from './components/ScholarMobileNavigation';
 import { initialRequirementItemsFor, initialRequirementProgress, isFirstYearEntry } from './utils/initialAcademicEvidence';
 import DocumentViewButton from './components/DocumentViewButton';
 import Notification from './components/Notification';
@@ -13,7 +15,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ScholarNextStep from './components/ScholarNextStep';
 import ScholarUpdates from './components/ScholarUpdates';
 import ScholarRequirementsTabs from './components/ScholarRequirementsTabs';
@@ -23,6 +25,7 @@ import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh, TIME_SENSITIVE_DATA
 import './styles/scholar-portal.css';
 import './styles/portal-responsive.css';
 import './styles/scholar-portal-layout.css';
+import './styles/scholar-mobile.css';
 
 const requirementItems = [
   { key: 'grades', label: 'Certificate of Grades (previous semester attended)' },
@@ -54,6 +57,7 @@ function ScholarDashboard({ token, user, onLogout }) {
   const [uploadingRequirement, setUploadingRequirement] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const profileDialog = useRef(null);
   const [refreshRequest, setRefreshRequest] = useState(0);
   const [notice, setNotice] = useState(null);
   const [latestAnnouncement, setLatestAnnouncement] = useState(null);
@@ -174,6 +178,18 @@ function ScholarDashboard({ token, user, onLogout }) {
     window.addEventListener('keydown', closeOverlays);
     return () => window.removeEventListener('keydown', closeOverlays);
   }, [notificationsOpen, profileOpen]);
+
+  useEffect(() => {
+    if (!profileOpen) return undefined;
+    const dialog = profileDialog.current;
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    dialog?.querySelector('button')?.focus();
+    const containFocus = event => containScholarProfileFocus(event, dialog, document.activeElement);
+    window.addEventListener('keydown', containFocus);
+    return () => { window.removeEventListener('keydown', containFocus); document.body.style.overflow = previousOverflow; previousFocus?.focus(); };
+  }, [profileOpen]);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -319,12 +335,13 @@ function ScholarDashboard({ token, user, onLogout }) {
               id="scholar-notifications-toggle"
               aria-label="Notifications"
               aria-expanded={notificationsOpen}
+              aria-controls="scholar-notification-history"
               onClick={() => setNotificationsOpen((open) => !open)}
             >
               <Bell size={19} />{hasActionNotifications && <i />}
             </button>
             {notificationsOpen && (
-              <div className="scholar-notification-dropdown">
+              <div className="scholar-notification-dropdown" id="scholar-notification-history" role="region" aria-label="Scholar notifications">
                 <div><strong>Notifications</strong><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={15} /></button></div>
                 {scholarNotifications.map((notification) => <article className={notification.isRead ? 'read' : 'unread'} key={notification.id}><strong>{notification.title}</strong><p>{notification.message}</p>{notification.reference && <small>Reference: {notification.reference}</small>}{!notification.isRead && <button type="button" onClick={() => markNotificationRead(notification.id)}>Mark as read</button>}</article>)}
                 {summaryNotifications.map((notification) => <p key={notification}>{notification}</p>)}
@@ -339,7 +356,7 @@ function ScholarDashboard({ token, user, onLogout }) {
       <main className="scholar-dashboard-main">
         {profileOpen && (
           <div className="scholar-profile-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProfileOpen(false); }}>
-            <section className="scholar-profile-dialog" role="dialog" aria-modal="true" aria-labelledby="scholar-profile-title">
+            <section ref={profileDialog} tabIndex={-1} className="scholar-profile-dialog" role="dialog" aria-modal="true" aria-labelledby="scholar-profile-title">
               <div className="scholar-panel-heading">
                 <div><p className="scholar-eyebrow">SCHOLAR PROFILE</p><h2 id="scholar-profile-title">Scholar information</h2></div>
                 <button type="button" className="scholar-dialog-close" onClick={() => setProfileOpen(false)} aria-label="Close profile"><X size={18} /></button>
@@ -376,11 +393,12 @@ function ScholarDashboard({ token, user, onLogout }) {
           <div><p className="scholar-eyebrow">YOUR SCHOLAR WORKSPACE</p><h1>Welcome, {user?.firstName || displayName}</h1><div className="scholar-welcome-meta"><span>Scholar ID <strong>{portalData.scholar?.scholarId || 'Not assigned'}</strong></span><span><CalendarDays size={14} aria-hidden="true" />{portalData.activePeriod?.schoolYear || 'Academic period unavailable'}{portalData.activePeriod?.semester ? ' - ' + portalData.activePeriod.semester : ''}</span></div></div>
           <button type="button" className="scholar-profile-shortcut" onClick={() => setProfileOpen(true)}><UserRound size={17} aria-hidden="true" />My profile<ChevronRight size={15} aria-hidden="true" /></button>
         </section>
+        {application && <ScholarMobileNavigation />}
         {(announcementError || notificationsError) && <Notification tone="error" title="Unable to refresh updates" action={<button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry updates</button>}>{announcementError || notificationsError} Announcements or notifications may be out of date.</Notification>}
         {requirementsError && <Notification tone="error" title="Unable to load scholar requirements" action={<button type="button" onClick={() => setRefreshRequest((request) => request + 1)}>Retry now</button>}>{requirementsError}</Notification>}
         {loadingRequirements && !application && <Notification tone="progress" title="Loading scholar records">Please wait while your records are loaded.</Notification>}
         {application && <>
-          <section className="scholar-stat-grid scholar-summary-strip" aria-label="Scholarship summary">
+          <section className="scholar-stat-grid scholar-summary-strip" id="scholar-summary" tabIndex={-1} aria-label="Scholarship summary">
             <article className="scholar-stat-card"><div className="scholar-stat-icon green"><CheckCircle2 size={21} aria-hidden="true" /></div><div><span>Scholarship status</span><strong>{portalData.scholar?.isActive ? 'Active Scholar' : 'Scholar record unavailable'}</strong><small>{portalData.scholar?.issuedAt ? 'Approved ' + formatPortalDate(portalData.scholar.issuedAt) : 'Approval date unavailable'}</small></div></article>
             <article className="scholar-stat-card"><div className="scholar-stat-icon blue"><FileCheck2 size={21} aria-hidden="true" /></div><div><span>{continuingOpen ? 'Continuing documents' : 'Initial documents'}</span><strong>{summaryApproved} of {summaryTotal} approved</strong><progress value={summaryApproved} max={summaryTotal || 1} aria-label="Approved documents" /><small>{continuingOpen ? 'Your uploads - selected submission period' : 'Managed by CAO - required document groups'}</small></div></article>
             <article className="scholar-stat-card"><div className="scholar-stat-icon gold"><ClipboardList size={21} aria-hidden="true" /></div><div><span>{useCertification ? 'Certification list' : 'Payroll list'}</span><strong>{listDate}</strong><small>{listSubtitle}</small></div></article>

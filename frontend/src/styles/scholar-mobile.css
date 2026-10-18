@@ -1,0 +1,91 @@
+/* Phone-first refinements, isolated from applicant and administrator screens. */
+.scholar-mobile-navigation { display: none; }
+@media (max-width: 760px) {
+  .scholar-dashboard .scholar-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-height: 68px; gap: 8px; padding: 10px max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left)); }
+  .scholar-dashboard .scholar-brand { gap: 8px; min-width: 0; }
+  .scholar-dashboard .scholar-brand-mark { width: 36px; height: 36px; flex-shrink: 0; }
+  .scholar-dashboard .scholar-brand > div:last-child { min-width: 0; }
+  .scholar-dashboard .scholar-brand span { font-size: 10px; }
+  .scholar-dashboard .scholar-brand strong { max-width: 130px; font-size: 14px; }
+  .scholar-dashboard .scholar-header-actions { gap: 4px; }
+  .scholar-dashboard .scholar-user-chip { display: none; }
+  .scholar-dashboard .scholar-icon-button, .scholar-dashboard .scholar-logout { min-width: 44px; min-height: 44px; justify-content: center; }
+  .scholar-dashboard .scholar-logout { gap: 5px; padding: 8px; font-size: 12px; }
+  .scholar-dashboard .scholar-dashboard-main { width: min(620px, calc(100% - 24px)); padding-top: 18px; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+  .scholar-dashboard .scholar-dashboard-main > *, .scholar-dashboard .scholar-content-stack > * { min-width: 0; }
+  .scholar-dashboard .scholar-compact-welcome { gap: 12px; padding-bottom: 16px; }
+  .scholar-dashboard .scholar-compact-welcome > div { min-width: 0; }
+  .scholar-dashboard .scholar-compact-welcome h1 { font-size: clamp(23px, 6vw, 30px); line-height: 1.3; overflow-wrap: anywhere; }
+  .scholar-dashboard .scholar-welcome-meta > span { flex-wrap: wrap; font-size: 12px; overflow-wrap: anywhere; }
+  .scholar-dashboard .scholar-profile-shortcut { min-height: 44px; font-size: 12px; padding: 10px 12px; }
+  .scholar-dashboard .scholar-mobile-navigation { position: sticky; top: 8px; z-index: 20; order: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 0 0 16px; padding: 5px; border: 1px solid #d8e5da; border-radius: 13px; background: #fff; box-shadow: 0 5px 18px #143e2410; }
+  .scholar-dashboard .scholar-mobile-navigation a { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 44px; padding: 7px 4px; border-radius: 8px; color: #315d3f; font-size: 12px; font-weight: 650; text-decoration: none; }
+  .scholar-dashboard .scholar-mobile-navigation a:active { background: #edf6ee; }
+  .scholar-dashboard .scholar-mobile-navigation svg { flex-shrink: 0; }
+  .scholar-dashboard .scholar-mobile-navigation span { min-width: 0; overflow-wrap: anywhere; text-align: center; }
+  .scholar-dashboard #requirements, .scholar-dashboard #scholar-updates, .scholar-dashboard #scholar-summary { scroll-margin-top: 86px; }
+  .scholar-dashboard .scholar-next-step { padding: 18px; }
+  .scholar-dashboard .scholar-next-step-main { gap: 12px; }
+  .scholar-dashboard .scholar-next-step-main > div { min-width: 0; }
+  .scholar-dashboard .scholar-next-step h2 { font-size: 20px; overflow-wrap: anywhere; }
+  .scholar-dashboard .scholar-next-step-main > div > p:last-child { font-size: 14px; line-height: 1.65; }
+  .scholar-dashboard .scholar-primary-action { min-height: 48px; font-size: 14px; }
+  .scholar-dashboard .scholar-compact-timeline summary { min-height: 44px; align-content: center; font-size: 13px; }
+  .scholar-dashboard .scholar-compact-timeline li { flex-wrap: wrap; }
+  .scholar-dashboard .scholar-compact-timeline li small { margin-left: 25px; }
+  .scholar-dashboard .scholar-panel { padding: 16px; }
+  .scholar-dashboard .scholar-panel-heading { gap: 10px; }
+  .scholar-dashboard .scholar-panel-heading > div { min-width: 0; }
+  .scholar-dashboard .scholar-panel-copy { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+  .scholar-dashboard .scholar-history-button { min-height: 44px; font-size: 12px; }
+  .scholar-dashboard .scholar-update-item { margin-top: 14px; padding: 14px; }
+  .scholar-dashboard .scholar-update-item p { font-size: 14px; line-height: 1.75; }
+  .scholar-dashboard .scholar-update-item .scholar-update-kicker { font-size: 12px; }
+  .scholar-dashboard .scholar-update-item .scholar-text-button { min-height: 44px; font-size: 13px; }
+  .scholar-dashboard .scholar-update-meta, .scholar-dashboard .scholar-update-meta time { font-size: 11px; }
+  .scholar-dashboard .scholar-updates-empty { padding: 14px; }
+  .scholar-dashboard .scholar-updates-empty > div { min-width: 0; }
+  .scholar-dashboard .scholar-requirements-tabs { margin: 16px 0; gap: 4px; padding: 4px; }
+  .scholar-dashboard .scholar-requirements-tabs button { min-width: 0; min-height: 70px; padding: 10px 9px; }
+  .scholar-dashboard .scholar-requirements-tabs strong { font-size: 13px; }
+  .scholar-dashboard .scholar-requirements-tabs small { font-size: 12px; }
+  .scholar-dashboard .scholar-requirements-panel .scholar-requirement-row, .scholar-dashboard .scholar-requirements-panel .scholar-requirement-item { display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 12px; padding: 16px 0; }
+  .scholar-dashboard .scholar-requirement-copy strong, .scholar-dashboard .scholar-requirement-item strong { font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+  .scholar-dashboard .scholar-requirements-panel .scholar-requirement-copy small, .scholar-dashboard .scholar-requirements-panel .scholar-requirement-item small { max-width: 100%; font-size: 12px; line-height: 1.65; white-space: normal; overflow-wrap: anywhere; }
+  .scholar-dashboard .scholar-requirement-actions, .scholar-dashboard .initial-document-actions { display: flex; width: 100%; min-width: 0; flex-wrap: wrap; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; }
+  .scholar-dashboard .initial-document-actions { justify-content: space-between; }
+  .scholar-dashboard .document-view-button { min-height: 44px; min-width: 80px; font-size: 13px; }
+  .scholar-dashboard .scholar-upload-button { display: flex; align-items: center; flex: 1 1 110px; min-width: 0; min-height: 48px; font-size: 14px; box-sizing: border-box; }
+  .scholar-dashboard .scholar-upload-button input { height: 100%; }
+  .scholar-dashboard .scholar-upload-button:focus-within { outline: 3px solid #87b85d; outline-offset: 3px; }
+  .scholar-dashboard .scholar-review-badge { max-width: 100%; font-size: 11px; overflow-wrap: anywhere; }
+  .scholar-dashboard .scholar-continuing-period select { min-width: 0; max-width: 100%; min-height: 48px; font-size: 16px; }
+  .scholar-dashboard .scholar-requirements-deadline { flex-wrap: wrap; overflow-wrap: anywhere; }
+  .scholar-dashboard .scholar-summary-strip .scholar-stat-card { padding: 15px; min-height: 84px; }
+  .scholar-dashboard .scholar-summary-strip .scholar-stat-card span { font-size: 12px; }
+  .scholar-dashboard .scholar-summary-strip .scholar-stat-card small { font-size: 12px; }
+  .scholar-dashboard .scholar-notification-dropdown { position: fixed; top: 76px; right: max(12px, env(safe-area-inset-right)); left: max(12px, env(safe-area-inset-left)); width: auto; max-height: min(580px, calc(100dvh - 100px)); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 12px; }
+  .scholar-dashboard .scholar-notification-dropdown button { min-width: 44px; min-height: 44px; }
+  .scholar-dashboard .scholar-notification-dropdown > div { position: sticky; top: -12px; padding: 6px 0; background: #fff; z-index: 1; }
+  .scholar-dashboard .scholar-notification-dropdown article p, .scholar-dashboard .scholar-notification-dropdown > p { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+  .scholar-dashboard .scholar-notification-dropdown article strong { overflow-wrap: anywhere; }
+  .scholar-dashboard .scholar-notification-dropdown article button { padding: 8px 10px; font-size: 13px; }
+  .scholar-dashboard .scholar-profile-backdrop { padding: 0; }
+  .scholar-dashboard .scholar-profile-dialog { width: 100%; height: 100dvh; max-height: 100dvh; box-sizing: border-box; padding: 0 16px max(20px, env(safe-area-inset-bottom)); border: 0; border-radius: 0; overscroll-behavior: contain; }
+  .scholar-dashboard .scholar-profile-dialog > .scholar-panel-heading { position: sticky; top: 0; z-index: 1; padding: max(16px, env(safe-area-inset-top)) 0 16px; background: #fff; border-bottom: 1px solid #e1ebe3; }
+  .scholar-dashboard .scholar-dialog-close { min-width: 44px; min-height: 44px; flex-shrink: 0; }
+  .scholar-dashboard .scholar-profile-grid { min-width: 0; }
+  .scholar-dashboard .scholar-profile-grid > div { min-width: 0; }
+  .scholar-dashboard .scholar-profile-sectioned > div { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; }
+  .scholar-dashboard .scholar-profile-sectioned strong { text-align: left; max-width: 100%; overflow-wrap: anywhere; font-size: 14px; }
+  .scholar-dashboard .app-toast { top: 12px; left: 12px; right: 12px; width: auto; box-sizing: border-box; }
+  .scholar-dashboard .app-toast > button { min-width: 44px; min-height: 44px; }
+  .scholar-dashboard .app-toast p { overflow-wrap: anywhere; }
+  .scholar-dashboard .scholar-footer { line-height: 1.7; font-size: 12px; }
+}
+@media (max-width: 400px) {
+  .scholar-dashboard .scholar-compact-welcome { flex-direction: column; align-items: stretch; }
+  .scholar-dashboard .scholar-profile-shortcut { align-self: flex-start; }
+  .scholar-dashboard .scholar-mobile-navigation a { flex-direction: column; gap: 3px; font-size: 11px; min-height: 52px; }
+  .scholar-dashboard #requirements, .scholar-dashboard #scholar-updates, .scholar-dashboard #scholar-summary { scroll-margin-top: 96px; }
+}
