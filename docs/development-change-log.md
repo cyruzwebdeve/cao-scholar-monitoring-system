@@ -9094,7 +9094,7 @@ Successfully pushed release 1c74582 to origin/main, advancing remote main from 8
 - Result review now uses structured publication/acceptance notices instead of raw explanatory text and long disabled-button messages; the action keeps a concise consistent label.
 - Assigned Applicants uses a wider centred native dialog with clear activation/download controls, searchable/filterable attendance rows, venue totals and explanations for locked results; small screens receive a single scrollable layout.
 - Existing attendance, activation, score correction/publication, initial verification and acceptance rules/handlers remain unchanged. No API/database/security permission changes.
-- Full safe runner: backend 399 passed, one database-dependent test skipped; frontend 187 passed. Lint, build and whitespace checks passed. User requested deployment for testing.
+- Full safe runner: backend 399 passed, one database-dependent test skipped; frontend 187 passed. Lint, build and whitespace checks passed. Release 0dc3d2a deployed; live UI assets/styles and API health verified.
 
 ### Objective and previous/new behavior
 The supplied screenshots showed cramped activation controls and attendance rows, a constrained roster scroll area, and an unformatted score-review paragraph adjacent to an oversized disabled status button. The result footer now separates publication guidance from acceptance prerequisites in readable icon/text cards with consistent spacing and state colours. The acceptance button says Accept as Scholar (or Accepted as Scholar/Recording decision) while a linked notice explains passing-result, publication or initial-verification requirements. The original disabled expression and acceptance handler remain intact, including existing result-less passing paths; no new acceptance capability is introduced.
@@ -9118,3 +9118,27 @@ Local search/filter affects display only; DOCX export intentionally retains the 
 
 ### Deployment preparation
 Publish only these UI components/helpers/styles, integration regressions and required logs. Generated outputs and unrelated workspace changes are excluded. Publish with a normal non-force push so remote divergence cannot be overwritten, then verify public frontend content/styles and API health. Authenticated visual acceptance remains recommended and is not inferred from a healthy API.
+
+### Deployment observation
+Published release 0dc3d2a to origin/main, advancing remote main from 1c74582 through the existing connected hosting pipeline. The live homepage references index-BM314TkV.js. Dashboard-BII2PrWO.js returns HTTP 200 JavaScript containing the assigned-applicant search, Publication reminder and linked acceptance guidance. Dashboard-Cb88SVFq.css returns HTTP 200 CSS containing the new roster modal and result-notice styles. Public API health returns HTTP 200, healthy with database connected. This confirms public frontend/style rollout and API availability, not a rendered/authenticated attendance, result-publication or acceptance interaction. No production applicant data was read or changed. Use the documented test-account visual/workflow smoke checks for client acceptance.
+
+
+## 2026-10-19 - Admin and scholar legacy payout schedule layout
+
+**TL;DR**
+- Improved staff schedule cards and the scholar's latest schedule notification with clearer visual grouping and responsive spacing.
+- Existing recipients, notification text, email processing, schedule actions and stored records are unchanged.
+- Legacy payout/claim-related functionality is retained unchanged, not extended; approved product scope still ends at official payroll-list generation.
+- Validation: 188 frontend tests passed, including a new rendered-notice regression; lint, production build and whitespace checks passed. No deployment or authenticated visual browser verification performed.
+
+### Objective and previous/new behavior
+The staff card previously mixed instructions, a long claim reminder and comma-separated delivery counts; the scholar update displayed one dense paragraph. Staff cards now label date/time, venue and instructions, separate the existing reminder, display all five email-delivery counts as wrapping chips and place actions in a distinct footer. Scholar updates separate the exact existing reminder into a callout and group the reference and read action in a footer. Messages without the known reminder, including historical/cancellation messages, remain intact and do not gain a new reminder. The original message is never rewritten in storage.
+
+### Roles, implementation and data flow
+Authorized staff keep the same draft/edit/reschedule/cancel controls and disabled conditions. Scholars keep the same latest targeted update, notification history and mark-as-read callback. Rendering uses existing schedule/notification props; no extra request or duplicated schedule section is introduced. Shared admin preview uses the same updated card. All dynamic text remains React-escaped; all delivery states remain visible with text labels rather than color alone.
+
+### Files and impacts
+Changed frontend/src/PayoutSchedules.jsx, components/PayoutScheduleCard.jsx, components/PayoutSchedules.css, components/ScholarUpdates.jsx; added components/PayoutNotice.css and extended frontend/tests/payoutSchedules.test.js. API, database, configuration, authorization, privacy and email delivery: no impact. Accessibility: decorative icons are hidden, actions have 44px minimum targets, focus styling is retained/added and text wraps on narrow screens. Deployment: local changes only; production remains unchanged. Legacy payment-claim wording/actions are retained only for presentation compatibility, not new claim enforcement, disbursement confirmation, financial reconciliation or monetary auditing.
+
+### Validation, limitations and rollback
+188 frontend tests pass, including escaped message text, exactly one reminder, cancellation/legacy fallback, read-state controls and ordinary updates. Lint, production build and git diff --check pass. Build retains its existing large-chunk warning. No real records were changed and no emails sent. No authenticated browser or device visual verification was available; review at phone/desktop widths is recommended before deployment. Notification APIs expose a plain message rather than structured schedule facts, so the scholar message remains intact rather than guessing date/venue fields from prose. Roll back the listed frontend files together; no data rollback or migration is required. Examination-year archiving remains unimplemented and untouched.

@@ -45,3 +45,30 @@
 @media(max-width:400px){ .payout-recipients>header { flex-wrap:wrap; }.payout-filter-grid { grid-template-columns:1fr; }.payout-form-grid { grid-template-columns:1fr; }.payout-editor-steps { gap:10px; }.payout-editor-steps li { font-size:10px; }.payout-panel-heading h4 { font-size:13px; } }
 
 .payout-claim-notice { padding: 12px 14px; border: 1px solid #efd49a; border-radius: 9px; background: #fff9eb; color: #715018; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+
+/* Schedule cards: explicit detail blocks, delivery chips and separated actions. */
+.payout-schedule-card > header > div { min-width: 0; }
+.payout-schedule-card .payout-card-facts { display: grid; gap: 14px; padding: 16px; margin: 4px 0 18px; border: 1px solid #e2ebe5; border-radius: 10px; background: #f7faf8; }
+.payout-schedule-card .payout-card-detail { margin: 0; gap: 12px; }
+.payout-schedule-card .payout-card-detail > div { min-width: 0; }
+.payout-schedule-card .payout-card-detail p { margin: 3px 0; color: #294c37; font-size: 14px; line-height: 1.6; }
+.payout-schedule-card .payout-detail-label { display: block; color: #576f60; font-size: 11px; font-weight: 700; letter-spacing: .03em; }
+.payout-schedule-card .payout-instructions { margin: 0 0 16px; }
+.payout-schedule-card .payout-instructions p { margin: 5px 0 0; white-space: pre-wrap; }
+.payout-schedule-card .payout-claim-notice { display: flex; align-items: flex-start; gap: 10px; margin: 0; }
+.payout-claim-notice > svg { flex: 0 0 auto; margin-top: 2px; }
+.payout-claim-notice strong { display: block; }
+.payout-claim-notice p { margin: 4px 0 0; }
+.payout-workspace .payout-schedule-card > footer { display: flex; flex-direction: column; align-items: stretch; gap: 16px; margin-top: 18px; }
+.payout-delivery-summary > strong { font-size: 12px; }
+.payout-delivery-summary .payout-delivery-label { margin-left: 12px; font-size: 11px; color: #65796d; }
+.payout-delivery-summary ul { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 10px 0 0; }
+.payout-delivery-summary li { padding: 5px 8px; border-radius: 6px; background: #f0f4f1; color: #506557; font-size: 11px; }
+.payout-delivery-summary .payout-delivery--sent { background: #eaf6ee; color: #22643b; }
+.payout-delivery-summary .payout-delivery--failed { background: #fff0ed; color: #a33827; }
+.payout-workspace .payout-schedule-card footer > span { gap: 8px; }
+.payout-workspace .payout-schedule-card footer button { min-height: 44px; }
+@media (max-width: 700px) {
+  .payout-workspace .payout-schedule-card footer > span > button { flex: 1 1 140px; }
+  .payout-schedule-card .payout-card-facts { padding: 13px; }
+}

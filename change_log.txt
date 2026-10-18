@@ -491,3 +491,6 @@
 2026-10-18 - Smooth-scroll release 1c74582 deployed; live Scholar-only smooth scrolling and reduced-motion safeguard CSS verified HTTP 200, API healthy/database connected. No production records accessed or changed.
 
 2026-10-19 - Refined result-review/acceptance guidance and redesigned the Assigned Applicants attendance dialog with a wider responsive layout, search/filter, totals, save feedback and locked-result explanations. Existing acceptance, attendance, activation and DOCX behavior preserved. Backend 399 pass/1 skip, frontend 187 pass, lint/build passed; deployment requested.
+2026-10-19 - Examination UI release 0dc3d2a deployed; live assigned-applicant search/modal styling and structured result-review/acceptance guidance verified HTTP 200, API healthy/database connected. No production records accessed or changed.
+
+2026-10-19 - Refined admin/scholar legacy payout schedule layouts, reminder grouping, mobile actions and email-delivery chips; no backend/data/email changes. 188 frontend tests, lint/build and whitespace checks passed; not deployed.

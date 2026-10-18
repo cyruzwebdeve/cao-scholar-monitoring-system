@@ -19,8 +19,8 @@ test('schedule workspace discloses automatic Gmail and displays delivery states 
   const source = await readFile(new URL('../src/PayoutSchedules.jsx', import.meta.url), 'utf8');
   assert.match(source, /Gmail notifications are automatic when publishing, changing or cancelling/);
   assert.match(source, /drafts do not send email/);
-  assert.match(source, /row\.emailDeliveries\?\.sent/);
-  assert.match(source, /row\.emailDeliveries\?\.failed/);
+  assert.match(source, /row\.emailDeliveries\?\.\[state\]/);
+  assert.ok(source.includes("['sent', 'pending', 'failed', 'sending', 'cancelled']"));
   assert.doesNotMatch(source, /notifyEmail|type="checkbox"[^>]*[Ee]mail/);
 });
 
@@ -42,5 +42,31 @@ test('the one-week notice is consistent across the admin preview, saved card and
     assert.ok(!cancelled.includes(PAYOUT_CLAIM_NOTICE)); assert.match(cancelled, /This schedule is cancelled/);
     const backend = await readFile(new URL('../../backend/services/payoutSchedulePolicy.js', import.meta.url), 'utf8');
     assert.ok(backend.includes(PAYOUT_CLAIM_NOTICE));
+  } finally { await server.close(); }
+});
+
+
+test('scholar schedule layout separates the existing reminder without inventing notices or losing message text', async () => {
+  const { createServer } = await import('vite');
+  const { fileURLToPath } = await import('node:url');
+  const { createElement } = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const server = await createServer({ root: fileURLToPath(new URL('../', import.meta.url)), server: { middlewareMode: true, hmr: false }, appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] } });
+  try {
+    const Updates = (await server.ssrLoadModule('/src/components/ScholarUpdates.jsx')).default;
+    const personal = { id: 1, type: 'payout_schedule', title: 'Test schedule', reference: 'TEST-1', message: `Bring <ID>. ${PAYOUT_CLAIM_NOTICE}`, isRead: false };
+    const html = renderToStaticMarkup(createElement(Updates, { personal }));
+    assert.match(html, /scholar-payout-reminder/);
+    assert.equal(html.split(PAYOUT_CLAIM_NOTICE).length - 1, 1);
+    assert.match(html, /Bring &lt;ID&gt;\./);
+    assert.match(html, /TEST-1/);
+    assert.match(html, /Mark as read/);
+    for (const message of ['Schedule cancelled. Contact CAO.', 'Historical notice without reminder.']) {
+      const rendered = renderToStaticMarkup(createElement(Updates, { personal: { ...personal, message, isRead: true } }));
+      assert.ok(rendered.includes(message));
+      assert.doesNotMatch(rendered, /scholar-payout-reminder|Mark as read/);
+    }
+    const ordinary = renderToStaticMarkup(createElement(Updates, { personal: { ...personal, type: 'personal', message: 'Ordinary update' } }));
+    assert.doesNotMatch(ordinary, /scholar-payout-notice|scholar-payout-reminder/);
   } finally { await server.close(); }
 });
