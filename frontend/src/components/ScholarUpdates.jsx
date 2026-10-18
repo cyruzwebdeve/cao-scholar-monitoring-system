@@ -1,6 +1,6 @@
-import { Bell, ChevronRight, ExternalLink, Info, CalendarDays } from 'lucide-react';
+import { Bell, ChevronRight, ExternalLink, Info, CalendarDays, MapPin } from 'lucide-react';
 
-import { PAYOUT_CLAIM_NOTICE } from '../utils/payoutSchedules';
+import { PAYOUT_CLAIM_NOTICE, scheduleNotificationDetails } from '../utils/payoutSchedules';
 import './PayoutNotice.css';
 
 const postedDate = value => {
@@ -12,14 +12,21 @@ export default function ScholarUpdates({ personal, announcement, onMarkRead, onO
   const schedule = personal?.type === 'payout_schedule';
   const hasClaimNotice = schedule && personal.message?.includes(PAYOUT_CLAIM_NOTICE);
   const message = hasClaimNotice ? personal.message.replace(PAYOUT_CLAIM_NOTICE, '').trim() : personal?.message;
+  const details = schedule ? scheduleNotificationDetails(message) : null;
   return <section id="scholar-updates" tabIndex={-1} className="scholar-panel scholar-updates" aria-labelledby="scholar-updates-title">
     <div className="scholar-panel-heading"><div><p className="scholar-eyebrow">STAY INFORMED</p><h2 id="scholar-updates-title">Updates &amp; announcements</h2></div><button type="button" className="scholar-history-button" onClick={onOpenHistory}><Bell size={15} aria-hidden="true" />Notification history</button></div>
     {personal && <article className={`scholar-update-item personal-notice ${schedule ? 'scholar-payout-notice' : ''}`}>
       <div className="scholar-update-meta"><span className="scholar-update-label">{schedule ? 'PAYOUT SCHEDULE UPDATE' : 'PERSONAL UPDATE'}</span><time>{postedDate(personal.createdAt)}</time></div>
       <div className="scholar-personal-heading">{schedule && <span className="scholar-payout-icon"><CalendarDays size={24} aria-hidden="true" /></span>}<div><p className="scholar-update-kicker">Your latest update</p><h3>{personal.title}</h3></div></div>
       <div className={`scholar-personal-content ${hasClaimNotice ? 'has-reminder' : ''}`}>
-      <p className="scholar-personal-message">{message}</p>
-      {hasClaimNotice && <aside className="scholar-payout-reminder"><Info size={18} aria-hidden="true" /><div><strong>Important notice</strong><p>{PAYOUT_CLAIM_NOTICE}</p></div></aside>}
+      {details ? <div className="scholar-schedule-details">
+        <p className="scholar-schedule-title">{details.title}</p>
+        <dl>
+          <div><CalendarDays size={19} aria-hidden="true" /><div><dt>Date &amp; time</dt><dd>{details.dateTime}<small>Philippine time</small></dd></div></div>
+          <div><MapPin size={19} aria-hidden="true" /><div><dt>Venue &amp; instructions</dt><dd>{details.venueAndInstructions}</dd></div></div>
+        </dl>
+      </div> : <p className="scholar-personal-message">{message}</p>}
+      {hasClaimNotice && <aside className="scholar-payout-reminder"><Info size={18} aria-hidden="true" /><div><strong>Important notice</strong><p><strong className="scholar-payout-deadline">Scholars have one week (7 days) only</strong>{PAYOUT_CLAIM_NOTICE.slice("Scholars have one week (7 days) only".length)}</p></div></aside>}
       </div>
       <footer className="scholar-personal-footer">{personal.reference && <small className="scholar-update-reference">List reference: <strong>{personal.reference}</strong></small>}{!personal.isRead && <button type="button" className="scholar-text-button" onClick={() => onMarkRead(personal.id)}>Mark as read <ChevronRight size={15} aria-hidden="true" /></button>}</footer>
     </article>}

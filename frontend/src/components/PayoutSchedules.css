@@ -81,3 +81,6 @@
   .payout-ticket > header { flex-wrap: wrap; }
   .payout-ticket .payout-instructions { padding-left: 0; }
 }
+
+.payout-ticket .payout-card-detail p { font-weight: 700; font-size: 15px; }
+.payout-ticket .payout-instructions p { color: #294c37; font-weight: 600; }

@@ -23,3 +23,14 @@
   .scholar-dashboard .scholar-payout-notice .scholar-update-meta { align-items: flex-start; flex-direction: column; }
   .scholar-dashboard .scholar-payout-reminder, .scholar-dashboard .scholar-payout-reminder p { font-size: 14px; }
 }
+
+.scholar-dashboard .scholar-schedule-details { min-width: 0; }
+.scholar-dashboard .scholar-schedule-title { font-size: 15px; font-weight: 700; color: #294e36; margin: 0 0 14px; }
+.scholar-schedule-details dl { margin: 0; display: grid; gap: 16px; }
+.scholar-schedule-details dl > div { display: flex; align-items: flex-start; gap: 11px; }
+.scholar-schedule-details dl > div > svg { flex: 0 0 auto; margin-top: 2px; color: #328050; }
+.scholar-schedule-details dl > div > div { min-width: 0; }
+.scholar-schedule-details dt { font-size: 11px; font-weight: 700; color: #607568; margin-bottom: 4px; }
+.scholar-schedule-details dd { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.7; color: #244b32; white-space: pre-wrap; overflow-wrap: anywhere; }
+.scholar-schedule-details dd small { display: block; font-size: 11px; font-weight: 400; color: #63796b; }
+.scholar-dashboard .scholar-payout-reminder .scholar-payout-deadline { display: inline; color: #69450e; font-weight: 800; }

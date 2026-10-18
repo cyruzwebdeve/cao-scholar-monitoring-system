@@ -9175,3 +9175,36 @@ API, database, configuration, security/authorization, privacy and email delivery
 See validation outcome below. No real records were changed and no emails were sent. Authenticated browser/device visual review remains outstanding. Roll back the four presentation files together to restore the first redesign; no migration or data rollback is required. Review staff preview/saved cards and scholar notices at phone and desktop widths before deployment.
 
 Validation outcome: 189 frontend tests passed, including Philippine-date rollover and missing-date fallback; lint, production build and git diff --check passed. The build retains its existing large-chunk advisory. Not deployed.
+
+
+### Deployment observation - 2026-10-19 (alternative calendar-ticket layout)
+
+**TL;DR**
+- Release 973d1e0 was committed and normally pushed to main at the user's request, triggering the connected deployment.
+- Both updated staff and scholar JavaScript assets are live with HTTP 200; production API reports healthy/database connected.
+- No authenticated rendered/device checks or email tests were performed; no real records were mutated.
+
+Deployment supersedes the previous local-only status for the alternative layout. Production entry index-DFGA-Rs8.js references Dashboard-CvrjdR7X.js and ScholarDashboard-BIVmq3bI.js. Both returned JavaScript content with the expected date-stamp or split-content markup. API health returned HTTP 200. These checks confirm frontend asset publication and API availability, not the exact backend revision or authenticated visual behavior. No additional source, API, database, configuration, security, privacy or accessibility changes were required for deployment. Legacy payment-oriented functionality remains retained unchanged and outside the approved payroll-list-generation scope. Revert/redeploy the presentation change to restore the prior design; no data migration or rollback is needed. Recommended next work: staff and scholar visual acceptance testing at desktop and phone widths.
+
+
+## 2026-10-19 - Readable venue and emphasized schedule details
+
+**TL;DR**
+- Scholar schedule notices now render recognizable server-generated messages as labeled date/time and venue/instructions blocks rather than wrapping one dense paragraph.
+- Important values and the existing seven-day reminder are emphasized; admin date/venue/instruction emphasis is improved too.
+- Legacy scheduling, messages, recipients and email behavior are retained unchanged; no claim enforcement or payment processing added.
+- Frontend validation and deployment results are recorded below; no real data or emails are used for testing.
+
+### Objective, previous and new behavior
+The scholar screenshot showed Venue stranded at the end of a line because the notification was plain prose. A strict frontend helper recognizes the existing server-generated schedule envelope and renders its title, Philippine-time date and venue/instruction content separately. Venue and instructions remain one accurately labeled block because arbitrary venue punctuation cannot safely identify their boundary. No venue is guessed or truncated. Unknown formats, cancellation notices and ordinary updates retain their full original message. The exact existing reminder remains once, with its one-week portion bolded.
+
+### Roles, implementation and files
+Scholars retain the existing notification history and read action; staff retain preview/edit/cancel behavior. Changed frontend/src/utils/payoutSchedules.js, components/ScholarUpdates.jsx, components/PayoutNotice.css and components/PayoutSchedules.css; extended frontend/tests/payoutSchedules.test.js. The helper returns display fields only; stored text is not rewritten and no additional requests are made. Date/venue emphasis uses real text rather than color alone; icons remain decorative and long values wrap.
+
+### Impacts
+API, database, configuration, authorization/security and privacy: no impact. Scheduling, email delivery and stored records: unchanged. Accessibility: semantic definition lists identify details, readable emphasis and existing touch/focus treatment remain. Deployment: requested via the connected main-branch pipeline after checks. Legacy payout and claiming wording is retained as existing presentation only; approved scope remains official payroll-list generation, with no new fund release, payment confirmation, reconciliation or monetary audit. Examination archiving remains untouched.
+
+### Validation, limitations, rollback and next work
+Tests cover date/venue grouping, venue periods and multiline instructions without loss, cancellation/unknown fallback, escaped user text and highlighted reminder rendering. Frontend suite, lint, build and whitespace results appear below. No authenticated browser/device visual verification performed. Strict recognition intentionally falls back to the complete message if the prose format changes; future structured notification snapshots would avoid prose recognition but are not part of this presentation fix. Revert these frontend files together and redeploy to roll back; no migration required. Review scholar and staff views at desktop and phone widths.
+
+Validation result: 190 frontend tests passed, including rendered structured notice and escaping checks; lint, production build and git diff --check passed. Existing large-chunk build warning remains.

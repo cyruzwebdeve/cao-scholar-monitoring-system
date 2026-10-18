@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { PAYOUT_CLAIM_NOTICE, scheduleIso, scheduleLocalInput, scheduleTime, filterScheduleScholars } from '../src/utils/payoutSchedules.js';
+import { PAYOUT_CLAIM_NOTICE, scheduleNotificationDetails, scheduleIso, scheduleLocalInput, scheduleTime, filterScheduleScholars } from '../src/utils/payoutSchedules.js';
 test('schedule inputs always use Philippine time independent of browser timezone', () => {
   assert.equal(scheduleIso('2026-11-01T09:30'), '2026-11-01T01:30:00.000Z');
   assert.equal(scheduleLocalInput('2026-11-01T01:30:00.000Z'), '2026-11-01T09:30');
@@ -57,7 +57,7 @@ test('scholar schedule layout separates the existing reminder without inventing 
     const personal = { id: 1, type: 'payout_schedule', title: 'Test schedule', reference: 'TEST-1', message: `Bring <ID>. ${PAYOUT_CLAIM_NOTICE}`, isRead: false };
     const html = renderToStaticMarkup(createElement(Updates, { personal }));
     assert.match(html, /scholar-payout-reminder/);
-    assert.equal(html.split(PAYOUT_CLAIM_NOTICE).length - 1, 1);
+    assert.equal(html.replace(/<[^>]*>/g, '').split(PAYOUT_CLAIM_NOTICE).length - 1, 1);
     assert.match(html, /Bring &lt;ID&gt;\./);
     assert.match(html, /TEST-1/);
     assert.match(html, /Mark as read/);
@@ -66,6 +66,12 @@ test('scholar schedule layout separates the existing reminder without inventing 
       assert.ok(rendered.includes(message));
       assert.doesNotMatch(rendered, /scholar-payout-reminder|Mark as read/);
     }
+    const structured = renderToStaticMarkup(createElement(Updates, { personal: { ...personal, message: `Payout schedule: Test title. Oct 20, 2026, 8:00 AM (Philippine time). Venue: St. Test Hall. Bring <ID>. ${PAYOUT_CLAIM_NOTICE}` } }));
+    assert.match(structured, /<dt>Date &amp; time<\/dt>/);
+    assert.match(structured, /<dt>Venue &amp; instructions<\/dt>/);
+    assert.match(structured, /<dd>St\. Test Hall\. Bring &lt;ID&gt;\./);
+    assert.match(structured, /scholar-payout-deadline/);
+    assert.doesNotMatch(structured, /Payout schedule: Test title/);
     const ordinary = renderToStaticMarkup(createElement(Updates, { personal: { ...personal, type: 'personal', message: 'Ordinary update' } }));
     assert.doesNotMatch(ordinary, /scholar-payout-notice|scholar-payout-reminder/);
   } finally { await server.close(); }
@@ -89,4 +95,13 @@ test('calendar ticket uses the Philippine schedule date, not the UTC date', asyn
     assert.match(empty, /<span>--<\/span><strong>--<\/strong>/);
     assert.doesNotMatch(empty, /Invalid Date/);
   } finally { await server.close(); }
+});
+
+
+test('schedule prose is grouped without guessing venue punctuation or rewriting unknown notices', () => {
+  const message = 'Updated schedule: Test schedule. Oct 20, 2026, 8:00 AM (Philippine time). Venue: St. Test Hall. Bring School ID.\nUse the main gate.';
+  assert.deepEqual(scheduleNotificationDetails(message), { title: 'Test schedule', dateTime: 'Oct 20, 2026, 8:00 AM', venueAndInstructions: 'St. Test Hall. Bring School ID.\nUse the main gate.' });
+  assert.equal(scheduleNotificationDetails('Schedule cancelled.'), null);
+  assert.equal(scheduleNotificationDetails('Historical unstructured notice'), null);
+  assert.equal(scheduleNotificationDetails(null), null);
 });

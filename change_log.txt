@@ -498,3 +498,7 @@
 2026-10-19 - Deployed payout layout release f8d40b8 via normal push to main; production admin/scholar JavaScript assets return HTTP 200 with new layout markers, and API health is healthy/database connected. No authenticated visual or email test performed.
 
 2026-10-19 - Alternative payout layout: compact calendar-ticket staff cards and split-content scholar notice; unchanged legacy scheduling/email/data behavior. Frontend validation recorded in detailed log; not deployed.
+
+2026-10-19 - Deployed alternative calendar-ticket payout layout release 973d1e0 via main; both production layout bundles verified HTTP 200 with new markers; API healthy/database connected. No records changed or emails sent for verification.
+
+2026-10-19 - Fixed scholar schedule venue wrapping with labeled details and stronger date/venue/reminder emphasis; preserved full messages and all legacy scheduling/email behavior. Frontend-only; validation and deployment results in detailed log.
