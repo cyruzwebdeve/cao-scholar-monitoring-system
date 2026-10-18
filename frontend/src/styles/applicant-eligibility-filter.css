@@ -1,0 +1,4 @@
+.applicants-management .applicant-filters.applicant-eligibility-tools { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+.applicants-management .applicant-eligibility-tools .applicant-search { grid-column: auto; }
+.applicant-eligibility-filter small { display: block; margin-top: 6px; color: #5f7165; font-size: 10px; line-height: 1.6; }
+@media (max-width: 700px) { .applicants-management .applicant-filters.applicant-eligibility-tools { grid-template-columns: 1fr; } .applicants-management .applicant-eligibility-tools select { min-height: 44px; } }

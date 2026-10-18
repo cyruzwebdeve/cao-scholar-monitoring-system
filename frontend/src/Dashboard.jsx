@@ -1,3 +1,6 @@
+import ApplicantEligibilityFilter from './components/ApplicantEligibilityFilter';
+import { matchesApplicantEligibility } from './utils/applicantEligibilityFilter';
+import './styles/applicant-eligibility-filter.css';
 import Notification from './components/Notification';
 import { canAccessBillingWorkspace } from './utils/staffAccess';
 import {
@@ -796,6 +799,7 @@ function ApplicantDetailDrawer({ applicant, onClose }) {
 function ApplicantsManagement({ token }) {
   const [data, setData] = useState({ stats: { total: 0, scheduled: 0, completed: 0, passed: 0 }, applicants: [] });
   const [query, setQuery] = useState('');
+  const [eligibilityFilter, setEligibilityFilter] = useState('all');
   const [status, setStatus] = useState('All Status');
   const [municipality, setMunicipality] = useState('All Municipalities');
   const [schoolYear, setSchoolYear] = useState('All School Years');
@@ -842,7 +846,7 @@ function ApplicantsManagement({ token }) {
     : [...new Set(barangaysData.filter((item) => item.municipalityCode === municipalitiesData.find((item) => item.name === municipality)?.code).map((item) => item.name))];
   const filtered = data.applicants.filter((applicant) => {
     const matchesQuery = `${applicant.name} ${applicant.email} ${applicant.controlNo}`.toLowerCase().includes(query.toLowerCase());
-    return matchesQuery && (status === 'All Status' || applicant.status === status) && (municipality === 'All Municipalities' || applicant.municipality === municipality) && (schoolYear === 'All School Years' || applicant.schoolYear === schoolYear) && (barangay === 'All Barangays' || applicant.barangay === barangay);
+    return matchesQuery && (status === 'All Status' || applicant.status === status) && (municipality === 'All Municipalities' || applicant.municipality === municipality) && (schoolYear === 'All School Years' || applicant.schoolYear === schoolYear) && (barangay === 'All Barangays' || applicant.barangay === barangay) && matchesApplicantEligibility(applicant.eligibility, eligibilityFilter);
   });
   const getSortValue = (applicant, key) => {
     if (key === 'registered' || key === 'lastLogin') return applicant[key] ? new Date(applicant[key]).getTime() : 0;
@@ -860,9 +864,10 @@ function ApplicantsManagement({ token }) {
   const paginatedApplicants = sortedApplicants.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const metricCards = [['Total Applicants', data.stats.total, UsersRound, 'users'], ['Scheduled for Exam', data.stats.scheduled, CalendarDays, 'calendar'], ['Exam Completed', data.stats.completed, FileCheck2, 'document'], ['Passed Applicants', data.stats.passed, BadgeCheck, 'passed']];
 
-  const hasActiveFilters = query || status !== 'All Status' || municipality !== 'All Municipalities' || schoolYear !== 'All School Years' || barangay !== 'All Barangays';
+  const hasActiveFilters = query || status !== 'All Status' || municipality !== 'All Municipalities' || schoolYear !== 'All School Years' || barangay !== 'All Barangays' || eligibilityFilter !== 'all';
   const clearFilters = () => {
     setQuery('');
+    setEligibilityFilter('all');
     setStatus('All Status');
     setMunicipality('All Municipalities');
     setSchoolYear('All School Years');
@@ -894,12 +899,13 @@ function ApplicantsManagement({ token }) {
       {loadError && <div className="applicants-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => { setLoading(true); setReloadKey((current) => current + 1); }}>Retry</button></div>}
       <section className="applicant-records-panel">
         <div className="applicant-panel-heading"><div><h3>Applicant directory</h3><p>{filtered.length} of {data.stats.total} applicants</p></div>{hasActiveFilters && <button type="button" className="applicant-clear-filters" onClick={clearFilters}><X size={13} />Clear filters</button>}</div>
-        <div className="applicant-filters">
+        <div className="applicant-filters applicant-eligibility-tools">
           <label className="applicant-filter applicant-search"><span>Search applicants</span><div><Search size={15} /><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Name, email, or control number" /></div></label>
           <label className="applicant-filter"><span>Status</span><select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>{['All Status', ...values('status')].map((option) => <option key={option}>{option}</option>)}</select></label>
           <label className="applicant-filter"><span>Municipality</span><select value={municipality} onChange={(event) => { setMunicipality(event.target.value); setBarangay('All Barangays'); setPage(1); }}>{['All Municipalities', ...municipalityNames].map((option) => <option key={option}>{option}</option>)}</select></label>
           <label className="applicant-filter"><span>School year</span><select value={schoolYear} onChange={(event) => { setSchoolYear(event.target.value); setPage(1); }}>{['All School Years', ...values('schoolYear')].map((option) => <option key={option}>{option}</option>)}</select></label>
           <label className="applicant-filter"><span>Barangay</span><select value={barangay} onChange={(event) => { setBarangay(event.target.value); setPage(1); }}>{['All Barangays', ...barangayOptions].map((option) => <option key={option}>{option}</option>)}</select></label>
+          <ApplicantEligibilityFilter value={eligibilityFilter} onChange={(value) => { setEligibilityFilter(value); setPage(1); }} />
         </div>
         <div className="applicant-table-card">
           <table className="applicant-table">

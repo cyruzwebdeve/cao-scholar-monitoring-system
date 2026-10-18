@@ -453,3 +453,7 @@
 2026-10-18 - Results remarks-removal release 4d5490c published; live drawer/assets verified without remarks entry and API healthy/database connected. Historical notes and automatic operational history retained; authenticated score-write check remains for controlled testing.
 
 2026-10-18 - Matched Results initial-verification documents to the Scholar Document submissions panel: period heading, rounded bordered rows, Initial/CAO upload/Attached details, status colors and consistently aligned View buttons. Existing files, view authorization and acceptance gates retained. Frontend 149 tests, lint/build passed; deployment requested.
+2026-10-18 - Initial-document layout release 2c79b41 deployed; live consistent submissions panel/styles verified HTTP 200, API healthy/database connected. Documents, statuses and eligibility unchanged.
+
+2026-10-18 - Added Applicant Eligibility criteria filtering for the seven application declarations, plus any/none choices; combines with existing filters and filtered CSV export, resets pagination and Clear filters. Declaration-only, no eligibility/priority/acceptance change. Validation follows; not deployed.
+2026-10-18 - User requested deployment of the verified Applicants eligibility-declaration filter through the existing main-branch hosting pipeline; no API/database changes.

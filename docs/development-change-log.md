@@ -8799,3 +8799,35 @@ All 149 frontend tests passed; lint, production build and git diff --check passe
 
 ### Limitations, rollback and next work
 This aligns presentation only; document statuses and eligibility continue to come from the backend. Verify the drawer with a controlled staff session on desktop and phone after rollout, including long requirement names and an optional missing document. Revert this frontend commit to restore the prior inline checklist; no database rollback is required. Public rollout observations follow below.
+
+### Deployment observation
+Published release 2c79b41 to origin/main through the existing hosting pipeline. The live homepage references index-yH7xI2hO.js; Dashboard-PcYZmfDu.js returns HTTP 200 with the labelled consistent initial-document panel, separate document-copy markup and Document submissions heading, and without the former plain intake checklist. Dashboard-CKOY8MD4.css returns HTTP 200 with the scoped panel/copy/action styles. Public API health returns HTTP 200 with database connected. This verifies public frontend/code/style rollout and backend availability, not an authenticated visual/file-preview session. No documents, statuses or production records were accessed or changed during verification.
+
+
+## 2026-10-18 - Applicant eligibility-declaration filter
+
+**TL;DR**
+- Applicants directory now includes Eligibility criteria with all seven choices from the application form, plus Any declared criterion and No criteria declared.
+- It combines with search/status/location/school-year filters, resets pagination, participates in Clear filters and affects existing filtered CSV rows.
+- Filtering uses applicant declarations only; proof approval, priority, eligibility, family constraints and Scholar acceptance are unchanged.
+- All 154 frontend tests, lint/build and whitespace checks passed; user has now requested deployment.
+
+### Objective and previous/new behavior
+Make the application form's eligibility declarations usable for staff directory filtering. Previously staff could read declarations in an applicant drawer but could not filter the directory by them. Added one labelled dropdown covering Graduated Valedictorian or Highest Honors, Academic Contest Champion/1st Placer, ALS Passer, PWD, Child of PWD, Solo Parent and Indigenous Group. All eligibility criteria keeps every row otherwise matching the existing filters. Any declared criterion matches at least one affirmative declaration; No criteria declared means no known affirmative declaration, not a determination that an applicant is ineligible. The one-scholar-per-family acknowledgement is intentionally not treated as a priority declaration.
+
+### Roles, workflow, implementation and data flow
+Existing authorized Applicants staff use data already supplied by applicants/management. matchesApplicantEligibility reads the seven existing eligibility keys, accepting Yes case-insensitively/trimmed and legacy boolean true, while rejecting false/No/missing/other truthy values. Child-of-PWD does not imply the applicant has PWD status. The chosen criterion is ANDed with the directory's existing filters; changing it resets page one, active-filter detection includes it and Clear filters resets it to all. The existing sortedApplicants pipeline continues to drive visible records and CSV exports; no new export columns or applicant fields are added. Six toolbar fields use a three-column layout on wide screens and a stacked phone layout.
+
+### Files and system impacts
+Dashboard.jsx ApplicantsManagement section; components/ApplicantEligibilityFilter.jsx; utils/applicantEligibilityFilter.js; styles/applicant-eligibility-filter.css; tests/applicantEligibilityFilter.test.js; required logs. API/backend/database/schema/migration/configuration: no impact. Security/privacy: existing authentication and staff section permissions remain; potentially sensitive declarations were already present in the authorized directory response and drawer, with no new fetch, storage or disclosure scope. No declaration, proof, priority score, application status or family-policy mutation occurs. Accessibility: native labelled select, explicit declaration-not-proof guidance via aria-describedby, existing focus handling and responsive touch targets. Deployment: user requested publication through the existing main-branch hosting pipeline, without infrastructure changes. Legacy payment-oriented areas are untouched and retained outside the approved payroll-list-generation boundary.
+
+### Validation
+Tests cover all seven independent categories, Yes/boolean normalization and negative/missing/malformed values, all/any/none behavior, family acknowledgement exclusion, distinction between PWD and child-of-PWD, declaration versus proof approval, rendered choices/selected state/guidance and callback, existing-filter intersection, pagination reset/Clear filters, and filtered CSV data flow. Final suite/lint/build output follows below. No production accounts or records were accessed or modified. Backend tests were not rerun for this frontend-only filter.
+
+### Limitations, rollback and next work
+This is a single-criterion selector, not a multi-criterion AND/OR query builder. Missing legacy declarations fall under No criteria declared; they are not inferred as verified negative responses. Summary metric cards retain their existing overall counts; directory/export rows reflect the active filters. Browser screenshot validation is unavailable in this environment. After rollout, verify filters and CSV with a controlled staff session. Revert these frontend changes to remove the new dropdown without any data rollback.
+
+Final validation: 154 frontend tests passed with zero failures. ESLint, production build and git diff --check passed; existing large-bundle warning remains. Deployment requested; public rollout observations follow below.
+
+### Deployment preparation
+Remote main was confirmed at release 2c79b41 before publication. Only the Applicants integration, eligibility selector/helper/styles, regression tests and required logs are included. Unrelated work, generated test output and synthetic preview files are excluded. No migration, API, credentials or production records need to change.
