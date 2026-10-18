@@ -1,3 +1,4 @@
+import ScholarDesktopNavigation from './components/ScholarDesktopNavigation';
 import { containScholarProfileFocus } from './utils/scholarMobileLayout';
 import ScholarMobileNavigation from './components/ScholarMobileNavigation';
 import { initialRequirementItemsFor, initialRequirementProgress, isFirstYearEntry } from './utils/initialAcademicEvidence';
@@ -353,6 +354,8 @@ function ScholarDashboard({ token, user, onLogout }) {
         </div>
       </header>
 
+      <div className="scholar-desktop-layout">
+        {application && <ScholarDesktopNavigation />}
       <main className="scholar-dashboard-main">
         {profileOpen && (
           <div className="scholar-profile-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProfileOpen(false); }}>
@@ -389,7 +392,7 @@ function ScholarDashboard({ token, user, onLogout }) {
             </section>
           </div>
         )}
-        <section className="scholar-welcome-card scholar-compact-welcome" aria-label="Scholar account overview">
+        <section className="scholar-welcome-card scholar-compact-welcome" id="scholar-overview" tabIndex={-1} aria-label="Scholar account overview">
           <div><p className="scholar-eyebrow">YOUR SCHOLAR WORKSPACE</p><h1>Welcome, {user?.firstName || displayName}</h1><div className="scholar-welcome-meta"><span>Scholar ID <strong>{portalData.scholar?.scholarId || 'Not assigned'}</strong></span><span><CalendarDays size={14} aria-hidden="true" />{portalData.activePeriod?.schoolYear || 'Academic period unavailable'}{portalData.activePeriod?.semester ? ' - ' + portalData.activePeriod.semester : ''}</span></div></div>
           <button type="button" className="scholar-profile-shortcut" onClick={() => setProfileOpen(true)}><UserRound size={17} aria-hidden="true" />My profile<ChevronRight size={15} aria-hidden="true" /></button>
         </section>
@@ -471,6 +474,7 @@ function ScholarDashboard({ token, user, onLogout }) {
         </>}
         <footer className="scholar-footer"><CalendarDays size={14} /> Need help? Contact the Community Affairs Office for assistance.</footer>
       </main>
+      </div>
     </div>
   );
 }

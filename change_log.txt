@@ -474,3 +474,9 @@
 
 2026-10-18 - Optimized Scholar Portal phone layouts with sticky in-page quick links, stacked document actions, 44-48px touch targets, readable wrapping, bounded notification history and full-height profile with focus/scroll handling. Existing uploads, approvals, private views and notices unchanged. Frontend 173 tests passed; lint/build passed. Not deployed.
 2026-10-18 - User requested deployment of the tested Scholar Portal mobile refinements through the existing main-branch hosting pipeline; no API, database or workflow changes.
+2026-10-18 - Scholar mobile release 4dad8c2 committed locally; deployment publication not confirmed because GitHub HTTPS/Git requests timed out or stalled. Stalled commands stopped; live rollout not claimed. Existing passing validation retained.
+2026-10-18 - Requested retry of Scholar mobile release 4dad8c2 remains unconfirmed: GitHub HTTPS connection timed out; normal push hit a 30-second hard limit and its own process tree was stopped. No live-deployment success claimed.
+2026-10-18 - Scholar mobile release 4dad8c2 successfully pushed/deployed after connectivity retries. Live mobile quick links, responsive CSS and API health verified HTTP 200; no production records accessed. Real-phone visual acceptance remains recommended.
+
+2026-10-18 - Added Scholar Portal desktop section navigation with a left-side line/dot rail, five named anchors and current-section highlighting; compact horizontal navigation on smaller desktops, existing phone quick links retained. Frontend 177 tests, lint/build passed. No API/data/workflow changes. Not deployed.
+2026-10-18 - User requested deployment of the tested Scholar desktop section navigator through the existing connected main-branch pipeline. No migration or production record changes.
