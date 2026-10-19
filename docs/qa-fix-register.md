@@ -125,3 +125,8 @@ Frontend release `88b66fd` refines the schedule header, two-panel editor, select
 ## 2026-10-19 - Hide phone pairing QR image
 
 Release `0f36e7c` hides the initial-requirements pairing QR picture for Admins while retaining the phone capture link, transfers and session controls. Frontend only; no backend or migration. All 195 frontend tests, lint, production build and diff checks passed. Initial push attempts failed authentication/permissions. The retry confirmed release commits are now on origin/main. Public production verification passed: entry `/assets/index-ByaBRzQ9.js` and admin `Dashboard-CjT2K-_b.js` return HTTP 200; the new pairing heading and retained phone link are present, and the QR image alt text is absent. Authenticated browser acceptance has not been performed.
+
+
+## 2026-10-19 - Hide phone camera start button
+
+Release `a3c9935` hides the Use phone camera button in Admin initial-requirements intake using display:none. Existing session controls and direct capture/file selection are retained. Frontend only; no backend migration or configuration changes. Targeted component lint, production build and diff checks passed. Live asset verification is pending the existing Hostinger main pipeline; authenticated browser acceptance has not been performed.
