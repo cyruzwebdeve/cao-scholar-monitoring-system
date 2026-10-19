@@ -138,4 +138,4 @@ Release `4ba733f` omits the idle phone-camera wrapper from Admin initial-require
 
 ## Panel recommendation release — 2026-10-19
 
-Test-access wording update prepared from current main for both Hostinger projects; no new migration. Existing security and workflow behavior remains unchanged. Release commit and public asset/API verification will be recorded after pushing.
+Test-access wording update prepared from current main for both Hostinger projects; no new migration. Existing security and workflow behavior remains unchanged. Release `5c872dd` passed 399 backend and 195 frontend tests (one existing backend opt-in skip), lint/build. Push blocked by missing GitHub credential helper/authentication; no deployment occurred. Public baseline: frontend HTTP 200 with existing entry asset, API healthy/database connected and protected API 401. Restore workspace GitHub authentication, push the prepared branch to main and verify new assets/backend wording.
