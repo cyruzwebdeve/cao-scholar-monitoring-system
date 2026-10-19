@@ -9367,3 +9367,20 @@ Impact: no API, database, configuration, dependency, security-control or privacy
 Validation: source checks confirm QR rendering/generation references are absent and the phone link and controls remain; git diff whitespace checks passed. Installed locked frontend dependencies using temporary Node.js 22.16.0. Frontend lint, the production build with the production API base, and all 195 existing frontend tests passed. The build emitted the existing chunk-size advisory; test helper servers emitted port warnings without failing checks. Authenticated browser verification has not been performed.
 
 Limitations, rollback and next work: QR scanning is unavailable while the picture is hidden; users need the phone capture URL to connect a phone. Revert this component change to restore the image. Release `0f36e7c` is on origin/main. Live entry `/assets/index-ByaBRzQ9.js` and admin `Dashboard-CjT2K-_b.js` returned HTTP 200 and verified the new pairing heading, retained phone link and absent QR image alt text. Authenticated browser acceptance remains pending. No backend migration is required.
+
+## 2026-10-19 - Hide Use phone camera button
+
+**TL;DR**
+- Admin initial-requirements intake hides the Use phone camera start button.
+- Existing session controls, direct capture and file upload remain available.
+- No API or data changes; targeted component lint, production build and diff checks passed.
+
+Objective and previous/new behavior: the user requested hiding the phone camera button after hiding the QR picture. Previously Admins could select Use phone camera; the button is now removed from visual layout and keyboard/accessibility navigation by display:none.
+
+Roles, implementation and files: affects Admin intake in passer and scholar details. `frontend/src/LaptopPhoneCapture.jsx` adds a display override to the existing session-start button. The connection creation handler is retained for easy rollback; existing session polling, receipt, closure and notices retain their data flow. Both change logs record the change.
+
+Impact: frontend deployment required. No API, database, configuration, dependency, security or privacy changes. Hidden control is excluded from keyboard focus and accessibility navigation. No change to requirement approval or legacy monetary functionality.
+
+Validation: targeted component lint, production build and diff checks passed. Build emitted the existing chunk-size advisory. Browser verification was not performed. No new automated tests are needed for this visibility-only adjustment.
+
+Limitations, rollback and next work: new phone connections cannot be started from this hidden button. Remove the display override to restore it. Existing direct device capture and file selection remain available. User authorized deployment through the existing Hostinger main pipeline; live verification pending.

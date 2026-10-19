@@ -520,3 +520,5 @@
 2026-10-19 - Payroll generation/history now download official-reference Excel; queue Export Word downloads the existing letter as unsaved preparation without creating a reference. Billing formats unchanged. Frontend-only; not deployed.
 
 2026-10-19 | Hid the initial-requirements pairing QR image and removed unused QR generation. Retained the phone capture link and session controls. Source/diff checks, frontend lint, production build and all 195 frontend tests passed. Prepared for the existing Hostinger main deployment pipeline.
+
+2026-10-19 | Hid the Use phone camera button in Admin initial-requirements intake. Existing connection controls and direct capture/file upload remain intact. Targeted component lint, production build and diff checks passed.
