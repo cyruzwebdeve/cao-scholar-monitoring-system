@@ -22,6 +22,6 @@ const MAX_PIXELS = 25 * 1000 * 1000;
     }
     parentPort.postMessage({ ok: true });
   } catch (error) {
-    parentPort.postMessage({ ok: false, encrypted: error.name === 'EncryptedPDFError' });
+    parentPort.postMessage({ ok: false, encrypted: error.name === 'EncryptedPDFError' || /^Input document to .*PDFDocument\.load.* is encrypted\./.test(error.message || '') });
   }
 })();

@@ -32,3 +32,8 @@ test('bounded parser concurrency rejects excess work and recovers without losing
   assert.equal(outcomes.find(row=>row.status==='rejected').reason.statusCode,503);
   assert.equal((await validateDocumentUpload('retry.pdf',dataUrl())).contentType,'application/pdf');
 });
+
+test('encrypted-marked PDFs receive actionable unlock guidance instead of a generic parse error', async () => {
+  const encrypted = Buffer.from(pdf.toString().replace('/Root 1 0 R', '/Root 1 0 R /Encrypt << /Filter /Standard /V 1 /R 2 /P -4 >>'));
+  await assert.rejects(validateDocumentUpload('locked.pdf', dataUrl(encrypted)), error => error.statusCode === 400 && /Password-protected.*unlocked/.test(error.message));
+});
