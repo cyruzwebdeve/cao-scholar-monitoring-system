@@ -188,4 +188,4 @@ Fixed header/row alignment and duplicate horizontal scrollbars with a shared que
 
 ## Compact Amount controls — 2026-10-20
 
-Removed the wrapping keyboard helper caption, standardized the amount field and aligned equal-width Save/Cancel controls. Existing keyboard, validation, permission and persistence behavior retained; no new migration. Frontend 206 tests, lint/build and synthetic Billing/Payroll six-width helper absence, button geometry, error/retry, keyboard and export checks passed. User authorized deployment; live frontend verification pending.
+Removed the wrapping keyboard helper caption, standardized the amount field and aligned equal-width Save/Cancel controls. Existing keyboard, validation, permission and persistence behavior retained; no new migration. Frontend 206 tests, lint/build and synthetic Billing/Payroll six-width helper absence, button geometry, error/retry, keyboard and export checks passed. Release `49ae153` deployed; live dashboard `index-DnOVyyyx.js`, editor `Dashboard-CAC2FIDr.js` and stylesheet `Dashboard-C0LN4qHS.css` verify helper removal and compact actions. API/database healthy.
