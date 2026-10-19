@@ -9384,3 +9384,20 @@ Impact: frontend deployment required. No API, database, configuration, dependenc
 Validation: targeted component lint, production build and diff checks passed. Build emitted the existing chunk-size advisory. Browser verification was not performed. No new automated tests are needed for this visibility-only adjustment.
 
 Limitations, rollback and next work: new phone connections cannot be started from this hidden button. Remove the display override to restore it. Existing direct device capture and file selection remain available. Release `a3c9935` deployed through the existing Hostinger main pipeline. Public entry `/assets/index-CnTd0ZPN.js` and admin `Dashboard-DxGoTUiY.js` returned HTTP 200; the button has display:none and the QR image remains absent. Authenticated browser acceptance has not been performed.
+
+## 2026-10-19 - Remove empty phone camera placeholder
+
+**TL;DR**
+- Admin initial-requirements intake no longer shows the blank bordered phone-camera container.
+- Existing active sessions and connection notices can still render.
+- Frontend only; no data or routing changes. Targeted lint, production build, actual idle component render and diff checks passed; authorized deployment pending.
+
+Objective and previous/new behavior: after the Use phone camera button was hidden, its parent retained padding, border and margins. The component now returns null when there is no session or notice, removing the empty shape and its layout spacing.
+
+Roles, implementation and files: affects Admin intake in passer and scholar drawers. `frontend/src/LaptopPhoneCapture.jsx` adds the idle render guard after all hooks. Existing session polling, final page receipt, close controls and notice dismissal retain their data flow. Both change logs record the change.
+
+Impact: no API, database, configuration, dependency, security, privacy or routing changes. Frontend deployment required. The idle wrapper contributes no empty visual or accessibility content. No Billing/Payroll routing or legacy monetary behavior changes.
+
+Validation: targeted component lint, production build and diff checks passed. Actual component rendering through Vite SSR returned an empty HTML string while idle. The build emitted the existing chunk-size advisory. No new tests are required for this low-impact presentation change.
+
+Limitations, rollback and next work: active session controls and notices remain visible when present. Revert the render guard to restore the previous container. Publish through the existing Hostinger main pipeline and verify the live admin asset; authenticated browser acceptance remains pending.
