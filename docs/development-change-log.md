@@ -9390,7 +9390,7 @@ Limitations, rollback and next work: new phone connections cannot be started fro
 **TL;DR**
 - Admin initial-requirements intake no longer shows the blank bordered phone-camera container.
 - Existing active sessions and connection notices can still render.
-- Frontend only; no data or routing changes. Targeted lint, production build, actual idle component render and diff checks passed; authorized deployment pending.
+- Frontend only; no data or routing changes. Targeted lint, production build, actual idle component render and diff checks passed; deployed and publicly verified.
 
 Objective and previous/new behavior: after the Use phone camera button was hidden, its parent retained padding, border and margins. The component now returns null when there is no session or notice, removing the empty shape and its layout spacing.
 
@@ -9400,4 +9400,4 @@ Impact: no API, database, configuration, dependency, security, privacy or routin
 
 Validation: targeted component lint, production build and diff checks passed. Actual component rendering through Vite SSR returned an empty HTML string while idle. The build emitted the existing chunk-size advisory. No new tests are required for this low-impact presentation change.
 
-Limitations, rollback and next work: active session controls and notices remain visible when present. Revert the render guard to restore the previous container. Publish through the existing Hostinger main pipeline and verify the live admin asset; authenticated browser acceptance remains pending.
+Limitations, rollback and next work: active session controls and notices remain visible when present. Revert the render guard to restore the previous container. Release `4ba733f` deployed through the existing Hostinger main pipeline. Live entry `/assets/index-Biepyr3J.js` and admin `Dashboard-DPqYDZNM.js` returned HTTP 200, and the admin bundle contains the idle null-render guard. Authenticated browser acceptance remains pending.
