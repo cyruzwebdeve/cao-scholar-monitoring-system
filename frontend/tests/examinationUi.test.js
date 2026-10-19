@@ -76,8 +76,8 @@ test('integration preserves existing attendance/download/publication/acceptance 
   const dashboard = await readFile(new URL('../src/Dashboard.jsx', import.meta.url), 'utf8');
   for (const marker of ['<AssignedApplicantsModal', 'onAttendanceChange={updateAttendance}', 'onDownload={() => downloadAttendanceList(selectedExam)}', 'onToggleActivation={() => toggleExamActivation(selectedExam.municipality)}', 'applicants.filter(applicant => applicant.municipality === selectedExam.municipality)']) assert.ok(dashboard.includes(marker), marker);
   const results = await readFile(new URL('../src/ResultsManagement.jsx', import.meta.url), 'utf8');
-  assert.ok(results.includes("disabled={selected.status !== 'Passed' || selected.isScholar || (selected.resultId && !selected.resultPublishedAt) || publishing || acceptingScholar || (!selected.isScholar && !intake?.initialVerified)}"));
-  for (const marker of ['onClick={acceptAsScholar}', '<PublishResultModal', '<ResultReviewNotice', '<ResultAcceptanceNotice', 'aria-describedby="rm-acceptance-guidance"']) assert.ok(results.includes(marker), marker);
+  assert.ok(results.includes("disabled={selected.status !== 'Passed' || selected.isScholar || !selected.resultPublishedAt || publishing || acceptingScholar || !intake?.initialVerified || !intake?.reviewToken || !requirementsChecked || intake?.potentialReview?.current}"));
+  for (const marker of ['onClick={addToPotential}', '<PublishResultModal', '<ResultReviewNotice', 'I have individually checked the current initial requirements.', 'Add to Potential Scholars']) assert.ok(results.includes(marker), marker);
   assert.doesNotMatch(results, /Latest exam result is not passing/);
   const modal = await readFile(new URL('../src/components/AssignedApplicantsModal.jsx', import.meta.url), 'utf8');
   for (const marker of ['Number.isFinite(applicant.examScore)', 'disabled={saving || locked}', 'onAttendanceChange(applicant, event.target.value)', 'element.showModal()', 'element.close()', 'previous?.focus()', 'document.body.style.overflow = overflow']) assert.ok(modal.includes(marker), marker);

@@ -1,3 +1,4 @@
+const { reviewFingerprint, reviewMarker } = require('../services/potentialReview');
 const prisma = require('../config/prisma');
 const { findPrimaryActivePeriod } = require('../services/academicPeriod');
 const { isExaminationApplicationEligible } = require('../services/examinationEligibility');
@@ -102,6 +103,6 @@ const intake = safe(async (req, res) => {
   if (!applicant || applicant.deleted_at) throw fail('Applicant record unavailable.', 404);
   const school = await loadResolvedScholarSchool(prisma, { applicantId, applicant, application });
   const type = schoolClassification(school?.school_type);
-  return res.json({ intake: { applicantId, applicationId: application.id, name: member.snapshot.name, academicPeriodId: period.id, schoolYear: period.school_year, semester: period.semester, schoolType: type, entryYearLevel: application.school_plan?.incomingYearLevel || null, initialDocuments: initialChecklist(application.initial_docs, period.id, type, period.id, application.id, application.school_plan?.incomingYearLevel), initialVerified: initialApproved(application.initial_docs, period.id, type, period.id, application.school_plan?.incomingYearLevel), passerListId: member.list_id } });
+  return res.json({ intake: { applicantId, applicationId: application.id, name: member.snapshot.name, academicPeriodId: period.id, schoolYear: period.school_year, semester: period.semester, schoolType: type, entryYearLevel: application.school_plan?.incomingYearLevel || null, initialDocuments: initialChecklist(application.initial_docs, period.id, type, period.id, application.id, application.school_plan?.incomingYearLevel), reviewToken: reviewFingerprint({ activePeriod: period, applicant, latestResult: result, application, intakeSchool: school }), potentialReview: reviewMarker(application, period.id)?.status === 'potential' ? { reviewId: reviewMarker(application, period.id).reviewId, current: reviewMarker(application, period.id).fingerprint === reviewFingerprint({ activePeriod: period, applicant, latestResult: result, application, intakeSchool: school }) } : null, initialVerified: initialApproved(application.initial_docs, period.id, type, period.id, application.school_plan?.incomingYearLevel), passerListId: member.list_id } });
 });
 module.exports = { index, create, post, intake, postDraft, validateMember };

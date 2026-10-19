@@ -1,5 +1,4 @@
 import ResultReviewNotice from './components/ResultReviewNotice';
-import ResultAcceptanceNotice from './components/ResultAcceptanceNotice';
 import MetricDetailsCard from './components/MetricDetailsCard';
 import { resultMetricRows } from './utils/metricDetails';
 import PublishResultModal from './components/PublishResultModal';
@@ -74,6 +73,7 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
   const [intake, setIntake] = useState(null);
   const [intakeError, setIntakeError] = useState('');
   const [acceptingScholar, setAcceptingScholar] = useState(false);
+  const [requirementsChecked, setRequirementsChecked] = useState(false);
   const [acceptError, setAcceptError] = useState('');
   const [reevaluationOpen, setReevaluationOpen] = useState(false);
   const [reevaluationScore, setReevaluationScore] = useState('');
@@ -203,7 +203,7 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
   };
 
   const openResult = (applicant) => {
-    setIntake(null); setIntakeError('');
+    setIntake(null); setIntakeError(''); setRequirementsChecked(false);
     setSelected(applicant);
     setAcceptError('');
     setReevaluationOpen(false);
@@ -221,10 +221,10 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
   }, [selected, token]);
   useEffect(() => {
     let active = true;
-    loadIntake().then((value) => { if (active) { setIntake(value || null); setIntakeError(''); } }).catch((failure) => { if (active) { setIntake(null); setIntakeError(failure.message); } });
+    loadIntake().then((value) => { if (active) { setIntake(value || null); setIntakeError(''); setRequirementsChecked(false); } }).catch((failure) => { if (active) { setIntake(null); setIntakeError(failure.message); } });
     return () => { active = false; };
   }, [loadIntake]);
-  const refreshIntake = async () => { try { setIntake(await loadIntake()); setIntakeError(''); } catch (failure) { setIntake(null); setIntakeError(failure.message); } };
+  const refreshIntake = async () => { setRequirementsChecked(false); try { setIntake(await loadIntake()); setIntakeError(''); } catch (failure) { setIntake(null); setIntakeError(failure.message); } };
 
   const saveReevaluation = async () => {
     if (!selected || selected.isScholar) return;
@@ -295,31 +295,19 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
     finally { publishRequest.current = false; setPublishing(false); }
   };
 
-  const acceptAsScholar = async () => {
-    if (!selected || selected.status !== 'Passed' || selected.isScholar) return;
-    setAcceptingScholar(true);
-    setAcceptError('');
+  const addToPotential = async () => {
+    if (!selected || selected.isScholar || !requirementsChecked || !intake?.initialVerified || !intake.reviewToken) return;
+    setAcceptingScholar(true); setAcceptError('');
     try {
-      const response = await fetch(`${API_BASE}/scholars/${selected.id}/accept`, {
-        method: 'POST',
-        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ examId: selected.examId, resultId: selected.resultId, applicationId: selected.applicationId, academicPeriodId: selected.academicPeriodId, updatedAt: selected.resultUpdatedAt }),
+      const response = await fetch(`${API_BASE}/potential-scholars/${selected.id}`, {
+        method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ examId: selected.examId, resultId: selected.resultId, applicationId: selected.applicationId, academicPeriodId: selected.academicPeriodId, updatedAt: selected.resultUpdatedAt, reviewToken: intake.reviewToken }),
       });
-      const payload = await response.json();
-      if (!response.ok) {
-        if (payload.eligibilityRecommendation) {
-          setSelected((current) => ({ ...current, eligibilityRecommendation: payload.eligibilityRecommendation }));
-        }
-        throw new Error(payload.message || 'Unable to accept applicant as a scholar.');
-      }
-      const updated = { ...selected, isScholar: true, scholarId: payload.scholar?.scholar_id || selected.scholarId };
-      setSelected(updated);
-      setApplicants((current) => current.map((applicant) => applicant.id === updated.id ? { ...applicant, isScholar: true, scholarId: updated.scholarId } : applicant));
-    } catch (error) {
-      setAcceptError(error.message || 'Unable to accept applicant as a scholar.');
-    } finally {
-      setAcceptingScholar(false);
-    }
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to add this applicant to Potential Scholars.');
+      await refreshIntake();
+    } catch (failure) { setAcceptError(failure.message || 'Unable to add to Potential Scholars.'); }
+    finally { setAcceptingScholar(false); }
   };
 
   const paginationItems = [];
@@ -416,9 +404,12 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
             {!reevaluationOpen && <button type="button" className="rm-reevaluate-trigger" disabled={selected.isScholar || publishing || ((!selected.resultId) && (deliveryMode !== 'paper' || selected.attendanceStatus !== 'Present' || !selected.examId))} onClick={() => { setReevaluationOpen(true); setReevaluationScore(String(selected.score ?? '')); setReevaluationError(''); }}><RefreshCw size={16} />{selected.isScholar ? 'Result locked after acceptance' : !selected.resultId ? deliveryMode === 'online' ? 'Online score computed on submission' : selected.attendanceStatus !== 'Present' ? 'Confirm Present attendance before recording' : 'Record paper score' : 'Correct score'}</button>}
             {selected.resultId && !selected.resultPublishedAt && !selected.isScholar && !reevaluationOpen && <button type="button" className="rm-save-reevaluation" disabled={publishing || reevaluating} onClick={() => { setPublishError(''); setPublishConfirmation({ ...selected }); }}>{publishing ? 'Publishing…' : 'Publish reviewed result'}</button>}
             {reevaluationOpen && <ResultReviewNotice />}
-            {acceptError && <Notification tone="error" title="Result processing needs attention">{acceptError}</Notification>}
-            <ResultAcceptanceNotice result={selected} initialVerified={intake?.initialVerified} />
-            <button type="button" aria-describedby="rm-acceptance-guidance" className={selected.isScholar ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || (selected.resultId && !selected.resultPublishedAt) || publishing || acceptingScholar || (!selected.isScholar && !intake?.initialVerified)} onClick={acceptAsScholar}><UserCheck size={16} />{acceptingScholar ? 'Recording decision...' : selected.isScholar ? 'Accepted as Scholar' : 'Accept as Scholar'}</button>
+            {acceptError && <Notification tone="error" title="Unable to add to Potential Scholars">{acceptError}</Notification>}
+            <Notification title={selected.isScholar ? 'Accepted as Scholar' : intake?.potentialReview?.current ? 'Added to Potential Scholars' : 'Check requirements, then add to Potential Scholars'} tone={selected.isScholar || intake?.potentialReview?.current ? 'success' : 'info'}>
+              {selected.isScholar ? 'This applicant is already an active scholar.' : intake?.potentialReview?.current ? 'This checked applicant is ready for selection and final batch acceptance in Potential Scholars.' : 'Individually check the current initial requirements before adding this applicant. Adding does not activate a Scholar account.'}
+            </Notification>
+            {!selected.isScholar && !intake?.potentialReview?.current && <label className="rm-potential-confirm"><input type="checkbox" checked={requirementsChecked} disabled={!intake?.initialVerified || acceptingScholar} onChange={event => setRequirementsChecked(event.target.checked)} />I have individually checked the current initial requirements.</label>}
+            <button type="button" className={selected.isScholar || intake?.potentialReview?.current ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || !selected.resultPublishedAt || publishing || acceptingScholar || !intake?.initialVerified || !intake?.reviewToken || !requirementsChecked || intake?.potentialReview?.current} onClick={addToPotential}><UserCheck size={16} />{acceptingScholar ? 'Adding...' : selected.isScholar ? 'Accepted as Scholar' : intake?.potentialReview?.current ? 'Added to Potential Scholars' : 'Add to Potential Scholars'}</button>
           </footer>
         </aside>
       </div>

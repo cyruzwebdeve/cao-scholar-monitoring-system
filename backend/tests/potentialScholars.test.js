@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildPotentialScholars, initialSubmissionComplete } = require('../services/potentialScholars');
-const fixture = () => ({
+const baseFixture = () => ({
   period: { id: 10, school_year: '2027-2028' },
   members: [{ applicant_id: 7, application_id: 20, result_id: 30, exam_id: 40, snapshot: { resultUpdatedAt: '2026-10-01T00:00:00Z' } }],
   applicants: [{ id: 7, first_name: 'Synthetic', last_name: 'Applicant', municipality: 'TEST PLACE', school_id: 60, school_year: '2027-2028' }],
@@ -10,36 +10,43 @@ const fixture = () => ({
   exams: [{ id: 40, municipality: 'Test place', academic_year: '2027-2028', updated_at: '2026-10-01T00:00:00Z' }],
   slots: [{ id: 50, applicant_id: 7, exam_id: 40 }], scholars: [], accounts: [{ applicant_id: 7, control_number: 'TEST-7' }], schools: [{ id: 60, name: 'Synthetic College', school_type: 'Public' }],
 });
-test('complete required files classify potential scholars without creating scholarship or returning private files', () => {
+const { makePotentialReview } = require('../services/potentialReview');
+const fixture = () => {
+  const data = baseFixture();
+  const context = { activePeriod: data.period, applicant: data.applicants[0], latestResult: data.results[0], application: data.applications[0], intakeSchool: data.schools[0] };
+  data.applications[0].initial_docs.potentialScholarReviews = { 10: makePotentialReview(context, 1) };
+  return data;
+};
+test('explicit checked reviews classify potential scholars without activation or private file exposure', () => {
   const input = fixture(), before = JSON.stringify(input), rows = buildPotentialScholars(input);
   assert.equal(rows.length, 1); assert.equal(rows[0].status, 'Potential scholar'); assert.equal(rows[0].initialVerified, true);
   assert.equal(JSON.stringify(input), before);
   assert.doesNotMatch(JSON.stringify(rows), /PRIVATE|fileUrl|fileName|initial_docs|email|phone|score|snapshot/);
 });
-test('pending files remain potential until verification, while missing/rejected/unknown files exclude a record', () => {
+test('changed files flag an existing potential review and block batch readiness', () => {
   for (const status of ['Pending', 'Submitted', 'Under review']) {
     const input = fixture(); input.applications[0].initial_docs.requirements.valid_id.status = status;
     const rows = buildPotentialScholars(input); assert.equal(rows.length, 1); assert.equal(rows[0].initialVerified, false);
   }
   for (const status of ['Rejected', 'Not Submitted', 'unknown', '']) {
     const input = fixture(); input.applications[0].initial_docs.requirements.valid_id.status = status;
-    assert.equal(buildPotentialScholars(input).length, 0);
+    assert.equal(buildPotentialScholars(input).some(row => row.canAccept), false);
   }
   const missing = fixture(); delete missing.applications[0].initial_docs.requirements.grades;
-  assert.equal(buildPotentialScholars(missing).length, 0);
+  assert.equal(buildPotentialScholars(missing).some(row => row.canAccept), false);
 });
 test('school rules preserve private tuition, first-year alternatives, optional indigency and unknown-school blocking', () => {
   const privateInput = fixture(); privateInput.schools[0].school_type = 'Private';
-  assert.equal(buildPotentialScholars(privateInput).length, 0);
+  assert.equal(buildPotentialScholars(privateInput).some(row => row.canAccept), false);
   privateInput.applications[0].initial_docs.requirements.tuition_receipt = { fileName: 'receipt.pdf', status: 'Approved' };
   assert.equal(buildPotentialScholars(privateInput).length, 1);
   for (const year of ['1st Year', '2nd Year']) {
     const input = fixture(); input.applications[0].school_plan.incomingYearLevel = year;
     const files = input.applications[0].initial_docs.requirements; files.report_card = files.grades; delete files.grades;
-    assert.equal(buildPotentialScholars(input).length, year === '1st Year' ? 1 : 0);
+    assert.equal(buildPotentialScholars(input)[0].initialVerified, year === '1st Year');
   }
   assert.equal(initialSubmissionComplete([], 'Unclassified'), false);
-  const unknown = fixture(); unknown.schools[0].school_type = null; assert.equal(buildPotentialScholars(unknown).length, 0);
+  const unknown = fixture(); unknown.schools[0].school_type = null; assert.equal(buildPotentialScholars(unknown).some(row => row.canAccept), false);
 });
 test('accepted, withdrawn, stale, foreign-year and changed-assignment records never enter the queue', () => {
   const mutations = [
@@ -56,12 +63,12 @@ test('accepted, withdrawn, stale, foreign-year and changed-assignment records ne
     x => x.exams.unshift({ id: 41, municipality: 'Test place', academic_year: '2027-2028', updated_at: '2026-10-03T00:00:00Z' }),
     x => { x.members = []; },
   ];
-  for (const mutate of mutations) { const input = fixture(); mutate(input); assert.equal(buildPotentialScholars(input).length, 0); }
+  for (const mutate of mutations) { const input = fixture(); mutate(input); assert.equal(buildPotentialScholars(input).some(row => row.canAccept), false); }
 });
 test('new application supersedes old documents; duplicate passer memberships produce one row', () => {
   const input = fixture(); input.members.push(input.members[0]); assert.equal(buildPotentialScholars(input).length, 1);
   input.applications.unshift({ id: 21, applicant_id: 7, status: 'submitted', initial_docs: {} });
-  assert.equal(buildPotentialScholars(input).length, 0);
+  assert.equal(buildPotentialScholars(input).some(row => row.canAccept), false);
 });
 
 // Exercise the actual HTTP route and its permission middleware with synthetic data.
@@ -87,8 +94,8 @@ test('controller batches only current non-superseded posted members and emits no
   setup(); const res = response(); await index({}, res);
   assert.equal(res.statusCode, 200); assert.equal(res.body.applicants.length, 1); assert.match(res.headers['Cache-Control'], /no-store/);
   const query = queries.find(([model]) => model === 'passer_list_members')[1];
-  assert.deepEqual(query.where, { academic_period_id: 10, list: { status: 'posted', revisions: { none: { status: 'posted' } } } });
-  data.members = []; const empty = response(); await index({}, empty); assert.deepEqual(empty.body.applicants, []);
+  assert.deepEqual(query.where, { academic_period_id: 10, applicant_id: { in: [7] }, list: { status: 'posted', revisions: { none: { status: 'posted' } } } });
+  data.applications[0].initial_docs.potentialScholarReviews = {}; const empty = response(); await index({}, empty); assert.deepEqual(empty.body.applicants, []);
   prisma.academic_periods.findFirst = async () => null; const noPeriod = response(); await index({}, noPeriod); assert.equal(noPeriod.body.period, null);
 });
 let server, base;
@@ -104,4 +111,10 @@ test('actual queue route requires administrator role and Applicants access, pres
     if (expected === 200) { const body = await res.json(); assert.equal(body.applicants.length, 1); assert.match(res.headers.get('cache-control'), /no-store/); }
   }
   setup(); const denied = await fetch(`${base}/scholars/7/accept`, { method: 'POST', headers: headers(3) }); assert.equal(denied.status, 403);
+});
+
+test('complete and approved files alone never auto-add an applicant; changed records stay flagged for rechecking', () => {
+  const unmarked = baseFixture(); assert.deepEqual(buildPotentialScholars(unmarked), []);
+  const changed = fixture(); changed.results[0].updated_at = '2026-10-04T00:00:00Z';
+  const rows = buildPotentialScholars(changed); assert.equal(rows.length, 1); assert.equal(rows[0].canAccept, false); assert.match(rows[0].reviewIssue, /Recheck/);
 });

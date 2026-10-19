@@ -682,3 +682,10 @@ test('Private passer acceptance requires an approved tuition receipt, but not op
   application.initial_docs.requirements.tuition_receipt = { fileName: 'receipt.pdf', status: 'Approved' };
   res = await acceptReviewed(); assert.equal(res.statusCode, 201); assert.ok(scholar); assert.equal(application.initial_docs.requirements.indigency, undefined);
 });
+
+test('applicant portal does not expose staff-only potential-selection metadata', async () => {
+  application.initial_docs.potentialScholarReviews = { 1: { status: 'potential', addedBy: 99, fingerprint: 'internal-synthetic-review' } };
+  const res = response(); await getMyApplication({ user: { id: 7 }, query: {} }, res);
+  assert.equal(res.statusCode, 200); assert.equal(res.body.application.initial_docs.potentialScholarReviews, undefined);
+  assert.ok(application.initial_docs.potentialScholarReviews); assert.ok(res.body.application.initial_docs.requirements.valid_id);
+});

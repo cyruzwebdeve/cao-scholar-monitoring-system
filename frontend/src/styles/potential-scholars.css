@@ -31,3 +31,14 @@
   .potential-table td { padding: 10px 0; border: 0; }
   .potential-table td::before { content: attr(data-label); display: block; font-weight: 700; font-size: .75rem; color: #52685b; margin-bottom: 6px; }
 }
+.potential-selection { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px; border: 1px solid #dce6dc; border-radius: 12px; background: #fff; }
+.potential-selection > span { margin-right: auto; color: #385044; }
+.potential-table input[type="checkbox"] { width: 20px; height: 20px; accent-color: #16763e; }
+.rm-potential-confirm { display: flex; align-items: flex-start; gap: 10px; font-size: .85rem; line-height: 1.5; color: #385044; }
+.rm-potential-confirm input { width: 20px; height: 20px; flex-shrink: 0; accent-color: #16763e; }
+.potential-confirm-dialog { width: min(620px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto; padding: 24px; border: 1px solid #cddbcf; border-radius: 16px; margin: auto; color: #183d28; }
+.potential-confirm-dialog::backdrop { background: #102b21a6; }
+.potential-confirm-dialog p { line-height: 1.6; }
+.potential-confirm-dialog ul { max-height: 35vh; overflow: auto; padding-left: 24px; margin: 20px 0; }
+.potential-confirm-dialog li { padding: 6px 0; overflow-wrap: anywhere; }
+.potential-confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 20px; }

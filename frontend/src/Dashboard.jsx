@@ -1356,12 +1356,12 @@ function ApplicantWorkspace({ token, user, initialView }) {
     <div className="examination-workspace">
       <nav className="examination-workspace-tabs" aria-label="Applicant management views">
         {canViewApplicants && <button type="button" className={view === 'applicants' ? 'active' : ''} onClick={() => setView('applicants')}>Applicants</button>}
-        {canViewApplicants && <button type="button" aria-pressed={view === 'potential'} className={view === 'potential' ? 'active' : ''} onClick={() => setView('potential')}>Complete requirements</button>}
+        {canViewApplicants && <button type="button" aria-pressed={view === 'potential'} className={view === 'potential' ? 'active' : ''} onClick={() => setView('potential')}>Potential Scholars</button>}
         {canViewExaminations && <button type="button" className={view === 'schedules' ? 'active' : ''} onClick={() => setView('schedules')}>Schedules &amp; Assignments</button>}
         {canViewExaminations && <button type="button" className={view === 'results' ? 'active' : ''} onClick={() => setView('results')}>Results</button>}
       </nav>
       {view === 'applicants' && canViewApplicants && <ApplicantsManagement token={token} />}
-      {view === 'potential' && canViewApplicants && <PotentialScholars token={token} onReview={canViewExaminations ? id => { setReviewApplicantId(id); setView('results'); } : undefined} />}
+      {view === 'potential' && canViewApplicants && <PotentialScholars token={token} canAccept={canViewExaminations && ['SuperAdmin', 'BillingPayrollAdmin'].includes(user?.role)} onReview={canViewExaminations ? id => { setReviewApplicantId(id); setView('results'); } : undefined} />}
       {view === 'schedules' && canViewExaminations && <ExaminationManagement token={token} />}
       {view === 'results' && canViewExaminations && <ResultsManagement key={reviewApplicantId || 'directory'} token={token} initialApplicantId={reviewApplicantId} />}
     </div>
