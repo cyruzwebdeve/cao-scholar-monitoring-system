@@ -16,3 +16,5 @@ Local result: passed with synthetic fixtures. Published for testing: frontend ed
 Validation performed locally: backend 440 pass/one existing opt-in DB skip, frontend 206 pass; lint/build/Prisma schema and generated client passed; 13 embedded PostgreSQL migration/constraint checks passed; synthetic actual-component browser scenarios and serialized Excel cell assertions passed. No production records, accounts, mail or private documents used.
 
 Scope: individual amounts for list preparation only. Defaults remain PHP 3,000 Public/PHP 5,000 Private. The existing enrollment-certification policy wording remains unchanged. Rollback should disable editing while retaining the additive column/snapshots; do not switch custom-amount records back to old fixed-total generators.
+
+Layout follow-up: verify Amount/header alignment while editing and scrolling a long queue. There must be one queue scroll area, a sticky aligned header, no nested horizontal scrollbar and no page-wide horizontal overflow. Desktop target queue has more room; narrower screens may scroll the grid horizontally. CSS release 5439b31 was verified publicly in Dashboard-DK7nxP4A.css.
