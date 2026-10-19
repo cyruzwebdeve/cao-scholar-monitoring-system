@@ -145,3 +145,5 @@ Deployment follow-up: GitHub authentication restored; release `5c872dd` pushed t
 ## CAO logo login release — 2026-10-19
 
 Frontend-only replacement of the authentication background photo with the existing CAO logo/green gradient and responsive sizing; shared recovery layout also affected. No new migration or backend change. Release checks: 399 backend tests passed with one existing opt-in skip; 195 frontend tests, lint/build and whitespace checks passed. Screenshot attempts did not complete; visual acceptance remains pending. Release prepared for authorized main/Hostinger push; live asset checks follow.
+
+Deployment verification: `67ef6ca` pushed to main; `/login` HTTP 200 and `index-VSVQM8_N.js` loads `AuthPageShell-CNX1YsEp.js` / `AuthPageShell-C8JaHEyZ.css` with updated logo size hints, green gradient and phone sizing. Old background photo/decorative ring absent from shell assets. API healthy/database connected. Public asset checks only; rendered appearance, provider logs and authenticated login remain unverified.

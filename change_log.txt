@@ -532,3 +532,5 @@
 2026-10-19 | Panel recommendation 2: replaced login background photo with the existing CAO seal on a green gradient, adjusted full-logo placement/size/opacity for desktop and mobile, and updated shared recovery-page styling. No API/database/configuration/security or workflow change. Lint/build and whitespace checks passed; browser screenshot verification incomplete. Frontend only; not deployed.
 
 2026-10-19 | CAO logo login update prepared for authorized deployment through main/Hostinger. Release tests passed (399 backend, one existing opt-in skip; 195 frontend), lint/build and whitespace checks passed. No new migration/backend change; live asset verification follows push.
+
+2026-10-19 | CAO logo login release 67ef6ca deployed and verified: /login HTTP 200; index-VSVQM8_N.js and AuthPageShell-CNX1YsEp.js/C8JaHEyZ.css contain new logo sizing/green gradient and no old photo layer. API healthy/database connected. No new migration; rendered visual/authenticated acceptance remains pending.
