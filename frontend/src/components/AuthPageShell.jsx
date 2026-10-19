@@ -6,11 +6,10 @@ import '../styles/login.css';
 function AuthPageShell({ children }) {
   return (
     <div className="login-page">
-      <div className="login-backdrop-seal" aria-hidden="true" />
       <img
         src={caologoLarge}
         srcSet={`${caologo} 96w, ${caologoLarge} 512w, ${caologoLarge2x} 1024w`}
-        sizes="(max-width: 500px) 1px, (max-width: 900px) 92vw, 1200px"
+        sizes="(max-width: 500px) 78vw, (max-width: 900px) 480px, (max-width: 1435px) 46vw, 660px"
         width="1024"
         height="1024"
         fetchPriority="high"

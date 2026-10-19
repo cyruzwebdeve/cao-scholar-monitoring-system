@@ -141,3 +141,7 @@ Release `4ba733f` omits the idle phone-camera wrapper from Admin initial-require
 Test-access wording update prepared from current main for both Hostinger projects; no new migration. Existing security and workflow behavior remains unchanged. Release `5c872dd` passed 399 backend and 195 frontend tests (one existing backend opt-in skip), lint/build. Push blocked by missing GitHub credential helper/authentication; no deployment occurred. Public baseline: frontend HTTP 200 with existing entry asset, API healthy/database connected and protected API 401. Restore workspace GitHub authentication, push the prepared branch to main and verify new assets/backend wording.
 
 Deployment follow-up: GitHub authentication restored; release `5c872dd` pushed through `98e33af` to main on 2026-10-19. Frontend HTTP 200 serves `index-CcOyDZZT.js` with both updated labels; protected API returns 401 with updated test-access wording. API healthy/database connected. No new migration; provider logs and authenticated acceptance not inspected.
+
+## CAO logo login release — 2026-10-19
+
+Frontend-only replacement of the authentication background photo with the existing CAO logo/green gradient and responsive sizing; shared recovery layout also affected. No new migration or backend change. Release checks: 399 backend tests passed with one existing opt-in skip; 195 frontend tests, lint/build and whitespace checks passed. Screenshot attempts did not complete; visual acceptance remains pending. Release prepared for authorized main/Hostinger push; live asset checks follow.

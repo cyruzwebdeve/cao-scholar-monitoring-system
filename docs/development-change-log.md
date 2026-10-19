@@ -5,6 +5,23 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-19 - Panel Recommendation 2: CAO Logo Login Background
+
+**TL;DR**
+- Replaced the login photo with the existing CAO logo on a green gradient, as requested by the user.
+- Applicants, scholars and staff see the complete seal with responsive desktop/mobile sizing; shared password-recovery screens receive the same visual treatment.
+- Presentation only: no API, database, configuration, permission or scholarship workflow changes. Lint and production build passed; browser screenshot verification remains incomplete.
+
+Objective/reason and previous/new behavior: implement panel recommendation 2 using the official CAO asset already in the repository. The shared authentication layout previously loaded desktop/mobile background photos and displayed an oversized seal cropped off the left edge, hidden on phones. The photo layers and decorative ring are removed; the complete seal is now positioned on the right behind the introduction on desktop and at the top on smaller screens. A green gradient and low logo opacity preserve text readability. Existing small brand seals and authentication content remain.
+
+Affected users/workflows/implementation/data flow/files: all login roles and visitors to forgot/reset password pages use `AuthPageShell.jsx` and `styles/login.css`. Reused the existing responsive WebP seal assets, updated the image size hints and used proportional dimensions with `object-fit: contain`; removed obsolete decorative markup/styles. No image generation, new asset, external image request or form/request/state change. Old photo files are retained in the repository but are no longer referenced by this stylesheet. Both change logs updated.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: no API, database/schema/migration, configuration, dependency, security-control, authorization or privacy changes. No personal data or secrets added. Logo remains decorative with empty alt/aria-hidden; existing meaningful brand image, input labels, keyboard controls and status messages remain. Logo does not intercept pointer input. Desktop/mobile breakpoint rules retain the existing form layout. Frontend build/deployment required to publish; release prepared for the existing main/Hostinger pipeline at the user’s request. Backend deployment is unnecessary. Approved workflow still ends at payroll-list generation; legacy monetary functionality untouched.
+
+Validation/results: frontend lint and production build passed with the existing large-chunk advisory; release test suite passed (399 backend tests, one existing opt-in skip; 195 frontend tests). Diff whitespace check passed. Login markup was rendered locally from the actual React component using Vite SSR for preview preparation. Headless Chromium screenshot attempts did not complete, so rendered contrast, overflow and visual appearance are not claimed as verified. No new automated tests added for this CSS/markup-only update.
+
+Limitations/rollback/next work: inspect login and password-recovery screens at desktop, tablet and phone widths before visual acceptance; full interactive browser verification and live deployment remain pending. Restore the previous shell markup and stylesheet to roll back; no data rollback. Recommendation 3 (complete-requirements applicant section) remains separate.
+
 ## 2026-10-19 - Panel Recommendation 1: Test Access Wording
 
 **TL;DR**

@@ -1,6 +1,5 @@
 /* Unified role login */
 .login-page {
-  --login-background-image: url("../assets/login-background-1920.webp");
   position: relative;
   isolation: isolate;
   min-height: 100vh;
@@ -18,16 +17,7 @@
   position: absolute;
   inset: 0;
   z-index: -2;
-  background-image:
-    linear-gradient(
-      90deg,
-      rgba(8, 58, 31, 0.94) 0%,
-      rgba(15, 91, 49, 0.72) 48%,
-      rgba(28, 112, 57, 0.46) 100%
-    ),
-    var(--login-background-image);
-  background-position: center;
-  background-size: cover;
+  background: radial-gradient(ellipse at 78% 40%, #21623b 0%, #144a2d 48%, #0e3b25 100%);
 }
 
 .login-page::after {
@@ -52,34 +42,18 @@
   background-size: 520px 520px;
 }
 
-.login-backdrop-seal {
-  position: absolute;
-  z-index: -1;
-  width: min(58vw, 760px);
-  aspect-ratio: 1;
-  left: -240px;
-  bottom: -260px;
-  opacity: 0.09;
-  border: 34px solid #dff1c9;
-  border-radius: 50%;
-  box-shadow:
-    0 0 0 20px rgba(223, 241, 201, 0.35),
-    inset 0 0 0 20px rgba(223, 241, 201, 0.35);
-}
-
 .login-large-logo {
   position: absolute;
   z-index: -1;
   top: 50%;
-  left: -44vw;
-  width: min(92vw, 1200px);
-  height: min(92vw, 1200px);
-  object-fit: cover;
+  right: clamp(24px, 5vw, 96px);
+  width: min(46vw, 660px);
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
   border-radius: 50%;
-  opacity: 0.16;
-  mix-blend-mode: multiply;
+  opacity: 0.12;
   transform: translateY(-50%);
-  filter: saturate(0.8) contrast(1.1);
   pointer-events: none;
 }
 
@@ -478,7 +452,6 @@
 
 @media (max-width: 900px) {
   .login-page {
-    --login-background-image: url("../assets/login-background-768.webp");
     grid-template-columns: 1fr;
     gap: 44px;
     padding: 38px 24px;
@@ -504,10 +477,11 @@
     margin: 0 auto;
   }
   .login-large-logo {
-    left: -44vw;
-    width: 92vw;
-    height: 92vw;
-    opacity: 0.13;
+    top: 32px;
+    right: 24px;
+    width: min(72vw, 480px);
+    transform: none;
+    opacity: 0.1;
   }
 }
 
@@ -532,6 +506,9 @@
     display: none;
   }
   .login-large-logo {
-    display: none;
+    top: 24px;
+    right: 16px;
+    width: min(78vw, 360px);
+    opacity: 0.09;
   }
 }
