@@ -130,3 +130,8 @@ Release `0f36e7c` hides the initial-requirements pairing QR picture for Admins w
 ## 2026-10-19 - Hide phone camera start button
 
 Release `a3c9935` hides the Use phone camera button in Admin initial-requirements intake using display:none. Existing session controls and direct capture/file selection are retained. Frontend only; no backend migration or configuration changes. Targeted component lint, production build and diff checks passed. Release pushed through the existing Hostinger main pipeline. Live entry `/assets/index-CnTd0ZPN.js` and admin `Dashboard-DxGoTUiY.js` returned HTTP 200; the phone camera button has display:none and the QR image remains absent. Authenticated browser acceptance has not been performed.
+
+
+## 2026-10-19 - Remove empty phone camera placeholder
+
+Release `4ba733f` omits the idle phone-camera wrapper from Admin initial-requirements intake. Active session controls and connection notices remain available. Frontend only; no routing change, backend migration or configuration change. Targeted lint, production build, actual idle component render and diff checks passed. Live verification pending the existing Hostinger main pipeline; authenticated browser acceptance remains pending.
