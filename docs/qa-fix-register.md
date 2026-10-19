@@ -181,3 +181,7 @@ Panel recommendation 5, release `4895e1c`: staff can edit individual queued Scho
 ## Inline Amount interaction — 2026-10-20
 
 Recommendation 5 follow-up: the formatted amount is directly clickable and becomes an inline selected input; Enter/Save submits and Escape/Cancel discards. Separate Edit button/dialog removed. Existing backend, permissions, override column and list locking retained; no new migration. Frontend 206 tests, lint/build and synthetic Billing/Payroll direct edit, keyboard, stale-save retry, persistence, mobile and authoritative Excel export checks passed. Release `992b8dc` published through the existing testing pipeline; live entry `index-IUD1jaQj.js`/admin `Dashboard-D145e9sr.js` contain inline edit/keyboard/focus markers and omit the old dialog title. API/database healthy. Prior Hostinger backend revision/migration and authenticated acceptance remain pending.
+
+## Billing/Payroll Amount layout — 2026-10-20
+
+Fixed header/row alignment and duplicate horizontal scrollbars with a shared queue scroll container, consistent grid geometry, sticky header and more desktop queue space. CSS-only; no new migration. Frontend 206 tests, lint/build and synthetic 12-record, long-text, warning, inline edit, scroll alignment and export checks passed at 1440/1100/800/550/390/320 px. User authorized deployment; live frontend verification pending. Earlier backend/migration/authenticated acceptance remains separate.

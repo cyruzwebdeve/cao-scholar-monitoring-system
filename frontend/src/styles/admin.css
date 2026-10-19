@@ -8303,5 +8303,22 @@
 .scholar-amount-inline button[type="submit"] { background: #176b3a; color: white; }
 .scholar-amount-inline .scholar-amount-error { color: #a32424; }
 .billing-target-table .billing-queue-table-head,
-.billing-target-table .billing-queue-row { grid-template-columns: 72px minmax(170px, 1fr) 76px 58px 120px; min-width: 568px; }
+.billing-target-table .billing-queue-row { grid-template-columns: 66px minmax(96px, 1fr) 68px 44px 110px; min-width: 540px; }
 @media (max-width: 600px) { .scholar-amount-inline input { font-size: 16px; } .scholar-amount-inline button { min-height: 40px; } }
+
+/* One queue scrollport keeps its header and every row aligned while editing. */
+.billing-target-table { display: block; overflow: auto; scrollbar-gutter: stable; scroll-padding: 44px 0 8px; }
+.billing-target-table .billing-queue-table-body { display: contents; max-height: none; overflow: visible; }
+.billing-target-table .billing-queue-table-head,
+.billing-target-table .billing-queue-row { box-sizing: border-box; width: 100%; column-gap: 8px; padding-left: 12px; padding-right: 12px; }
+.billing-target-table .billing-queue-table-head { position: sticky; top: 0; z-index: 2; align-items: center; }
+.billing-target-table .billing-queue-empty { box-sizing: border-box; min-width: 540px; }
+.billing-target-table .billing-queue-row > * { min-width: 0; }
+.billing-target-table .billing-queue-row > span,
+.billing-target-table .billing-queue-row > code { padding-right: 0; }
+.billing-target-table .billing-amount-cell { align-self: start; }
+.billing-target-table .scholar-amount-inline > div { flex-wrap: nowrap; }
+.billing-target-table .scholar-amount-inline button { padding: 5px 7px; }
+@media (min-width: 1051px) {
+  .billing-transfer-board { grid-template-columns: minmax(0, .85fr) 42px minmax(0, 1.3fr); }
+}

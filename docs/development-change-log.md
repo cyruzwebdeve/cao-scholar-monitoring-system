@@ -5,6 +5,27 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-20 - Correct Billing and Payroll Queue Layout After Inline Amount Editing
+
+**TL;DR**
+- Billing/Payroll queue headers and rows now use the same box sizing, grid columns, width and padding, keeping Amount and the other headings aligned.
+- A single queue scroll area replaces nested horizontal scrollbars; its header stays visible during vertical scrolling. Desktop gives more width to the target queue, while narrow screens retain one horizontal scroll area as needed.
+- Inline amount editing, Save/Cancel, permissions, saved data and list-generation behavior remain unchanged. This is CSS-only; no API, database, configuration or migration change.
+- Frontend 206 tests, lint/build and synthetic browser checks passed across 1440/1100/800/550/390/320 px, including 12-row queues, long names/schools, requirements warnings and editing/export behavior. Publishing through the existing testing pipeline.
+
+Objective/reason: Fix the user-reported clipped/misaligned queue columns and duplicate horizontal scrollbars after direct Amount editing was introduced.
+
+Previous/new behavior, roles and workflow: The outer queue table and its separately scrolling body could both scroll horizontally, while header/row box sizing and minimum grid widths differed. The expanded amount input worsened this mismatch. Staff now scroll one queue container, so the sticky header moves horizontally with the same columns as every row. The body wrapper no longer establishes a second scrolling box. Shared box sizing, a complete 540 px minimum grid, matched horizontal padding and explicit column gaps prevent columns from protruding into one another. Amount has space for its inline input and Save/Cancel controls. Above the existing 1050 px stacking breakpoint, the target queue receives more space than the source panel; the existing stacked layout remains at smaller widths. The fixed footer, totals and generation action stay outside the scroll area. Existing staff roles, record eligibility and keyboard editing behavior are unchanged.
+
+Implementation/data flow/files: Only frontend/src/styles/admin.css changes. Scoped billing-target-table rules establish one overflow:auto container, display:contents for its body wrapper, sticky header, consistent grid geometry and scroll padding; editor buttons retain their width in the Amount cell. A desktop media query adjusts the source/target panel width ratio. No data flow or requests change; saved amounts and authoritative server generation snapshots remain as implemented previously.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: No API, backend, schema, database migration, dependency, environment, secret, infrastructure or storage change. Existing permission guards, generated-list locks and payroll-list scope remain intact; no payment release or monetary auditing is introduced or changed. No personal-data processing or exposure changes. Existing labels, keyboard controls, focus rings and errors remain; scroll padding helps keep focused content clear of the sticky header. This frontend-only fix is deployed through the established main-to-Hostinger pipeline. Prior recommendation 5 backend/migration/authenticated acceptance confirmation remains separate and pending.
+
+Validation/results: Frontend lint and production build passed with the existing large-chunk warning; all 206 existing frontend tests passed. Synthetic Chromium acceptance used the actual Billing/Payroll components with 12 mock Scholars, long school/name text, requirements warnings and an open inline amount editor. At 1440/1100/800/550/390/320 px it verified each header cell aligns with the matching row cell after horizontal scrolling, the body has no independent scrollbar, the header remains sticky after vertical scrolling and the document has no horizontal overflow. Additional scenarios passed: Cancel/Escape without write, Enter save, rejected-save draft retention/retry, reload persistence, Private tuition bound, list generation, and authoritative server-final amount in Payroll Excel. Screenshots were inspected; temporary preview files were removed. No real account, private document, mail or application-database write was used. Backend code is unchanged, so its earlier baseline was not rerun.
+
+Limitations/rollback/next work: At widths below the full grid, one horizontal queue scroll area remains intentional. Dense queues scroll vertically inside the panel. Restore this stylesheet change to roll back; no data rollback is needed. Verify the new CSS is delivered live after deployment and check the queue at the staff’s usual screen width. The earlier hosted backend/migration and authenticated amount-save checks are still required independently of this layout fix.
+
+
 ## 2026-10-20 - Edit Billing and Payroll Amounts Directly in the Cell
 
 **TL;DR**
