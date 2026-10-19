@@ -153,3 +153,5 @@ Deployment verification: `67ef6ca` pushed to main; `/login` HTTP 200 and `index-
 Frontend-only desktop placement adjustment matching the supplied reference: 78vw diameter, -30vw right offset and vertical centering; mobile/tablet overrides retained. No backend change or migration. Lint/build and whitespace checks passed; release suite and live verification recorded after completion. Rendered browser acceptance remains pending.
 
 Release checks complete: 399 backend passed, one existing opt-in skip; 195 frontend passed sequentially after an initial concurrent Vite cache rename collision. Affected eight-test file also passed separately. No application workaround or dependency change.
+
+Release `053fde2` pushed successfully to main. Repeated checks of both public frontend hostnames still serve previous `index-VSVQM8_N.js` and `AuthPageShell-C8JaHEyZ.css` with old `min(46vw,660px)` width/inset-right placement. New placement is not verified live. API healthy/database connected. Provider build logs unavailable; inspect Hostinger frontend build for this release and recheck new rules after publication.

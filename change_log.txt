@@ -538,3 +538,5 @@
 2026-10-19 | Matched the supplied desktop logo-placement reference: CAO seal enlarged to 78vw, vertically centered and offset -30vw beyond the right edge; retained mobile/tablet overrides and updated image-size hints. No API/database/configuration/security/workflow change. Lint/build, whitespace and reference geometry checks passed; rendered visual acceptance pending. Not deployed.
 
 2026-10-19 | Prepared logo-placement update for authorized main/Hostinger deployment. Release validation: 399 backend tests passed with one existing opt-in skip; 195 frontend tests passed sequentially after a concurrent Vite cache collision. Lint/build and whitespace checks passed. No backend change or new migration; live verification follows push.
+
+2026-10-19 | Logo-placement release 053fde2 pushed to main; publication pending/unverified. Both frontend hostnames still serve prior index-VSVQM8_N.js and old logo geometry after repeated checks; API healthy/database connected. Inspect Hostinger frontend build/deployment for this commit, then verify 78vw width and -30vw right offset. No new migration or backend change.
