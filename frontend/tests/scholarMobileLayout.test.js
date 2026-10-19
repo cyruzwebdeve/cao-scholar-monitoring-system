@@ -43,7 +43,7 @@ test('phone document rows stack, preserve complete filenames and expose usable t
   for (const rule of ['grid-template-columns: minmax(0, 1fr)', 'white-space: normal', 'overflow-wrap: anywhere', 'flex-wrap: wrap', 'min-height: 44px', 'min-height: 48px', 'font-size: 16px', 'scholar-upload-button:focus-within']) assert.ok(css.includes(rule), rule);
   assert.doesNotMatch(css, /overflow-x:\s*hidden|zoom:|text-size-adjust:\s*none/);
   const source = await readFile(new URL('../src/ScholarDashboard.jsx', import.meta.url), 'utf8');
-  for (const guard of ['requirementsSubmissionClosed || loadingRequirements || Boolean(uploadingRequirement)', 'academicPeriodId', 'submissionWave=initial', 'submissionWave=continuing', 'initialRequirements[key]?.fileName && <DocumentViewButton', 'accept=".pdf,.jpg,.jpeg,.png"']) assert.ok(source.includes(guard), guard);
+  for (const guard of ['requirementsSubmissionClosed || loadingRequirements || Boolean(uploadingRequirement)', 'academicPeriodId', 'submissionWave=initial', 'submissionWave=continuing', 'initialRequirements[key]?.fileName && <DocumentViewButton', 'accept={DOCUMENT_FILE_ACCEPT}']) assert.ok(source.includes(guard), guard);
 });
 test('long notification history and profile remain viewport-bounded with reachable close controls', async () => {
   const css = await readFile(new URL('../src/styles/scholar-mobile.css', import.meta.url), 'utf8');

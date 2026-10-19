@@ -1,3 +1,4 @@
+const { dataUrl } = require('./fixtures/documentFiles');
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
@@ -346,7 +347,7 @@ test('actual Scholar tuition upload rejects Public current-period catalog classi
   const [application] = await prisma.application_submissions.findMany();
   application.initial_docs.requirementWaves = { 10: { continuingOpenedAt: '2026-10-13T00:00:00Z' } };
   const res = response();
-  await uploadMyRequirement({ body: { academicPeriodId: 10, requirement: 'tuition_receipt', fileName: 'test.pdf', fileData: 'data:application/pdf;base64,JVBERi0xLjQK' }, user: { id: 1, email: 'scholar@example.com' } }, res);
+  await uploadMyRequirement({ body: { academicPeriodId: 10, requirement: 'tuition_receipt', fileName: 'test.pdf', fileData: dataUrl() }, user: { id: 1, email: 'scholar@example.com' } }, res);
   assert.equal(res.statusCode, 400);
   assert.match(res.body.message, /Only Private/);
   assert.equal(writes.length, 0);

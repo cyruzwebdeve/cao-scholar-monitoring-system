@@ -1,4 +1,5 @@
-export const MAX_DOCUMENT_BYTES = 6 * 1024 * 1024;
+import { MAX_DOCUMENT_BYTES } from './documentFilePolicy.js';
+export { MAX_DOCUMENT_BYTES } from './documentFilePolicy.js';
 export const MAX_CAPTURE_PAGES = 10;
 export const readCaptureFile = (file) => new Promise((resolve, reject) => {
   const reader = new FileReader(); reader.onload = () => resolve(String(reader.result));

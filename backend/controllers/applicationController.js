@@ -1,3 +1,4 @@
+const { validateDocumentUpload } = require('../services/documentFilePolicy');
 const { publicApplication } = require('../services/potentialReview');
 const { acceptReviewedScholar } = require('../services/scholarAcceptance');
 const { getScheduledApplicantIds } = require('../services/examAssignments');
@@ -13,7 +14,6 @@ const {
   BlobStorageConfigurationError,
   deleteBlob,
   isBlobUrl,
-  parseDataUrl,
   uploadDataUrl,
 } = require('../services/blobStorage');
 const {
@@ -65,7 +65,6 @@ const PASSING_SCORE = 75;
 const CURRENT_SCHOOL_YEAR = '2026-2027';
 const STALE_DEFAULT_SCHOOL_YEAR = '2025-2026';
 const DEFAULT_SEMESTER = '1st Semester';
-const PRIORITY_PROOF_FILE_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 const storePriorityProof = async ({ applicantPath, eligibility, priorityProof }) => {
   const selected = selectedPriorityCriteria(eligibility);
   if (!selected.length) return { initialDocs: {}, uploadedUrl: null };
@@ -76,10 +75,7 @@ const storePriorityProof = async ({ applicantPath, eligibility, priorityProof })
   if (typeof priorityProof.fileName !== 'string' || typeof priorityProof.fileData !== 'string') {
     throw Object.assign(new Error('Upload a PDF, JPG, or PNG proof for one selected eligibility criterion.'), { statusCode: 400 });
   }
-  let parsed;
-  try { parsed = parseDataUrl(priorityProof.fileData); } catch (error) { throw Object.assign(error, { statusCode: 400 }); }
-  if (!PRIORITY_PROOF_FILE_TYPES.has(parsed.contentType)) throw Object.assign(new Error('Eligibility proof must be a PDF, JPG, or PNG file.'), { statusCode: 400 });
-  if (parsed.buffer.length > 6 * 1024 * 1024) throw Object.assign(new Error('Eligibility proof must be smaller than 6 MB.'), { statusCode: 413 });
+  const parsed = await validateDocumentUpload(priorityProof.fileName, priorityProof.fileData);
   const token = process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN;
   let storedFile;
   if (token || process.env.NODE_ENV === 'production') {
@@ -1779,17 +1775,6 @@ const getMyApplication = async (req, res) => {
   }
 };
 
-const parseRequirementUpload = (fileName, fileData) => {
-  if (typeof fileName !== 'string' || !fileName.trim() || fileName.length > 255 || typeof fileData !== 'string') {
-    throw Object.assign(new Error('A valid file name and file are required.'), { statusCode: 400 });
-  }
-  if (fileData.length > 8 * 1024 * 1024 + 512) throw Object.assign(new Error('Use a file no larger than 6 MB.'), { statusCode: 413 });
-  let parsed;
-  try { parsed = parseDataUrl(fileData); } catch (error) { throw Object.assign(error, { statusCode: 400 }); }
-  if (!PRIORITY_PROOF_FILE_TYPES.has(parsed.contentType)) throw Object.assign(new Error('Only PDF, JPG, and PNG requirement files are allowed.'), { statusCode: 400 });
-  if (parsed.buffer.length > 6 * 1024 * 1024) throw Object.assign(new Error('Use a file no larger than 6 MB.'), { statusCode: 413 });
-  return parsed;
-};
 const storeRequirementUpload = async ({ applicantId, periodId, wave, key, fileName, fileData, parsed }) => {
   const token = process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN;
   if (token || process.env.NODE_ENV === 'production') {
@@ -1806,7 +1791,7 @@ const uploadMyRequirement = async (req, res) => {
     const { requirement: key, fileName, fileData } = req.body || {};
     if (!CONTINUING_KEYS.includes(key)) return res.status(400).json({ message: 'Scholars upload only continuing grades, registration forms, and applicable tuition receipts.' });
     if (!Number.isInteger(Number(req.body.academicPeriodId)) || Number(req.body.academicPeriodId) <= 0) return res.status(400).json({ message: 'Refresh and select an active academic period for this submission.' });
-    const parsed = parseRequirementUpload(fileName, fileData);
+    const parsed = await validateDocumentUpload(fileName, fileData);
     const primaryPeriod = await getActiveAcademicPeriodRecord();
     const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
     if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period.' });
@@ -1851,7 +1836,7 @@ const uploadScholarRequirementByAdmin = async (req, res) => {
     if (!Number.isInteger(applicantId) || applicantId <= 0 || !INITIAL_KEYS.includes(key)) return res.status(400).json({ message: 'A valid scholar and initial requirement are required.' });
     const { fileName, fileData } = req.body || {};
     if (!Number.isInteger(Number(req.body.academicPeriodId)) || Number(req.body.academicPeriodId) <= 0) return res.status(400).json({ message: 'Refresh and select an active academic period for this submission.' });
-    const parsed = parseRequirementUpload(fileName, fileData);
+    const parsed = await validateDocumentUpload(fileName, fileData);
     const primaryPeriod = await getActiveAcademicPeriodRecord();
     const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
     if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period.' });

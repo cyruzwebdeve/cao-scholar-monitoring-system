@@ -1,3 +1,4 @@
+import { validateDocumentFile, documentDataUrl, DOCUMENT_FILE_ACCEPT, DOCUMENT_FILE_HELP, CAPTURE_FILE_HELP } from './utils/documentFilePolicy';
 import Notification from './components/Notification';
 import DocumentViewButton from './components/DocumentViewButton';
 import CapturePhotoTips from './CapturePhotoTips';
@@ -5,7 +6,7 @@ import LaptopPhoneCapture from './LaptopPhoneCapture';
 import { useEffect, useRef, useState } from 'react';
 import { Camera, CheckCircle2, Crop, RotateCw, Trash2, Upload, X } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
-import { buildCapturePdf, captureDocumentReady, MAX_CAPTURE_PAGES, MAX_DOCUMENT_BYTES, readCaptureFile, renderCapture } from './utils/documentCapture';
+import { buildCapturePdf, captureDocumentReady, MAX_CAPTURE_PAGES, renderCapture } from './utils/documentCapture';
 import './styles/document-capture.css';
 export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const documents = scholar.initialDocuments || scholar.documents || [];
@@ -62,10 +63,9 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const act = async (action) => { setWorking(true); setNotice(''); try { await action(); } catch (error) { if (alive.current) { setNoticeTone('error'); setNotice(error.message); } } finally { if (alive.current) { setWorking(false); setProgress(''); } } };
   const pick = (file, photo = false) => act(async () => {
     if (!file) return;
-    if (!['image/jpeg', 'image/png', ...(photo ? [] : ['application/pdf'])].includes(file.type)) throw new Error('Use a JPG, PNG, or PDF file.');
-    if (file.size > (file.type === 'application/pdf' ? MAX_DOCUMENT_BYTES : 12 * 1024 * 1024)) throw new Error('Use a PDF below 6 MB or a photo below 12 MB.');
-    const data = await readCaptureFile(file);
-    if (file.type === 'application/pdf') { edit({ pages: [], file: { fileName: file.name, fileData: data } }); setPageIndex(0); }
+    const type = await validateDocumentFile(file, { capturePhoto: true, imagesOnly: photo });
+    const data = await documentDataUrl(file, type);
+    if (type === 'application/pdf') { edit({ pages: [], file: { fileName: file.name, fileData: data } }); setPageIndex(0); }
     else await addPage(data);
   });
   const transform = (rotate) => act(async () => {
@@ -127,12 +127,13 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
     {progress && <Notification tone="progress" title="Uploading initial requirements">{progress}</Notification>}
     {documents.some(document => document.alternativeGroup === 'initial_grades') && <p className="capture-help">Incoming/first-year college: upload either a COG or Grade 12 report card. Each is optional individually; one approved academic record is required, not both.</p>}
     <LaptopPhoneCapture scholar={scholar} token={token} busy={working} onPages={receivePhonePages} onConnectionChange={setPhoneConnected} />
-    <div className="capture-checklist">{documents.map((doc) => <button type="button" key={doc.requirementKey} aria-pressed={key === doc.requirementKey} disabled={working} onClick={() => choose(doc.requirementKey)}><span>{doc.label}{doc.alternativeGroup ? ' (COG or report card)' : doc.optional && !doc.label.includes('optional') ? ' (optional)' : ''}</span><small>{saved[doc.requirementKey] ? 'Uploaded · Approved' : drafts[doc.requirementKey]?.file ? 'PDF ready' : drafts[doc.requirementKey]?.pages.length ? `${drafts[doc.requirementKey].pages.length} page(s) captured` : doc.submitted && ['approved', 'complete', 'completed'].includes(String(doc.status).toLowerCase()) ? 'Keep existing approved file' : doc.optional || doc.requirementKey === 'indigency' ? 'Optional · capture if available' : 'Capture needed'}</small></button>)}</div>
+    <div className="capture-checklist">{documents.map((doc) => <button type="button" key={doc.requirementKey} aria-pressed={key === doc.requirementKey} disabled={working} onClick={() => choose(doc.requirementKey)}><span>{doc.label}{doc.alternativeGroup ? ' (COG or report card)' : doc.optional && !doc.label.includes('optional') ? ' (optional)' : ''}</span><small className="capture-file-policy">{DOCUMENT_FILE_HELP}</small><small>{saved[doc.requirementKey] ? 'Uploaded · Approved' : drafts[doc.requirementKey]?.file ? 'PDF ready' : drafts[doc.requirementKey]?.pages.length ? `${drafts[doc.requirementKey].pages.length} page(s) captured` : doc.submitted && ['approved', 'complete', 'completed'].includes(String(doc.status).toLowerCase()) ? 'Keep existing approved file' : doc.optional || doc.requirementKey === 'indigency' ? 'Optional · capture if available' : 'Capture needed'}</small></button>)}</div>
     {selected?.submitted && selected.applicationId && <DocumentViewButton token={token} label={selected.label} endpoint={`/document-reviews/${selected.applicationId}/${key}/file?academicPeriodId=${selected.academicPeriodId || scholar.academicPeriodId}&submissionWave=initial`} />}
     <fieldset disabled={working || Boolean(saved[key])}>
       <legend>{selected?.label}</legend>
+      <p id="initial-capture-file-policy" className="capture-help">{CAPTURE_FILE_HELP}</p>
       {saved[key] ? <p><CheckCircle2 size={16} /> Uploaded and approved. Close and reopen intake to capture a correction.</p> : <>
-        <div className="capture-actions"><button type="button" onClick={camera ? stopCamera : startCamera}><Camera size={14} />{camera ? 'Stop camera' : 'Open live camera'}</button><label className="capture-file"><Camera size={14} />Take photo<input type="file" accept="image/jpeg,image/png" capture="environment" onChange={(event) => { pick(event.target.files?.[0], true); event.target.value = ''; }} /></label><label className="capture-file"><Upload size={14} />Choose file<input type="file" accept="image/jpeg,image/png,application/pdf" onChange={(event) => { pick(event.target.files?.[0]); event.target.value = ''; }} /></label></div>
+        <div className="capture-actions"><button type="button" onClick={camera ? stopCamera : startCamera}><Camera size={14} />{camera ? 'Stop camera' : 'Open live camera'}</button><label className="capture-file"><Camera size={14} />Take photo<input type="file" aria-describedby="initial-capture-file-policy" accept="image/jpeg,image/png" capture="environment" onChange={(event) => { pick(event.target.files?.[0], true); event.target.value = ''; }} /></label><label className="capture-file"><Upload size={14} />Choose file<input type="file" aria-describedby="initial-capture-file-policy" accept={DOCUMENT_FILE_ACCEPT} onChange={(event) => { pick(event.target.files?.[0]); event.target.value = ''; }} /></label></div>
         {camera && <div className="capture-camera"><video ref={video} autoPlay muted playsInline aria-label="Live document camera preview" /><button type="button" onClick={() => act(() => addPage(video.current))}>Capture page</button></div>}
         {draft.file && <div className="capture-pdf"><p>{draft.file.fileName} · Existing PDF</p><iframe title="Selected PDF preview" src={draft.file.fileData} /><button type="button" onClick={() => edit({ pages: [] })}>Remove PDF</button></div>}
         {draft.pages?.length > 0 && <>

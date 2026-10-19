@@ -1,3 +1,4 @@
+import { validateDocumentFile, documentDataUrl, DOCUMENT_FILE_ACCEPT, DOCUMENT_FILE_HELP } from './utils/documentFilePolicy';
 import ScholarDesktopNavigation from './components/ScholarDesktopNavigation';
 import { containScholarProfileFocus } from './utils/scholarMobileLayout';
 import ScholarMobileNavigation from './components/ScholarMobileNavigation';
@@ -252,52 +253,41 @@ function ScholarDashboard({ token, user, onLogout }) {
     window.requestAnimationFrame(() => document.getElementById('scholar-requirements-title')?.focus({ preventScroll: true }));
   };
   const hasActionNotifications = unreadScholarNotifications.length > 0 || attentionCount > 0 || pendingReviewCount > 0 || (useCertification ? certificationDate === 'Not generated' : !payrollList);
-  const uploadRequirement = (requirement, file) => {
+  const uploadRequirement = async (requirement, file) => {
     if (!file) return;
     if (requirementsSubmissionClosed) {
       setNotice({ tone: 'error', message: continuingOpen ? 'The continuing-requirements deadline has passed. Contact CAO if a correction is required.' : 'CAO has not opened continuing submission yet.' });
       return;
     }
-    if (file.size > 6 * 1024 * 1024) {
-      setNotice({ tone: 'error', message: 'The selected file is too large. Please choose a file smaller than 6 MB.' });
-      return;
-    }
-
     setUploadingRequirement(requirement);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/applications/me/requirements`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...authHeaders(token),
-          },
-          body: JSON.stringify({
-            requirement,
-            academicPeriodId: portalData.requirementWave?.academicPeriodId || portalData.activePeriod?.id,
-            fileName: file.name,
-            fileType: file.type,
-            fileData: reader.result,
-          }),
-        });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message || 'Upload failed.');
-        setApplication(body.application);
-        setPortalData((current) => ({ ...current, requirementWave: { ...current.requirementWave, continuing: body.continuingRequirements || {} } }));
-        setRequirementsError('');
-        setNotice({ tone: 'success', message: `${file.name} was submitted for Billing staff review.` });
-      } catch (error) {
-        setNotice({ tone: 'error', message: error.message || 'Unable to upload this requirement.' });
-      } finally {
-        setUploadingRequirement('');
-      }
-    };
-    reader.onerror = () => {
+    try {
+      const contentType = await validateDocumentFile(file);
+      const fileData = await documentDataUrl(file, contentType);
+      const response = await fetch(`${API_BASE}/applications/me/requirements`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(token),
+        },
+        body: JSON.stringify({
+          requirement,
+          academicPeriodId: portalData.requirementWave?.academicPeriodId || portalData.activePeriod?.id,
+          fileName: file.name,
+          fileType: contentType,
+          fileData,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Upload failed.');
+      setApplication(body.application);
+      setPortalData((current) => ({ ...current, requirementWave: { ...current.requirementWave, continuing: body.continuingRequirements || {} } }));
+      setRequirementsError('');
+      setNotice({ tone: 'success', message: `${file.name} was submitted for Billing staff review.` });
+    } catch (error) {
+      setNotice({ tone: 'error', message: error.message || 'Unable to upload this requirement.' });
+    } finally {
       setUploadingRequirement('');
-      setNotice({ tone: 'error', message: 'The selected file could not be read. Please choose another file.' });
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const markNotificationRead = async (notificationId) => {
@@ -447,6 +437,7 @@ function ScholarDashboard({ token, user, onLogout }) {
                                 ? `${item.fileName} · Pending Billing staff review`
                                 : note || 'No file uploaded'}
                       </small>
+                      <small id={`scholar-file-policy-${key}`} className="scholar-file-policy">{DOCUMENT_FILE_HELP}</small>
                     </span>
                     <span className="scholar-requirement-actions">
                       {item?.fileName && <DocumentViewButton token={token} label={label} endpoint={`/applications/me/requirements/${key}/file?academicPeriodId=${portalData.requirementWave?.academicPeriodId}&submissionWave=continuing`} />}
@@ -456,8 +447,9 @@ function ScholarDashboard({ token, user, onLogout }) {
                         <input
                           type="file"
                           aria-label={"Upload " + label}
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(event) => uploadRequirement(key, event.target.files?.[0])}
+                          aria-describedby={`scholar-file-policy-${key}`}
+                          accept={DOCUMENT_FILE_ACCEPT}
+                          onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; uploadRequirement(key, file); }}
                           disabled={requirementsSubmissionClosed || loadingRequirements || Boolean(uploadingRequirement)}
                         />
                       </label>}

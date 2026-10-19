@@ -2,7 +2,7 @@ const { isFirstYearEntry } = require('../services/initialAcademicEvidence');
 const { canRecordInitial } = require('../services/passerIntake');
 const { randomUUID } = require('node:crypto');
 const prisma = require('../config/prisma');
-const { parseDataUrl } = require('../services/blobStorage');
+const { validateDocumentUpload } = require('../services/documentFilePolicy');
 const { loadResolvedScholarSchool, schoolClassification } = require('../services/scholarSchool');
 const { INITIAL_KEYS } = require('../services/requirementWaves');
 const failure = (message, statusCode) => Object.assign(new Error(message), { statusCode });
@@ -64,8 +64,7 @@ const mutate = async (req, change) => {
 const send = safe(async (req, res) => {
   const { pageId, requirementKey, imageData } = req.body || {};
   if (!validId(pageId) || !INITIAL_KEYS.includes(requirementKey) || typeof imageData !== 'string' || imageData.length > 6 * 1024 * 1024) throw failure('Select a requirement and a valid photo.', 400);
-  let file; try { file = parseDataUrl(imageData); } catch { throw failure('Use a valid JPEG capture.', 400); }
-  if (file.contentType !== 'image/jpeg' || file.buffer.length > 4 * 1024 * 1024 || file.buffer[0] !== 0xff || file.buffer[1] !== 0xd8) throw failure('Use a JPEG photo below 4 MB.', 400);
+  await validateDocumentUpload('capture.jpg', imageData, { maxBytes: 4 * 1024 * 1024 });
   await mutate(req, (session) => {
     if (session.context.accepting === false) throw failure('The laptop has ended capture. Review the received pages there.', 409);
     if (!session.context.requirementKeys.includes(requirementKey)) throw failure('This requirement does not apply to this scholar.', 400);

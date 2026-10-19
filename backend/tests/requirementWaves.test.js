@@ -1,3 +1,4 @@
+const { dataUrl } = require('./fixtures/documentFiles');
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { before, after } = test;
@@ -41,7 +42,7 @@ const setup = (options = {}) => {
     $transaction: async (callback) => callback(prisma),
   });
 };
-const file = (name = 'fixture.pdf') => ({ fileName: name, fileData: 'data:application/pdf;base64,' + Buffer.from('%PDF-1.4\nsynthetic fixture\n%%EOF').toString('base64') });
+const file = (name = 'fixture.pdf') => ({ fileName: name, fileData: dataUrl() });
 const ownDocument = async (key = 'tax_exemption', query = {}, user = { id: 7, role: 'Scholar' }) => {
   const res = response(); res.headers = {}; res.setHeader = (name, value) => { res.headers[name] = value; };
   await streamMyDocument({ params: { requirementKey: key }, query: { academicPeriodId: '10', submissionWave: 'initial', ...query }, user }, res);
@@ -165,7 +166,17 @@ test('next active academic period opens automatically but keeps separate continu
   assert.equal(getWaveSet(application.initial_docs, 10, 'continuing').requirements.grades.fileName, 'continuing-10.pdf');
 });
 test('simultaneous Admin uploads retain both documents through JSON compare-and-swap retries', async () => {
-  setup(); const results = await Promise.all([adminUpload('grades'), adminUpload('registration_form')]);
+  setup();
+  // Force both mutations to read the same version even when parser workers finish at different times.
+  let reads = 0, release;
+  const bothRead = new Promise(resolve => { release = resolve; });
+  const findUnique = prisma.application_submissions.findUnique;
+  prisma.application_submissions.findUnique = async (...args) => {
+    const snapshot = await findUnique(...args);
+    if (++reads <= 2) { if (reads === 2) release(); await bothRead; }
+    return snapshot;
+  };
+  const results = await Promise.all([adminUpload('grades'), adminUpload('registration_form')]);
   assert.deepEqual(results.map(({ statusCode }) => statusCode), [200, 200]);
   const docs = getWaveSet(application.initial_docs, 10, 'initial').requirements;
   assert.ok(docs.grades && docs.registration_form); assert.ok(conflicts > 0);
@@ -403,4 +414,18 @@ test('Payroll preparation mutation rejects unauthenticated, Scholar and staff wi
   setup(); const res=await fetch(baseUrl+'/scholars/7/payroll-preparation',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({academicPeriodId:10})});
   assert.equal(res.status,headers.Authorization?403:401);assert.equal(writes,0);
  }
+});
+
+test('rejected initial/continuing replacements preserve saved documents and review fingerprints; valid replacement changes the review', async () => {
+  setup(); await adminUpload('grades', 10, 'original.pdf');
+  const { reviewFingerprint } = require('../services/potentialReview');
+  const context = () => ({ activePeriod: { id:10, school_year:'2026-2027', semester:'1st Semester' }, applicant:{id:7,school_id:1}, latestResult:{id:1}, application, intakeSchool:{id:1,name:'TEST SCHOOL',school_type:'Private'} });
+  const before = JSON.stringify(application), fingerprint = reviewFingerprint(context()), writeCount = writes;
+  const res = response(); await uploadScholarRequirementByAdmin({params:{applicantId:'7',requirementKey:'grades'},body:{academicPeriodId:10,fileName:'replacement.pdf',fileData:'data:application/pdf;base64,'+Buffer.from('%PDF-1.4\nbroken\n%%EOF').toString('base64')},user:{id:9,role:'SuperAdmin'}},res);
+  assert.equal(res.statusCode,400);assert.equal(JSON.stringify(application),before);assert.equal(writes,writeCount);assert.equal(reviewFingerprint(context()),fingerprint);
+  await adminUpload('grades',10,'new-valid.pdf');assert.notEqual(reviewFingerprint(context()),fingerprint);
+  await open();await scholarUpload('registration_form',10,'current.pdf');
+  const continuingBefore=JSON.stringify(application), failed=response();
+  await uploadMyRequirement({body:{requirement:'registration_form',academicPeriodId:10,fileName:'not-converted.jpg',fileData:dataUrl()},user:{id:7,role:'Scholar'}},failed);
+  assert.equal(failed.statusCode,400);assert.equal(JSON.stringify(application),continuingBefore);
 });

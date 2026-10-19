@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { validateDocumentFile, documentDataUrl, DOCUMENT_FILE_ACCEPT, DOCUMENT_FILE_HELP } from '../utils/documentFilePolicy';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleCheckBig, Info, UsersRound } from 'lucide-react';
 import { API_BASE, authHeaders } from '../services/api';
 import municipalitiesData from '../../../municipality.json';
@@ -78,12 +79,13 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
   const [submitted, setSubmitted] = useState(false);
   const [accountCredentials, setAccountCredentials] = useState(null);
   const [redirectSeconds, setRedirectSeconds] = useState(30);
+  const priorityFileVersion = useRef(0);
+  const [checkingProof, setCheckingProof] = useState(false);
   const [priorityProof, setPriorityProof] = useState({ proofKey: '', fileName: '', fileData: '' });
   const [draftHydrated, setDraftHydrated] = useState(false);
   const draftStorageKey = 'scholarship-application-draft';
 
   // Draft restoration intentionally hydrates React state from localStorage once.
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
       if (sessionStorage.getItem('application-submitted') === 'true') {
@@ -118,7 +120,6 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
       setDraftHydrated(true);
     }
   }, [draftStorageKey, setStep]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!draftHydrated || submitted) return;
@@ -189,27 +190,24 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
     setFormState((prev) => ({ ...prev, [key]: parsedValue }));
     setFieldErrors((prev) => ({ ...prev, [key]: '' }));
     const criterion = priorityCriteria.find((item) => item.key === key);
+    if (criterion) { priorityFileVersion.current++; setCheckingProof(false); }
     if (criterion && parsedValue === 'Yes') setPriorityProof((current) => current.proofKey ? current : { ...current, proofKey: criterion.proofKey });
     if (criterion && parsedValue === 'No') setPriorityProof((current) => current.proofKey === criterion.proofKey ? { proofKey: '', fileName: '', fileData: '' } : current);
   };
 
-  const handlePriorityProof = (file) => {
+  const handlePriorityProof = async (file) => {
     if (!file) return;
-    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
-      setFieldErrors((current) => ({ ...current, priorityProof: 'Use a PDF, JPG, or PNG file.' }));
-      return;
-    }
-
-    if (file.size > 6 * 1024 * 1024) {
-      setFieldErrors((current) => ({ ...current, priorityProof: 'The proof must be smaller than 6 MB.' }));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPriorityProof((current) => ({ ...current, fileName: file.name, fileData: String(reader.result || '') }));
-      setFieldErrors((current) => ({ ...current, priorityProof: '' }));
-    };
-    reader.readAsDataURL(file);
+    const version = ++priorityFileVersion.current;
+    setCheckingProof(true);
+    try {
+      const type = await validateDocumentFile(file);
+      const fileData = await documentDataUrl(file, type);
+      if (version !== priorityFileVersion.current) return;
+      setPriorityProof(current => ({ ...current, fileName: file.name, fileData }));
+      setFieldErrors(current => ({ ...current, priorityProof: '' }));
+    } catch (failure) {
+      if (version === priorityFileVersion.current) setFieldErrors(current => ({ ...current, priorityProof: failure.message }));
+    } finally { if (version === priorityFileVersion.current) setCheckingProof(false); }
   };
 
   const validateCurrentStep = () => {
@@ -308,6 +306,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (checkingProof) return;
     if (!validateCurrentStep()) return;
 
     setSubmitting(true);
@@ -691,8 +690,8 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
                 </label>
                 <label>
                   <span>Proof document or valid ID</span>
-                  <input name="priorityProof" type="file" accept="application/pdf,image/jpeg,image/png" onChange={(event) => handlePriorityProof(event.target.files?.[0])} />
-                  <small>{priorityProof.fileName || 'PDF, JPG, or PNG; maximum 6 MB.'}</small>
+                  <input name="priorityProof" type="file" aria-describedby="priority-file-policy" accept={DOCUMENT_FILE_ACCEPT} disabled={checkingProof} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; handlePriorityProof(file); }} />
+                  <small id="priority-file-policy">{checkingProof ? 'Checking selected file… ' : ''}{DOCUMENT_FILE_HELP}{priorityProof.fileName ? ` Selected: ${priorityProof.fileName}` : ''}</small>
                 </label>
                 {fieldErrors.priorityProof && <span className="sibling-rule-error">{fieldErrors.priorityProof}</span>}
               </section>
@@ -714,7 +713,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
       default:
         return null;
     }
-  }, [step, formState, fieldErrors, user, barangayOptions, displayedGuardianName, displayedGuardianRelationship, priorityProof.fileName, priorityProof.proofKey]);
+  }, [step, formState, fieldErrors, user, barangayOptions, displayedGuardianName, displayedGuardianRelationship, priorityProof.fileName, priorityProof.proofKey, checkingProof]);
 
   if (submitted) {
     return (
@@ -839,7 +838,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
                 type="button"
                 className="btn-primary"
                 onClick={handleNext}
-                disabled={submitting}
+                disabled={submitting || checkingProof}
               >
                 {submitting && step === stepTitles.length - 1
                   ? 'Saving...'
