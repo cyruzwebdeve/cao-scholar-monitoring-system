@@ -1,6 +1,6 @@
 # Editable Amount column acceptance — 2026-10-20
 
-Local result: passed with synthetic fixtures. Hosted acceptance: pending; no deployment or application-database migration performed.
+Local result: passed with synthetic fixtures. Published for testing: frontend editor assets verified live and API/database health passed. Hostinger backend revision/migration confirmation and authenticated acceptance remain pending; no direct application-database migration/write was performed by the agent.
 
 1. Deploy the committed nullable override/constraint migration before starting the matched new backend. Confirm both frontend/backend builds and API health. Use synthetic test Scholars only.
 2. In Payroll, queue an unlisted Public Scholar. Amount → Edit must show the correct name, period and current default. Cancel/Escape must leave it unchanged.
