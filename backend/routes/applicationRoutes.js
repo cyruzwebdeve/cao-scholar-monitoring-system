@@ -1,3 +1,4 @@
+const potentialScholars = require('../controllers/potentialScholarController');
 const { getDashboardDetails } = require('../controllers/dashboardDetailsController');
 const payoutSchedules = require('../controllers/payoutScheduleController');
 const { sendToPayroll } = require('../controllers/payrollPreparationController');
@@ -125,6 +126,7 @@ router.get('/document-reviews/:applicationId/:requirementKey/file', authenticate
 router.put('/document-reviews/:applicationId/approve-pending', authenticate, documentReviewRateLimiter, checkRole(['BillingPayrollAdmin', 'SuperAdmin']), checkSectionAccess('documentReviews'), approvePendingDocuments);
 router.put('/document-reviews/:applicationId/:requirementKey', authenticate, documentReviewRateLimiter, checkRole(['BillingPayrollAdmin', 'SuperAdmin']), checkSectionAccess('documentReviews'), validateDocumentReview, reviewDocument);
 router.put('/schools/classification', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), updateSchoolClassification);
+router.get('/applicants/complete-requirements', privateResponse, authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('applicants'), potentialScholars.index);
 router.get('/applicants/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('applicants'), getApplicantManagement);
 router.get('/passer-lists', privateResponse, authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), passerLists.index);
 router.post('/passer-lists', privateResponse, authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('examination'), passerLists.create);

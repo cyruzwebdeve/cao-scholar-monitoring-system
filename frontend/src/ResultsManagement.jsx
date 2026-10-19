@@ -54,7 +54,8 @@ function StatusBadge({ status }) {
   return <span className={`rm-status ${status.toLowerCase().replace(/\s+/g, '-')}`}>{status}</span>;
 }
 
-export default function ResultsManagement({ token }) {
+export default function ResultsManagement({ token, initialApplicantId = null }) {
+  const initialReviewOpened = useRef(false);
   const [applicants, setApplicants] = useState([]);
   const [deliveryMode, setDeliveryMode] = useState('');
   const [passingScore, setPassingScore] = useState('14');
@@ -102,7 +103,7 @@ export default function ResultsManagement({ token }) {
       } catch {
         localScheduleByMunicipality = new Map();
       }
-      setApplicants((payload.applicants || []).map((applicant) => ({
+      const nextApplicants = (payload.applicants || []).map((applicant) => ({
         ...applicant,
         control: applicant.controlNo,
         date: applicant.examDate || localScheduleByMunicipality.get(applicant.municipality)?.date || null,
@@ -112,14 +113,24 @@ export default function ResultsManagement({ token }) {
         passingScore: applicant.passingScore,
         notes: applicant.reviewerNotes || '',
         reevaluatedAt: applicant.reviewerNotesUpdatedAt || null,
-      })));
+      }));
+      setApplicants(nextApplicants);
+      if (initialApplicantId && !initialReviewOpened.current) {
+        const candidate = nextApplicants.find(applicant => applicant.id === initialApplicantId);
+        initialReviewOpened.current = true;
+        if (candidate) {
+          setSelected(candidate);
+          setPassingScore(String(candidate.passingScore ?? 14));
+          setReevaluationScore(String(candidate.score ?? ''));
+        }
+      }
       setLoadError('');
     } catch (error) {
       setLoadError(error.message || 'Unable to load examination results.');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, initialApplicantId]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(loadResults, 0);

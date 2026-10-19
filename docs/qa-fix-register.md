@@ -155,3 +155,7 @@ Frontend-only desktop placement adjustment matching the supplied reference: 78vw
 Release checks complete: 399 backend passed, one existing opt-in skip; 195 frontend passed sequentially after an initial concurrent Vite cache rename collision. Affected eight-test file also passed separately. No application workaround or dependency change.
 
 Release `053fde2` pushed successfully to main. Repeated checks of both public frontend hostnames still serve previous `index-VSVQM8_N.js` and `AuthPageShell-C8JaHEyZ.css` with old `min(46vw,660px)` width/inset-right placement. New placement is not verified live. API healthy/database connected. Provider build logs unavailable; inspect Hostinger frontend build for this release and recheck new rules after publication.
+
+## Panel recommendation 3 — Complete requirements — 2026-10-19
+
+Applicants-scoped potential-scholar queue with search/verification filtering, pagination and Examination-scoped navigation to existing explicit acceptance. Backend 406 passed/one existing opt-in skip; frontend 198 passed; lint/build and synthetic browser desktop/mobile/narrow/permission/review/acceptance/removal/error/retry passed. No new migration/configuration or automatic scholarship activation. Both projects need deployment; release and public verification follow. Hosted acceptance: [checklist](qa/2026-10-19/potential-scholars-acceptance.md).
