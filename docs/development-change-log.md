@@ -12,7 +12,7 @@ and how the result was verified.
 - Queue totals and Amount-bearing Excel exports use the saved amount. Official generation rereads values under transaction locks and returns authoritative snapshots for the immediate download; generated/history records stay locked.
 - Private tuition assistance stays explicit; remaining allowance recalculates from the edited total, which cannot fall below saved tuition assistance. Public/Private defaults remain PHP 3,000/PHP 5,000 until an explicit edit.
 - One nullable override column and updated preparation/list constraints are required. Existing ignored legacy billing amounts and historical list snapshots are not backfilled or rewritten; workflow still ends at official list generation.
-- Validation: backend 440 passed/one existing database opt-in skip; frontend 206 passed; lint/build, Prisma generation/schema validation, 13 embedded PostgreSQL migration/constraint checks, and synthetic desktop/mobile browser acceptance passed. Local implementation only; no deployment or application-database migration performed.
+- Validation: backend 440 passed/one existing database opt-in skip; frontend 206 passed; lint/build, Prisma generation/schema validation, 13 embedded PostgreSQL migration/constraint checks, and synthetic desktop/mobile browser acceptance passed. Local verification is complete; release `4895e1c` is being published through the existing main-to-Hostinger pipeline at the user’s request. Hosted migration/revision confirmation and authenticated acceptance remain pending.
 
 Objective/reason: Implement panel recommendation 5 at the Amount column identified by staff, allowing individual scholarship list amounts to change without a code/configuration edit or a global allowance change.
 
