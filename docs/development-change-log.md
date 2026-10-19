@@ -9383,4 +9383,4 @@ Impact: frontend deployment required. No API, database, configuration, dependenc
 
 Validation: targeted component lint, production build and diff checks passed. Build emitted the existing chunk-size advisory. Browser verification was not performed. No new automated tests are needed for this visibility-only adjustment.
 
-Limitations, rollback and next work: new phone connections cannot be started from this hidden button. Remove the display override to restore it. Existing direct device capture and file selection remain available. User authorized deployment through the existing Hostinger main pipeline; live verification pending.
+Limitations, rollback and next work: new phone connections cannot be started from this hidden button. Remove the display override to restore it. Existing direct device capture and file selection remain available. Release `a3c9935` deployed through the existing Hostinger main pipeline. Public entry `/assets/index-CnTd0ZPN.js` and admin `Dashboard-DxGoTUiY.js` returned HTTP 200; the button has display:none and the QR image remains absent. Authenticated browser acceptance has not been performed.
