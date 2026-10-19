@@ -5,6 +5,23 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-19 - Match CAO Logo Placement to Supplied Reference
+
+**TL;DR**
+- Enlarged the desktop login seal and shifted it beyond the right edge, vertically centered to match the supplied placement reference.
+- Login and shared recovery pages receive the adjustment; phone/tablet layout and existing readable low-opacity treatment remain.
+- CSS/image-size hints only; no API, data, configuration or security change. Lint/build and whitespace checks passed; rendered visual acceptance pending.
+
+Objective/reason and previous/new behavior: the user supplied a desktop placement reference showing an oversized circular logo cropped by the right viewport boundary. The prior CAO seal was fully contained within the right side. Desktop logo width is now 78vw with a -30vw right offset and existing 50% vertical positioning/translation. At the reference size of 1440 × 1024, its diameter is about 1123px and left edge is 749px (52% across the viewport), with clipping above/below and beyond the right edge. Existing mobile/tablet overrides retain their contained top placement. Green background, text and form layout remain.
+
+Affected users/workflows/implementation/files: all login roles and password-recovery visitors through the shared authentication shell. Updated `frontend/src/styles/login.css` for desktop geometry and `frontend/src/components/AuthPageShell.jsx` for corresponding responsive image selection hints, plus both change logs. Existing local WebP seal assets and request/authentication data flow remain unchanged; no new image or external service.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: no API, database/schema/migration, configuration, dependency, hosting, authorization, security-control or privacy impact; no personal data or secrets introduced. Decorative image retains empty alt/aria-hidden and pointer-events none; form labels, focus controls and content remain. Frontend deployment required; prepared for authorized publication through the existing main/Hostinger pipeline. Payroll-list workflow scope is unchanged; legacy monetary functionality untouched.
+
+Validation/results: frontend lint and production build passed, including route fallbacks, with the existing large-chunk advisory. Release validation: 399 backend tests passed with one existing opt-in skip; all 195 frontend tests passed sequentially. The initial concurrent frontend run encountered a Vite dependency-cache rename collision; the affected eight-test file and complete sequential suite passed on retry without application changes. Whitespace validation passed. Calculated reference-size geometry confirms the requested crop/position; this is source/geometry verification, not rendered browser acceptance. No new tests added for this small visual adjustment; earlier screenshot-browser limitation remains.
+
+Limitations/rollback/next work: inspect the resulting desktop and phone login/recovery pages for visual acceptance after publication. Asset resolution is limited to the existing 1024px maximum source for very large screens. Restore the previous logo geometry and image-size hint to roll back without data changes. Live asset verification follows publication.
+
 ## 2026-10-19 - Panel Recommendation 2: CAO Logo Login Background
 
 **TL;DR**

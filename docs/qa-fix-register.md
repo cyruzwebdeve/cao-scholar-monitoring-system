@@ -147,3 +147,9 @@ Deployment follow-up: GitHub authentication restored; release `5c872dd` pushed t
 Frontend-only replacement of the authentication background photo with the existing CAO logo/green gradient and responsive sizing; shared recovery layout also affected. No new migration or backend change. Release checks: 399 backend tests passed with one existing opt-in skip; 195 frontend tests, lint/build and whitespace checks passed. Screenshot attempts did not complete; visual acceptance remains pending. Release prepared for authorized main/Hostinger push; live asset checks follow.
 
 Deployment verification: `67ef6ca` pushed to main; `/login` HTTP 200 and `index-VSVQM8_N.js` loads `AuthPageShell-CNX1YsEp.js` / `AuthPageShell-C8JaHEyZ.css` with updated logo size hints, green gradient and phone sizing. Old background photo/decorative ring absent from shell assets. API healthy/database connected. Public asset checks only; rendered appearance, provider logs and authenticated login remain unverified.
+
+## CAO logo placement release — 2026-10-19
+
+Frontend-only desktop placement adjustment matching the supplied reference: 78vw diameter, -30vw right offset and vertical centering; mobile/tablet overrides retained. No backend change or migration. Lint/build and whitespace checks passed; release suite and live verification recorded after completion. Rendered browser acceptance remains pending.
+
+Release checks complete: 399 backend passed, one existing opt-in skip; 195 frontend passed sequentially after an initial concurrent Vite cache rename collision. Affected eight-test file also passed separately. No application workaround or dependency change.

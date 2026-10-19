@@ -9,7 +9,7 @@ function AuthPageShell({ children }) {
       <img
         src={caologoLarge}
         srcSet={`${caologo} 96w, ${caologoLarge} 512w, ${caologoLarge2x} 1024w`}
-        sizes="(max-width: 500px) 78vw, (max-width: 900px) 480px, (max-width: 1435px) 46vw, 660px"
+        sizes="(max-width: 500px) 78vw, (max-width: 666px) 72vw, (max-width: 900px) 480px, 78vw"
         width="1024"
         height="1024"
         fetchPriority="high"

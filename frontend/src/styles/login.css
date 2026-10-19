@@ -46,8 +46,8 @@
   position: absolute;
   z-index: -1;
   top: 50%;
-  right: clamp(24px, 5vw, 96px);
-  width: min(46vw, 660px);
+  right: -30vw;
+  width: 78vw;
   height: auto;
   aspect-ratio: 1;
   object-fit: contain;
