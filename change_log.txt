@@ -518,3 +518,5 @@
 2026-10-19 - Deployed Payroll banner removal release 0ed62ce via main; live workbook generator no longer contains banner text and retains reference handling/signatory footer. API healthy/database connected.
 
 2026-10-19 - Payroll generation/history now download official-reference Excel; queue Export Word downloads the existing letter as unsaved preparation without creating a reference. Billing formats unchanged. Frontend-only; not deployed.
+
+2026-10-19 | Hid the initial-requirements pairing QR image and removed unused QR generation. Retained the phone capture link and session controls. Source/diff checks, frontend lint, production build and all 195 frontend tests passed. Prepared for the existing Hostinger main deployment pipeline.

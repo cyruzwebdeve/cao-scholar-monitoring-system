@@ -9350,3 +9350,20 @@ Updated frontend/src/BillingPayrollManagement.jsx and frontend/src/utils/billing
 Tests cover non-saving Word preparation text/filename, Philippine-date formatting, refusal to invent a reference even if a batch is accidentally passed, unchanged saved Billing/Payroll certification content, input validation, generation/history routing to official Excel and queue routing to Word, plus the existing serialized workbook totals/reference tests. Full frontend suite, lint, build and whitespace outcomes recorded below. No real lists were generated and no emails sent. Authenticated browser download and rendered Word/Excel review remain outstanding; pure content and source-wiring tests do not prove end-to-end browser file behavior. Original Word template is loaded at runtime and must remain available. Revert the presentation/utility changes together to restore prior file routing; no database rollback needed. Recommended next work: use synthetic records to verify generation/reference, history recovery and Word preparation in an authorized test environment.
 
 Validation outcome: 195 frontend tests passed; lint, production build and git diff --check passed. Existing large-chunk build advisory remains. No deployment performed.
+
+## 2026-10-19 - Hide initial requirements pairing QR image
+
+**TL;DR**
+- Admin initial-requirements intake no longer displays a QR image.
+- Phone capture links, existing connections and transfer controls remain available.
+- No API, database or approval changes; frontend lint, production build and all 195 frontend tests passed.
+
+Objective and previous/new behavior: hide the QR picture at the user's request. Previously the pairing panel generated and displayed a QR image. It now presents the existing phone capture link with a Connect your phone camera heading.
+
+Roles, implementation and files: affects Admin pairing in passer/scholar initial-requirements intake. `frontend/src/LaptopPhoneCapture.jsx` removes QR state, dynamic QR encoding and the image element. Session creation, authenticated phone-page access, polling, final receipt and session closure retain the existing data flow. Both change logs document the adjustment.
+
+Impact: no API, database, configuration, dependency, security-control or privacy changes. The existing qrcode dependency is retained. The image and scan instruction are removed; the descriptive link remains keyboard accessible. Frontend deployment is required. Approval still requires ending the phone connection. Legacy monetary functionality is untouched.
+
+Validation: source checks confirm QR rendering/generation references are absent and the phone link and controls remain; git diff whitespace checks passed. Installed locked frontend dependencies using temporary Node.js 22.16.0. Frontend lint, the production build with the production API base, and all 195 existing frontend tests passed. The build emitted the existing chunk-size advisory; test helper servers emitted port warnings without failing checks. Authenticated browser verification has not been performed.
+
+Limitations, rollback and next work: QR scanning is unavailable while the picture is hidden; users need the phone capture URL to connect a phone. Revert this component change to restore the image. Publish through the existing Hostinger main pipeline and verify the live admin asset. No backend migration is required.
