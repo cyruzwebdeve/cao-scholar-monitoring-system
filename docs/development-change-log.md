@@ -5,6 +5,23 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-20 - Left-align the Inline Amount Value
+
+**TL;DR**
+- The editable Billing/Payroll amount value is now aligned to the left, matching the staff request.
+- Presentation only: saved values, Save/Cancel, keyboard actions and existing permissions are unchanged. Frontend production build and generated CSS verification passed.
+
+Objective/reason and previous/new behavior: Replace the recently introduced right-aligned input digits with left-aligned digits. This affects staff editing individual queued Scholar amounts in Billing and Payroll; other workflows remain unchanged.
+
+Implementation/data flow/files: frontend/src/styles/admin.css changes only text-align in the scoped .scholar-amount-inline input rule. No request, calculation, persistence or export data flow changes.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: No API, backend, database/schema, migration, dependency, configuration, infrastructure, security or privacy impact. The existing labelled input, focus indicator, keyboard actions and controls remain accessible and unchanged. No payment/release or legacy monetary functionality is changed. Publish through the existing frontend testing pipeline; no new backend migration is required.
+
+Validation/results: Production frontend build and source/generated CSS checks passed. Existing functional suites were not rerun for this single CSS property change. No account, document, email or application-database writes were used for validation.
+
+Limitations/rollback/next work: This changes alignment only; restore text-align:right in the scoped input rule to roll back, with no data rollback. Verify delivered CSS after publication.
+
+
 ## 2026-10-20 - Compact Amount Input and Remove the Keyboard Helper Caption
 
 **TL;DR**

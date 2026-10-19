@@ -570,3 +570,5 @@
 2026-10-20 | Simplified Billing/Payroll inline Amount editor: removed the keyboard helper caption, standardized the right-aligned number field/focus style, hid spinner arrows and aligned equal-width Save/Cancel buttons. Existing keyboard/validation/data behavior retained. Frontend 206 tests, lint/build and synthetic six-width/edit/export checks passed. Frontend-only; no new API/migration/configuration change. Prepared for authorized deployment.
 
 2026-10-20 | Compact Amount release 49ae153 deployed and verified live: index-DnOVyyyx.js/editor Dashboard-CAC2FIDr.js omit the old keyboard caption; Dashboard-C0LN4qHS.css includes equal-width actions and hidden-spinner styling. API/database healthy. Frontend-only; no new migration.
+
+2026-10-20 | Left-aligned the editable Billing/Payroll Amount value at staff request. Single scoped CSS property; controls, data and permissions unchanged, no new migration. Production build/generated CSS verified; publishing through the existing testing pipeline.
