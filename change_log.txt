@@ -566,3 +566,5 @@
 2026-10-20 | Fixed Billing/Payroll inline Amount queue layout: aligned header/row sizing and columns, one shared scroll container with sticky header, wider desktop target panel and consistent editor controls. CSS-only; no API/migration/data change. Frontend 206 tests, lint/build and synthetic six-width alignment/scroll/edit/export checks passed. Prepared for authorized testing deployment.
 
 2026-10-20 | Queue layout release 5439b31 deployed and verified live: dashboard index-dAfswQvP.js and Dashboard-DK7nxP4A.css include the shared scrollport, body display:contents and sticky aligned header. API/database healthy. CSS-only; no new migration.
+
+2026-10-20 | Simplified Billing/Payroll inline Amount editor: removed the keyboard helper caption, standardized the right-aligned number field/focus style, hid spinner arrows and aligned equal-width Save/Cancel buttons. Existing keyboard/validation/data behavior retained. Frontend 206 tests, lint/build and synthetic six-width/edit/export checks passed. Frontend-only; no new API/migration/configuration change. Prepared for authorized deployment.

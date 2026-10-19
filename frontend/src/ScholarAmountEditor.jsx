@@ -21,10 +21,9 @@ export default function ScholarAmountEditor({ record, token, onSaved, onClose })
     } catch (failure) { setError(failure.message || 'Unable to save the amount.'); setBusy(false); }
   };
   return <form className="scholar-amount-inline" aria-label={`Edit amount for ${record.name}`} onSubmit={save} onKeyDown={event => { if (event.key === 'Escape' && !busy) { event.preventDefault(); onClose(); } }}>
-    <input ref={input} aria-label={`Amount in PHP for ${record.name}`} type="number" min="0" max="99999999.99" step="0.01" required value={value} disabled={busy} onChange={event => { setValue(event.target.value); setError(''); }} aria-describedby={`amount-help-${record.applicantId}`} />
-    <small id={`amount-help-${record.applicantId}`}>Enter to save · Esc to cancel</small>
+    <input ref={input} aria-label={`Amount in PHP for ${record.name}`} type="number" min="0" max="99999999.99" step="0.01" required value={value} disabled={busy} onChange={event => { setValue(event.target.value); setError(''); }} />
     {tuition !== null && <small>Allowance: {valid && amount >= tuition ? `₱${((Math.round(amount * 100) - Math.round(tuition * 100)) / 100).toLocaleString('en-PH', { minimumFractionDigits: 2 })}` : 'Amount must cover tuition assistance.'}</small>}
     {error && <small role="alert" className="scholar-amount-error">{error}</small>}
-    <div><button type="submit" disabled={!valid || busy || (tuition !== null && amount < tuition)}>{busy ? 'Saving…' : 'Save'}</button><button type="button" disabled={busy} onClick={onClose}>Cancel</button></div>
+    <div className="scholar-amount-inline-actions"><button type="submit" disabled={!valid || busy || (tuition !== null && amount < tuition)}>{busy ? 'Saving…' : 'Save'}</button><button type="button" disabled={busy} onClick={onClose}>Cancel</button></div>
   </form>;
 }

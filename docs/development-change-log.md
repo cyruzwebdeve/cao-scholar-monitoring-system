@@ -5,6 +5,25 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-20 - Compact Amount Input and Remove the Keyboard Helper Caption
+
+**TL;DR**
+- Removed the visible “Enter to save · Esc to cancel” caption beneath the Billing/Payroll amount input, as requested.
+- The amount field now has a consistent height, right-aligned digits, no number spinner and a green focus indicator. Save/Cancel occupy equal-width columns directly beneath it.
+- Existing keyboard shortcuts, validation, errors, Private allowance calculation and saved data remain unchanged. No API, backend, database, migration or configuration change.
+- Frontend 206 tests, lint/build and synthetic browser checks passed, including helper absence, equal-width buttons without overflow and Billing/Payroll behavior across six viewport widths. Prepared for the authorized testing deployment.
+
+Objective/reason and previous/new behavior: Simplify the cramped inline editor shown in the user’s screenshot. The previous keyboard caption wrapped into multiple lines between the field and buttons. That caption and its aria-describedby reference are removed. The field uses tabular, right-aligned numbers and consistent sizing; spinner arrows are suppressed visually while the number-input validation remains. An equal-column grid aligns Save/Cancel beneath the input. This affects authorized staff preparing Billing/Payroll lists; it does not change Scholar/Applicant portal workflows. Private allowance information and actual validation/server errors remain available because they explain the amount being saved.
+
+Implementation/data flow/files: frontend/src/ScholarAmountEditor.jsx removes the helper element/reference and names the actions container. frontend/src/styles/admin.css sets the field height/padding/alignment/focus/spinner treatment and uses a two-column actions grid with consistent button sizing. The existing authenticated amount endpoint, expectedAmount comparison, save response, period persistence, queue totals and list export flow are unchanged.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: No API, database/schema, migration, dependency, environment, infrastructure, credential, mail or document-storage changes. Existing role/section permissions and locked generated-list behavior remain authoritative. No new personal information or exposure. The input retains its per-Scholar accessible label, visible focus, number limits and required status; Save/Cancel retain their button labels, keyboard actions and busy/invalid states. Error announcements and Private tuition safeguards remain. This is a frontend-only publication through the existing main-to-Hostinger pipeline. No payment/release behavior is introduced or altered; previous hosted backend/migration acceptance remains separate.
+
+Validation/results: Frontend lint, production build and 206 existing frontend tests passed, with the existing build chunk-size warning. Synthetic actual-component Chromium checks passed for Billing and Payroll at 1440/1100/800/550/390/320 px: caption absent, actions have equal widths and no text overflow, grid/header alignment and single scrollport remain correct, Enter saves, Escape/Cancel discards, rejected saves retain drafts, retries work, saved values survive reload, Private tuition bounds hold, and generated Payroll Excel uses the final server snapshot. Screenshots were inspected and temporary preview files removed. No real accounts, private documents, emails or application-database writes were used. Backend code is unchanged and its earlier baseline was not rerun.
+
+Limitations/rollback/next work: Keyboard shortcuts remain functional without a visible instructional caption; buttons provide the visible actions. Existing narrow-screen horizontal queue scrolling remains. Restore the two frontend files to roll back the presentation; saved amounts and backend validation require no rollback. Verify the new assets after publication and check the editor at the staff’s normal screen width.
+
+
 ## 2026-10-20 - Correct Billing and Payroll Queue Layout After Inline Amount Editing
 
 **TL;DR**

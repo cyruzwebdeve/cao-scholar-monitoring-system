@@ -18,3 +18,5 @@ Validation performed locally: backend 440 pass/one existing opt-in DB skip, fron
 Scope: individual amounts for list preparation only. Defaults remain PHP 3,000 Public/PHP 5,000 Private. The existing enrollment-certification policy wording remains unchanged. Rollback should disable editing while retaining the additive column/snapshots; do not switch custom-amount records back to old fixed-total generators.
 
 Layout follow-up: verify Amount/header alignment while editing and scrolling a long queue. There must be one queue scroll area, a sticky aligned header, no nested horizontal scrollbar and no page-wide horizontal overflow. Desktop target queue has more room; narrower screens may scroll the grid horizontally. CSS release 5439b31 was verified publicly in Dashboard-DK7nxP4A.css.
+
+Compact-control follow-up: the wrapping keyboard helper caption must be absent. Input digits are right-aligned without spinner arrows; Save/Cancel have equal widths directly beneath the input. Enter/Escape, named buttons, Private allowance/tuition feedback and actual error messages remain functional.
