@@ -63,7 +63,7 @@ export default function SiteAccessGate({ children }) {
   const unlock = async (event) => {
     event.preventDefault();
     if (submitting) return;
-    if (!password) return setError('Enter the tester access code provided by the project administrator.');
+    if (!password) return setError('Enter the test access code provided by the project administrator.');
     requestController.current?.abort();
     const controller = new AbortController();
     requestController.current = controller;
@@ -98,7 +98,7 @@ export default function SiteAccessGate({ children }) {
       <section className="site-access-card" aria-labelledby="site-access-title">
         <div className="site-access-mark" aria-hidden="true"><ShieldCheck /></div>
         <p className="site-access-kicker">INVITATION-ONLY TESTING</p>
-        <h1 id="site-access-title">Authorized tester access</h1>
+        <h1 id="site-access-title">Authorized test access</h1>
         {state === 'checking' ? (
           <div className="site-access-status" role="status" aria-live="polite">
             <span className="site-access-spinner" /> Verifying access&hellip;
@@ -110,7 +110,7 @@ export default function SiteAccessGate({ children }) {
             </p>
             <p className="site-access-warning" id="site-access-warning">
               <strong>Do not enter your applicant, scholar, or administrator password.</strong>
-              Enter only the separate tester access code sent directly by the project administrator.
+              Enter only the separate test access code sent directly by the project administrator.
             </p>
             {state === 'unavailable' ? (
               <button type="button" className="site-access-retry" onClick={checkAccess}>
@@ -118,7 +118,7 @@ export default function SiteAccessGate({ children }) {
               </button>
             ) : (
               <form onSubmit={unlock} className="site-access-form">
-                <label htmlFor="tester-access-code">Tester access code</label>
+                <label htmlFor="tester-access-code">Test access code</label>
                 <div className="site-access-input">
                   <LockKeyhole size={18} aria-hidden="true" />
                   <input
@@ -142,7 +142,7 @@ export default function SiteAccessGate({ children }) {
             {error && <p className="site-access-error" role="alert">{error}</p>}
           </>
         )}
-        <small>No tester access code? Close this page and contact the project administrator.</small>
+        <small>No test access code? Close this page and contact the project administrator.</small>
       </section>
     </main>
   );

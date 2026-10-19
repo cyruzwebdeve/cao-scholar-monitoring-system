@@ -524,3 +524,5 @@
 2026-10-19 | Hid the Use phone camera button in Admin initial-requirements intake. Existing connection controls and direct capture/file upload remain intact. Targeted component lint, production build and diff checks passed.
 
 2026-10-19 | Removed the empty phone-camera placeholder from initial-requirements intake by omitting its container when no session or notice exists. Existing active-session controls and notices remain available. Targeted lint, production build, actual idle component render and diff checks passed.
+
+2026-10-19 | Panel recommendation 1: renamed visible Tester access wording to Test access across the preliminary gate and related frontend/backend errors. Access validation and permissions unchanged; no database/configuration or payroll-scope change. Release prepared from latest main for the existing Hostinger pipeline; 399 backend and 195 frontend tests passed with one existing opt-in skip, lint/build passed. No new migration; live verification pending.

@@ -1,6 +1,6 @@
 export const SITE_ACCESS_TIMEOUT_MS = 10000;
 export const requestSiteAccess = async (url, options, controller, fetcher = fetch, timeoutMs = SITE_ACCESS_TIMEOUT_MS) => {
-  const timer = setTimeout(() => controller.abort(new DOMException('Tester verification timed out.', 'TimeoutError')), timeoutMs);
+  const timer = setTimeout(() => controller.abort(new DOMException('Test verification timed out.', 'TimeoutError')), timeoutMs);
   try {
     const response = await fetcher(url, { ...options, signal: controller.signal });
     // Keep the deadline active while reading a stalled response body too.

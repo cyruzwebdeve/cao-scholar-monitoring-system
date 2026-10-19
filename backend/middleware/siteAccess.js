@@ -10,7 +10,7 @@ const requireSiteAccess = (req, res, next) => {
     res.set('X-Site-Access-Required', 'true');
     return res.status(401).json({
       code: 'SITE_ACCESS_REQUIRED',
-      message: 'This invitation-only testing deployment requires a tester access code.',
+      message: 'This invitation-only testing deployment requires a test access code.',
     });
   }
 

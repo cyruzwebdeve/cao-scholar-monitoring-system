@@ -5,6 +5,23 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-19 - Panel Recommendation 1: Test Access Wording
+
+**TL;DR**
+- Changed the invitation-only access screen from “Tester” to “Test” as requested by the defense panel.
+- All visitors see consistent test-access labels, instructions and related errors; individual sign-in and permissions remain unchanged.
+- Text-only application change with no database or workflow impact; frontend lint/build and existing access/request/rate-limit checks passed.
+
+Objective/reason and previous/new behavior: implement the first recommendation from the pre-final defense. The preliminary access gate previously displayed “Authorized tester access” and “Tester access code.” It now displays “Authorized test access” and “Test access code,” with matching instructions, empty-input guidance, timeout wording, backend rejection and rate-limit messages.
+
+Affected users/workflows and implementation/data flow: administrators, applicants, scholars and other invited visitors encounter the updated wording before individual sign-in. The existing frontend request, backend validation and signed access-token flow are unchanged. Updated `frontend/src/components/SiteAccessGate.jsx`, `frontend/src/services/siteAccessRequest.js`, `backend/routes/siteAccessRoutes.js`, `backend/middleware/siteAccess.js`, `backend/middleware/rateLimits.js` and both change logs. DOM identifiers and internal token audience remain stable.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: API response message text changes only; routes, payload shapes and status codes are unchanged. No database/schema/migration, configuration, dependency or hosting changes. No security-control or privacy impact; no secrets or personal data added. Existing labels, warning associations, keyboard controls and live error announcements remain intact. Frontend and backend deployment is needed to publish all wording; release prepared for the established main/Hostinger pipeline. Payroll-list scope is unchanged and legacy payment-oriented code is untouched.
+
+Validation: frontend lint and production build passed (existing large-chunk advisory remains). Existing backend site-access and frontend site-access-request test files passed; all nine rate-limit tests passed after allowing their local loopback server outside the restricted sandbox. Initial sandbox run could not start the server. Repository release tests also passed before integration; latest-main release checks passed: 399 backend tests plus one existing opt-in skip, 195 frontend tests, lint and production build. The first isolated-checkout suite lacked its generated Prisma client; generation and rerun resolved that setup failure. Diff whitespace validation passed. No new tests added for this wording-only change.
+
+Limitations/rollback/next work: live verification follows the release push. Revert the five application files to restore prior wording; no data rollback is required. Recommendation 2, updating the login photo, is next.
+
 ## 2026-10-17 - Payout Schedule Layout Refinement
 
 **TL;DR**
