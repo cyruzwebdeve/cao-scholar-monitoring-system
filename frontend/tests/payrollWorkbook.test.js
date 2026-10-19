@@ -115,3 +115,8 @@ test('payroll footer reproduces the supplied unsigned form while retaining draft
     assert.equal(sheet.pageSetup.printArea, 'A1:N41');
   }
 });
+
+test('custom saved amounts and their Private breakdown survive official Excel serialization', async () => {
+ const sheet=await serialized({records:[{name:'SYNTHETIC CUSTOM',schoolType:'Private',claimAmount:6500.75,tuitionFeeAssistance:3500,allowance:3000.75}]});
+ assert.equal(sheet.getCell('G6').value,3500);assert.equal(sheet.getCell('I6').value,3000.75);assert.equal(sheet.getCell('K6').value,6500.75);assert.equal(sheet.getCell('K37').value,6500.75);
+});

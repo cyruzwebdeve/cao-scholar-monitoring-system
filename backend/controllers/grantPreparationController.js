@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const { resolveBillingAmount } = require('../services/billingGrant');
 const { validateTuitionAssistance, grantBreakdown, lockGrantRecords, error } = require('../services/grantPreparation');
 const { loadResolvedScholarSchool, schoolClassification } = require('../services/scholarSchool');
 const { resolveProcessingRoute } = require('../services/processingRoute');
@@ -29,22 +30,24 @@ const safe = (handler) => async (req,res) => {
   }
 };
 const save = safe(async(req,res)=>{
-  const tuition = validateTuitionAssistance(req.body?.tuitionFeeAssistance);
+  let tuition;
   if (req.body.preparedAt != null && (typeof req.body.preparedAt !== 'string' || !Number.isFinite(+new Date(req.body.preparedAt)))) throw error('Reload the saved grant record before editing.');
   const saved = await prisma.$transaction(async(tx)=>{
     const applicantId=Number(req.params.applicantId),periodId=Number(req.body.academicPeriodId);
     if (![applicantId,periodId].every(id=>Number.isSafeInteger(id)&&id>0)) throw error('Select a Scholar and academic period.');
     await lockGrantRecords(tx,periodId,[applicantId]);
     const context = await contextFor(tx,req);
+    const total = resolveBillingAmount('Private', context.requirement?.list_amount_override);
+    tuition = validateTuitionAssistance(req.body?.tuitionFeeAssistance, total);
     if (await tx.payroll_claims.findFirst({where:{applicant_id:applicantId,academic_period_id:periodId}})) throw error('This grant record is locked because the Scholar is already included in a generated list.',409);
     if ((context.requirement?.grant_prepared_at ? +new Date(context.requirement.grant_prepared_at):null)!==(req.body.preparedAt ? +new Date(req.body.preparedAt):null)) throw error('Another staff member changed this preparation. Refresh before editing.',409);
     const timestamp=new Date(Math.max(Date.now(),+new Date(context.requirement?.grant_prepared_at||0)+1));
-    const fields={tuition_fee_assistance:tuition,grant_prepared_at:timestamp,grant_prepared_by:req.user.id,billing_amount:5000,updated_by:req.user.id};
+    const fields={tuition_fee_assistance:tuition,grant_prepared_at:timestamp,grant_prepared_by:req.user.id,billing_amount:total,updated_by:req.user.id};
     return tx.scholar_requirements.upsert({where:{applicant_id_billing_period_id:{applicant_id:applicantId,billing_period_id:periodId}},create:{applicant_id:applicantId,billing_period_id:periodId,...fields},update:fields});
   },{isolationLevel:'Serializable'});
   res.locals.auditTargetId=Number(req.params.applicantId);
   res.locals.auditAction='PRIVATE_GRANT_PREPARED';
-  res.locals.auditDescription=`Prepared the Private grant breakdown for academic period ${Number(req.body.academicPeriodId)}: total PHP 5,000; tuition assistance PHP ${tuition}; allowance PHP ${grantBreakdown(saved).allowance}.`;
+  res.locals.auditDescription=`Prepared the Private grant breakdown for academic period ${Number(req.body.academicPeriodId)}: total PHP ${grantBreakdown(saved).totalGrant}; tuition assistance PHP ${tuition}; allowance PHP ${grantBreakdown(saved).allowance}.`;
   return res.json({message:'Private grant record saved as Prepared.',grant:grantBreakdown(saved)});
 });
 const receipt = safe(async(req,res)=>{

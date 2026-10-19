@@ -8,9 +8,10 @@ export default function PrivateGrantEditor({ record, period, token, onSaved, onB
   const preparedAt=useRef(record.grantPreparedAt || null);
   useEffect(()=>()=>{if(receiptUrl.current)URL.revokeObjectURL(receiptUrl.current);},[]);
   useEffect(() => { onBusyChange?.(busy || receiptBusy); return () => onBusyChange?.(false); }, [busy, receiptBusy, onBusyChange]);
+  const total=Number(record.totalGrant ?? 5000);
   const amount=Number(tuition), cents=Math.round(amount*100);
-  const valid=tuition.trim()!=='' && Number.isFinite(amount) && amount>=0 && amount<=5000 && amount===cents/100;
-  const allowance=valid ? ((500000-cents)/100).toFixed(2) : '';
+  const valid=tuition.trim()!=='' && Number.isFinite(amount) && amount>=0 && amount<=total && amount===cents/100;
+  const allowance=valid ? ((Math.round(total*100)-cents)/100).toFixed(2) : '';
   const save=async(event)=>{
     event.preventDefault();if(!valid||busy||receiptBusy)return;setBusy(true);setError('');
     try{
@@ -34,11 +35,11 @@ export default function PrivateGrantEditor({ record, period, token, onSaved, onB
     <header className="scholar-grant-heading"><span>PRIVATE GRANT PREPARATION</span><h4>{record.grantPrepared?'Update':'Create'} grant record</h4><p>{period.schoolYear} · {period.semester}</p></header>
     <div className="scholar-grant-receipt-row"><p>Enter the tuition assistance from the submitted receipt.</p><button type="button" disabled={busy||receiptBusy} onClick={openReceipt}>{receiptBusy?'Opening…':'View tuition receipt'}</button></div>
     <div className="scholar-grant-fields">
-      <label className="scholar-grant-total"><span>Total Grant (PHP)</span><input value="5000.00" readOnly /></label>
-      <label className="scholar-grant-tuition"><span>Tuition Fee Assistance (PHP)</span><input required type="number" min="0" max="5000" step="0.01" value={tuition} onChange={(event)=>{setTuition(event.target.value);setError('');}} disabled={busy} aria-describedby="scholar-grant-tuition-help" /><small id="scholar-grant-tuition-help">PHP 0–5,000. Enter 0 if no tuition assistance applies.</small></label>
+      <label className="scholar-grant-total"><span>Total Grant (PHP)</span><input value={total.toFixed(2)} readOnly /></label>
+      <label className="scholar-grant-tuition"><span>Tuition Fee Assistance (PHP)</span><input required type="number" min="0" max={total} step="0.01" value={tuition} onChange={(event)=>{setTuition(event.target.value);setError('');}} disabled={busy} aria-describedby="scholar-grant-tuition-help" /><small id="scholar-grant-tuition-help">PHP 0–{total.toLocaleString('en-PH')}. Enter 0 if no tuition assistance applies.</small></label>
       <label className="scholar-grant-allowance"><span>Allowance (PHP)</span><input value={allowance} readOnly /><small>Computed automatically.</small></label>
     </div>
-    {tuition!==''&&!valid&&<Notification tone="error" title="Check tuition assistance">Use an amount from PHP 0 to PHP 5,000 with up to two decimal places.</Notification>}{error&&<Notification tone="error" title="Grant preparation needs attention">{error}</Notification>}
+    {tuition!==''&&!valid&&<Notification tone="error" title="Check tuition assistance">Use an amount from PHP 0 to PHP {total.toLocaleString('en-PH')} with up to two decimal places.</Notification>}{error&&<Notification tone="error" title="Grant preparation needs attention">{error}</Notification>}
     <button className="scholar-grant-save" type="submit" disabled={busy||receiptBusy||!valid}>{busy?(onContinue?'Adding…':'Saving…'):onContinue?'Add to billing':record.grantPrepared?'Update prepared record':'Save as Prepared'}</button>
   </form>;
 }

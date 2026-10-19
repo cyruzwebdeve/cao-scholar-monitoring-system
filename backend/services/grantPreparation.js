@@ -1,13 +1,14 @@
-const { PRIVATE_SCHOLAR_GRANT_AMOUNT, isPrivateSchool } = require('./billingGrant');
+const { PRIVATE_SCHOLAR_GRANT_AMOUNT, isPrivateSchool, resolveBillingAmount } = require('./billingGrant');
 const error = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
-const validateTuitionAssistance = (value) => {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > PRIVATE_SCHOLAR_GRANT_AMOUNT || value !== Math.round(value * 100) / 100) throw error('Enter Tuition Fee Assistance from PHP 0 to PHP 5,000 with at most two decimal places.');
+const validateTuitionAssistance = (value, total = PRIVATE_SCHOLAR_GRANT_AMOUNT) => {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > total || value !== Math.round(value * 100) / 100) throw error(`Enter Tuition Fee Assistance from PHP 0 to PHP ${total.toLocaleString('en-PH')} with at most two decimal places.`);
   return Math.round(value * 100) / 100;
 };
 const grantBreakdown = (record) => {
-  if (!record?.grant_prepared_at || record.tuition_fee_assistance == null) return { grantPrepared: false, totalGrant: 5000, tuitionFeeAssistance: null, allowance: null, grantPreparedAt: null };
-  const tuition = validateTuitionAssistance(Number(record.tuition_fee_assistance));
-  return { grantPrepared: true, totalGrant: 5000, tuitionFeeAssistance: tuition, allowance: (500000 - Math.round(tuition * 100)) / 100, grantPreparedAt: record.grant_prepared_at };
+  const total = resolveBillingAmount('Private', record?.list_amount_override);
+  if (!record?.grant_prepared_at || record.tuition_fee_assistance == null) return { grantPrepared: false, totalGrant: total, tuitionFeeAssistance: null, allowance: null, grantPreparedAt: null };
+  const tuition = validateTuitionAssistance(Number(record.tuition_fee_assistance), total);
+  return { grantPrepared: true, totalGrant: total, tuitionFeeAssistance: tuition, allowance: (Math.round(total * 100) - Math.round(tuition * 100)) / 100, grantPreparedAt: record.grant_prepared_at };
 };
 const preparationBlocker = (schoolType, record, alreadyListed = false) => isPrivateSchool(schoolType) && !alreadyListed && !grantBreakdown(record).grantPrepared
   ? { code: 'GRANT_PREPARATION_REQUIRED', message: 'Create the Private grant record and enter Tuition Fee Assistance before generating the list.' } : null;

@@ -42,6 +42,7 @@ const { evaluateEligibility, serializeAssessment } = require('../services/eligib
 const { PRIORITY_PROOFS, selectedPriorityCriteria } = require('../services/priorityEligibility');
 const { createReferencedListBatch } = require('../services/billingReference');
 const { resolveBillingAmount } = require('../services/billingGrant');
+const { snapshotListAmounts, totalListAmount } = require('../services/scholarAmount');
 const { getOrStartAttempt, assertAttemptOpen, AttemptError } = require('../services/onlineExamAttempt');
 const { assertAutomaticGrading, loadConfiguration, publicConfiguration, scoreConfiguredAnswers, createExamTicket, verifyExamTicket } = require('../services/onlineExamConfiguration');
 const { INITIAL_KEYS, CONTINUING_KEYS, getWaveSet, getInitialRequirements, getEffectiveRequirements, continuingIsOpen, saveWaveDocument, mutateRequirementWaves } = require('../services/requirementWaves');
@@ -846,9 +847,9 @@ const getScholarManagement = async (req, res) => {
       const continuingAccess = evaluateContinuingSchedule({ schedule: continuingSchedule, period: activePeriod, docs: application?.initial_docs, applicantId: applicant.id, schoolType, legacyPeriodId: primaryPeriod.id, entryYearLevel: application?.school_plan?.incomingYearLevel });
       if (application) application.initial_docs = projectContinuingAccess(application.initial_docs, activePeriod.id, continuingAccess);
       const applicationRequirements = getEffectiveRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id).requirements;
-      const configuredBillingAmount = requirement?.billing_amount === null || requirement?.billing_amount === undefined
-        ? 0
-        : Number(requirement.billing_amount);
+      const configuredBillingAmount = requirement?.list_amount_override === null || requirement?.list_amount_override === undefined
+        ? null
+        : Number(requirement.list_amount_override);
       const effectiveBillingAmount = resolveBillingAmount(schoolType, configuredBillingAmount);
       const payrollClaim = payrollClaimByApplicant.get(applicant.id);
       const payrollBatch = payrollClaim ? payrollBatchById.get(payrollClaim.payroll_batch_id) : null;
@@ -954,11 +955,11 @@ const getScholarManagement = async (req, res) => {
       const grantBlocker = preparationBlocker(schoolType, requirement, Boolean(payrollClaim));
       if (grantBlocker) billingEligibility = { ...billingEligibility, eligible: false, reasons: [...billingEligibility.reasons, grantBlocker] };
       const savedGrant = payrollClaim?.tuition_fee_assistance != null
-        ? { grantPrepared: true, totalGrant: 5000, tuitionFeeAssistance: Number(payrollClaim.tuition_fee_assistance), allowance: Number(payrollClaim.allowance), grantPreparedAt: requirement?.grant_prepared_at || null }
+        ? { grantPrepared: true, totalGrant: Number(payrollClaim.claim_amount), tuitionFeeAssistance: Number(payrollClaim.tuition_fee_assistance), allowance: Number(payrollClaim.allowance), grantPreparedAt: requirement?.grant_prepared_at || null }
         : payrollClaim || schoolType !== 'Private' ? { grantPrepared: false, totalGrant: schoolType === 'Private' ? 5000 : 3000, tuitionFeeAssistance: null, allowance: null, grantPreparedAt: null } : grantBreakdown(requirement);
       return {
         ...savedGrant,
-        totalGrant: payrollClaim ? Number(payrollClaim.claim_amount) : resolveBillingAmount(schoolType),
+        totalGrant: payrollClaim ? Number(payrollClaim.claim_amount) : effectiveBillingAmount,
         preparationStatus: payrollClaim ? 'Listed' : schoolType !== 'Private' ? 'Not applicable' : savedGrant.grantPrepared ? 'Prepared' : 'Not prepared',
         id: scholar.id,
         applicantId: applicant.id,
@@ -1008,7 +1009,7 @@ const getScholarManagement = async (req, res) => {
         payrollStatus: processRoute === 'payroll' ? (inPayroll ? 'Included in payroll list' : 'Not included yet') : 'Not applicable',
         payReference: inPayroll ? payrollBatch?.batch_number || null : null,
         dateProcessed: payrollBatch?.prepared_at || payrollClaim?.created_at || null,
-        claimAmount: payrollClaim ? resolveBillingAmount(schoolType, payrollClaim.claim_amount) : effectiveBillingAmount,
+        claimAmount: payrollClaim ? Number(payrollClaim.claim_amount) : effectiveBillingAmount,
         financialHistory,
       };
     }).filter(Boolean);
@@ -1049,7 +1050,7 @@ const updateScholarBillingDetails = async (req, res) => {
     if (schoolClassification(school.school_type) === 'Unclassified') return res.status(400).json({ message: 'Save the Public or Private classification for this school in School Catalog first.' });
     if (processedClaim) return res.status(409).json({ message: 'Billing details are locked after the scholar is processed for the active period.' });
 
-    const billingAmount = resolveBillingAmount(school.school_type, req.body.billingAmount);
+    const billingAmount = resolveBillingAmount(school.school_type);
     const details = await prisma.scholar_requirements.upsert({
       where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: activePeriod.id } },
       create: {
@@ -1195,6 +1196,7 @@ const processBillingSelection = async (req, res) => {
           tuition_fee_receipt_file: true,
           tuition_fee_receipt_review_status: true,
           folder_physical_submitted: true,
+          list_amount_override: true,
           billing_amount: true,
           tuition_fee_assistance: true,
           grant_prepared_at: true,
@@ -1275,15 +1277,13 @@ const processBillingSelection = async (req, res) => {
     const eligibleIds = eligibility.map(({ applicantId }) => applicantId);
     const warningsByApplicant = new Map(eligibility.map(({ applicantId, warnings }) => [applicantId, warnings]));
     const incompleteRequirementsCount = eligibility.filter(({ warnings }) => warnings.length > 0).length;
-    const requirementAmountByApplicant = new Map(requirements.map((requirement) => [requirement.applicant_id, Number(requirement.billing_amount || 0)]));
-    const billingAmountByApplicant = new Map(eligibility.map(({ applicantId, schoolType }) => [
-      applicantId,
-      resolveBillingAmount(schoolType, requirementAmountByApplicant.get(applicantId)),
-    ]));
-    const batchTotal = eligibleIds.reduce((total, applicantId) => total + (billingAmountByApplicant.get(applicantId) || 0), 0);
+    let billingAmountByApplicant;
 
     const timestamp = new Date();
     const result = await prisma.$transaction(async (transaction) => {
+      const amountSnapshots = await snapshotListAmounts(transaction, activePeriod.id, eligibility);
+      billingAmountByApplicant = amountSnapshots;
+      const batchTotal = totalListAmount(amountSnapshots);
       const grantSnapshots = await snapshotPrivateGrants(transaction, activePeriod.id, eligibleIds);
       await assertProcessingRoutes(transaction, activePeriod, eligibility, applicationByApplicant, primaryPeriod.id, 'billing');
       const batch = await createReferencedListBatch(transaction, 'billing', {
@@ -1325,7 +1325,7 @@ const processBillingSelection = async (req, res) => {
           })),
         });
       }
-      return { ...batch, grantBreakdowns: [...grantSnapshots].map(([applicantId, value]) => ({ applicantId, totalGrant: 5000, tuitionFeeAssistance: value.tuition_fee_assistance, allowance: value.allowance })) };
+      return { ...batch, grantBreakdowns: [...grantSnapshots].map(([applicantId, value]) => ({ applicantId, claimAmount: billingAmountByApplicant.get(applicantId), totalGrant: billingAmountByApplicant.get(applicantId), tuitionFeeAssistance: value.tuition_fee_assistance, allowance: value.allowance })) };
     }, { isolationLevel: 'Serializable', maxWait: 10000, timeout: 120000 });
 
     res.locals.auditTargetId = result.id;
@@ -1336,6 +1336,7 @@ const processBillingSelection = async (req, res) => {
       batch: { id: result.id, batchNumber: result.batch_number, billingReference: result.batch_number, totalScholars: result.total_scholars },
       incompleteRequirementsCount,
       grantBreakdowns: result.grantBreakdowns,
+      amountSnapshots: [...billingAmountByApplicant].map(([applicantId, claimAmount]) => ({ applicantId, claimAmount, totalGrant: claimAmount })),
       activePeriod: serializeAcademicPeriod(activePeriod),
     });
   } catch (error) {
@@ -1427,9 +1428,10 @@ const processPayrollSelection = async (req, res) => {
     const incompleteRequirementsCount = eligibility.filter(({ warnings }) => warnings.length > 0).length;
 
     const timestamp = new Date();
-    const amountByApplicant = new Map(applicantIds.map((applicantId) => [applicantId, resolveBillingAmount(resolveScholarSchool({ applicant: applicantById.get(applicantId), requirement: requirementByApplicant.get(applicantId), application: applicationByApplicant.get(applicantId), schoolById, schoolByName, schoolHistory: schoolHistoryByApplicant.get(applicantId) })?.school_type)]));
-    const totalAmount = applicantIds.reduce((total, applicantId) => total + amountByApplicant.get(applicantId), 0);
+    let amountByApplicant;
     const batch = await prisma.$transaction(async (transaction) => {
+      amountByApplicant = await snapshotListAmounts(transaction, activePeriod.id, eligibility);
+      const totalAmount = totalListAmount(amountByApplicant);
       const grantSnapshots = await snapshotPrivateGrants(transaction, activePeriod.id, eligibility.filter((item) => String(item.schoolType).toLowerCase() === 'private').map((item) => item.applicantId));
       await assertProcessingRoutes(transaction, activePeriod, eligibility, applicationByApplicant, primaryPeriod.id, 'payroll');
       const createdBatch = await createReferencedListBatch(transaction, 'payroll', {
@@ -1456,7 +1458,7 @@ const processPayrollSelection = async (req, res) => {
           updated_at: timestamp,
         })),
       });
-      return { ...createdBatch, grantBreakdowns: [...grantSnapshots].map(([applicantId, value]) => ({ applicantId, totalGrant: 5000, tuitionFeeAssistance: value.tuition_fee_assistance, allowance: value.allowance })) };
+      return { ...createdBatch, grantBreakdowns: [...grantSnapshots].map(([applicantId, value]) => ({ applicantId, claimAmount: amountByApplicant.get(applicantId), totalGrant: amountByApplicant.get(applicantId), tuitionFeeAssistance: value.tuition_fee_assistance, allowance: value.allowance })) };
     }, { isolationLevel: 'Serializable', maxWait: 10000, timeout: 120000 });
 
     res.locals.auditTargetId = batch.id;
@@ -1465,6 +1467,7 @@ const processPayrollSelection = async (req, res) => {
       message: `Official payroll list generated for ${applicantIds.length} scholar${applicantIds.length === 1 ? '' : 's'}.`,
       incompleteRequirementsCount,
       grantBreakdowns: batch.grantBreakdowns,
+      amountSnapshots: [...amountByApplicant].map(([applicantId, claimAmount]) => ({ applicantId, claimAmount, totalGrant: claimAmount })),
       batch: { id: batch.id, batchNumber: batch.batch_number, totalScholars: batch.total_scholars },
       activePeriod: serializeAcademicPeriod(activePeriod),
     });

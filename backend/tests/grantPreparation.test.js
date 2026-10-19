@@ -50,3 +50,10 @@ test('receipt access never substitutes an earlier initial receipt for a later co
  prisma.application_submissions.findFirst=async()=>({id:1,initial_docs:{initialRequirementPeriodId:9,requirementSets:{'9:initial':{requirements:{tuition_receipt:{fileName:'old.pdf'}}}}}});
  const {receipt}=require('../controllers/grantPreparationController');const res=response();await receipt({params:{applicantId:'7'},query:{academicPeriodId:'10'},user:{id:9,role:'SuperAdmin'}},res);assert.equal(res.statusCode,404);assert.match(res.body.message,/Earlier-period/);
 });
+
+test('grant preparation respects an explicit period amount without resurrecting legacy ignored values', async () => {
+ row={applicant_id:7,billing_period_id:10,billing_amount:9999,list_amount_override:6500.75};
+ let res=response();await save(request(5500.25),res);assert.equal(res.statusCode,200);assert.equal(res.body.grant.totalGrant,6500.75);assert.equal(res.body.grant.allowance,1000.5);
+ const original=structuredClone(row);res=response();await save(request(6500.76),res);assert.equal(res.statusCode,400);assert.deepEqual(row,original);
+ row={applicant_id:7,billing_period_id:10,billing_amount:9999};res=response();await save(request(3500),res);assert.equal(res.body.grant.totalGrant,5000);
+});

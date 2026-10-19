@@ -38,3 +38,8 @@ test('Billing Excel keeps selected column order, including a single column', asy
   await assert.rejects(buildBillingWorkbook({ ...options, selectedColumns: [] }), /at least one export column/);
   await assert.rejects(buildBillingWorkbook({ ...options, records: [] }), /at least one scholar/);
 });
+
+test('custom saved amounts and recalculated allowances survive Billing Excel serialization', async () => {
+ const result=await sheet({records:[{name:'SYNTHETIC CUSTOM',claimAmount:6500.75,tuitionFeeAssistance:3500,allowance:3000.75}]});
+ assert.equal(result.getCell('H5').value,6500.75);assert.equal(result.getCell('I5').value,3500);assert.equal(result.getCell('J5').value,3000.75);assert.equal(result.getCell('H6').value,6500.75);
+});

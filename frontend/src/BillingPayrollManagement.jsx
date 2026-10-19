@@ -1,3 +1,4 @@
+import ScholarAmountEditor from './ScholarAmountEditor';
 import MetricDetailsCard from './components/MetricDetailsCard';
 import { billingMetricRows } from './utils/metricDetails';
 import PayoutSchedules from './PayoutSchedules';
@@ -93,6 +94,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
   const [sourceSelection, setSourceSelection] = useState([]);
   const [queueSelection, setQueueSelection] = useState([]);
   const [processing, setProcessing] = useState(false);
+  const [editingAmount, setEditingAmount] = useState(null);
   const [operationNotice, setOperationNotice] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportingWorkbook, setExportingWorkbook] = useState(false);
@@ -205,7 +207,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
   const sourceRecords = useMemo(() => visibleRecords.filter((record) => !queuedIds.includes(record.applicantId)), [visibleRecords, queuedIds]);
   const movableSourceRecords = useMemo(() => sourceRecords.filter((record) => canQueueForProcessing(record, isPayroll ? 'payroll' : 'billing')), [sourceRecords, isPayroll]);
   const selectedMovableIds = sourceSelection.filter((id) => movableSourceRecords.some((record) => record.applicantId === id));
-  const queuedTotalAmount = queuedRecords.reduce((sum, record) => sum + Number(record.claimAmount || 0), 0);
+  const queuedTotalAmount = queuedRecords.reduce((sum, record) => sum + Math.round(Number(record.claimAmount || 0) * 100), 0) / 100;
   const routedRecords = currentRecords.filter((item) => item.processRoute === (isPayroll ? 'payroll' : 'billing'));
   const billedCount = routedRecords.filter((item) => item.billed).length;
   const referencedCount = routedRecords.filter((item) => item.inPayroll).length;
@@ -220,7 +222,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
         { label: 'Total Scholars', value: routedRecords.length, detail: 'Accepted scholar accounts', tone: 'green', Icon: UsersRound },
         { label: 'For Certification', value: routedRecords.length - billedCount, detail: 'Private scholars awaiting listing', tone: 'orange', Icon: ReceiptText },
         { label: 'Certification Listed', value: billedCount, detail: 'Included in certification records', tone: 'blue', Icon: ReceiptText },
-        { label: 'Grant (PHP)', value: 5000, detail: 'Fixed private tuition support', tone: 'violet', Icon: Banknote },
+        { label: 'Default Grant (PHP)', value: 5000, detail: 'Editable per scholar in Amount', tone: 'violet', Icon: Banknote },
       ];
   const certificationHistory = useMemo(() => {
     const batches = new Map();
@@ -281,7 +283,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
   };
 
   const processQueue = async () => {
-    if (!queuedRecords.length || processing || routingApplicant) return;
+    if (!queuedRecords.length || processing || routingApplicant || editingAmount) return;
     setProcessing(true);
     setOperationNotice(null);
     const processedRecords = [...queuedRecords];
@@ -304,7 +306,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
         throw new Error([body.message || `Unable to process ${mode} records.`, details].filter(Boolean).join(' '));
       }
       const snapshotByApplicant = new Map((body.grantBreakdowns || []).map((item) => [item.applicantId, item]));
-      const downloadRecords = processedRecords.map((record) => ({ ...record, ...snapshotByApplicant.get(record.applicantId) }));
+      const downloadRecords = processedRecords.map((record) => ({ ...record, ...(body.amountSnapshots || []).find(item => item.applicantId === record.applicantId), ...snapshotByApplicant.get(record.applicantId) }));
       let downloadWarning = '';
       try {
         const download = isPayroll ? downloadPayrollWorkbook : downloadBillingCertificationDocument;
@@ -361,7 +363,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
         <label className="billing-period-selector"><span>Processing period</span><select value={selectedPeriodId} disabled={loading || processing || Boolean(routingApplicant) || !activePeriods.length} onChange={(event) => { setSelectedPeriodId(event.target.value); setQueuedIds([]); setSourceSelection([]); setQueueSelection([]); setOperationNotice(null); setPage(1); }}><option value="" disabled>Select active period</option>{activePeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}{period.isPrimary ? ' (Primary)' : ''}</option>)}</select></label>
       </header>
 
-      <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <MetricDetailsCard title={label} rows={billingMetricRows(routedRecords, label)} description={label === 'Grant (PHP)' ? 'Fixed private tuition support is PHP 5,000. These are the current private-route scholar records; this is not payment release or confirmation.' : 'Current-period records in this processing route, matching the card total. Directory search and queue filters are not applied.'} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'school', label: 'School' }, { key: 'status', label: 'Status' }]} disabled={loading || Boolean(loadError && !records.length)} className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !records.length) ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></MetricDetailsCard>)}</section>
+      <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <MetricDetailsCard title={label} rows={billingMetricRows(routedRecords, label)} description={label === 'Default Grant (PHP)' ? 'The default Private grant is PHP 5,000. Staff can edit each scholar’s amount before generating the list.' : 'Current-period records in this processing route, matching the card total. Directory search and queue filters are not applied.'} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'school', label: 'School' }, { key: 'status', label: 'Status' }]} disabled={loading || Boolean(loadError && !records.length)} className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !records.length) ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></MetricDetailsCard>)}</section>
 
       {loadError && <div className="billing-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadRecords({ showLoader: true })}>Retry</button></div>}
 
@@ -480,13 +482,14 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
                 </div>
                 <span>{record.schoolYear}</span>
                 <span>{record.semester}</span>
-                <strong className="billing-row-amount">{formatAmount(record.claimAmount)}</strong>
+                <div className="billing-amount-cell"><strong className="billing-row-amount">{formatAmount(record.claimAmount)}</strong><button type="button" onClick={() => setEditingAmount(record)} disabled={processing || Boolean(loadError) || Boolean(routingApplicant) || record.billed || record.inPayroll || record.isArchivedPeriod} aria-label={`Edit amount for ${record.name}`}>Edit</button></div>
               </div>)}
             </div>
           </div>
           <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Total payroll amount' : 'Total certification amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing || Boolean(routingApplicant)}>{processing ? 'Processing…' : isPayroll ? 'Generate payroll list' : 'Generate certification list'}</button></footer>
         </article>
       </section>
+      {editingAmount && <ScholarAmountEditor record={editingAmount} token={token} onClose={() => setEditingAmount(null)} onSaved={async saved => { setRecords(current => current.map(record => !record.isArchivedPeriod && record.applicantId === editingAmount.applicantId && record.academicPeriodId === editingAmount.academicPeriodId ? { ...record, claimAmount: saved.amount, billingAmount: saved.amount, totalGrant: saved.amount, allowance: saved.allowance, grantPreparedAt: saved.grantPreparedAt } : record)); await loadRecords(); setEditingAmount(null); setOperationNotice({ tone: 'success', text: saved.message }); }} />}
       {!loadError && <section className="billing-certification-history"><header><div><span>{isPayroll ? 'PAYROLL RECORDS' : 'BILLING RECORDS'}</span><h3>{isPayroll ? 'Payroll history' : 'Billing history'}</h3><p>Review generated lists and download a previous {isPayroll ? 'Excel' : 'Word'} list again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount ?? 0), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download {isPayroll ? 'Excel' : 'Word'}</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>{isPayroll ? 'No payroll history yet' : 'No billing history yet'}</strong><span>{isPayroll ? 'Generated payroll lists' : 'Generated Private-scholar billing lists'} will appear here.</span></div>}</section>}
       {!isPayroll && exportOpen && <CsvExportModal title={`Export ${mode} queue`} description="Choose columns and arrange their order. The Excel download uses the Billing template and is marked as a preparation copy." columns={configurableBillingColumns} allowReorder formatLabel="EXCEL EXPORT" exportLabel="Export Excel" rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={exportQueueDocument} />}
 

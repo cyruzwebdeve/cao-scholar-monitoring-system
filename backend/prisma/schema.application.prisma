@@ -319,6 +319,7 @@ model scholar_requirements {
   tuition_fee_assistance             Decimal? @db.Decimal(10, 2)
   grant_prepared_at                 DateTime? @db.Timestamp(6)
   grant_prepared_by                 Int?
+  list_amount_override              Decimal?  @db.Decimal(10, 2)
   billing_amount                    Decimal?  @db.Decimal(10, 2)
   billing_notes                     String?
   billing_reference                 String?   @db.VarChar(40)

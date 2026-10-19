@@ -2,6 +2,7 @@ const potentialScholars = require('../controllers/potentialScholarController');
 const { getDashboardDetails } = require('../controllers/dashboardDetailsController');
 const payoutSchedules = require('../controllers/payoutScheduleController');
 const { sendToPayroll } = require('../controllers/payrollPreparationController');
+const scholarAmount = require('../controllers/scholarAmountController');
 const grantPreparation = require('../controllers/grantPreparationController');
 const passerLists = require('../controllers/passerListController');
 const phoneCapture = require('../controllers/phoneCaptureController');
@@ -181,6 +182,7 @@ router.get('/scholars', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAd
 router.get('/scholars/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars', 'billing', 'payroll'), getScholarManagement);
 router.put('/scholars/:applicantId/continuing-requirements/open', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), openContinuingRequirements);
 router.put('/scholars/:applicantId/requirements/:requirementKey', authenticate, documentUploadRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), uploadScholarRequirementByAdmin);
+router.put('/scholars/:applicantId/amount', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin','RegularAdmin','BillingPayrollAdmin']), checkSectionAccess('billing','payroll'), scholarAmount.save);
 router.put('/scholars/:applicantId/grant-preparation', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin','RegularAdmin','BillingPayrollAdmin']), checkSectionAccess('billing','payroll'), grantPreparation.save);
 router.get('/scholars/:applicantId/tuition-receipt', privateResponse, authenticate, checkRole(['SuperAdmin','RegularAdmin','BillingPayrollAdmin']), checkSectionAccess('billing','payroll'), grantPreparation.receipt);
 router.put('/scholars/:applicantId/billing-details', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('billing'), validateScholarBillingDetails, updateScholarBillingDetails);

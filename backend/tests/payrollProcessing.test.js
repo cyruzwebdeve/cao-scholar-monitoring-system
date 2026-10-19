@@ -481,3 +481,37 @@ test('a school transfer to Public does not project an obsolete Private preparati
  const record=await list();assert.equal(record.schoolType,'Public');assert.equal(record.totalGrant,3000);assert.equal(record.tuitionFeeAssistance,null);assert.equal(record.allowance,null);assert.equal(record.preparationStatus,'Not applicable');
  const res=await generate();assert.equal(res.statusCode,201);assert.equal(writes[1].data[0].claim_amount,3000);assert.equal(writes[1].data[0].tuition_fee_assistance,undefined);
 });
+
+test('Public and Private list generation use saved overrides and return authoritative download amounts', async () => {
+ for (const schoolType of ['public','private']) {
+  const {writes}=setup({schoolType});
+  const requirement=await prisma.scholar_requirements.findUnique();
+  requirement.list_amount_override=6500.75;
+  requirement.payroll_requested_at=new Date();
+  const record=await list();assert.equal(record.claimAmount,6500.75);assert.equal(record.totalGrant,6500.75);
+  if(schoolType==='private')assert.equal(record.allowance,3000.75);
+  const res=await generate();assert.equal(res.statusCode,201);assert.equal(writes[0].data.total_amount,6500.75);assert.equal(writes[1].data[0].claim_amount,6500.75);
+  assert.deepEqual(res.body.amountSnapshots,[{applicantId:1,claimAmount:6500.75,totalGrant:6500.75}]);
+ }
+});
+test('generation rereads amounts inside the transaction and history retains the stored snapshot', async () => {
+ const {writes}=setup();const requirement=await prisma.scholar_requirements.findUnique();
+ const transaction=prisma.$transaction;
+ prisma.$transaction=async callback=>{requirement.list_amount_override=4321.09;return transaction(callback);};
+ const res=await generate();assert.equal(res.statusCode,201);assert.equal(writes[1].data[0].claim_amount,4321.09);assert.equal(res.body.amountSnapshots[0].claimAmount,4321.09);
+ setup({alreadyProcessed:true});
+ const claims=await prisma.payroll_claims.findMany();claims[0].claim_amount=4321.09;
+ (await prisma.scholar_requirements.findUnique()).list_amount_override=9999;
+ const record=await list();assert.equal(record.claimAmount,4321.09);assert.equal(record.totalGrant,4321.09);
+});
+
+test('Private Billing generation uses custom totals with matching saved allowance and response snapshots', async () => {
+ const {writes}=setup({schoolType:'private',periodSchoolId:1});
+ (await prisma.scholar_requirements.findUnique()).list_amount_override=7250.25;
+ const res=response();await processBillingSelection({body:{academicPeriodId:10,applicantIds:[1]},user:{id:99,role:'SuperAdmin'}},res);
+ assert.equal(res.statusCode,201);assert.equal(writes[0].data.total_amount,7250.25);assert.equal(writes[1].data[0].claim_amount,7250.25);assert.equal(writes[1].data[0].allowance,3750.25);assert.equal(res.body.amountSnapshots[0].claimAmount,7250.25);assert.equal(res.body.grantBreakdowns[0].allowance,3750.25);
+});
+test('legacy ignored billing amounts do not change defaults until an explicit override is saved', async () => {
+ const {writes}=setup();(await prisma.scholar_requirements.findUnique()).billing_amount=9999;
+ assert.equal((await list()).claimAmount,3000);assert.equal((await generate()).statusCode,201);assert.equal(writes[1].data[0].claim_amount,3000);
+});
