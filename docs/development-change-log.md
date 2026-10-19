@@ -19,7 +19,7 @@ API/database/configuration/security/privacy/accessibility/deployment impact: No 
 
 Validation/results: Production frontend build and source/generated CSS checks passed. Existing functional suites were not rerun for this single CSS property change. No account, document, email or application-database writes were used for validation.
 
-Limitations/rollback/next work: This changes alignment only; restore text-align:right in the scoped input rule to roll back, with no data rollback. Verify delivered CSS after publication.
+Limitations/rollback/next work: This changes alignment only; restore text-align:right in the scoped input rule to roll back, with no data rollback. Release `7321cfa` was published and verified live: dashboard entry `index-Bj9Q6T8N.js` and stylesheet `Dashboard-CHofJ-fc.css` return HTTP 200; the scoped amount input contains text-align:left. API health is healthy/database connected. This verifies frontend delivery and availability.
 
 
 ## 2026-10-20 - Compact Amount Input and Remove the Keyboard Helper Caption
