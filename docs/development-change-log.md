@@ -5,6 +5,27 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-20 - Edit Billing and Payroll Amounts Directly in the Cell
+
+**TL;DR**
+- Staff click the displayed amount to edit it immediately in the same table cell; the separate Edit button and dialog are removed.
+- Enter or Save submits; Escape or Cancel discards. Input is focused and selected automatically, errors retain the draft, and focus returns to the amount afterward.
+- Existing period-bound persistence, permissions, tuition bounds and immutable generated-list snapshots remain unchanged. No backend, database migration or configuration change.
+- Frontend lint/build and 206 tests passed; synthetic Billing/Payroll browser checks passed at desktop, 390 and 320 px, including keyboard/cancel/error/reload/export behavior. Publication uses the existing testing pipeline.
+
+Objective and reason: Reduce repetitive clicks while staff adjust list amounts, following the requested direct-click interaction at the Amount column.
+
+Previous/new behavior and roles/workflow: The previous column required an Edit button followed by a separate dialog. The formatted currency itself is now a keyboard-accessible button that turns into an inline number input. Its current value is selected for immediate typing. Save/Enter persists through the existing endpoint; Cancel/Escape performs no write. Clicking elsewhere does not automatically save. Private records retain the live remaining-allowance hint and cannot save below tuition assistance. Errors stay beside the input without losing its value. Only one amount is edited at a time; period changes, queue transfers, exports, destination changes and list generation are disabled while editing, preventing an unfinished draft from being silently included. A background management refresh closes an editor whose record is no longer eligible or present. The same authorized staff and section permissions apply; Applicant/Scholar users gain no action.
+
+Implementation/data flow/files: ScholarAmountEditor.jsx renders the inline form instead of a native dialog and uses the existing authenticated PUT /scholars/:applicantId/amount payload, stale-amount comparison, response and validation. BillingPayrollManagement.jsx mounts the editor in the matching queue cell, restores focus on completion/cancellation, prevents conflicting queue operations and clears editors for invalidated records during refresh. admin.css styles the clickable currency, input, hints and controls; the amount column is widened within the existing horizontally scrollable table, with larger input text on phones. Success still updates management data and totals, and list exports continue using the server’s authoritative generation snapshots.
+
+API/database/configuration/security/privacy/deployment impact: No API, backend, schema, migration, dependency, secret or infrastructure change. The previously committed nullable amount migration is still required by recommendation 5; this frontend-only interaction change adds none. Existing role/section guards and generated-list locks remain authoritative. No new personal data, public exposure, mail, document storage or payment/release workflow. Focusable amount buttons have per-Scholar labels and visible focus; inputs are labelled with keyboard guidance and errors announced by role=alert. Save is disabled for invalid/busy values. Deployment follows the existing main-to-Hostinger frontend pipeline; authenticated backend/migration acceptance from the prior release remains unverified.
+
+Validation/results: Frontend lint, production build and all 206 existing frontend tests passed (existing large-chunk warning). Synthetic Chromium tests used the actual Billing/Payroll components with mocked Scholars to verify direct inline input, selected focus, cancel without write, failed-save draft retention, successful retry via Enter, reload persistence, Private tuition limits, Escape cancellation, desktop/390/320 cell layout, list generation and server-final amount in serialized Payroll Excel. Screenshots were inspected. Temporary preview files were removed. Backend code is unchanged; its prior 440-pass/one-existing-skip baseline was not rerun. No production records, private documents, email or application-database writes were used for testing.
+
+Limitations/rollback/next work: Saving is explicit through Enter or Save; blur does not persist. The existing small-screen table uses horizontal scrolling. Edits remain per Scholar/period and generated lists stay locked. Restore the three frontend files to roll back the interaction; retain saved amounts, backend validation and the existing migration. Verify delivered assets after publication, then perform controlled authenticated acceptance once the Hostinger backend build/migration is confirmed.
+
+
 ## 2026-10-20 - Panel Recommendation 5: Editable Billing and Payroll Amount Column
 
 **TL;DR**

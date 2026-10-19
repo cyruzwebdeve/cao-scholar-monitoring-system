@@ -3,7 +3,7 @@
 Local result: passed with synthetic fixtures. Published for testing: frontend editor assets verified live and API/database health passed. Hostinger backend revision/migration confirmation and authenticated acceptance remain pending; no direct application-database migration/write was performed by the agent.
 
 1. Deploy the committed nullable override/constraint migration before starting the matched new backend. Confirm both frontend/backend builds and API health. Use synthetic test Scholars only.
-2. In Payroll, queue an unlisted Public Scholar. Amount → Edit must show the correct name, period and current default. Cancel/Escape must leave it unchanged.
+2. In Payroll, queue an unlisted Public Scholar. Click the formatted Amount: it must become a focused, selected input directly in the cell. Cancel/Escape must leave it unchanged and restore focus to the amount; Enter/Save must submit. The separate Edit button/dialog should be absent.
 3. Save PHP 4,321.09; verify the queue total, reload/requeue persistence and Amount-bearing preparation exports. Repeat in Billing for a prepared Private Scholar with PHP 3,500 tuition and a PHP 6,500.75 total: remaining allowance must be PHP 3,000.75.
 4. Try blank, negative, excess-decimal and over-capacity values; reject without writes. For prepared Private records reject any total below current tuition. Verify zero using a Public or zero-tuition Private fixture.
 5. Open an amount in two sessions. Save a different value in one; the stale session must receive refresh guidance and keep its typed draft without overwriting. A stale Private preparation editor must also fail after an amount change.

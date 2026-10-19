@@ -129,6 +129,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
           isArchivedPeriod: true,
         })));
       setRecords([...currentRecords, ...archivedRecords]);
+      setEditingAmount(current => current && currentRecords.some(record => record.applicantId === current.applicantId && record.academicPeriodId === current.academicPeriodId && canQueueForProcessing(record, mode)) ? current : null);
       setActivePeriods(body.activePeriods || (body.activePeriod ? [body.activePeriod] : []));
       setSelectedPeriodId((current) => current || String(body.activePeriod?.id || ''));
       if (handoffApplicantId) {
@@ -148,7 +149,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
     } finally {
       setLoading(false);
     }
-  }, [handoffApplicantId, selectedPeriodId, token]);
+  }, [handoffApplicantId, selectedPeriodId, token, mode]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => loadRecords({ showLoader: true }), 0);
@@ -282,6 +283,12 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
     setOperationNotice(null);
   };
 
+  const closeAmountEditor = () => {
+    const applicantId = editingAmount?.applicantId;
+    setEditingAmount(null);
+    window.requestAnimationFrame(() => document.querySelector(`[data-amount-applicant="${applicantId}"]`)?.focus());
+  };
+
   const processQueue = async () => {
     if (!queuedRecords.length || processing || routingApplicant || editingAmount) return;
     setProcessing(true);
@@ -328,7 +335,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
   };
 
   const exportQueueDocument = async (selectedColumns) => {
-    if (!queuedRecords.length || exportingWorkbook || processing) return;
+    if (!queuedRecords.length || exportingWorkbook || processing || editingAmount) return;
     setExportingWorkbook(true); setOperationNotice(null);
     try {
       const period = activePeriods.find((item) => String(item.id) === String(selectedPeriodId));
@@ -360,7 +367,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
     <div className="billing-management">
       <header className="billing-heading">
         <div><span>{isPayroll ? 'PAYROLL OPERATIONS' : 'BILLING OPERATIONS'}</span><h2>{isPayroll ? 'Payroll Management' : 'Billing Management'}</h2><p>{isPayroll ? 'Generate the official payroll list for initial Public/Private, subsequent Public, and late submissions.' : 'Generate tuition certification lists for subsequent regular Private-school submissions.'}</p></div>
-        <label className="billing-period-selector"><span>Processing period</span><select value={selectedPeriodId} disabled={loading || processing || Boolean(routingApplicant) || !activePeriods.length} onChange={(event) => { setSelectedPeriodId(event.target.value); setQueuedIds([]); setSourceSelection([]); setQueueSelection([]); setOperationNotice(null); setPage(1); }}><option value="" disabled>Select active period</option>{activePeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}{period.isPrimary ? ' (Primary)' : ''}</option>)}</select></label>
+        <label className="billing-period-selector"><span>Processing period</span><select value={selectedPeriodId} disabled={loading || processing || Boolean(editingAmount) || Boolean(routingApplicant) || !activePeriods.length} onChange={(event) => { setSelectedPeriodId(event.target.value); setQueuedIds([]); setSourceSelection([]); setQueueSelection([]); setOperationNotice(null); setPage(1); }}><option value="" disabled>Select active period</option>{activePeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}{period.isPrimary ? ' (Primary)' : ''}</option>)}</select></label>
       </header>
 
       <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <MetricDetailsCard title={label} rows={billingMetricRows(routedRecords, label)} description={label === 'Default Grant (PHP)' ? 'The default Private grant is PHP 5,000. Staff can edit each scholar’s amount before generating the list.' : 'Current-period records in this processing route, matching the card total. Directory search and queue filters are not applied.'} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'school', label: 'School' }, { key: 'status', label: 'Status' }]} disabled={loading || Boolean(loadError && !records.length)} className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !records.length) ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></MetricDetailsCard>)}</section>
@@ -448,7 +455,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
                   <div className="billing-source-status">
                     <span className={`billing-queue-ready ${canMove ? '' : 'archived'}`}>{statusLabel}</span>
                     {record.processingWarnings?.length > 0 && <RequirementsWarning name={record.name} />}
-                    {record.canPreparePayroll && <button type="button" className="processing-send-payroll" disabled={Boolean(routingApplicant) || processing} onClick={() => sendToPayroll(record)} aria-label={`Send ${record.name} to Payroll`}>{routingApplicant === record.applicantId ? 'Sending…' : 'Send to Payroll'}</button>}
+                    {record.canPreparePayroll && <button type="button" className="processing-send-payroll" disabled={Boolean(routingApplicant) || processing || Boolean(editingAmount)} onClick={() => sendToPayroll(record)} aria-label={`Send ${record.name} to Payroll`}>{routingApplicant === record.applicantId ? 'Sending…' : 'Send to Payroll'}</button>}
                   </div>
                   <ScholarSchoolIdentity record={record} />
                 </div>;
@@ -459,16 +466,16 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
         </article>
 
         <nav className="billing-transfer-controls" aria-label="Move scholars between lists">
-          <button type="button" className="primary" onClick={queueSelected} disabled={!selectedMovableIds.length} aria-label={`Move selected scholars to ${isPayroll ? 'payroll' : 'billing'}`}><ChevronRight size={17} /></button>
-          <button type="button" onClick={queueAll} disabled={!movableSourceRecords.length} aria-label={`Move all eligible scholars to ${isPayroll ? 'payroll' : 'billing'}`}><ChevronsRight size={17} /></button>
-          <button type="button" onClick={removeSelectedFromQueue} disabled={!queueSelection.length} aria-label="Return selected scholars to the source list"><ChevronLeft size={17} /></button>
-          <button type="button" onClick={clearQueue} disabled={!queuedRecords.length} aria-label="Return all scholars to the source list"><ChevronsLeft size={17} /></button>
+          <button type="button" className="primary" onClick={queueSelected} disabled={!selectedMovableIds.length || Boolean(editingAmount)} aria-label={`Move selected scholars to ${isPayroll ? 'payroll' : 'billing'}`}><ChevronRight size={17} /></button>
+          <button type="button" onClick={queueAll} disabled={!movableSourceRecords.length || Boolean(editingAmount)} aria-label={`Move all eligible scholars to ${isPayroll ? 'payroll' : 'billing'}`}><ChevronsRight size={17} /></button>
+          <button type="button" onClick={removeSelectedFromQueue} disabled={!queueSelection.length || Boolean(editingAmount)} aria-label="Return selected scholars to the source list"><ChevronLeft size={17} /></button>
+          <button type="button" onClick={clearQueue} disabled={!queuedRecords.length || Boolean(editingAmount)} aria-label="Return all scholars to the source list"><ChevronsLeft size={17} /></button>
         </nav>
 
         <article className="billing-transfer-panel billing-target-panel">
           <header className="billing-transfer-header">
             <div><strong>{isPayroll ? 'For Payroll' : 'For Billing'}</strong><small>Incomplete requirements can still be listed.</small></div>
-            <button type="button" className="billing-queue-export" onClick={() => isPayroll ? exportQueueDocument() : setExportOpen(true)} disabled={!queuedRecords.length || exportingWorkbook || processing}><Download size={14} />{exportingWorkbook ? 'Exporting...' : isPayroll ? 'Export Word' : 'Export Excel'}</button>
+            <button type="button" className="billing-queue-export" onClick={() => isPayroll ? exportQueueDocument() : setExportOpen(true)} disabled={!queuedRecords.length || exportingWorkbook || processing || Boolean(editingAmount)}><Download size={14} />{exportingWorkbook ? 'Exporting...' : isPayroll ? 'Export Word' : 'Export Excel'}</button>
           </header>
           <div className="billing-queue-table billing-target-table">
             <div className="billing-queue-table-head"><span>Control no.</span><span>Name</span><span>School year</span><span>Sem</span><span>Amount</span></div>
@@ -482,14 +489,13 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
                 </div>
                 <span>{record.schoolYear}</span>
                 <span>{record.semester}</span>
-                <div className="billing-amount-cell"><strong className="billing-row-amount">{formatAmount(record.claimAmount)}</strong><button type="button" onClick={() => setEditingAmount(record)} disabled={processing || Boolean(loadError) || Boolean(routingApplicant) || record.billed || record.inPayroll || record.isArchivedPeriod} aria-label={`Edit amount for ${record.name}`}>Edit</button></div>
+                <div className="billing-amount-cell">{editingAmount?.applicantId === record.applicantId ? <ScholarAmountEditor record={editingAmount} token={token} onClose={closeAmountEditor} onSaved={async saved => { setRecords(current => current.map(record => !record.isArchivedPeriod && record.applicantId === editingAmount.applicantId && record.academicPeriodId === editingAmount.academicPeriodId ? { ...record, claimAmount: saved.amount, billingAmount: saved.amount, totalGrant: saved.amount, allowance: saved.allowance, grantPreparedAt: saved.grantPreparedAt } : record)); await loadRecords(); closeAmountEditor(); setOperationNotice({ tone: 'success', text: saved.message }); }} /> : <button type="button" data-amount-applicant={record.applicantId} className="billing-row-amount billing-amount-trigger" title="Click to edit amount" onClick={() => setEditingAmount(record)} disabled={Boolean(editingAmount) || processing || Boolean(loadError) || Boolean(routingApplicant) || record.billed || record.inPayroll || record.isArchivedPeriod} aria-label={`Edit amount for ${record.name}`}>{formatAmount(record.claimAmount)}</button>}</div>
               </div>)}
             </div>
           </div>
-          <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Total payroll amount' : 'Total certification amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing || Boolean(routingApplicant)}>{processing ? 'Processing…' : isPayroll ? 'Generate payroll list' : 'Generate certification list'}</button></footer>
+          <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Total payroll amount' : 'Total certification amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing || Boolean(editingAmount) || Boolean(routingApplicant)}>{processing ? 'Processing…' : isPayroll ? 'Generate payroll list' : 'Generate certification list'}</button></footer>
         </article>
       </section>
-      {editingAmount && <ScholarAmountEditor record={editingAmount} token={token} onClose={() => setEditingAmount(null)} onSaved={async saved => { setRecords(current => current.map(record => !record.isArchivedPeriod && record.applicantId === editingAmount.applicantId && record.academicPeriodId === editingAmount.academicPeriodId ? { ...record, claimAmount: saved.amount, billingAmount: saved.amount, totalGrant: saved.amount, allowance: saved.allowance, grantPreparedAt: saved.grantPreparedAt } : record)); await loadRecords(); setEditingAmount(null); setOperationNotice({ tone: 'success', text: saved.message }); }} />}
       {!loadError && <section className="billing-certification-history"><header><div><span>{isPayroll ? 'PAYROLL RECORDS' : 'BILLING RECORDS'}</span><h3>{isPayroll ? 'Payroll history' : 'Billing history'}</h3><p>Review generated lists and download a previous {isPayroll ? 'Excel' : 'Word'} list again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount ?? 0), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download {isPayroll ? 'Excel' : 'Word'}</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>{isPayroll ? 'No payroll history yet' : 'No billing history yet'}</strong><span>{isPayroll ? 'Generated payroll lists' : 'Generated Private-scholar billing lists'} will appear here.</span></div>}</section>}
       {!isPayroll && exportOpen && <CsvExportModal title={`Export ${mode} queue`} description="Choose columns and arrange their order. The Excel download uses the Billing template and is marked as a preparation copy." columns={configurableBillingColumns} allowReorder formatLabel="EXCEL EXPORT" exportLabel="Export Excel" rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={exportQueueDocument} />}
 
