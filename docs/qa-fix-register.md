@@ -165,3 +165,5 @@ Release `6852a44` pushed for testing. Frontend verified live: `/dashboard` HTTP 
 ## Potential Scholars workflow correction — 2026-10-20
 
 Explicit Results checking/add replaces automatic inclusion; persistent reviewed versions, selected-only confirmation (1–50), atomic acceptance/consumed markers, stale recheck flags and role-scoped final approval. Backend 416 passed/one existing skip; frontend 199 cases verified; lint/build and synthetic staging/selection/preview/conflict/permission/mobile checks passed. No migration. Matched frontend/backend testing deployment required; public verification follows. Existing individual API retained for compatibility, no longer called by Results UI. See revised hosted checklist.
+
+Revision release `3543bdc` pushed for testing on 2026-10-20. Frontend `/dashboard` HTTP 200; `index-B2AAUVZc.js` / admin `Dashboard-D5hNQ1IX.js` contain explicit Add to Potential Scholars, selected-batch endpoint/confirmation and stale-review flags. API healthy/database connected; outer gate rejects unauthorized queue GET with 401. Backend revision/build and authenticated staged/batch hosted acceptance remain pending. No new migration.
