@@ -1,3 +1,5 @@
+import MetricDetailsCard from './MetricDetailsCard';
+import { payrollSummaryDetails } from '../utils/reportPayrollDetails';
 import { Download, Search, X } from 'lucide-react';
 import { formatReportMoney, summarizePayrollReport } from '../utils/reportScholarSearch';
 import '../styles/report-scholar-search.css';
@@ -22,10 +24,10 @@ export default function ReportScholarSearch({ rows, total, query, onQuery, page 
     <section className="report-payroll-summary" aria-label="Matching payroll summary" aria-busy={disabled}>
       <div className="report-payroll-summary-heading"><h3>Payroll list summary</h3><span>Amounts on saved payroll lists</span></div>
       <div className="report-payroll-cards">
-        <article><span>Payroll list amount</span><strong>{disabled ? '—' : formatReportMoney(summary.payrollAmount)}</strong><small>{summary.entries} payroll {summary.entries === 1 ? 'entry' : 'entries'}</small></article>
-        <article><span>Recorded tuition assistance</span><strong>{disabled ? '—' : formatReportMoney(summary.tuitionAmount)}</strong><small>From saved breakdowns</small></article>
-        <article><span>Recorded allowance</span><strong>{disabled ? '—' : formatReportMoney(summary.allowanceAmount)}</strong><small>From saved breakdowns</small></article>
-        <article><span>Scholars on payroll</span><strong>{disabled ? '—' : summary.scholars}</strong><small>{summary.lists} payroll {summary.lists === 1 ? 'list' : 'lists'}</small></article>
+        <MetricDetailsCard {...payrollSummaryDetails(rows, 'payroll')} disabled={disabled}><span>Payroll list amount</span><strong>{disabled ? '—' : formatReportMoney(summary.payrollAmount)}</strong><small>{summary.entries} payroll {summary.entries === 1 ? 'entry' : 'entries'} · View details</small></MetricDetailsCard>
+        <MetricDetailsCard {...payrollSummaryDetails(rows, 'tuition')} disabled={disabled}><span>Recorded tuition assistance</span><strong>{disabled ? '—' : formatReportMoney(summary.tuitionAmount)}</strong><small>From saved breakdowns · View details</small></MetricDetailsCard>
+        <MetricDetailsCard {...payrollSummaryDetails(rows, 'allowance')} disabled={disabled}><span>Recorded allowance</span><strong>{disabled ? '—' : formatReportMoney(summary.allowanceAmount)}</strong><small>From saved breakdowns · View details</small></MetricDetailsCard>
+        <MetricDetailsCard {...payrollSummaryDetails(rows, 'scholars')} disabled={disabled}><span>Scholars on payroll</span><strong>{disabled ? '—' : summary.scholars}</strong><small>{summary.lists} payroll {summary.lists === 1 ? 'list' : 'lists'} · View details</small></MetricDetailsCard>
       </div>
       {(summary.missingAmounts > 0 || summary.overflow) && <p className="report-amount-warning" role="status">{summary.overflow ? 'The matching amount total exceeds the supported range. Narrow the search or school year.' : `${summary.missingAmounts} payroll entries have no valid recorded amount; the total includes recorded values only.`}</p>}
       {summary.missingBreakdowns > 0 && <p className="report-breakdown-note">Tuition and allowance totals cover {summary.recordedBreakdowns} of {summary.entries} payroll entries. Missing breakdowns are shown as Not recorded.</p>}

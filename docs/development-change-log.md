@@ -5,6 +5,23 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-21 - Clickable Reports Payroll Summary Cards
+
+**TL;DR**
+- All four Reports payroll summary cards now open searchable, paginated read-only details, using the same search/year/list-status filters across all pages.
+- Amount/tuition/allowance dialogs show their contributing saved memberships; Scholars on payroll lists each person once with matching references, totals and amount coverage. Unknown amounts/splits remain excluded and explained.
+- Frontend suite (45 files), four new regression cases, lint/build and synthetic keyboard/filter/mobile browser checks passed. No API, backend, database or configuration change; local implementation, not deployed.
+
+Objective/reason and previous/new behavior: The user requested that the Payroll list summary cards in Reports be clickable. Previously the four values were static. Each card now has the established accessible View records trigger and a visible View details hint, opening the existing shared metric-records dialog. The dialog supports its own local search, 25-row pages, empty states, Escape/backdrop/close controls, initial search focus and return focus to its card. Loading/unavailable report cards are disabled.
+
+Roles/workflows/implementation and files: Existing authorized Reports staff can inspect Payroll list amount, Recorded tuition assistance, Recorded allowance and Scholars on payroll. ReportScholarSearch.jsx reuses MetricDetailsCard without changing the shared dialog or existing card amounts. The new reportPayrollDetails.js projects only the necessary fields from the already filtered report rows and deduplicates memberships by their saved row IDs. Currency details include only valid amounts, including true zero; tuition/allowance details also require the same complete recorded-breakdown flag as the displayed summary. Missing-data counts are explained rather than converted to zero. The Scholars view groups by applicant ID, gives one row per person, retains all matching list references and shows recorded total/coverage without counting one person twice across periods. reportPayrollDetails.test.js covers contributions, exclusions, deduplication, distinct people, historical periods, true zero, missing amounts and filtered/empty scopes.
+
+API/database/configuration/security/privacy/accessibility/deployment impacts: Frontend-only; no new API call, backend, schema/database/migration, dependency, environment, configuration or hosting change. The dialogs inspect the existing authorized projected report data and omit documents, email, private locations and payment-confirmation data. Scope remains generated payroll-list amounts; legacy payment/release code is retained untouched with existing disabled actions unchanged. Shared modal focus management, dialog semantics, labelled buttons/search, keyboard behavior and disabled states are retained. Existing table/currency layout and XLSX exports are unchanged. A frontend publication is needed for hosted visibility; this change is not yet pushed or deployed.
+
+Validation/results: All frontend tests passed (45 test files), including four new detail-projection cases. Lint/production build passed with the existing large-chunk warning. Synthetic Chromium checked all four dialogs with 30 memberships/15 distinct Scholars, allocation coverage and true zero, 25-row pagination, local search/empty state, inherited report filters, Enter opening, Escape closure/focus return, disabled unavailable cards and no additional API requests. Layout checks passed at 1440/768/390/320 px with bounded dialog width and no page overflow; a mobile screenshot was inspected. Temporary preview files/server were removed. No backend change or production record access/write occurred. Focused component/helper/test changes were mirrored into the shared workspace, preserving unrelated edits.
+
+Limitations/rollback/recommended next work: Details cover the existing filtered management dataset; they do not fetch missing historical data or establish money release. Only records contributing to each monetary total appear in that dialog; the Scholars dialog includes all matching payroll memberships and explains incomplete totals. Wide dialog tables scroll internally on phones. Revert the component change and remove the helper/test to roll back, with no data rollback. Publish when requested and check the four cards with dedicated hosted test records.
+
 ## 2026-10-21 - Graduation and Latin Honors Deployment Verification
 
 **TL;DR**
