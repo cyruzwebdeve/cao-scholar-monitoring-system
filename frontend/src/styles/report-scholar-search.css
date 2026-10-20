@@ -5,9 +5,9 @@
 .reports-scholar-search header > span { font-size: 12px; color: #486452; }
 .report-scholar-search-controls { padding: 0 18px 18px; }
 .report-scholar-search-controls label { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 700; }
-.report-scholar-search-controls > div { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #b9cdbf; border-radius: 7px; }
+.report-query-input { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #b9cdbf; border-radius: 7px; }
 .report-scholar-search-controls input { flex: 1; min-width: 0; padding: 11px 0; border: 0; background: transparent; font: inherit; font-size: 14px; color: #254735; }
-.report-scholar-search-controls > div:focus-within { outline: 2px solid #176b3a; outline-offset: 2px; }
+.report-query-input:focus-within { outline: 2px solid #176b3a; outline-offset: 2px; }
 .report-scholar-search-controls input:focus { outline: none; }
 .report-scholar-search-controls button { display: grid; place-items: center; min-width: 36px; min-height: 36px; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }
 .report-scholar-search-controls small { display: block; margin-top: 8px; color: #617167; font-size: 11px; line-height: 1.5; }
@@ -33,3 +33,49 @@
 
 .report-scholar-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #486452; }
 .report-scholar-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 8px 12px; border: 1px solid #b9cdbf; border-radius: 6px; background: white; color: #176b3a; cursor: pointer; font: inherit; }
+
+/* Report overview first, with a readable, bounded record directory beneath it. */
+.reports-management .reports-scholar-search > header h2 { margin: 0 0 6px; color: #254735; font-size: 18px; line-height: 1.4; }
+.reports-management .reports-scholar-search > header p { max-width: 620px; color: #617167; font-size: 12px; line-height: 1.5; }
+.reports-scholar-search .report-scholar-table-wrap { max-height: 560px; overflow: auto; }
+.reports-scholar-search .report-scholar-table-wrap th { position: sticky; top: 0; z-index: 1; }
+@media (min-width: 651px) { .reports-scholar-search table { min-width: 1060px; } }
+@media (max-width: 650px) {
+  .reports-scholar-search .report-scholar-table-wrap { max-height: none; overflow: visible; }
+  .reports-scholar-search > header { padding: 16px; }
+  .reports-scholar-search .report-scholar-actions { width: 100%; justify-content: space-between; }
+  .reports-scholar-search .report-scholar-actions button { min-height: 42px; }
+}
+
+.report-record-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 16px; align-items: end; }
+.report-record-toolbar label { margin: 0; }
+.report-query-input { margin-top: 7px; }
+.report-list-type select { box-sizing: border-box; display: block; width: 100%; min-height: 42px; margin-top: 7px; padding: 8px 10px; border: 1px solid #b9cdbf; border-radius: 7px; background: white; color: #254735; font: inherit; font-weight: 400; }
+.report-payroll-summary { padding: 0 18px 20px; }
+.report-payroll-summary-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.report-payroll-summary-heading h3 { margin: 0; color: #254735; font-size: 14px; }
+.report-payroll-summary-heading > span { color: #617167; font-size: 11px; }
+.report-payroll-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.report-payroll-cards article { min-width: 0; padding: 16px; border: 1px solid #dce7df; border-radius: 9px; background: #f6faf7; }
+.report-payroll-cards article:first-child { background: #edf7f0; border-color: #bddbc6; }
+.report-payroll-cards article > span, .report-payroll-cards article > strong, .report-payroll-cards article > small { display: block; overflow-wrap: anywhere; }
+.report-payroll-cards article > span { color: #52695b; font-size: 11px; line-height: 1.5; }
+.report-payroll-cards article > strong { margin: 8px 0; color: #245d39; font-size: 21px; font-variant-numeric: tabular-nums; }
+.report-payroll-cards article > small { color: #617167; font-size: 10px; }
+.reports-scholar-search .report-breakdown-note, .reports-scholar-search .report-amount-warning { margin: 10px 0 0; font-size: 11px; line-height: 1.5; }
+.reports-scholar-search .report-amount-warning { color: #9a5811; }
+.report-scholar-table-wrap .report-money-cell { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 1000px) { .report-payroll-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 650px) {
+  .report-record-toolbar { grid-template-columns: 1fr; gap: 12px; }
+  .report-payroll-summary { padding: 0 16px 16px; }
+  .report-scholar-table-wrap .report-money-cell { text-align: left; }
+  .report-list-type select { font-size: 16px; }
+}
+@media (max-width: 400px) { .report-payroll-cards { grid-template-columns: 1fr; } }
+
+.report-coverage-heading { margin: 28px 0 16px; }
+.report-coverage-heading h2 { margin: 0 0 6px; color: #254735; font-size: 18px; }
+.report-coverage-heading p { margin: 0; color: #617167; font-size: 12px; line-height: 1.5; }
+
+.report-query-input { box-sizing: border-box; min-height: 42px; }

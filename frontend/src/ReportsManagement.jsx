@@ -1,5 +1,5 @@
 import ReportScholarSearch from './components/ReportScholarSearch';
-import { buildScholarReportRows, filterScholarReportRows, scholarReportColumns } from './utils/reportScholarSearch';
+import { buildScholarReportRows, filterScholarReportRows, scholarReportColumns, summarizePayrollReport } from './utils/reportScholarSearch';
 import MetricDetailsCard from './components/MetricDetailsCard';
 import ReportLocationFilters from './components/ReportLocationFilters';
 import { getReportBarangayOptions, matchesReportLocation, getReportLocationLevel } from './utils/reportLocationFilters';
@@ -63,6 +63,7 @@ export default function ReportsManagement({ token }) {
   const [query, setQuery] = useState('');
   const [scholarQuery, setScholarQuery] = useState('');
   const [scholarPage, setScholarPage] = useState(1);
+  const [reportListType, setReportListType] = useState('all');
   const [schoolYear, setSchoolYear] = useState('All School Years');
   const [municipalityFilter, setMunicipalityFilter] = useState('');
   const [barangayFilter, setBarangayFilter] = useState('');
@@ -105,7 +106,7 @@ export default function ReportsManagement({ token }) {
   }, [loadReports]);
 
   const scholarReportRows = useMemo(() => buildScholarReportRows(scholars), [scholars]);
-  const filteredScholarRows = useMemo(() => filterScholarReportRows(scholarReportRows, scholarQuery, schoolYear), [scholarReportRows, scholarQuery, schoolYear]);
+  const filteredScholarRows = useMemo(() => filterScholarReportRows(scholarReportRows, scholarQuery, schoolYear, reportListType), [scholarReportRows, scholarQuery, schoolYear, reportListType]);
 
   const schoolYears = useMemo(() => [...new Set([
     ...scholarReportRows.map(row => row.schoolYear),
@@ -255,7 +256,12 @@ export default function ReportsManagement({ token }) {
     const graduateColumns = selectedColumns.filter(({ group }) => group === 'Graduating scholars');
     const rows = [['Scholar Coverage Report'], ['School Year', schoolYear]];
     if (scholarColumns.length) {
-      rows.push([], ['Scholar Records'], ['Scholar Search', scholarQuery], scholarColumns.map(({ label }) => label));
+      const payrollSummary = summarizePayrollReport(filteredScholarRows);
+      rows.push([], ['Scholar Records'], ['Scholar Search', scholarQuery], ['List Status Filter', reportListType]);
+      if (scholarColumns.some(column => ['scholar-payrollAmount', 'scholar-tuitionAmount', 'scholar-allowanceAmount'].includes(column.key))) {
+        rows.push(['Payroll List Amount (PHP)', payrollSummary.payrollAmount], ['Recorded Tuition Assistance (PHP)', payrollSummary.tuitionAmount], ['Recorded Allowance (PHP)', payrollSummary.allowanceAmount], ['Payroll Entries Without Amount', payrollSummary.missingAmounts], ['Payroll Entries Without Breakdown', payrollSummary.missingBreakdowns]);
+      }
+      rows.push(scholarColumns.map(({ label }) => label));
       rows.push(...filteredScholarRows.map(record => scholarColumns.map(({ value }) => value(record))));
     }
     if (coverageColumns.length) {
@@ -275,7 +281,7 @@ export default function ReportsManagement({ token }) {
         <div>
           <p className="reports-eyebrow">DECISION SUPPORT</p>
           <h1>Reports and Insights</h1>
-          <span>Identify underserved locations and scholars approaching graduation.</span>
+          <span>Search scholar records, review payroll list amounts and explore scholarship coverage.</span>
         </div>
         <div className="reports-heading-actions">
           <label><span>School year</span><select aria-label="Report school year" value={schoolYear} onChange={(event) => { setSchoolYear(event.target.value); setScholarPage(1); setExpandedMunicipality(null); }}><option>All School Years</option>{schoolYears.map((year) => <option key={year}>{year}</option>)}</select></label>
@@ -289,13 +295,15 @@ export default function ReportsManagement({ token }) {
 
       {loading && !hasLoadedReport && <Notification tone="progress" title="Loading reports">Please wait while report data is loaded.</Notification>}
       {hasLoadedReport && <>
-      <ReportScholarSearch rows={filteredScholarRows} total={filterScholarReportRows(scholarReportRows, '', schoolYear).length} query={scholarQuery} onQuery={value => { setScholarQuery(value); setScholarPage(1); }} page={scholarPage} onPage={setScholarPage} onExport={() => exportReport(scholarReportColumns)} disabled={loading || Boolean(loadError)} />
+      <ReportScholarSearch rows={filteredScholarRows} total={filterScholarReportRows(scholarReportRows, '', schoolYear, reportListType).length} query={scholarQuery} listType={reportListType} onListType={value => { setReportListType(value); setScholarPage(1); }} onQuery={value => { setScholarQuery(value); setScholarPage(1); }} page={scholarPage} onPage={setScholarPage} onExport={() => exportReport(scholarReportColumns)} disabled={loading || Boolean(loadError)} />
+      <div className="report-coverage-heading"><h2>Coverage and program overview</h2><p>School-year overview of active scholars and locations. Record search and list-status filters do not change these coverage totals.</p></div>
       <section className="reports-metrics" aria-label="Report summary">
         <MetricDetailsCard title='Active Scholars' rows={activeScholars} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Municipality' }, { key: 'yearLevel', label: 'Year level' }]} disabled={loading || Boolean(loadError)} description={`Report records for ${schoolYear}. Other directory/location filters are not applied to these summary totals.`}  className="green"><div><span>Active Scholars</span><strong>{activeScholars.length}</strong><small>Included in this report</small></div><i><UsersRound size={22} /></i></MetricDetailsCard>
         <MetricDetailsCard title='Municipalities with None' rows={municipalityDistribution.filter(row => row.count === 0).map(row => ({ location: row.name, count: row.count }))} disabled={loading || Boolean(loadError)} description={`Report records for ${schoolYear}. Other directory/location filters are not applied to these summary totals.`} columns={[{ key: 'location', label: 'Location' }, { key: 'count', label: 'Active scholars' }]}  className="red"><div><span>Municipalities with None</span><strong>{municipalityCounts.filter((count) => count === 0).length}</strong><small>Need immediate coverage</small></div><i><MapPin size={22} /></i></MetricDetailsCard>
         <MetricDetailsCard title='Barangays with Low / None' rows={[...barangayCoverageByMunicipality.entries()].flatMap(([municipality, rows]) => rows.filter(row => row.count <= 2).map(row => ({ location: row.name, municipality: municipalitiesData.find(item => normalizeLocation(item.name) === municipality)?.name || municipality, count: row.count })))} disabled={loading || Boolean(loadError)} description={`Report records for ${schoolYear}. Other directory/location filters are not applied to these summary totals.`} columns={[{ key: 'location', label: 'Location' }, { key: 'municipality', label: 'Municipality' }, { key: 'count', label: 'Active scholars' }]}  className="orange"><div><span>Barangays with Low / None</span><strong>{barangayAttentionCount}</strong><small>Two scholars or fewer</small></div><i><ChartColumn size={22} /></i></MetricDetailsCard>
         <MetricDetailsCard title='Graduating Scholars' rows={graduatingScholars} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Municipality' }, { key: 'yearLevel', label: 'Year level' }]} disabled={loading || Boolean(loadError)} description={`Report records for ${schoolYear}. Other directory/location filters are not applied to these summary totals.`}  className="blue"><div><span>Graduating Scholars</span><strong>{graduatingScholars.length}</strong><small>For admin notification</small></div><i><GraduationCap size={22} /></i></MetricDetailsCard>
       </section>
+
 
 
 
