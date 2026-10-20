@@ -5,6 +5,23 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-20 - Reports XLSX and Layout Deployment Request
+
+**TL;DR**
+- Release `2350a6b` was pushed to main at the user’s explicit deployment request, including Reports XLSX exports and the responsive layout refinement.
+- Public dashboard/API checks passed, but the previous frontend bundle still served at verification time; live publication remains unconfirmed.
+- No backend, database migration, configuration or production business write was required.
+
+Objective/reason and behavior: Publish the locally verified XLSX/layout work for staff testing through the existing main-to-Hostinger deployment path. The release changes Reports export format and presentation as documented above; filtering, saved payroll-list amounts and dropdown behavior retain their approved scope. Legacy payment/release code remains retained and untouched, with existing disabled actions unchanged.
+
+Roles/workflows/implementation/files: Existing authorized Reports staff receive the updated report after the hosting frontend publishes the new build. Source commit `2350a6b` contains the Reports component, workbook helper, scoped CSS, related frontend tests and change documentation. No hosted business records were altered. This deployment-status entry updates change_log.txt and the detailed log.
+
+Impacts: Frontend deployment only; no API, backend, database/schema/migration, configuration, dependency, security/permission, privacy or accessibility change beyond the already documented implementation. No new hosting service or deployment pipeline was provisioned.
+
+Validation/results: Prior full frontend suite (43 files), lint/build, two XLSX roundtrip cases and actual-component browser checks at five widths passed. Git push to main succeeded. Public dashboard returns HTTP 200 but still serves preceding entry index-DI8tfRlK.js without the payroll report markers; API health returns HTTP 200, healthy/database connected. The provider status lookup failed, so provider build success is not claimed. No authenticated production acceptance was performed.
+
+Limitations/rollback/next work: Source publication does not establish frontend delivery. Inspect the existing Hostinger frontend build for `2350a6b` and verify new XLSX/layout assets once published. Revert the release commit to restore prior exports/layout without data rollback; no database rollback is needed.
+
 ## 2026-10-20 - Reports Header and Record Layout Spacing
 
 **TL;DR**
