@@ -114,7 +114,6 @@ function Sidebar({ onLogout, activeSection, onSectionChange, role, sectionAccess
           </span>
           <span className="sidebar-logout-copy">
             <span className="sidebar-logout-label">Logout</span>
-            <span className="sidebar-logout-hint">End your session</span>
           </span>
         </button>
       </div>

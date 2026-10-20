@@ -25,7 +25,7 @@ test('each staff role retains one labelled logout action outside navigation', ()
     assert.match(html, /class="sidebar-logout" type="button" aria-label="Logout"/);
     assert.match(html, /class="sidebar-logout-icon" aria-hidden="true"/);
     assert.match(html, /class="sidebar-logout-label">Logout<\/span>/);
-    assert.match(html, /End your session/);
+    assert.doesNotMatch(html, /End your session|sidebar-logout-hint/);
     assert.ok(html.indexOf('</nav>') < html.indexOf('class="sidebar-footer"'));
     if (role !== 'SuperAdmin') assert.doesNotMatch(html, />Reports<\/span>/);
   }

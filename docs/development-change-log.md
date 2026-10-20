@@ -5,6 +5,23 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-21 - Remove Logout Subtitle
+
+**TL;DR**
+- Removed End your session from the staff Logout button at the user's request; icon, label, footer placement and touch target remain.
+- Staff logout behavior and permissions are unchanged; Applicant/Scholar portals and payroll scope are unaffected.
+- Three focused regression tests, lint and production build passed. Live publication is pending verification.
+
+Objective/reason and previous/new behavior: Simplify the recently published Logout action. The two-line label becomes a single vertically centered Logout label alongside the existing icon, without changing the button height or interaction.
+
+Roles/workflows/implementation/data flow/files: SuperAdmin, BillingPayrollAdmin and RegularAdmin use the same Sidebar and onLogout callback. Sidebar.jsx removes the subtitle span; Sidebar.css removes unused hint styling and two-line copy layout; sidebarLogoutLayout.test.js now asserts the subtitle is absent for every staff role. Both change logs are updated. No data flow or session-clearing changes.
+
+Impacts: No API, backend, database/schema/migration, configuration, dependency, security, privacy or storage impact. Accessible name, decorative icon, focus styling and touch target are retained. Deployment is frontend-only through the existing main-to-Hostinger pipeline. Legacy payment code is retained untouched; workflow still ends at payroll-list generation.
+
+Validation/results: All three focused sidebar tests passed, including role markup, callback wiring and responsive/focus layout contracts. Lint and production build passed with the existing large-chunk warning. No production accounts or records were used. The full suite and browser viewport checks were not rerun for this small text/CSS removal.
+
+Limitations/rollback/next work: Verify the served Sidebar bundle no longer includes the subtitle after publication; authenticated staff acceptance remains manual. Restore the removed span/CSS and corresponding assertion to roll back; no data rollback is required.
+
 ## 2026-10-21 - Admin Sidebar Logout Layout
 
 **TL;DR**
