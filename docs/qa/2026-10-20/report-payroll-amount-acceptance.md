@@ -1,6 +1,6 @@
 # Payroll amount reporting and Reports layout — 2026-10-20
 
-Status: implemented locally, not deployed. User confirmed generated payroll-list amounts, retaining the approved scope. No new API/backend/migration.
+Status: release `786b8b1` pushed to main; new live frontend publication is not yet verified. Repeated public/cache-busted checks still serve the preceding `index-DI8tfRlK.js`; API/database remain healthy. User confirmed generated payroll-list amounts, retaining the approved scope. No new API/backend/migration.
 
 1. Reports should open with readable Scholar search, school-year/list-status filters, four payroll summary cards and the individual amount table. Coverage/program metrics remain in a separately labelled section below.
 2. Use saved payroll memberships with known grant/tuition/allowance snapshots. Totals must equal those saved amounts, prefer current-period membership snapshots over current/default projections, and include inactive Scholars’ recorded lists when matched.
@@ -11,4 +11,4 @@ Status: implemented locally, not deployed. User confirmed generated payroll-list
 7. Verify desktop sticky headers/scrolling and right-aligned amounts; at 390/320 px use readable stacked records/cards without page overflow. Check labels, keyboard focus, count/status notices, disabled unavailable data and failed-load retry.
 8. No money-released, received/claimed, disbursement-confirmed or reconciliation action/status should be added. No real business writes are needed for this read-only acceptance check.
 
-Local evidence: frontend 217 tests plus lint/build passed; 11 focused report tests and actual-component synthetic amount/filter/export/default-selection/failure/mobile checks passed. Authenticated hosted acceptance remains pending publication.
+Local evidence: frontend 217 tests plus lint/build passed; 11 focused report tests and actual-component synthetic amount/filter/export/default-selection/failure/mobile checks passed. Hosted frontend publication and authenticated acceptance remain pending.
