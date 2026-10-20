@@ -12,3 +12,5 @@ Status: release `786b8b1` pushed to main; new live frontend publication is not y
 8. No money-released, received/claimed, disbursement-confirmed or reconciliation action/status should be added. No real business writes are needed for this read-only acceptance check.
 
 Local evidence: frontend 217 tests plus lint/build passed; 11 focused report tests and actual-component synthetic amount/filter/export/default-selection/failure/mobile checks passed. Hosted frontend publication and authenticated acceptance remain pending.
+
+XLSX follow-up (implemented locally): Both report export actions must download `.xlsx` files that open in Excel/LibreOffice. Check selected columns and all-page filtering, numeric currency cells, zero versus unknown amounts, literal formula-like names, section headings and names-only exports. Earlier CSV acceptance references describe the preceding release; these checks supersede the Reports file-format steps after publication. Automated workbook save/reopen checks and the full frontend suite/lint/build passed; hosted download acceptance pending.

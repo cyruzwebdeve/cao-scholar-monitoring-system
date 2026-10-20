@@ -79,3 +79,50 @@
 .report-coverage-heading p { margin: 0; color: #617167; font-size: 12px; line-height: 1.5; }
 
 .report-query-input { box-sizing: border-box; min-height: 42px; }
+
+/* Reports spacing is independent of compact shared admin surfaces. */
+.reports-management .reports-heading { align-items: center; gap: 20px; }
+.reports-management .reports-heading > div:first-child { min-width: 0; }
+.reports-management .reports-heading > div:first-child > span { display: block; max-width: 620px; }
+.reports-management .reports-heading-actions { flex-shrink: 0; }
+.reports-management .reports-heading-actions > button { font-size: 12px; white-space: nowrap; }
+.reports-management .reports-scholar-search { margin: 0 0 24px; }
+.reports-management .reports-scholar-search > header { align-items: center; gap: 16px; padding: 20px; }
+.reports-management .reports-scholar-search > header > div:first-child { flex: 1 1 300px; min-width: 0; }
+.reports-management .report-scholar-actions > span { padding: 6px 10px; border-radius: 20px; background: #f0f6f2; white-space: nowrap; }
+.reports-management .report-scholar-actions button { min-height: 40px; font-weight: 600; white-space: nowrap; }
+.reports-management .report-scholar-search-controls { padding: 20px; }
+.reports-management .report-scholar-search-controls small { max-width: 900px; margin-top: 12px; line-height: 1.6; }
+.reports-management .report-payroll-summary { padding: 0 20px 20px; }
+.reports-management .report-payroll-cards article { display: flex; flex-direction: column; }
+.reports-management .report-payroll-cards article > small { margin-top: auto; line-height: 1.5; }
+.reports-management .report-scholar-table-wrap table { table-layout: fixed; font-size: 13px; }
+.reports-management .report-scholar-table-wrap th { padding: 14px 16px; font-size: 11px; line-height: 1.5; }
+.reports-management .report-scholar-table-wrap td { padding: 16px; line-height: 1.5; }
+.reports-management .report-scholar-table-wrap th:nth-child(1) { width: 10%; }
+.reports-management .report-scholar-table-wrap th:nth-child(2) { width: 23%; }
+.reports-management .report-scholar-table-wrap th:nth-child(3) { width: 14%; }
+.reports-management .report-scholar-table-wrap th:nth-child(4) { width: 17%; }
+.reports-management .report-scholar-table-wrap th:nth-child(n+5) { width: 12%; }
+.reports-management .report-scholar-table-wrap td strong { display: block; font-size: 13px; font-weight: 700; line-height: 1.5; }
+.reports-management .report-scholar-table-wrap td small { font-size: 11px; }
+.reports-management .report-scholar-table-wrap tbody tr:nth-child(even) { background: #fafcfb; }
+.reports-management .report-scholar-table-wrap tbody tr:hover { background: #f1f7f3; }
+.reports-management .report-scholar-table-wrap .report-money-cell { font-size: 12px; }
+.reports-management .reports-scholar-search > footer { padding: 16px 20px; background: #fafcfb; }
+@media (min-width: 651px) and (max-width: 1000px) {
+  .reports-management .reports-heading { flex-wrap: wrap; }
+  .reports-management .reports-heading-actions { margin-left: auto; }
+}
+@media (max-width: 650px) {
+  .reports-management .reports-heading { align-items: stretch; }
+  .reports-management .reports-heading-actions { flex-shrink: 1; }
+  .reports-management .reports-scholar-search > header { padding: 16px; }
+  .reports-management .reports-scholar-search > header > div:first-child { flex-basis: 100%; }
+  .reports-management .report-scholar-search-controls { padding: 16px; }
+  .reports-management .report-payroll-summary { padding: 0 16px 16px; }
+  .reports-management .report-scholar-table-wrap tr { padding: 16px; }
+  .reports-management .report-scholar-table-wrap td { padding: 6px 0; }
+  .reports-management .report-scholar-table-wrap .report-money-cell { white-space: normal; }
+  .reports-management .reports-scholar-search > footer { padding: 16px; }
+}

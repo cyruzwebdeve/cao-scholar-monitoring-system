@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
 import CsvExportModal from './components/CsvExportModal';
-import { downloadCsv } from './utils/csvExport';
+import { downloadReportWorkbook } from './utils/reportWorkbook';
 import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 import municipalitiesData from '../../municipality.json';
 import barangaysData from '../../brgy.json';
@@ -73,6 +73,8 @@ export default function ReportsManagement({ token }) {
   const [expandedMunicipality, setExpandedMunicipality] = useState(null);
   const [lifecycleReport, setLifecycleReport] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   const loadReports = useCallback(async ({ showLoader = false } = {}) => {
     if (showLoader) setLoading(true);
@@ -250,29 +252,43 @@ export default function ReportsManagement({ token }) {
     }).length;
   }, [activeScholars]);
 
-  const exportReport = (selectedColumns) => {
-    const coverageColumns = selectedColumns.filter(({ group }) => group === 'Priority locations');
-    const scholarColumns = selectedColumns.filter(({ group }) => group === 'Scholar records');
-    const graduateColumns = selectedColumns.filter(({ group }) => group === 'Graduating scholars');
-    const rows = [['Scholar Coverage Report'], ['School Year', schoolYear]];
-    if (scholarColumns.length) {
-      const payrollSummary = summarizePayrollReport(filteredScholarRows);
-      rows.push([], ['Scholar Records'], ['Scholar Search', scholarQuery], ['List Status Filter', reportListType]);
-      if (scholarColumns.some(column => ['scholar-payrollAmount', 'scholar-tuitionAmount', 'scholar-allowanceAmount'].includes(column.key))) {
-        rows.push(['Payroll List Amount (PHP)', payrollSummary.payrollAmount], ['Recorded Tuition Assistance (PHP)', payrollSummary.tuitionAmount], ['Recorded Allowance (PHP)', payrollSummary.allowanceAmount], ['Payroll Entries Without Amount', payrollSummary.missingAmounts], ['Payroll Entries Without Breakdown', payrollSummary.missingBreakdowns]);
+  const exportReport = async (selectedColumns) => {
+    if (exporting || loading || !hasLoadedReport || loadError) return;
+    setExporting(true);
+    setExportError('');
+    try {
+      const coverageColumns = selectedColumns.filter(({ group }) => group === 'Priority locations');
+      const scholarColumns = selectedColumns.filter(({ group }) => group === 'Scholar records');
+      const graduateColumns = selectedColumns.filter(({ group }) => group === 'Graduating scholars');
+      const rows = [['Scholar Coverage Report'], ['School Year', schoolYear]];
+      const headerRows = [];
+      const addTable = (columns, records) => {
+        headerRows.push(rows.length + 1);
+        rows.push(columns.map(({ label }) => label));
+        rows.push(...records.map(record => columns.map(({ value }) => value(record))));
+      };
+      if (scholarColumns.length) {
+        const payrollSummary = summarizePayrollReport(filteredScholarRows);
+        rows.push([], ['Scholar Records'], ['Scholar Search', scholarQuery], ['List Status Filter', reportListType]);
+        if (scholarColumns.some(column => ['scholar-payrollAmount', 'scholar-tuitionAmount', 'scholar-allowanceAmount'].includes(column.key))) {
+          rows.push(['Payroll List Amount (PHP)', payrollSummary.payrollAmount], ['Recorded Tuition Assistance (PHP)', payrollSummary.tuitionAmount], ['Recorded Allowance (PHP)', payrollSummary.allowanceAmount], ['Payroll Entries Without Amount', payrollSummary.missingAmounts], ['Payroll Entries Without Breakdown', payrollSummary.missingBreakdowns]);
+        }
+        addTable(scholarColumns, filteredScholarRows);
       }
-      rows.push(scholarColumns.map(({ label }) => label));
-      rows.push(...filteredScholarRows.map(record => scholarColumns.map(({ value }) => value(record))));
+      if (coverageColumns.length) {
+        rows.push([], ['Priority Locations']);
+        addTable(coverageColumns, filteredCoverage);
+      }
+      if (graduateColumns.length) {
+        rows.push([], ['Graduating Scholars']);
+        addTable(graduateColumns, graduatingScholars);
+      }
+      await downloadReportWorkbook({ filename: `${scholarColumns.length && !coverageColumns.length && !graduateColumns.length ? 'pgceap-scholar-records' : 'pgceap-priority-report'}-${schoolYear.replace(/\s+/g, '-').toLowerCase()}.xlsx`, rows, headerRows });
+    } catch {
+      setExportError('Unable to export the Excel workbook. Please try again.');
+    } finally {
+      setExporting(false);
     }
-    if (coverageColumns.length) {
-      rows.push([], ['Priority Locations'], coverageColumns.map(({ label }) => label));
-      rows.push(...filteredCoverage.map((record) => coverageColumns.map(({ value }) => value(record))));
-    }
-    if (graduateColumns.length) {
-      rows.push([], ['Graduating Scholars'], graduateColumns.map(({ label }) => label));
-      rows.push(...graduatingScholars.map((record) => graduateColumns.map(({ value }) => value(record))));
-    }
-    downloadCsv({ filename: `${scholarColumns.length && !coverageColumns.length && !graduateColumns.length ? 'pgceap-scholar-records' : 'pgceap-priority-report'}-${schoolYear.replace(/\s+/g, '-').toLowerCase()}.csv`, rows });
   };
 
   return (
@@ -285,17 +301,18 @@ export default function ReportsManagement({ token }) {
         </div>
         <div className="reports-heading-actions">
           <label><span>School year</span><select aria-label="Report school year" value={schoolYear} onChange={(event) => { setSchoolYear(event.target.value); setScholarPage(1); setExpandedMunicipality(null); }}><option>All School Years</option>{schoolYears.map((year) => <option key={year}>{year}</option>)}</select></label>
-          <button type="button" onClick={() => setExportOpen(true)} disabled={loading || !hasLoadedReport || Boolean(loadError)}><Download size={16} /> Export CSV</button>
+          <button type="button" onClick={() => setExportOpen(true)} disabled={exporting || loading || !hasLoadedReport || Boolean(loadError)}><Download size={16} /> {exporting ? 'Exporting…' : 'Export XLSX'}</button>
         </div>
       </header>
 
+      {exportError && <Notification tone="error" title="Export failed">{exportError}</Notification>}
       {loadError && (
         <Notification tone="error" title="Unable to load reports" action={<button type="button" onClick={() => loadReports({ showLoader: true })}><RefreshCw size={14} /> Retry</button>}>{loadError}</Notification>
       )}
 
       {loading && !hasLoadedReport && <Notification tone="progress" title="Loading reports">Please wait while report data is loaded.</Notification>}
       {hasLoadedReport && <>
-      <ReportScholarSearch rows={filteredScholarRows} total={filterScholarReportRows(scholarReportRows, '', schoolYear, reportListType).length} query={scholarQuery} listType={reportListType} onListType={value => { setReportListType(value); setScholarPage(1); }} onQuery={value => { setScholarQuery(value); setScholarPage(1); }} page={scholarPage} onPage={setScholarPage} onExport={() => exportReport(scholarReportColumns)} disabled={loading || Boolean(loadError)} />
+      <ReportScholarSearch rows={filteredScholarRows} total={filterScholarReportRows(scholarReportRows, '', schoolYear, reportListType).length} query={scholarQuery} listType={reportListType} onListType={value => { setReportListType(value); setScholarPage(1); }} onQuery={value => { setScholarQuery(value); setScholarPage(1); }} page={scholarPage} onPage={setScholarPage} onExport={() => exportReport(scholarReportColumns)} disabled={exporting || loading || Boolean(loadError)} />
       <div className="report-coverage-heading"><h2>Coverage and program overview</h2><p>School-year overview of active scholars and locations. Record search and list-status filters do not change these coverage totals.</p></div>
       <section className="reports-metrics" aria-label="Report summary">
         <MetricDetailsCard title='Active Scholars' rows={activeScholars} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Municipality' }, { key: 'yearLevel', label: 'Year level' }]} disabled={loading || Boolean(loadError)} description={`Report records for ${schoolYear}. Other directory/location filters are not applied to these summary totals.`}  className="green"><div><span>Active Scholars</span><strong>{activeScholars.length}</strong><small>Included in this report</small></div><i><UsersRound size={22} /></i></MetricDetailsCard>
@@ -460,7 +477,7 @@ export default function ReportsManagement({ token }) {
         </article>
       </section>
       </>}
-      {exportOpen && <CsvExportModal title="Export reports and insights" description="Choose columns from scholar records, priority locations and graduating scholars. Scholar records follow the search and school-year filter; all matching pages are exported." columns={reportExportColumns} rowCount={filteredScholarRows.length + filteredCoverage.length + graduatingScholars.length} getRowCount={(columns) => (columns.some(({ group }) => group === 'Scholar records') ? filteredScholarRows.length : 0) + (columns.some(({ group }) => group === 'Priority locations') ? filteredCoverage.length : 0) + (columns.some(({ group }) => group === 'Graduating scholars') ? graduatingScholars.length : 0)} onClose={() => setExportOpen(false)} onExport={exportReport} />}
+      {exportOpen && <CsvExportModal formatLabel="EXCEL EXPORT" exportLabel="Export XLSX" title="Export reports and insights" description="Choose columns from scholar records, priority locations and graduating scholars. Scholar records follow the search and school-year filter; all matching pages are exported." columns={reportExportColumns} rowCount={filteredScholarRows.length + filteredCoverage.length + graduatingScholars.length} getRowCount={(columns) => (columns.some(({ group }) => group === 'Scholar records') ? filteredScholarRows.length : 0) + (columns.some(({ group }) => group === 'Priority locations') ? filteredCoverage.length : 0) + (columns.some(({ group }) => group === 'Graduating scholars') ? graduatingScholars.length : 0)} onClose={() => setExportOpen(false)} onExport={exportReport} />}
     </div>
   );
 }

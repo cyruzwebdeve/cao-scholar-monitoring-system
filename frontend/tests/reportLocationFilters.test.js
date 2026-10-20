@@ -55,7 +55,7 @@ test('filter transitions clear stale barangays and selecting one switches to bar
   assert.match(source, /const locationLevel = getReportLocationLevel\(municipalityFilter\)/);
   assert.doesNotMatch(source, /View by|Location level|setLocationLevel|reports-table-tools/);
   assert.match(source, /matchesQuery && matchesCoverage && matchesReportLocation/);
-  assert.match(source, /filteredCoverage.map\(\(record\) => coverageColumns.map/);
+  assert.match(source, /addTable\(coverageColumns, filteredCoverage\)/);
 });
 test('the two selects forward independent geographic codes and enable valid scoped barangays', () => {
   let municipality, barangay;

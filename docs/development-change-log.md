@@ -5,6 +5,40 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-20 - Reports Header and Record Layout Spacing
+
+**TL;DR**
+- Staff Reports now has aligned page actions, a separated record header/search area, consistent summary spacing and clearer fixed table columns.
+- Desktop rows wrap long school/reference text, use readable type and subtle alternate backgrounds; phones retain stacked records and responsive actions.
+- Dropdown markup/options/behavior and XLSX/data calculations are unchanged. Synthetic browser checks passed at 1440, 1119, 768, 390 and 320 px with no page overflow; frontend build passed. Local change, not deployed.
+
+Objective/reason and previous/new behavior: Fix the cramped Reports screenshot while ignoring the open dropdown, as requested. The prior search controls began directly against the panel header border, with uneven action alignment and weak table spacing. Scoped Reports rules add 20 px section padding (16 px on phones), align the title/export area, separate the record count as a compact badge, align summary-card supporting text and allocate explicit table-column widths with readable row padding and zebra/hover backgrounds. Existing dropdown styling/contents and behavior are retained; only surrounding header containers adapt to available width.
+
+Roles/workflows/implementation/files: Existing report staff see a presentation-only change in frontend/src/styles/report-scholar-search.css, mirrored into the shared workspace. Search, filtering, pagination, saved payroll totals and selected-column/all-page XLSX exports retain the same data flow. The bounded desktop table keeps internal scrolling and sticky headings; phones retain labelled stacked records. No roles gain actions.
+
+Impacts: No API, backend, database/schema/migration, configuration, dependency, security/permission, privacy, storage or deployment-infrastructure change. Accessibility retains labels, keyboard focus, table semantics and result announcements; wrapping and contrast improve readability. No release/receipt workflow is introduced; legacy payment-oriented code is retained untouched with existing disabled actions. Frontend publication is required for hosted visibility and has not been performed for this local layout change.
+
+Validation/results: Chromium exercised actual Reports with synthetic GET-only fixtures and application global/reset styles. Checks passed at 1440/1119/768/390/320 px for no document overflow, separate header/control geometry, ten-row pagination, current/history and school-year/list-status searches, existing totals, real XLSX download signature/extension and Excel dialog labels. Desktop and phone screenshots were inspected. Temporary preview files/server were removed. Final production build passed with the existing large-chunk warning. Prior full frontend suite/lint passed for the accompanying XLSX implementation; this CSS-only follow-up adds no new test. No production accounts, documents, records or real personal data were used.
+
+Limitations/rollback/next work: Wide tables may scroll within their container; mobile cards are longer by design. Existing dropdown behavior is unchanged and was not redesigned. Remove this scoped CSS block to revert, without data rollback. Publish the frontend when requested and review the layout in the staff account.
+
+## 2026-10-20 - Reports Excel Workbook Exports
+
+**TL;DR**
+- Staff Reports exports now download genuine `.xlsx` workbooks from both Export matches and the column-selection dialog.
+- Existing search/year/status filters, all-page records, selected columns and payroll-list totals are preserved; amounts remain numeric and unknown breakdowns stay explicit.
+- Frontend suite (43 test files), lint/build and XLSX save/reopen checks passed. No API, database, configuration or dependency change; implementation not yet deployed.
+
+Objective/reason and previous/new behavior: The user requested XLSX rather than CSV for Reports. Both export paths now use the existing ExcelJS dependency to create an Excel workbook with readable section/header styling, wrapped text, bounded column widths, frozen report context and currency formats. The report toolbar/dialog say Export XLSX. Exporting temporarily disables repeated report actions; failures show the existing accessible error notification and allow another attempt.
+
+Roles/workflows and implementation/data flow: Authorized report staff keep the same column selection, filtered data and scope. ReportsManagement.jsx constructs the same selected rows and explicit header positions, then lazily loads reportWorkbook.js to serialize a Reports worksheet and download it using the XLSX MIME type/extension. Numeric values remain numeric, text is assigned as literal string cells rather than formulas, and zero/Not recorded remain distinct. Names-only exports add no monetary summaries. The existing shared CSV modal supports format labels and remains unchanged for other screens. reportWorkbook.test.js saves/reopens actual XLSX bytes to check numeric currency, formula-like literal text, section formatting, zero/unknown values and names-only projection. The existing location regression assertion was updated for the shared table-row builder; geographic filtering is unchanged.
+
+Impacts: No API, backend, database/schema/migration, configuration, dependency, security-permission, infrastructure or document-storage change. Privacy exposure is unchanged: only existing authorized projected report fields are downloaded, with no new server calls or writes. Existing accessible controls/statuses remain; export errors use the notification component. The workflow still ends at payroll-list generation. Legacy payment/release code is retained untouched and disabled as before; this is not disbursement reporting. Deployment impact is frontend publication only; this change has not been pushed or verified live.
+
+Validation/results: The complete frontend suite passed (43 test files), including two new Excel roundtrip/projection cases; lint and production build passed with the existing chunk-size warning. An initial suite run identified a source assertion tied to the replaced coverage map expression; it was updated to check the same filtered coverage input to the new builder and the full rerun passed. No production records/accounts or real personal data were used. Changes were mirrored into the shared workspace while retaining unrelated edits.
+
+Limitations/rollback/next work: Exports use currently loaded authorized data; large reports are generated in browser memory. Workbook layout has automated structural verification; manual Excel/LibreOffice and hosted download acceptance remain pending. Revert the Reports export wiring and remove the helper/tests to restore CSV; no data rollback is needed. Publish the frontend when requested and verify filtered workbook downloads with dedicated test data.
+
 ## 2026-10-20 - Payroll Amount Summary, Scholar Breakdowns and Reports Layout
 
 **TL;DR**
