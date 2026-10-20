@@ -1,6 +1,6 @@
 # Reports Scholar search acceptance — 2026-10-20
 
-Status: implemented locally, not deployed. Frontend-only; no new migration.
+Status: release 699b738 published for testing; public frontend search/export assets and API/database health verified. Authenticated hosted acceptance pending. Frontend-only; no new migration.
 
 1. Open Reports with a staff account already authorized for the existing Reports and Scholar-management reads. Confirm the new Scholar records section loads with current accounts and known historical list entries; count is report records rather than unique Scholars.
 2. Search a name, control number, current school/course/location and exact certification/payroll reference. Try mixed case, accents, extra spaces and combined terms. Search must not send extra API requests or change summary counts/coverage/graduating sections.
@@ -10,4 +10,4 @@ Status: implemented locally, not deployed. Frontend-only; no new migration.
 6. Check 1440/390/320 px, readable table/mobile labels, keyboard focus, labelled search/year controls and result count announcements.
 7. Simulate a failed initial read: show Retry and disable export, without a false empty search table. Recover successfully on retry. Existing API permissions must not be broadened for portal or unrelated staff roles.
 
-Local evidence: 212 frontend tests passed, including six new report cases; lint/build passed; actual-component synthetic browser search/year/history/paging/clear/export/default-selection/mobile/failure-retry checks passed. No real records or application-database writes used. Existing underlying Reports/management permission constraints remain; authenticated hosted acceptance is pending deployment.
+Local evidence: 212 frontend tests passed, including six new report cases; lint/build passed; actual-component synthetic browser search/year/history/paging/clear/export/default-selection/mobile/failure-retry checks passed. No real records or application-database writes used. Existing underlying Reports/management permission constraints remain; authenticated hosted acceptance remains pending.
