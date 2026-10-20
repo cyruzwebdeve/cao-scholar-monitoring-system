@@ -200,4 +200,4 @@ Replaced the number input/action row with direct editable amount text; restored 
 
 ## Amount pencil affordance — 2026-10-20
 
-Displayed amounts now have a pencil icon beside the value instead of a dashed underline. Icon/value share the existing button and direct-text editor. Lint/build and synthetic Billing/Payroll icon-click, border, editing and six-width layout checks passed. Publishing through the existing testing pipeline; live verification pending. No new backend/migration.
+Displayed amounts now have a pencil icon beside the value instead of a dashed underline. Icon/value share the existing button and direct-text editor. Lint/build and synthetic Billing/Payroll icon-click, border, editing and six-width layout checks passed. Release `ac7a602` published; live dashboard `index-CJL26Od6.js`, editor `Dashboard-V2mW7HxQ.js` and stylesheet `Dashboard-BZ7DVwZO.css` verify the pencil affordance and absent dashed display underline. API/database healthy. No new backend/migration.

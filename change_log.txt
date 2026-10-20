@@ -580,3 +580,5 @@
 2026-10-20 | Direct amount text release 5553a04 verified live: index-KoyphAp7.js/editor Dashboard-91E5VLsU.js contain content-editable text without boxed controls; Dashboard-ugicfzuI.css restores compact queue geometry and earlier desktop proportions. API/database healthy; no new migration.
 
 2026-10-20 | Replaced dashed Amount edit underline with a pencil icon beside the displayed value. Existing accessible button/direct text editing and queue dimensions retained. Lint/build and synthetic icon/keyboard/blur/error/paste/persistence/six-width checks passed. Frontend-only; no new API/migration/configuration change.
+
+2026-10-20 | Amount pencil release ac7a602 verified live: index-CJL26Od6.js/editor Dashboard-V2mW7HxQ.js contain icon/value markup, and Dashboard-BZ7DVwZO.css includes icon styling without the dashed amount-button underline. Direct text editor/queue proportions retained; API/database healthy. No new migration.
