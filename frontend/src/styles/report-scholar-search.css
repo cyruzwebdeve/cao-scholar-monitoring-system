@@ -126,3 +126,5 @@
   .reports-management .report-scholar-table-wrap .report-money-cell { white-space: normal; }
   .reports-management .reports-scholar-search > footer { padding: 16px; }
 }
+
+.reports-management .reports-content-grid + .reports-scholar-search { margin-top: 24px; }

@@ -312,7 +312,6 @@ export default function ReportsManagement({ token }) {
 
       {loading && !hasLoadedReport && <Notification tone="progress" title="Loading reports">Please wait while report data is loaded.</Notification>}
       {hasLoadedReport && <>
-      <ReportScholarSearch rows={filteredScholarRows} total={filterScholarReportRows(scholarReportRows, '', schoolYear, reportListType).length} query={scholarQuery} listType={reportListType} onListType={value => { setReportListType(value); setScholarPage(1); }} onQuery={value => { setScholarQuery(value); setScholarPage(1); }} page={scholarPage} onPage={setScholarPage} onExport={() => exportReport(scholarReportColumns)} disabled={exporting || loading || Boolean(loadError)} />
       <div className="report-coverage-heading"><h2>Coverage and program overview</h2><p>School-year overview of active scholars and locations. Record search and list-status filters do not change these coverage totals.</p></div>
       <section className="reports-metrics" aria-label="Report summary">
         <MetricDetailsCard title='Active Scholars' rows={activeScholars} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Municipality' }, { key: 'yearLevel', label: 'Year level' }]} disabled={loading || Boolean(loadError)} description={`Report records for ${schoolYear}. Other directory/location filters are not applied to these summary totals.`}  className="green"><div><span>Active Scholars</span><strong>{activeScholars.length}</strong><small>Included in this report</small></div><i><UsersRound size={22} /></i></MetricDetailsCard>
@@ -476,6 +475,7 @@ export default function ReportsManagement({ token }) {
           </div>
         </article>
       </section>
+      <ReportScholarSearch rows={filteredScholarRows} total={filterScholarReportRows(scholarReportRows, '', schoolYear, reportListType).length} query={scholarQuery} listType={reportListType} onListType={value => { setReportListType(value); setScholarPage(1); }} onQuery={value => { setScholarQuery(value); setScholarPage(1); }} page={scholarPage} onPage={setScholarPage} onExport={() => exportReport(scholarReportColumns)} disabled={exporting || loading || Boolean(loadError)} />
       </>}
       {exportOpen && <CsvExportModal formatLabel="EXCEL EXPORT" exportLabel="Export XLSX" title="Export reports and insights" description="Choose columns from scholar records, priority locations and graduating scholars. Scholar records follow the search and school-year filter; all matching pages are exported." columns={reportExportColumns} rowCount={filteredScholarRows.length + filteredCoverage.length + graduatingScholars.length} getRowCount={(columns) => (columns.some(({ group }) => group === 'Scholar records') ? filteredScholarRows.length : 0) + (columns.some(({ group }) => group === 'Priority locations') ? filteredCoverage.length : 0) + (columns.some(({ group }) => group === 'Graduating scholars') ? graduatingScholars.length : 0)} onClose={() => setExportOpen(false)} onExport={exportReport} />}
     </div>

@@ -5,6 +5,23 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-21 - Scholar Records at the Bottom of Reports
+
+**TL;DR**
+- Moved the complete Scholar records panel below the coverage, analytics, priority-location and graduating-Scholar sections.
+- Search, filters, clickable payroll summaries, record table/pagination and XLSX exports remain together with unchanged data behavior.
+- Browser checks passed at 1440/390/320 px; lint/build passed. Frontend presentation only, not deployed.
+
+Objective/reason and previous/new behavior: The user requested moving the pictured Scholar records section to the bottom of Reports. It previously appeared before the coverage overview; ReportsManagement.jsx now renders the same component as the final report section. A scoped adjacent-section rule in report-scholar-search.css adds 24 px spacing above it.
+
+Roles/workflows/implementation and files: Existing Reports staff first see coverage/program information, then the complete searchable Scholar/payroll records panel after the priority/graduation panels. The component receives the same filtered rows, query/year/status state, pagination callbacks, loading/error safeguards and XLSX export handler; no data or event wiring changes. Existing clickable payroll details stay inside the relocated section. Only ReportsManagement.jsx, its scoped stylesheet and change documentation change.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: No API, backend, database/schema/migration, dependency, configuration, infrastructure, security-permission, privacy or data-storage change. DOM order now follows the requested visual/reading order; existing labels, keyboard/focus controls and dialog behavior are unchanged. No legacy release/payment code is edited; it remains retained with existing disabled workflows unchanged. Frontend publication is needed; no push or deployment performed for this layout adjustment.
+
+Validation/results: Synthetic Chromium verified the Scholar records panel is the final report section immediately after the coverage/graduation content grid, with at least 24 px spacing, existing search/card/export controls and working payroll-card details. Checks passed at 1440/390/320 px without page overflow. Lint/production build passed with the existing chunk warning; no new tests were added for this reversible placement change. The previously passed frontend suite covers the unchanged behavior. Temporary preview files/server were removed; no real accounts, records or production writes were used. The same focused move/CSS rule was applied to the shared workspace, retaining unrelated edits.
+
+Limitations/rollback/next work: Staff scroll further to reach Scholar records; report-wide school-year selection remains at the page header. Move the component back and remove the adjacent-section margin rule to revert; no data rollback needed. Publish when requested and verify the final section order in the staff interface.
+
 ## 2026-10-21 - Clickable Reports Payroll Summary Cards
 
 **TL;DR**
