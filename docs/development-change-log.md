@@ -5,6 +5,27 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-20 - Edit Amount as Text and Retain the Queue Layout
+
+**TL;DR**
+- Clicking Amount now edits the value directly as plain text in its existing cell; the boxed number input, Save/Cancel row and inline preview text are removed.
+- Enter or clicking away saves a changed amount; Escape restores the original. Unchanged values do not write. Invalid or rejected values remain editable with an error above the queue.
+- Restored the earlier desktop source/queue proportions and compact Amount width. Editing does not increase normal row height; the shared scrolling/aligned header fix remains.
+- Frontend lint/build and 206 tests passed; synthetic Billing/Payroll tests verified no input/form/buttons in the active cell, stable dimensions, keyboard/blur behavior, duplicate-event protection, validation, paste safety and six-width layout. No backend or database change.
+
+Objective/reason: Match the staff’s clarified request to edit the displayed amount straightforwardly while retaining the queue box layout. Previous versions introduced an input rectangle and extra controls that expanded the row; those are removed.
+
+Previous/new behavior and affected roles/workflows: Authorized staff click the formatted amount and type in an unboxed, labelled editable text span beside the peso prefix. The value is selected automatically and remains left-aligned. Enter submits, clicking outside submits, and Escape discards; unchanged values simply leave editing without an API write. There is no new dialog, input field, action row or allowance preview inside the cell. Validation/server errors appear in the existing notification above the queue and retain the draft with aria-invalid. Private tuition bounds remain enforced and the existing backend still recalculates allowance when saving; preparation views and exports retain their recorded breakdowns. This changes staff Billing/Payroll preparation only, preserving admission, document and generated-list workflows.
+
+Implementation/data flow/files: ScholarAmountEditor.jsx uses a contentEditable span with a textbox role and decimal keyboard hint. It reads plain text at save time, accepts decimal/grouped currency text, rejects invalid/over-limit/extra-decimal and below-tuition amounts, and calls the same authenticated period-bound amount endpoint with expectedAmount. An immediate ref guard prevents Enter/blur from sending duplicate writes; an Escape/unmodified guard prevents unmount blur from saving cancelled edits. Pasted clipboard content is inserted as text through a DOM Range, never HTML. A busy state prevents editing during a save; failed requests retain the draft. BillingPayrollManagement.jsx passes errors to its existing notification. admin.css removes boxed-input/control styling, restores the original desktop source/target ratio and compact 82 px Amount column, and styles the editable amount as ordinary currency with an underline focus indicator. The single scrollport/header alignment remains intact. Matching logs/register/checklist are updated.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: No new API, backend, database/schema, migration, dependency, configuration, infrastructure, secret, mail or storage change. Existing endpoint role/section access, stale-value detection, tuition validation and generated-list locks remain authoritative. No new personal data or public exposure, and no payment/release workflow is introduced or altered. The editable span has a per-Scholar accessible textbox label, aria-multiline=false, inputMode=decimal, invalid/read-only/busy states and a visible focus underline. The existing error notification announces failures. Publication uses the existing main-to-Hostinger testing pipeline; prior hosted backend/migration acceptance remains separate.
+
+Validation/results: Frontend production build, lint and all 206 existing tests passed with the existing large-chunk warning. Synthetic Chromium checks used the actual Billing/Payroll components: no input/form/action buttons in the active amount cell; normal row height and panel width unchanged before/after editing; Escape and unchanged blur make no write; Enter followed by blur saves exactly once; click-away save persists; invalid/stale drafts remain; Private amounts cannot undercut tuition; formatted plain-text paste saves correctly and clipboard HTML is not inserted. Reload persistence, left alignment, aligned grid columns and no document overflow passed at 1440/1100/800/550/390/320 px. Screenshots were inspected and temporary preview files removed. No real account, document, email or application-database writes were used; backend code is unchanged and its earlier suite was not rerun.
+
+Limitations/rollback/next work: Clicking away now intentionally saves a valid changed value; Escape is the cancel action. Only one amount is edited at a time and existing queue/period/generation guards remain during editing. Mobile uses the platform’s content-editable decimal keyboard. Restore the three frontend files to roll back presentation/interaction; preserve existing saved overrides and backend validation. Verify published text-editing assets and the normal queue layout, then perform controlled authenticated acceptance once the separate hosted backend/migration checks are confirmed.
+
+
 ## 2026-10-20 - Left-align the Inline Amount Value
 
 **TL;DR**

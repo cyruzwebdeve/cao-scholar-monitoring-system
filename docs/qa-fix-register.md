@@ -193,3 +193,7 @@ Removed the wrapping keyboard helper caption, standardized the amount field and 
 ## Amount value left alignment — 2026-10-20
 
 CSS-only release `7321cfa` left-aligns the editable Amount value. Production build/generated CSS checks passed; live dashboard `index-Bj9Q6T8N.js` and stylesheet `Dashboard-CHofJ-fc.css` confirm text-align:left. API/database healthy. Controls, persistence, permissions and the existing migration remain unchanged.
+
+## Direct amount text editing and retained queue layout — 2026-10-20
+
+Replaced the number input/action row with direct editable amount text; restored normal row height and earlier panel proportions/compact Amount column, preserving aligned single scrolling. Enter/click-away saves, Escape cancels, unchanged values do not write, and Enter/blur cannot duplicate a save. Existing notification displays invalid/stale errors while retaining drafts. Frontend 206 tests, lint/build and synthetic Billing/Payroll text, paste safety, keyboard/blur, duplicate-event, persistence and six-width geometry checks passed. Publishing through the existing testing pipeline; live verification pending. No new backend/migration.
