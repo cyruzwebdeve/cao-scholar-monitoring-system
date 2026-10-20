@@ -5,6 +5,23 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-20 - Pencil Icon Beside Editable Amounts
+
+**TL;DR**
+- Replaced the displayed amount’s dashed underline with a small pencil icon beside the value in Billing and Payroll.
+- Amount and icon share the existing accessible button; direct text editing and queue dimensions remain unchanged. Lint/build and synthetic desktop/mobile interaction checks passed.
+
+Objective/reason and previous/new behavior: Staff requested an explicit edit icon instead of the dashed edit affordance. Displayed amounts now show a pencil beside the currency value. Clicking either part opens the existing plain-text editor; Enter/click-away saves and Escape cancels as before. The idle editable text also has no dashed decoration; keyboard focus remains visibly indicated.
+
+Implementation/data flow/files: BillingPayrollManagement.jsx imports Pencil from the existing lucide-react dependency and places a decorative, non-focusable icon beside a value span inside the existing amount button. admin.css removes the dashed button border, aligns the icon/value and keeps the icon from shrinking. Its direct-editor idle underline becomes transparent while the focus/error indicators remain. No new control, input field, request or data flow is introduced. Existing staff roles and workflows are unchanged.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: No API, backend, schema, migration, dependency, configuration, hosting, security or privacy changes. Existing labelled button, keyboard focus, busy/invalid states, role/section permissions and generated-list locks remain. The icon is aria-hidden and does not add a keyboard stop. No document, email, payment/release or legacy monetary functionality changes. Publish through the existing frontend testing pipeline.
+
+Validation/results: Frontend lint and production build passed (existing chunk-size warning). Synthetic Chromium checks in Billing/Payroll verified a pencil icon, no dashed button border, icon-click entry to direct text editing, unchanged row/panel dimensions, Escape/no-change without writes, Enter/blur duplicate protection, invalid/stale draft retention, Private tuition bounds, safe pasted text, persistence and aligned queue layout at 1440/1100/800/550/390/320 px. Screenshots were inspected; temporary preview files were removed. Full functional suites were not rerun for this presentation change; their previous 206-pass frontend baseline remains. No real accounts, private documents, mail or application-database writes were used.
+
+Limitations/rollback/next work: The icon is shown beside idle values; the active value remains plain editable text. Existing narrow-screen table scrolling is unchanged. Restore the two frontend files to roll back the affordance without any data rollback. Verify the new assets after publication; separate hosted backend/migration acceptance remains unchanged.
+
+
 ## 2026-10-20 - Edit Amount as Text and Retain the Queue Layout
 
 **TL;DR**

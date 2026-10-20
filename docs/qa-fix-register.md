@@ -197,3 +197,7 @@ CSS-only release `7321cfa` left-aligns the editable Amount value. Production bui
 ## Direct amount text editing and retained queue layout — 2026-10-20
 
 Replaced the number input/action row with direct editable amount text; restored normal row height and earlier panel proportions/compact Amount column, preserving aligned single scrolling. Enter/click-away saves, Escape cancels, unchanged values do not write, and Enter/blur cannot duplicate a save. Existing notification displays invalid/stale errors while retaining drafts. Frontend 206 tests, lint/build and synthetic Billing/Payroll text, paste safety, keyboard/blur, duplicate-event, persistence and six-width geometry checks passed. Release `5553a04` published; live dashboard `index-KoyphAp7.js`, editor `Dashboard-91E5VLsU.js` and stylesheet `Dashboard-ugicfzuI.css` verify direct editable text without boxed controls and compact/original queue proportions. API/database healthy. No new backend/migration.
+
+## Amount pencil affordance — 2026-10-20
+
+Displayed amounts now have a pencil icon beside the value instead of a dashed underline. Icon/value share the existing button and direct-text editor. Lint/build and synthetic Billing/Payroll icon-click, border, editing and six-width layout checks passed. Publishing through the existing testing pipeline; live verification pending. No new backend/migration.
