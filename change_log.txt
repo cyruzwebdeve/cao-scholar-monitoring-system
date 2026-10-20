@@ -576,3 +576,5 @@
 2026-10-20 | Left-aligned Amount release 7321cfa verified live in Dashboard-CHofJ-fc.css via dashboard index-Bj9Q6T8N.js. API/database healthy; no new migration.
 
 2026-10-20 | Replaced the boxed Amount editor/buttons with direct plain-text editing in the existing queue cell. Enter/click-away saves, Escape cancels; duplicate-event protection and invalid/stale draft retention included. Restored earlier queue proportions/compact amount column while retaining aligned single-scroll layout. Frontend 206 tests, lint/build and synthetic text/blur/cancel/paste/geometry/mobile checks passed. Frontend-only; no new API/migration/configuration change.
+
+2026-10-20 | Direct amount text release 5553a04 verified live: index-KoyphAp7.js/editor Dashboard-91E5VLsU.js contain content-editable text without boxed controls; Dashboard-ugicfzuI.css restores compact queue geometry and earlier desktop proportions. API/database healthy; no new migration.
