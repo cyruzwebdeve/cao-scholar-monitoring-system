@@ -10,7 +10,7 @@ and how the result was verified.
 **TL;DR**
 - Removed End your session from the staff Logout button at the user's request; icon, label, footer placement and touch target remain.
 - Staff logout behavior and permissions are unchanged; Applicant/Scholar portals and payroll scope are unaffected.
-- Three focused regression tests, lint and production build passed. Live publication is pending verification.
+- Three focused regression tests, lint and production build passed. Release `8dca83a` was pushed and public Hostinger publication verified.
 
 Objective/reason and previous/new behavior: Simplify the recently published Logout action. The two-line label becomes a single vertically centered Logout label alongside the existing icon, without changing the button height or interaction.
 
@@ -20,7 +20,9 @@ Impacts: No API, backend, database/schema/migration, configuration, dependency, 
 
 Validation/results: All three focused sidebar tests passed, including role markup, callback wiring and responsive/focus layout contracts. Lint and production build passed with the existing large-chunk warning. No production accounts or records were used. The full suite and browser viewport checks were not rerun for this small text/CSS removal.
 
-Limitations/rollback/next work: Verify the served Sidebar bundle no longer includes the subtitle after publication; authenticated staff acceptance remains manual. Restore the removed span/CSS and corresponding assertion to roll back; no data rollback is required.
+Deployment verification: Cache-busted public dashboard requests now serve `index-BXrt8PuF.js` and `Sidebar-Ds7Wifbm.js`. The Sidebar bundle retains sidebar-logout-icon and sidebar-logout-label but contains neither End your session nor sidebar-logout-hint. This confirms public asset publication after pushing `8dca83a`, without production business writes.
+
+Limitations/rollback/next work: Public asset verification passed; authenticated staff acceptance remains manual. Restore the removed span/CSS and corresponding assertion to roll back; no data rollback is required.
 
 ## 2026-10-21 - Admin Sidebar Logout Layout
 

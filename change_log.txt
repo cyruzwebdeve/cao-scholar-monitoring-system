@@ -597,4 +597,4 @@
 
 2026-10-21 | Restyled staff Logout as a separated, accessible sidebar footer with sign-out icon and session hint; navigation scrolls independently on short screens. Logout handler/permissions and Applicant/Scholar controls unchanged. All 222 frontend tests (44 files), lint/build and five-viewport synthetic browser checks passed. Release 5a7fa1c pushed to main; public Hostinger assets verified live and API/database healthy. No API/database/configuration or workflow-scope change.
 
-2026-10-21 | Removed End your session from staff Logout; retained icon, centered label, footer, focus styling and touch target. No behavior/API/database/configuration or scope change. Three focused tests, lint and build passed; frontend publication pending verification.
+2026-10-21 | Removed End your session from staff Logout; retained icon, centered label, footer, focus styling and touch target. No behavior/API/database/configuration or scope change. Three focused tests, lint and build passed; release 8dca83a pushed and public Hostinger assets verified without the subtitle.
