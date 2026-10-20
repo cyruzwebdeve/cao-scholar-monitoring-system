@@ -1,0 +1,17 @@
+# Graduation and Latin honors acceptance — 2026-10-21
+
+Status: implemented locally, not pushed or deployed. Backend 453 tests passed/one existing opt-in skip; frontend suite (44 files), lint/build, 13 focused cases, actual embedded PostgreSQL migration checks and synthetic browser workflows passed.
+
+Deployment preparation: apply the additive graduation migration through the existing production build sequence, regenerate Prisma, then publish the matched backend and frontend. Do not use real scholar records as fixtures. Confirm backend migration success separately from public API health.
+
+1. Scholar Portal: find Graduation & Latin honors. Submit a past actual graduation date, matching consecutive academic year, school/degree at graduation, a Latin honor and official PDF/JPG/PNG proof up to 6 MB. Initial proof is required. Confirm Pending verification and no automatic scholarship/year-level/payroll change.
+2. Reject future/impossible dates, invalid years/honor values, blank school/degree, corrupt or renamed documents and over-limit files. Failed saves must keep the draft and retain previously saved proof. Double clicks must not duplicate saves.
+3. In Scholars, open a record’s Graduation & honors tab. Confirm staff with Scholars access can enter/review the record and download proof; staff without that section, unauthenticated requests and Applicants must be denied. A Scholar must see only their own record/proof and cannot self-verify.
+4. In Scholars → Graduates & Latin honors, the default list must contain only verified graduates with Latin honors. Switch to Pending verification to review. Open a record, compare the downloaded proof with saved fields, attest to checking it, then Verify. Unsaved changes block review. A duplicate or stale decision must return a conflict without overwriting.
+5. Return for correction requires notes. Confirm the Scholar sees those notes and can resubmit. Editing a verified record returns it to pending and removes it from the default recognition list until verified again. A missing replacement retains the current proof; a valid replacement changes it only with the successful save.
+6. Record/verify a graduate with No Latin honors. The record must appear with All honors or No Latin honors and remain absent from With Latin honors. No fourth-year or approaching-graduation state alone may create a verified record.
+7. Search name (including multiple name words), recorded school/degree, academic year, honor and review status. Counts/paging must reflect the same filters; empty/error/retry states must remain distinct. Confirm soft-deleted applicants are excluded.
+8. Open two sessions on the same graduation version. Save/review in one; the stale save/review in the second must fail with a reload instruction and retain the unsaved draft. Reload must show the current saved version without automatic write replay.
+9. Check desktop/tablet and 390/320 px: labelled forms/cards, readable four-tab drawer, keyboard focus, record-opening focus, accessible notices and no page-level horizontal overflow. Inspect proof/record APIs for private no-store headers and confirm list responses omit file bytes/private URLs.
+
+Limitations: one current graduation and supporting proof per Scholar; earlier proof versions/multiple degrees are not archived. Proof is private database data and needs the existing secure backup/retention practices. This feature does not alter eligibility or payroll-list processing and does not confirm release/receipt of money. Preserve new records/table during a code rollback.

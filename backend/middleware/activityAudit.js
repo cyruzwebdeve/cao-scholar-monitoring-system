@@ -2,6 +2,9 @@ const prisma = require('../config/prisma');
 const { recordActivitySafely } = require('../services/activityLog');
 
 const ACTIONS = {
+  'PUT /graduations/me': ['GRADUATION_SUBMITTED', 'scholar_graduations', 'Submitted a graduation record for verification.'],
+  'PUT /scholar-graduations/:applicantId': ['GRADUATION_UPDATED', 'scholar_graduations', 'Updated a graduation record for verification.'],
+  'PUT /scholar-graduations/:applicantId/review': ['GRADUATION_REVIEWED', 'scholar_graduations', 'Reviewed a graduation record.'],
   'POST /payroll/schedules': ['PAYOUT_SCHEDULE_CREATED', 'payout_schedules', 'Created an informational payout schedule.'],
   'PUT /payroll/schedules/:id': ['PAYOUT_SCHEDULE_UPDATED', 'payout_schedules', 'Updated an informational payout schedule.'],
   'POST /phone-capture/sessions': ['PHONE_CAPTURE_SESSION_CREATED', 'applicants', 'Started a temporary initial-document phone capture connection.'],

@@ -1,3 +1,4 @@
+const graduations = require('../controllers/scholarGraduationController').createGraduationController({ prisma: require('../config/prisma'), validateDocumentUpload: require('../services/documentFilePolicy').validateDocumentUpload });
 const potentialScholars = require('../controllers/potentialScholarController');
 const { getDashboardDetails } = require('../controllers/dashboardDetailsController');
 const payoutSchedules = require('../controllers/payoutScheduleController');
@@ -179,6 +180,16 @@ router.post('/payroll/billing-batch', authenticate, checkRole(['BillingPayrollAd
 router.put('/payroll/billing-batch/:id/release', authenticate, checkRole(['BillingPayrollAdmin']), checkSectionAccess('payroll'), retiredPayoutWorkflow);
 router.get('/scholars/eligible', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('payroll'), retiredPayoutWorkflow);
 router.get('/scholars', authenticate, checkRole(['SuperAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), retiredPayoutWorkflow);
+// Graduation and recognition are independent of eligibility and payroll processing.
+router.get('/graduations/me', privateResponse, authenticate, checkRole(['Scholar']), graduations.read);
+router.put('/graduations/me', privateResponse, authenticate, documentUploadRateLimiter, checkRole(['Scholar']), graduations.save);
+router.get('/graduations/me/proof', privateResponse, authenticate, checkRole(['Scholar']), graduations.file);
+router.get('/scholar-graduations', privateResponse, authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), graduations.index);
+router.get('/scholar-graduations/:applicantId', privateResponse, authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), graduations.read);
+router.put('/scholar-graduations/:applicantId', privateResponse, authenticate, documentUploadRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), graduations.save);
+router.get('/scholar-graduations/:applicantId/proof', privateResponse, authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), graduations.file);
+router.put('/scholar-graduations/:applicantId/review', privateResponse, authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), graduations.review);
+
 router.get('/scholars/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars', 'billing', 'payroll'), getScholarManagement);
 router.put('/scholars/:applicantId/continuing-requirements/open', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), openContinuingRequirements);
 router.put('/scholars/:applicantId/requirements/:requirementKey', authenticate, documentUploadRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), uploadScholarRequirementByAdmin);

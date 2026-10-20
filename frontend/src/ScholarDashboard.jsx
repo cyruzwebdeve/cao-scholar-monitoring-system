@@ -1,3 +1,4 @@
+import ScholarGraduation from './components/ScholarGraduation';
 import { validateDocumentFile, documentDataUrl, DOCUMENT_FILE_ACCEPT, DOCUMENT_FILE_HELP } from './utils/documentFilePolicy';
 import ScholarDesktopNavigation from './components/ScholarDesktopNavigation';
 import { containScholarProfileFocus } from './utils/scholarMobileLayout';
@@ -465,6 +466,7 @@ function ScholarDashboard({ token, user, onLogout }) {
           </div>
         </>}
         <footer className="scholar-footer"><CalendarDays size={14} /> Need help? Contact the Community Affairs Office for assistance.</footer>
+        <ScholarGraduation token={token} />
       </main>
       </div>
     </div>

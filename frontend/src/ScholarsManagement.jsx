@@ -1,3 +1,5 @@
+import ScholarGraduation from './components/ScholarGraduation';
+import GraduationRecognition from './components/GraduationRecognition';
 import MetricDetailsCard from './components/MetricDetailsCard';
 import { scholarMetricRows } from './utils/metricDetails';
 import DocumentVersionHistory from './components/DocumentVersionHistory';
@@ -486,8 +488,8 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     <div className="scholars-management">
       <header className="scholars-admin-heading"><div><span className="scholars-admin-eyebrow">SCHOLAR RECORDS</span><h2>Scholars Management</h2><p>Manage scholar accounts, review documents, and track status updates.</p></div><button type="button" className="scholars-export" onClick={() => setExportOpen(true)} disabled={!filtered.length}><Download size={15} />Export CSV</button></header>
 
-      <nav className="examination-workspace-tabs scholars-section-tabs" aria-label="Scholars sections"><button type="button" aria-pressed={sectionTab === 'directory'} className={sectionTab === 'directory' ? 'active' : ''} onClick={() => setSectionTab('directory')}>Scholar</button><button type="button" aria-pressed={sectionTab === 'continuing'} className={sectionTab === 'continuing' ? 'active' : ''} onClick={() => setSectionTab('continuing')}>Continuing Requirements</button></nav>
-      {sectionTab === 'continuing' ? <ContinuingRequirementsSettings token={token} periods={academicPeriods} scholars={scholars} canEdit={canUploadScholarRequirements} onPeriodChange={async (periodId) => { setSchedulePeriodId(periodId); await loadScholars({ academicPeriodId: periodId }); }} /> : <>
+      <nav className="examination-workspace-tabs scholars-section-tabs" aria-label="Scholars sections"><button type="button" aria-pressed={sectionTab === 'directory'} className={sectionTab === 'directory' ? 'active' : ''} onClick={() => setSectionTab('directory')}>Scholar</button><button type="button" aria-pressed={sectionTab === 'continuing'} className={sectionTab === 'continuing' ? 'active' : ''} onClick={() => setSectionTab('continuing')}>Continuing Requirements</button><button type="button" aria-pressed={sectionTab === 'graduation'} className={sectionTab === 'graduation' ? 'active' : ''} onClick={() => setSectionTab('graduation')}>Graduates &amp; Latin honors</button></nav>
+      {sectionTab === 'graduation' ? <GraduationRecognition token={token} /> : sectionTab === 'continuing' ? <ContinuingRequirementsSettings token={token} periods={academicPeriods} scholars={scholars} canEdit={canUploadScholarRequirements} onPeriodChange={async (periodId) => { setSchedulePeriodId(periodId); await loadScholars({ academicPeriodId: periodId }); }} /> : <>
       <div className="scholars-admin-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <MetricDetailsCard title={label} rows={scholarMetricRows(scholars, label)} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Municipality' }, { key: 'status', label: 'Status' }, { key: 'documentStatus', label: 'Documents' }]} disabled={loading || Boolean(loadError && !scholars.length)} className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !scholars.length) ? '—' : value}</strong><small>{detail}</small></div><i><Icon size={20} /></i></MetricDetailsCard>)}</div>
 
       {loadError && <div className="scholars-admin-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadScholars({ showLoader: true })}>Retry</button></div>}
@@ -538,13 +540,14 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
             <button type="button" className="scholars-certificate-notice-dismiss" aria-label="Dismiss certificate notification" onClick={() => setCertificateNotice(null)}><X size={16} aria-hidden="true" /></button>
           </div>}
 
-          <nav className="scholars-drawer-tabs" role="tablist" aria-label="Scholar record sections">
+          <nav className="scholars-drawer-tabs scholars-drawer-tabs-with-graduation" role="tablist" aria-label="Scholar record sections">
             <button type="button" role="tab" aria-selected={drawerTab === 'overview'} className={drawerTab === 'overview' ? 'active' : ''} onClick={() => setDrawerTab('overview')}><GraduationCap size={15} />Overview</button>
+            <button type="button" role="tab" aria-selected={drawerTab === 'graduation'} className={drawerTab === 'graduation' ? 'active' : ''} onClick={() => setDrawerTab('graduation')}><GraduationCap size={15} />Graduation &amp; honors</button>
             <button type="button" role="tab" aria-selected={drawerTab === 'finance'} className={drawerTab === 'finance' ? 'active' : ''} onClick={openBillingTab}><CircleDollarSign size={15} />Billing &amp; Payroll</button>
             <button type="button" role="tab" aria-selected={drawerTab === 'certification-history'} className={drawerTab === 'certification-history' ? 'active' : ''} onClick={() => setDrawerTab('certification-history')}><History size={15} />Certification History</button>
           </nav>
 
-          {drawerTab === 'overview' ? (
+          {drawerTab === 'graduation' ? <div className="scholars-drawer-tab-panel" role="tabpanel"><ScholarGraduation key={selected.applicantId} token={token} applicantId={selected.applicantId} staff /></div> : drawerTab === 'overview' ? (
             <div className="scholars-drawer-tab-panel" role="tabpanel">
               <section className="scholars-detail-section"><h4>Scholar information</h4><dl><div><dt>Email address</dt><dd>{selected.email || 'Not provided'}</dd></div><div><dt>School year</dt><dd>{selected.schoolYear || '2026-2027'}</dd></div><div><dt>Issued</dt><dd>{formatScholarDate(selected.issuedAt)}</dd></div></dl></section>
               <section className="scholars-detail-section"><h4>Education and location</h4><dl><div><dt>School</dt><dd>{selected.school}</dd></div><div><dt>Course</dt><dd>{selected.course || 'Not specified'}</dd></div><div><dt>Year level</dt><dd>{selected.yearLevel || 'Not specified'}</dd></div><div><dt>Municipality</dt><dd>{selected.municipality}</dd></div><div><dt>Barangay</dt><dd>{selected.barangay}</dd></div></dl></section>

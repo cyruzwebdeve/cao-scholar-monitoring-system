@@ -292,6 +292,7 @@ model eligibility_assessments {
 }
 
 model scholar_accounts {
+  graduation scholar_graduations?
   id           Int      @id @default(autoincrement())
   applicant_id Int      @unique
   result_id    Int?     @unique
@@ -526,4 +527,26 @@ model payout_schedule_recipients {
   schedule payout_schedules @relation(fields: [schedule_id], references: [id], onDelete: Cascade)
   @@id([schedule_id, applicant_id])
   @@index([applicant_id])
+}
+
+model scholar_graduations {
+  applicant_id    Int @id
+  scholar         scholar_accounts @relation(fields: [applicant_id], references: [applicant_id], onDelete: Restrict, onUpdate: NoAction)
+  graduation_date DateTime @db.Date
+  academic_year   String @db.VarChar(9)
+  latin_honor     String @db.VarChar(30)
+  school         String @db.VarChar(200)
+  course         String @db.VarChar(200)
+  proof_name     String @db.VarChar(255)
+  proof_type     String @db.VarChar(30)
+  proof_data     Bytes
+  review_status  String @default("pending") @db.VarChar(20)
+  review_notes   String? @db.VarChar(1000)
+  reviewed_by    Int?
+  reviewed_at    DateTime? @db.Timestamp(6)
+  version        Int @default(1)
+  created_at     DateTime @default(now()) @db.Timestamp(6)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamp(6)
+
+  @@index([review_status, latin_honor])
 }
