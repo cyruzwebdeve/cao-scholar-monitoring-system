@@ -7,6 +7,7 @@ import {
   FileText,
   GraduationCap,
   LayoutDashboard,
+  LogOut,
   Megaphone,
   Settings2,
   UsersRound,
@@ -107,8 +108,14 @@ function Sidebar({ onLogout, activeSection, onSectionChange, role, sectionAccess
       </nav>
 
       <div className="sidebar-footer">
-        <button className="sidebar-logout" type="button" onClick={onLogout}>
-          Logout
+        <button className="sidebar-logout" type="button" onClick={onLogout} aria-label="Logout">
+          <span className="sidebar-logout-icon" aria-hidden="true">
+            <LogOut size={18} strokeWidth={2} />
+          </span>
+          <span className="sidebar-logout-copy">
+            <span className="sidebar-logout-label">Logout</span>
+            <span className="sidebar-logout-hint">End your session</span>
+          </span>
         </button>
       </div>
     </aside>

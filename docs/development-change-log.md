@@ -5,6 +5,26 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-21 - Admin Sidebar Logout Layout
+
+**TL;DR**
+- Admin Logout now has a dedicated separated footer, sign-out icon, aligned label and session hint instead of an understated text-only button.
+- SuperAdmin, BillingPayrollAdmin and RegularAdmin retain the same logout handler and section permissions; Applicant and Scholar portals are unchanged.
+- Navigation scrolls independently so Logout stays reachable on short/mobile screens. No API, database, authentication or payroll-workflow change.
+- All 222 frontend tests, lint, production build and five-viewport synthetic browser checks passed. Hosted publication is pending at the time of this entry.
+
+Objective/reason and previous/new behavior: Improve the Logout button layout at the user's request, with deployment requested after validation. Previously it was a centered text-only action at the bottom of the sidebar's shared scroll area. It is now a full-width, left-aligned white action with a muted rose sign-out icon, bold Logout label and End your session hint, separated from navigation by a divider. The footer and brand remain fixed within the sidebar while only the navigation list scrolls.
+
+Roles/workflows and implementation/data flow: The shared staff Sidebar continues passing clicks directly to its supplied onLogout callback; token clearing, routing, role filtering and section selection are untouched. JSX adds decorative icon and text spans with a stable accessible Logout name. CSS supplies a 64 px minimum target, hover/pressed/keyboard-focus states, dynamic viewport height, bottom safe-area spacing, independently scrollable navigation and reduced-motion support. No server requests or stored state are added. The approved workflow still ends at official payroll-list generation; legacy payment-oriented functionality is retained untouched, with existing disabled actions unchanged.
+
+Files/system areas: frontend/src/components/Sidebar.jsx, frontend/src/components/Sidebar.css, frontend/tests/sidebarLogoutLayout.test.js, change_log.txt and this log. The change was prepared in an isolated checkout of current main; unrelated work in the older shared checkout is not part of the release.
+
+Impacts: Frontend presentation and scrolling only. No API, backend, database/schema/migration, dependency, environment/configuration, security-permission, authentication, privacy or data-retention change. Accessibility gains a decorative hidden icon, stable button name, visible focus, large touch target and reduced-motion support. Deployment requires rebuilding the existing Hostinger frontend from main; no new hosting service, infrastructure or backend deployment is needed.
+
+Validation/results: All 222 tests across 44 frontend test files passed, including three new staff-role, callback and layout-contract regressions. Lint and production build passed. Existing large-bundle warnings and test-runner Vite WebSocket port warnings did not fail validation. Headless Chromium rendered the actual Sidebar with application global styles at 1440x900, 1024x600, 390x844, 320x568 and 667x375. Checks passed for visible footer geometry, no horizontal document overflow, scrollable navigation on short screens, Enter/Space/click invoking the supplied synthetic handler exactly once per activation, focus outline and reduced motion. Desktop/mobile screenshots were inspected. Browser checks used no production account, records or writes; no authenticated hosted logout was performed.
+
+Limitations/rollback/next work: Only the admin sidebar Logout action is changed; portal logout controls are intentionally untouched. Synthetic browser verification does not establish live publication. Publish through the existing main-to-Hostinger path, verify the served sidebar assets, then confirm logout in an authorized staff session. Revert this release's Sidebar JSX/CSS and test to restore the prior presentation; no database or configuration rollback is required.
+
 ## 2026-10-20 - Reports XLSX and Layout Deployment Request
 
 **TL;DR**
