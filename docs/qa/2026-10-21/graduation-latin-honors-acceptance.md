@@ -1,6 +1,6 @@
 # Graduation and Latin honors acceptance — 2026-10-21
 
-Status: implemented locally, not pushed or deployed. Backend 453 tests passed/one existing opt-in skip; frontend suite (44 files), lint/build, 13 focused cases, actual embedded PostgreSQL migration checks and synthetic browser workflows passed.
+Status: release `f65ce2a` deployed to both Hostinger projects. Exact source revisions, successful graduation migration, public frontend form/recognition/mobile assets and healthy API/database verified. Authenticated office/Scholar acceptance remains pending. Backend 453 tests passed/one existing opt-in skip; frontend suite (44 files), lint/build, 13 focused cases, actual embedded PostgreSQL migration checks and synthetic browser workflows passed.
 
 Deployment preparation: apply the additive graduation migration through the existing production build sequence, regenerate Prisma, then publish the matched backend and frontend. Do not use real scholar records as fixtures. Confirm backend migration success separately from public API health.
 
