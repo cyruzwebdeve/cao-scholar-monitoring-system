@@ -201,3 +201,7 @@ Replaced the number input/action row with direct editable amount text; restored 
 ## Amount pencil affordance — 2026-10-20
 
 Displayed amounts now have a pencil icon beside the value instead of a dashed underline. Icon/value share the existing button and direct-text editor. Lint/build and synthetic Billing/Payroll icon-click, border, editing and six-width layout checks passed. Release `ac7a602` published; live dashboard `index-CJL26Od6.js`, editor `Dashboard-V2mW7HxQ.js` and stylesheet `Dashboard-BZ7DVwZO.css` verify the pencil affordance and absent dashed display underline. API/database healthy. No new backend/migration.
+
+## Recommendation 7 Reports search — 2026-10-20
+
+Implemented locally: searchable Scholar/current-metadata and historical list-reference report records, year filtering, ten-row pagination and exact filtered all-page CSV export. Existing analytics and default general exports retained. Frontend 212 tests, lint/build and synthetic desktop/mobile/search/history/year/export/retry checks passed. No new API/backend/migration or released-money reporting. Not deployed; use [the acceptance checklist](qa/2026-10-20/report-scholar-search-acceptance.md) after authorized publication. Existing Reports/management permission prerequisites remain.

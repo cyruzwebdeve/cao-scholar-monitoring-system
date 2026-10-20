@@ -1,3 +1,5 @@
+import ReportScholarSearch from './components/ReportScholarSearch';
+import { buildScholarReportRows, filterScholarReportRows, scholarReportColumns } from './utils/reportScholarSearch';
 import MetricDetailsCard from './components/MetricDetailsCard';
 import ReportLocationFilters from './components/ReportLocationFilters';
 import { getReportBarangayOptions, matchesReportLocation, getReportLocationLevel } from './utils/reportLocationFilters';
@@ -30,6 +32,7 @@ const municipalityByCode = new Map(
 const isGraduating = (yearLevel) => /(?:graduating|4th\s*year|fourth\s*year)/i.test(String(yearLevel || ''));
 
 const reportExportColumns = [
+  ...scholarReportColumns,
   { key: 'coverageLocation', label: 'Location', group: 'Priority locations', value: (record) => record.location },
   { key: 'coverageMunicipality', label: 'Municipality', group: 'Priority locations', value: (record) => record.municipality },
   { key: 'coverageType', label: 'Type', group: 'Priority locations', value: (record) => record.type },
@@ -58,6 +61,8 @@ export default function ReportsManagement({ token }) {
   const [loadError, setLoadError] = useState('');
   const [hasLoadedReport, setHasLoadedReport] = useState(false);
   const [query, setQuery] = useState('');
+  const [scholarQuery, setScholarQuery] = useState('');
+  const [scholarPage, setScholarPage] = useState(1);
   const [schoolYear, setSchoolYear] = useState('All School Years');
   const [municipalityFilter, setMunicipalityFilter] = useState('');
   const [barangayFilter, setBarangayFilter] = useState('');
@@ -99,10 +104,13 @@ export default function ReportsManagement({ token }) {
     };
   }, [loadReports]);
 
+  const scholarReportRows = useMemo(() => buildScholarReportRows(scholars), [scholars]);
+  const filteredScholarRows = useMemo(() => filterScholarReportRows(scholarReportRows, scholarQuery, schoolYear), [scholarReportRows, scholarQuery, schoolYear]);
+
   const schoolYears = useMemo(() => [...new Set([
-    ...scholars.map((scholar) => scholar.schoolYear),
+    ...scholarReportRows.map(row => row.schoolYear),
     ...(lifecycleReport?.periods || []).map((period) => period.schoolYear),
-  ].filter(Boolean))].sort().reverse(), [lifecycleReport, scholars]);
+  ].filter(year => year && year !== 'Legacy period'))].sort().reverse(), [lifecycleReport, scholarReportRows]);
 
   const activeScholars = useMemo(() => scholars.filter((scholar) => (
     scholar.status === 'Active'
@@ -243,8 +251,13 @@ export default function ReportsManagement({ token }) {
 
   const exportReport = (selectedColumns) => {
     const coverageColumns = selectedColumns.filter(({ group }) => group === 'Priority locations');
+    const scholarColumns = selectedColumns.filter(({ group }) => group === 'Scholar records');
     const graduateColumns = selectedColumns.filter(({ group }) => group === 'Graduating scholars');
     const rows = [['Scholar Coverage Report'], ['School Year', schoolYear]];
+    if (scholarColumns.length) {
+      rows.push([], ['Scholar Records'], ['Scholar Search', scholarQuery], scholarColumns.map(({ label }) => label));
+      rows.push(...filteredScholarRows.map(record => scholarColumns.map(({ value }) => value(record))));
+    }
     if (coverageColumns.length) {
       rows.push([], ['Priority Locations'], coverageColumns.map(({ label }) => label));
       rows.push(...filteredCoverage.map((record) => coverageColumns.map(({ value }) => value(record))));
@@ -253,7 +266,7 @@ export default function ReportsManagement({ token }) {
       rows.push([], ['Graduating Scholars'], graduateColumns.map(({ label }) => label));
       rows.push(...graduatingScholars.map((record) => graduateColumns.map(({ value }) => value(record))));
     }
-    downloadCsv({ filename: `pgceap-priority-report-${schoolYear.replace(/\s+/g, '-').toLowerCase()}.csv`, rows });
+    downloadCsv({ filename: `${scholarColumns.length && !coverageColumns.length && !graduateColumns.length ? 'pgceap-scholar-records' : 'pgceap-priority-report'}-${schoolYear.replace(/\s+/g, '-').toLowerCase()}.csv`, rows });
   };
 
   return (
@@ -265,7 +278,7 @@ export default function ReportsManagement({ token }) {
           <span>Identify underserved locations and scholars approaching graduation.</span>
         </div>
         <div className="reports-heading-actions">
-          <label><span>School year</span><select value={schoolYear} onChange={(event) => { setSchoolYear(event.target.value); setExpandedMunicipality(null); }}><option>All School Years</option>{schoolYears.map((year) => <option key={year}>{year}</option>)}</select></label>
+          <label><span>School year</span><select aria-label="Report school year" value={schoolYear} onChange={(event) => { setSchoolYear(event.target.value); setScholarPage(1); setExpandedMunicipality(null); }}><option>All School Years</option>{schoolYears.map((year) => <option key={year}>{year}</option>)}</select></label>
           <button type="button" onClick={() => setExportOpen(true)} disabled={loading || !hasLoadedReport || Boolean(loadError)}><Download size={16} /> Export CSV</button>
         </div>
       </header>
@@ -276,6 +289,7 @@ export default function ReportsManagement({ token }) {
 
       {loading && !hasLoadedReport && <Notification tone="progress" title="Loading reports">Please wait while report data is loaded.</Notification>}
       {hasLoadedReport && <>
+      <ReportScholarSearch rows={filteredScholarRows} total={filterScholarReportRows(scholarReportRows, '', schoolYear).length} query={scholarQuery} onQuery={value => { setScholarQuery(value); setScholarPage(1); }} page={scholarPage} onPage={setScholarPage} onExport={() => exportReport(scholarReportColumns)} disabled={loading || Boolean(loadError)} />
       <section className="reports-metrics" aria-label="Report summary">
         <MetricDetailsCard title='Active Scholars' rows={activeScholars} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Municipality' }, { key: 'yearLevel', label: 'Year level' }]} disabled={loading || Boolean(loadError)} description={`Report records for ${schoolYear}. Other directory/location filters are not applied to these summary totals.`}  className="green"><div><span>Active Scholars</span><strong>{activeScholars.length}</strong><small>Included in this report</small></div><i><UsersRound size={22} /></i></MetricDetailsCard>
         <MetricDetailsCard title='Municipalities with None' rows={municipalityDistribution.filter(row => row.count === 0).map(row => ({ location: row.name, count: row.count }))} disabled={loading || Boolean(loadError)} description={`Report records for ${schoolYear}. Other directory/location filters are not applied to these summary totals.`} columns={[{ key: 'location', label: 'Location' }, { key: 'count', label: 'Active scholars' }]}  className="red"><div><span>Municipalities with None</span><strong>{municipalityCounts.filter((count) => count === 0).length}</strong><small>Need immediate coverage</small></div><i><MapPin size={22} /></i></MetricDetailsCard>
@@ -438,7 +452,7 @@ export default function ReportsManagement({ token }) {
         </article>
       </section>
       </>}
-      {exportOpen && <CsvExportModal title="Export reports and insights" description="Choose columns from the priority-location and graduating-scholar report sections." columns={reportExportColumns} rowCount={filteredCoverage.length + graduatingScholars.length} getRowCount={(columns) => (columns.some(({ group }) => group === 'Priority locations') ? filteredCoverage.length : 0) + (columns.some(({ group }) => group === 'Graduating scholars') ? graduatingScholars.length : 0)} onClose={() => setExportOpen(false)} onExport={exportReport} />}
+      {exportOpen && <CsvExportModal title="Export reports and insights" description="Choose columns from scholar records, priority locations and graduating scholars. Scholar records follow the search and school-year filter; all matching pages are exported." columns={reportExportColumns} rowCount={filteredScholarRows.length + filteredCoverage.length + graduatingScholars.length} getRowCount={(columns) => (columns.some(({ group }) => group === 'Scholar records') ? filteredScholarRows.length : 0) + (columns.some(({ group }) => group === 'Priority locations') ? filteredCoverage.length : 0) + (columns.some(({ group }) => group === 'Graduating scholars') ? graduatingScholars.length : 0)} onClose={() => setExportOpen(false)} onExport={exportReport} />}
     </div>
   );
 }
