@@ -5,13 +5,30 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-21 - Scholar Records UI Deployment Verification
+
+**TL;DR**
+- Release `514f8ca` publishes the improved Scholar records header, search controls, summary cards, record badges/ranges and mobile record cards.
+- Hostinger completed both projects for the exact release; live Reports JS/CSS confirm the redesign and retained bottom placement. API/database healthy.
+- No new migration/configuration or production business-record writes; authenticated office acceptance remains pending.
+
+Objective/reason and previous/new behavior: Fulfil the user’s request to deploy after improving the Scholar records layout. The prepared frontend refinement is now served through the existing main-to-Hostinger pipeline, retaining the current report filters, calculations, details dialogs and XLSX data flow. Existing Reports staff receive the updated interface; no additional role or workflow is introduced.
+
+Implementation/files and deployment impact: Source release `514f8caba104fcc820c85e216e8831b4263d508e` contains ReportScholarSearch.jsx, report-scholar-search.css and change documentation. Hostinger frontend build `01a15d07-3030-7263-9ea5-515d14bd3f88` completed at 13:55:35 Asia/Manila on 2026-10-21; backend build `01a15d07-307f-709e-b6c5-e9312c1d5abd` completed at 13:55:42. Both identify the exact source revision. The automatic pipeline republishes the unchanged backend; logs report no pending migrations. This follow-up changes only the two change-log files.
+
+API/database/configuration/security/privacy/accessibility impacts: No API, backend, schema/database migration, dependency, environment, infrastructure, permission, privacy or accessibility change beyond the already documented frontend refinement. Public verification uses assets/health only. No real Scholar accounts, private documents or business records were accessed or mutated. Legacy payment/release code remains retained untouched with existing disabled actions unchanged.
+
+Validation/results: All 226 frontend tests passed, lint/build passed in both isolated/shared source, and synthetic actual-Reports checks verified dialogs/keyboard focus, search/status/reset, page ranges, scoped XLSX export, failed-read retry and five desktop/mobile widths without page overflow. Public dashboard returns HTTP 200 with `index-D_Y1sKwv.js`. Served `Dashboard-DI9McIyN.js` contains About these records, Reset filters, Scholar entries, the revised directory/stat/list-badge/pagination markup and Export XLSX; Scholar records is rendered after the graduating section. Served `Dashboard-Bc-vnKE1.css` contains the new panel styling, mobile record-grid rules and darker secondary text color. All checked assets return HTTP 200. API health returns HTTP 200, healthy/database connected. This confirms publication, not authenticated staff acceptance of real records.
+
+Limitations/rollback/recommended next work: Refresh Reports and check the interface with dedicated staff test records. Restore the prior component/style to roll back presentation and the local reset action; no data rollback is needed. Existing browser-side filtering/data completeness limits remain.
+
 ## 2026-10-21 - Scholar Records Interface Refinement
 
 **TL;DR**
 - Reports staff receive a clearer Scholar records header/export action, aligned search/status controls, reset action and expandable record-scope guidance.
 - Clickable payroll cards gain icons and a prominent total; scholar rows gain identity grouping, status/history badges and explicit record ranges. Phones use individual record cards with highlighted payroll amounts.
 - Generated-list scope, calculations, filtering, details dialogs, XLSX exports and bottom-of-Reports placement are retained; no backend/API/database change.
-- All 226 frontend tests, lint/build and actual Reports browser checks at five widths passed. Prepared for the user-requested deployment; publication verification follows.
+- All 226 frontend tests, lint/build and actual Reports browser checks at five widths passed. Release `514f8ca` deployed; exact-revision provider and live asset checks passed.
 
 Objective/reason and previous/new behavior: Improve the layout and usability of Scholar records and deploy after verification, as requested. Previously the panel used a uniform header/cards and a dense table or long stacked rows. The revised interface separates its header, search area, clickable payroll summary and record entries. An office-green primary amount card anchors the summary, while icons/arrows and View details labels clarify all four click targets. The header emphasizes the export action and matching count. Account metadata/history badges, list-status badges, readable list references, grouped scholar identity and toned missing values make records easier to scan. A footer now shows the current record range as well as the existing page controls.
 
@@ -21,7 +38,7 @@ API/database/configuration/security/privacy/accessibility/deployment impacts: Fr
 
 Validation/results: The complete frontend suite passed all 226 cases (45 files) in a sequential run; the first concurrent local run stalled around shared Vite caches and was stopped rather than counted as passing. Lint and production build passed with the existing chunk-size warning. Actual Reports Chromium checks used synthetic read-only API responses and verified bottom placement, disclosure/reset behavior, four matching payroll dialogs and keyboard focus return, current/historical records, name/status filters without extra requests, page/range updates, empty and failed-read/retry guards and a filtered XLSX file opened with ExcelJS. Layout checks passed at 1440/1119/768/390/320 px with equal-height search/status controls, bounded tables and no page-level overflow. Desktop and mobile screenshots were inspected. Temporary preview files/server were removed, and source changes were mirrored into the shared workspace while retaining unrelated edits. Backend code is unchanged and its suite was not rerun. No real Scholar records, private documents, credentials or production record writes were used.
 
-Limitations/rollback/recommended next work: Wide desktop tables still scroll internally and phone pages grow with the ten individual records; existing browser-side data projection remains. The disclosure contains the same current-versus-historical metadata caveat. Revert the component/style changes to restore the prior appearance and remove the local reset action, with no data rollback. Publish the matching frontend, then verify public assets and API health; authenticated staff acceptance remains a controlled follow-up.
+Limitations/rollback/recommended next work: Wide desktop tables still scroll internally and phone pages grow with the ten individual records; existing browser-side data projection remains. The disclosure contains the same current-versus-historical metadata caveat. Revert the component/style changes to restore the prior appearance and remove the local reset action, with no data rollback. Matched frontend publication, provider status and public assets/API health are verified above; authenticated staff acceptance remains a controlled follow-up.
 
 ## 2026-10-21 - Reports Cards and Section Order Deployment
 
