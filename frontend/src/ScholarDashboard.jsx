@@ -1,3 +1,4 @@
+import ScholarPayoutReceipts from './components/ScholarPayoutReceipts';
 import ScholarGraduation from './components/ScholarGraduation';
 import { validateDocumentFile, documentDataUrl, DOCUMENT_FILE_ACCEPT, DOCUMENT_FILE_HELP } from './utils/documentFilePolicy';
 import ScholarDesktopNavigation from './components/ScholarDesktopNavigation';
@@ -466,6 +467,7 @@ function ScholarDashboard({ token, user, onLogout }) {
           </div>
         </>}
         <footer className="scholar-footer"><CalendarDays size={14} /> Need help? Contact the Community Affairs Office for assistance.</footer>
+        <ScholarPayoutReceipts token={token} />
         <ScholarGraduation token={token} />
       </main>
       </div>

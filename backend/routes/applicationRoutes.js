@@ -1,3 +1,4 @@
+const payoutParticipation = require('../controllers/payoutParticipationController').createPayoutParticipationController({ prisma: require('../config/prisma') });
 const graduations = require('../controllers/scholarGraduationController').createGraduationController({ prisma: require('../config/prisma'), validateDocumentUpload: require('../services/documentFilePolicy').validateDocumentUpload });
 const potentialScholars = require('../controllers/potentialScholarController');
 const { getDashboardDetails } = require('../controllers/dashboardDetailsController');
@@ -211,6 +212,11 @@ router.get('/payroll/schedule-batches/:id', ...payoutScheduleAccess, payoutSched
 router.post('/payroll/schedules', ...payoutScheduleAccess, billingWriteRateLimiter, payoutSchedules.save);
 router.put('/payroll/schedules/:id', ...payoutScheduleAccess, billingWriteRateLimiter, payoutSchedules.save);
 router.get('/payout-schedules/me', authenticate, checkRole(['Scholar']), privateResponse, payoutSchedules.mine);
+router.get('/payroll/schedules/:id/attendance', ...payoutScheduleAccess, payoutParticipation.index);
+router.put('/payroll/schedules/:id/attendance/:applicantId', ...payoutScheduleAccess, billingWriteRateLimiter, payoutParticipation.attendance);
+router.get('/payout-schedules/me/participation', authenticate, checkRole(['Scholar']), privateResponse, payoutParticipation.mine);
+router.put('/payout-schedules/:id/receipt', authenticate, checkRole(['Scholar']), privateResponse, staffWriteRateLimiter, payoutParticipation.receipt);
+
 
 router.get('/announcements/latest', authenticate, checkRole(['Applicant', 'Scholar', 'SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getLatestPublishedAnnouncement);
 router.get('/announcements/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('announcements'), getAnnouncementManagement);

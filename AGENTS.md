@@ -2,11 +2,19 @@
 
 ## Product scope boundary
 
-The PGCEAP system workflow ends when CAO generates the official payroll list
-of scholars. Do not extend the workflow into fund release, payment claiming,
-disbursement confirmation, reconciliation, or monetary auditing. Operational
-activity logs for system access and record changes remain allowed; they must
-not be presented as audits of released money.
+CAO's processing workflow ends when it generates the official payroll list
+of scholars. The user explicitly approved this limited extension on 2026-10-21:
+published Payout Schedules may include staff-recorded attendance (Not marked,
+Present, Absent) and a Scholar-owned "Received Payout" acknowledgement.
+
+Keep attendance and receipt acknowledgement separate. Attendance does not prove
+receipt, and a Scholar acknowledgement is self-reported, not an official payment
+verification. A Scholar may acknowledge only their own scheduled Payroll entry.
+Do not extend this exception into staff fund release, payment claiming, official
+disbursement verification, reconciliation, or monetary auditing. Reports monetary
+totals must continue to represent generated payroll-list amounts.
+Operational activity logs for system access and record changes remain allowed;
+they must not be presented as audits of released money.
 
 When editing older payment-oriented code, treat it as legacy functionality
 outside the approved scope and document whether it is retained, disabled, or

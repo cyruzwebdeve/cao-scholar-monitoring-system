@@ -88,6 +88,7 @@ model announcement_email_deliveries {
 }
 
 model admins {
+  payout_attendance payout_schedule_attendance[]
   id             Int       @id @default(autoincrement())
   full_name      String    @db.VarChar(150)
   email          String    @unique @db.VarChar(150)
@@ -103,6 +104,7 @@ model admins {
 }
 
 model applicants {
+  payout_attendance payout_schedule_attendance[]
   announcement_deliveries announcement_email_deliveries[]
   schedule_email_deliveries payout_schedule_email_deliveries[]
   id             Int       @id @default(autoincrement())
@@ -378,6 +380,7 @@ model payroll_batches {
 }
 
 model payroll_claims {
+  receipt_report scholar_payout_receipts?
   id               Int       @id @default(autoincrement())
   payroll_batch_id Int
   academic_period_id Int?
@@ -480,6 +483,8 @@ model passer_list_members {
 
 // Informational notice scheduling, independent of legacy monetary fields.
 model payout_schedules {
+  attendance_records payout_schedule_attendance[]
+  receipt_reports scholar_payout_receipts[]
   id Int @id @default(autoincrement())
   payroll_batch_id Int
   title String @db.VarChar(160)
@@ -549,4 +554,32 @@ model scholar_graduations {
   updated_at     DateTime @default(now()) @updatedAt @db.Timestamp(6)
 
   @@index([review_status, latin_honor])
+}
+
+model payout_schedule_attendance {
+  schedule_id Int
+  applicant_id Int
+  session_starts_at DateTime @db.Timestamp(6)
+  attendance String @db.VarChar(20)
+  version Int @default(1)
+  recorded_by Int
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  schedule payout_schedules @relation(fields: [schedule_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  applicant applicants @relation(fields: [applicant_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  recorder admins @relation(fields: [recorded_by], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  @@id([schedule_id, applicant_id, session_starts_at])
+  @@index([applicant_id])
+}
+
+model scholar_payout_receipts {
+  payroll_claim_id Int @id
+  schedule_id Int
+  is_received Boolean
+  received_on DateTime? @db.Date
+  confirmed_at DateTime? @db.Timestamp(6)
+  version Int @default(1)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  membership payroll_claims @relation(fields: [payroll_claim_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  schedule payout_schedules @relation(fields: [schedule_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  @@index([schedule_id])
 }

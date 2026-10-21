@@ -1,0 +1,416 @@
+.payout-attendance-dialog,
+.payout-receipt-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  box-sizing: border-box;
+  width: min(1050px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  padding: 0;
+  border: 1px solid #d9e6dd;
+  border-radius: 16px;
+  background: white;
+  color: #294a36;
+  box-shadow: 0 22px 70px #173b3040;
+}
+.payout-receipt-dialog {
+  width: min(540px, calc(100vw - 32px));
+}
+.payout-attendance-dialog::backdrop,
+.payout-receipt-dialog::backdrop {
+  background: #112c2199;
+}
+.payout-attendance-dialog > header,
+.payout-receipt-dialog > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 18px;
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid #e3ece6;
+}
+.payout-attendance-dialog h2,
+.payout-receipt-dialog h2 {
+  margin: 6px 0;
+  color: #234630;
+  font-size: 22px;
+  line-height: 1.4;
+}
+.payout-participation-eyebrow {
+  color: #267446;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+}
+.payout-attendance-dialog p,
+.payout-receipt-dialog p {
+  color: #607468;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.payout-attendance-dialog button,
+.payout-receipt-dialog button,
+.scholar-payout-receipts button:not(.payout-primary) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 9px 13px;
+  border: 1px solid #c9dcce;
+  border-radius: 7px;
+  background: white;
+  color: #206b3d;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.payout-attendance-dialog button:disabled,
+.payout-receipt-dialog button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.payout-attendance-dialog :is(button, input, select):focus-visible,
+.payout-receipt-dialog :is(button, input):focus-visible,
+.scholar-payout-receipts :is(button, input):focus-visible {
+  outline: 2px solid #168a42;
+  outline-offset: 3px;
+}
+.payout-attendance-body {
+  padding: 0 24px 20px;
+}
+.payout-attendance-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+.payout-attendance-summary > span {
+  padding: 12px;
+  border: 1px solid #dfebe2;
+  border-radius: 9px;
+  background: #f5f9f6;
+  color: #607468;
+  font-size: 12px;
+}
+.payout-attendance-summary strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 23px;
+  color: #267446;
+}
+.payout-attendance-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 230px;
+  gap: 14px;
+}
+.payout-attendance-filters label > span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.payout-attendance-filters label > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid #c9dcce;
+  border-radius: 7px;
+}
+.payout-attendance-filters input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+}
+.payout-attendance-dialog select,
+.payout-receipt-date input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px;
+  border: 1px solid #c9dcce;
+  border-radius: 7px;
+  background: white;
+  color: #294a36;
+  font: inherit;
+  font-size: 13px;
+}
+.payout-attendance-dialog select:disabled {
+  background: #f4f7f5;
+  color: #607468;
+}
+.payout-participation-count {
+  margin: 14px 0;
+  color: #607468;
+  font-size: 12px;
+}
+.payout-attendance-table {
+  max-height: 45dvh;
+  overflow: auto;
+}
+.payout-attendance-table table {
+  width: 100%;
+  min-width: 600px;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+.payout-attendance-table th {
+  position: sticky;
+  top: 0;
+  padding: 12px 14px;
+  background: #f2f7f3;
+  color: #607468;
+  font-size: 11px;
+  z-index: 1;
+}
+.payout-attendance-table td {
+  padding: 14px;
+  border-bottom: 1px solid #e5ede7;
+  vertical-align: top;
+  line-height: 1.5;
+}
+.payout-attendance-table small {
+  display: block;
+  max-width: 260px;
+  margin-top: 5px;
+  color: #607468;
+  font-size: 11px;
+}
+.payout-receipt-badge {
+  display: inline-block;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: #f0f3f1;
+  color: #607468;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.payout-receipt-badge.received {
+  background: #e9f6ed;
+  color: #22663d;
+}
+.payout-attendance-dialog > footer,
+.payout-receipt-dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #e3ece6;
+}
+.payout-attendance-dialog > footer > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+.payout-receipt-dialog form > p,
+.payout-receipt-dialog form > label,
+.payout-receipt-dialog form > .system-notice {
+  margin: 16px 24px;
+}
+.payout-receipt-date {
+  display: grid;
+  gap: 7px;
+  color: #294a36;
+  font-size: 13px;
+  font-weight: 650;
+}
+.payout-receipt-dialog .payout-receipt-confirm {
+  display: flex;
+  align-items: start;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #486551;
+}
+.payout-receipt-confirm input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+.payout-receipt-dialog button.payout-primary,
+.scholar-payout-receipts button.payout-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 1px solid;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  background: #17633b;
+  color: white;
+  border-color: #17633b;
+}
+.scholar-payout-receipts {
+  padding: 22px;
+  border: 1px solid #dae7df;
+  border-radius: 14px;
+  background: white;
+  margin: 18px 0;
+}
+.scholar-payout-receipts h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 8px 0;
+  font-size: 20px;
+  color: #234630;
+}
+.scholar-payout-receipts > header p {
+  margin: 0 0 18px;
+  color: #607468;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.scholar-payout-receipt-list {
+  display: grid;
+  gap: 16px;
+}
+.payout-history-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 12px 0 18px;
+  color: #607468;
+  font-size: 13px;
+}
+.scholar-payout-response {
+  padding: 18px 22px;
+  border-top: 1px solid #e4ece6;
+}
+.scholar-payout-response dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0 0 16px;
+}
+.scholar-payout-response dt {
+  margin-bottom: 5px;
+  color: #607468;
+  font-size: 11px;
+}
+.scholar-payout-response dd {
+  margin: 0;
+  color: #294a36;
+  font-size: 13px;
+}
+.scholar-payout-response > p,
+.payout-participation-empty {
+  color: #607468;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.payout-receipt-saved {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.payout-receipt-saved > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #267446;
+  font-size: 13px;
+}
+@media (max-width: 650px) {
+  .payout-attendance-dialog > header,
+  .payout-receipt-dialog > header {
+    padding: 18px 16px 12px;
+  }
+  .payout-attendance-dialog h2,
+  .payout-receipt-dialog h2 {
+    font-size: 19px;
+  }
+  .payout-attendance-body {
+    padding: 0 16px 16px;
+  }
+  .payout-attendance-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .payout-attendance-filters {
+    grid-template-columns: 1fr;
+  }
+  .payout-attendance-filters input,
+  .payout-attendance-dialog select,
+  .payout-receipt-date input {
+    font-size: 16px;
+  }
+  .payout-attendance-table table {
+    min-width: 0;
+  }
+  .payout-attendance-table table,
+  .payout-attendance-table tbody,
+  .payout-attendance-table tr,
+  .payout-attendance-table td {
+    display: block;
+  }
+  .payout-attendance-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .payout-attendance-table tr {
+    padding: 12px;
+    margin-bottom: 10px;
+    border: 1px solid #dce8df;
+    border-radius: 9px;
+  }
+  .payout-attendance-table td {
+    padding: 6px 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+  .payout-attendance-table td:before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 5px;
+    color: #607468;
+    font-size: 11px;
+  }
+  .payout-attendance-dialog > footer,
+  .payout-receipt-dialog footer {
+    padding: 14px 16px;
+  }
+  .payout-receipt-dialog form > p,
+  .payout-receipt-dialog form > label,
+  .payout-receipt-dialog form > .system-notice {
+    margin: 16px;
+  }
+  .scholar-payout-receipts {
+    padding: 16px;
+  }
+  .scholar-payout-response {
+    padding: 16px;
+  }
+  .scholar-payout-response dl {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+.scholar-payout-receipts button.payout-primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
