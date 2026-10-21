@@ -5,6 +5,23 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-10-21 - Attendance and Scholar receipt deployment verification
+
+**TL;DR**
+- User-authorized release `3ee7708` is live on both Hostinger projects; staff attendance and Scholar Received Payout assets are served.
+- Migration `20261021010000_payout_attendance_receipts` applied successfully. API is healthy and database connected; both new read endpoints require authentication.
+- No production Scholar acknowledgements, attendance marks, emails or private documents were created/accessed during verification. Authenticated office/Scholar acceptance remains pending.
+
+Objective/reason and previous/new behavior: Publish the tested recommendation 6 implementation on the user's explicit deployment request. Staff can now open Attendance & status in Payout Schedules and Scholars can use their separate own-entry Received Payout/correction controls. The approved limited scope exception remains in AGENTS.md; attendance and self-report remain independent of each other and of generated Payroll totals.
+
+Implementation, roles, data flow and files: Existing main-to-Hostinger deployment published application commit `3ee77080093b33a538a626e44057d58c5ea13d74`. Frontend build `01a15d35-f024-725f-9646-1f233b57c6f9` completed at 14:46:38 Asia/Manila; backend build `01a15d35-f09a-7162-aaca-8ff121013021` completed at 14:46:45 on 2026-10-21. Backend build logs identify and confirm successful application of the new additive migration before startup. This verification follow-up updates only change_log.txt, this detailed record and the QA register; application behavior and roles are as described in the implementation entry.
+
+API/database/configuration/security/privacy/accessibility/deployment impact: The already documented four endpoints and two additive tables are now deployed. No additional API, schema, dependency, environment, infrastructure, access-control or accessibility change in this follow-up. Read-only public verification confirmed protected endpoints without authenticated business-record writes. Legacy office release endpoints stay retained/disabled and Reports retain generated list amounts; no monetary audit or official disbursement confirmation is enabled.
+
+Validation: Both provider builds completed for the exact source commit. Live dashboard entry /assets/index-WPDpyZ6u.js references /assets/Dashboard-BPJqx97X.js with Attendance & status and attendance request code, plus /assets/ScholarDashboard-p0GHqDgL.js with Confirm Received Payout and the own participation endpoint. API health returned healthy/database connected; unauthenticated requests to /payout-schedules/me/participation and /payroll/schedules/1/attendance returned 401. Implementation tests and synthetic desktop/mobile checks remain recorded above. No real Scholar sessions or private business data were accessed.
+
+Limitations, rollback and next work: Live authenticated office/Scholar acceptance is pending; use the recommendation 6 acceptance checklist with authorized test accounts. Refresh existing browser tabs. Preserve both additive tables and recorded data if reverting application code; do not silently drop participation records. This follow-up is documentation only and does not reapply the migration.
+
 ## 2026-10-21 - Schedule attendance and Scholar receipt acknowledgement (recommendation 6)
 
 **TL;DR**
