@@ -1,4 +1,5 @@
 const audiences = ['all', 'applicants', 'scholars', 'applicants_scholars'];
+const WORKER_INTERVAL_MS = 5 * 60_000;
 const isDeliverableAnnouncement = (a, now = new Date()) => Boolean(a?.notify_email
   && a.status === 'published' && audiences.includes(a.audience)
   && (!a.publish_at || new Date(a.publish_at) <= now)
@@ -88,7 +89,7 @@ const createAnnouncementNotifications = ({ prisma, mailer, now = () => new Date(
   };
   const start = () => {
     const tick = () => runOnce().catch(() => console.error('Announcement notification worker failed; inspect database connectivity and migration status.'));
-    const timer = setInterval(tick, 30_000);
+    const timer = setInterval(tick, WORKER_INTERVAL_MS);
     timer.unref();
     void tick();
     return () => clearInterval(timer);

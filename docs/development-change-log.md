@@ -5,6 +5,30 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-01 - Reduce Idle Email Worker Database Polling
+
+**TL;DR**
+- Announcement and payout-schedule email workers now poll every five minutes instead of every 30 seconds, reducing idle queue checks by about 90%.
+- Applicants and Scholars may receive a newly due scheduled announcement or queued schedule email up to five minutes later.
+- No database schema/data, API, permission, privacy, or payroll workflow changes; backend verification is pending.
+- Backend deployment is required before operation usage falls; previously counted operations remain counted.
+
+**Objective and reason:** Reduce recurring PostgreSQL operations at the start of the monthly usage period. The two email workers queried their queues every 30 seconds even when there was no work. Frontend polling already uses visibility-aware two- and five-minute intervals, so these backend workers were the clearest remaining recurring idle query source found in the application.
+
+**Previous and new behavior:** Both workers still run once immediately at startup and preserve their existing queue selection, delivery, retry, and error handling. Subsequent checks now happen every five minutes rather than every 30 seconds. In an idle month, this reduces each worker's scheduled wakeups from about 2,880 to 288, a 90% reduction, excluding startup and actual queued work. When mail is configured, an item queued just after a check can wait nearly five minutes for pickup. Scheduled announcement publication and email processing may therefore be delayed by up to five minutes.
+
+**Affected users and workflows:** Applicants and Scholars may see a small delay before receiving announcement or Payout Schedule email. Staff workflows for publishing announcements and schedules, immediate database saves, payroll-list generation, attendance and Scholar receipt acknowledgement are unchanged. This does not implement or imply fund release or payment verification.
+
+**Implementation and data flow:** Each worker retains its immediate startup invocation, then uses a shared local five-minute interval constant for subsequent ticks. Polling still reads only eligible scheduled announcements or pending email delivery rows; work is processed with the existing safeguards and retries.
+
+**Files/system areas changed:** `backend/services/announcementNotifications.js` and `backend/services/scheduleEmailNotifications.js` define the slower recurring interval. `change_log.txt` and this detailed record document the change.
+
+**Impact assessment:** API routes/contracts: no impact. Database schema or stored data: no impact; no migration. Configuration/dependencies: no impact. Security/permissions: no impact; existing authentication and eligibility checks remain. Privacy: no new data collection or logging. Accessibility: no impact. Deployment: backend redeployment is required. Reports and monetary totals continue to represent generated payroll-list amounts.
+
+**Validation performed and results:** Source inspection confirmed the workers retain their immediate startup runs and all queue/delivery logic; no tests or builds were run for this change. Backend tests/build and `git diff --check` remain to be run before deployment.
+
+**Limitations, rollback, and next work:** This reduces idle polling from these two workers only; it does not alter historical usage or other hosting/provider operations. If the five-minute email pickup delay is unacceptable, restore the prior interval or use a durable external scheduler/queue with event-based wakeups. Run backend checks, deploy, and compare the daily operation slope after deployment. No database rollback is needed.
+
 ## 2026-10-21 - Attendance and Scholar receipt deployment verification
 
 **TL;DR**

@@ -11,6 +11,8 @@ const queueScheduleEmails = async (tx, schedule, event, applicantIds) => {
   return recipients.length;
 };
 
+const WORKER_INTERVAL_MS = 5 * 60_000;
+
 const createScheduleEmailNotifications = ({ prisma, mailer, now = () => new Date() }) => {
   let running = false;
   const deliver = async (row) => {
@@ -69,7 +71,7 @@ const createScheduleEmailNotifications = ({ prisma, mailer, now = () => new Date
   };
   const start = () => {
     const tick = () => runOnce().catch(() => console.error('Schedule email worker failed; verify database connectivity and applied migrations.'));
-    const timer = setInterval(tick, 30_000); timer.unref(); void tick();
+    const timer = setInterval(tick, WORKER_INTERVAL_MS); timer.unref(); void tick();
     return () => clearInterval(timer);
   };
   return { runOnce, start };
