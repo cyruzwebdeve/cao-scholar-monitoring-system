@@ -42,25 +42,29 @@ export default function LaptopPhoneCapture({ scholar, token, busy, onPages, onCo
   };
   useEffect(() => {
     if (!session || busy || closing) return;
-    let active = true, inFlight = false;
+    let active = true, inFlight = false, currentRevision = session.revision ?? 0, lastFullCheck = Date.now();
     const poll = async () => {
       if (inFlight || document.hidden) return;
       inFlight = true;
       try {
-        const response = await fetch(`${API_BASE}/phone-capture/sessions/${session.id}?receive=1`, { headers: authHeaders(token), cache: 'no-store' });
+        const revalidate = Date.now() - lastFullCheck >= 120_000;
+        const revisionQuery = revalidate ? '' : `&revision=${currentRevision}`;
+        const response = await fetch(`${API_BASE}/phone-capture/sessions/${session.id}?receive=1${revisionQuery}`, { headers: authHeaders(token), cache: 'no-store' });
         const body = await response.json(); if (!active) return;
+        if (body.unchanged) return;
         if (!response.ok) { setNotice({ tone: 'error', text: body.message || 'Phone connection unavailable.' }); if ([404,410,409].includes(response.status)) { sessionRef.current = null; onConnectionChange(false); setSession(null); } return; }
+        lastFullCheck = Date.now();
         const received = await callback.current(body.pages || []);
         if (!active) return;
         if (received.length) {
           const ack = await fetch(`${API_BASE}/phone-capture/sessions/${session.id}/received`, { method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, body: JSON.stringify({ pageIds: received }) });
           if (!ack.ok) throw new Error('Pages received; temporary queue cleanup will retry.');
           setNotice({ tone: 'success', text: 'Phone pages received. Review their category, page order and readability before approval.' });
-        }
+        } else currentRevision = body.session.revision;
       } catch (error) { if (active) setNotice({ tone: 'error', text: error.message || 'Connection interrupted. Reconnecting automatically…' }); }
       finally { inFlight = false; }
     };
-    poll(); const timer = window.setInterval(poll, 3000);
+    poll(); const timer = window.setInterval(poll, 10000);
     return () => { active = false; window.clearInterval(timer); };
   }, [session, token, busy, closing, onConnectionChange]);
   if (!session && !notice) return null;

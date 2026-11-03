@@ -177,7 +177,7 @@ function SystemHealthPanel() {
         <HealthCard type="frontend" samples={samples} checking={checking} />
         <HealthCard type="backend" samples={samples} checking={checking} />
       </div>
-      <p className="system-health-note">Samples refresh every 5 minutes while this tab is visible, or on request. A long first backend response can indicate a hosting cold start.</p>
+      <p className="system-health-note">Samples refresh every 10 minutes while this tab is visible, or on request. A long first backend response can indicate a hosting cold start.</p>
     </section>
   );
 }

@@ -104,7 +104,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend server running on port ${PORT}`);
 });
 
-const captureCleanup = setInterval(() => { require('./controllers/phoneCaptureController').purgeExpired().catch((error) => console.error('Capture expiry cleanup failed:', error.code || error.name)); }, 60_000);
+const captureCleanup = setInterval(() => { require('./controllers/phoneCaptureController').purgeExpired().catch((error) => console.error('Capture expiry cleanup failed:', error.code || error.name)); }, 15 * 60_000);
 captureCleanup.unref();
 
 const { createAnnouncementNotifications } = require('./services/announcementNotifications');

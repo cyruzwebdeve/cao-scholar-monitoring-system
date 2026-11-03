@@ -13,7 +13,7 @@ export default function PhoneCapturePage({ token, user, onLogin, onLogout }) {
   const sessionId = new URLSearchParams(window.location.search).get('session') || '';
   const [session, setSession] = useState(null), [key, setKey] = useState(''), [photo, setPhoto] = useState(null), [notice, setNotice] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [camera, setCamera] = useState(false), [expired, setExpired] = useState(false);
   const [noticeSuccess, setNoticeSuccess] = useState(false);
-  const stream = useRef(null), video = useRef(null), alive = useRef(true), generation = useRef(0);
+  const stream = useRef(null), video = useRef(null), alive = useRef(true), generation = useRef(0), revision = useRef(null);
   const authorized = token && ['SuperAdmin', 'RegularAdmin'].includes(user?.role) && (user.role === 'SuperAdmin' || !Array.isArray(user.sectionAccess) || (user.sectionAccess.includes('scholars') || user.sectionAccess.includes('examination')));
   const stop = () => { generation.current += 1; stream.current?.getTracks().forEach((track) => track.stop()); stream.current = null; setCamera(false); };
   useEffect(() => {
@@ -26,16 +26,20 @@ export default function PhoneCapturePage({ token, user, onLogin, onLogout }) {
   useEffect(() => { if (camera && video.current) video.current.srcObject = stream.current; }, [camera]);
   useEffect(() => {
     if (!authorized || !sessionId) return;
-    let active = true;
+    revision.current = null;
+    let active = true, lastFullCheck = 0;
     const load = async () => {
       try {
-        const response = await fetch(`${API_BASE}/phone-capture/sessions/${sessionId}`, { headers: authHeaders(token), cache: 'no-store' });
+        const revalidate = Date.now() - lastFullCheck >= 120_000;
+        const revisionQuery = revision.current == null || revalidate ? '' : `?revision=${revision.current}`;
+        const response = await fetch(`${API_BASE}/phone-capture/sessions/${sessionId}${revisionQuery}`, { headers: authHeaders(token), cache: 'no-store' });
         const body = await response.json();
+        if (body.unchanged) return;
         if (!response.ok) { if (active) { generation.current += 1; stream.current?.getTracks().forEach((track) => track.stop()); stream.current = null; setCamera(false); setExpired(true); setError(body.message || 'Capture connection unavailable.'); } return; }
-        if (active) { setSession(body.session); if (body.session.accepting === false) { generation.current += 1; stream.current?.getTracks().forEach((track) => track.stop()); stream.current = null; setCamera(false); } setExpired(body.session.accepting === false); setError(''); setKey((current) => body.session.requirementKeys.includes(current) ? current : body.session.requirementKeys[0]); }
+        if (active) { lastFullCheck = Date.now(); revision.current = body.session.revision; setSession(body.session); if (body.session.accepting === false) { generation.current += 1; stream.current?.getTracks().forEach((track) => track.stop()); stream.current = null; setCamera(false); } setExpired(body.session.accepting === false); setError(''); setKey((current) => body.session.requirementKeys.includes(current) ? current : body.session.requirementKeys[0]); }
       } catch { if (active) setError('Unable to reach the laptop session. Reconnect and retry.'); }
     };
-    load(); const timer = window.setInterval(() => { if (!document.hidden) load(); }, 10_000);
+    load(); const timer = window.setInterval(() => { if (!document.hidden) load(); }, 30_000);
     return () => { active = false; window.clearInterval(timer); };
   }, [authorized, sessionId, token]);
   useEffect(() => {

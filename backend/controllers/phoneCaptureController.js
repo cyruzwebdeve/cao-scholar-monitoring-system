@@ -46,11 +46,22 @@ const create = safe(async (req, res) => {
   const context = { scholarName: [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' '), periodLabel: `${period.school_year} · ${period.semester}`, requirementKeys: INITIAL_KEYS.filter((key) => (type === 'Private' || key !== 'tuition_receipt') && (key !== 'report_card' || isFirstYearEntry(application.school_plan?.incomingYearLevel))) };
   const session = await prisma.phone_capture_sessions.create({ data: { id: randomUUID(), owner_admin_id: req.user.id, applicant_id: applicantId, academic_period_id: periodId, context, expires_at: new Date(Date.now() + 20 * 60 * 1000) } });
   res.locals.auditTargetId = applicantId;
-  return res.status(201).json({ session: { id: session.id, expiresAt: session.expires_at, remainingMs: Math.max(0, new Date(session.expires_at).getTime() - Date.now()), ...context } });
+  return res.status(201).json({ session: { id: session.id, revision: session.revision, expiresAt: session.expires_at, remainingMs: Math.max(0, new Date(session.expires_at).getTime() - Date.now()), ...context } });
 });
 const get = safe(async (req, res) => {
+  const requestedRevision = req.query.revision;
+  if (typeof requestedRevision === 'string' && /^\d+$/.test(requestedRevision)) {
+    if (!validId(req.params.id)) throw failure('Capture session not found.', 404);
+    const summary = await prisma.phone_capture_sessions.findUnique({ where: { id: req.params.id }, select: { id: true, owner_admin_id: true, expires_at: true, revision: true } });
+    if (!summary || summary.owner_admin_id !== req.user.id) throw failure('Capture session not found. Sign in with the Admin account used on the laptop.', 404);
+    if (new Date(summary.expires_at) <= new Date()) {
+      await prisma.phone_capture_sessions.deleteMany({ where: { id: summary.id, expires_at: { lte: new Date() } } });
+      throw failure('Capture session expired. Create a new connection on the laptop.', 410);
+    }
+    if (summary.revision === Number(requestedRevision)) return res.json({ unchanged: true, revision: summary.revision });
+  }
   const session = await loadSession(req);
-  return res.json({ session: { id: session.id, expiresAt: session.expires_at, remainingMs: Math.max(0, new Date(session.expires_at).getTime() - Date.now()), ...session.context }, pages: req.query.receive === '1' ? session.pages : session.pages.map(({ id, requirementKey }) => ({ id, requirementKey })) });
+  return res.json({ session: { id: session.id, revision: session.revision, expiresAt: session.expires_at, remainingMs: Math.max(0, new Date(session.expires_at).getTime() - Date.now()), ...session.context }, pages: req.query.receive === '1' ? session.pages : session.pages.map(({ id, requirementKey }) => ({ id, requirementKey })) });
 });
 const mutate = async (req, change) => {
   for (let attempt = 0; attempt < 4; attempt += 1) {

@@ -5,6 +5,30 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-03 - Reduce Repeated Dashboard and Phone Capture Queries
+
+**TL;DR**
+- Visible dashboard refresh intervals are longer, and idle phone-capture checks now use a small revision response instead of repeatedly loading queued image data.
+- Applicants, Scholars and staff may see routine updates up to 10 minutes later; phone transfer arrival/status may take up to 30 seconds.
+- No schema, stored data or monetary workflow changes; a backend/frontend deployment is required before usage can change in production.
+- Static source review only; automated tests and builds were not run for this change.
+
+**Objective and reason:** Reduce repeated PostgreSQL work observed in usage by addressing recurring API requests from open dashboards and paired phone document capture. The November 1 email-worker interval change covered only those two workers and did not address these client refreshes or image-heavy capture polling.
+
+**Previous and new behavior:** Routine visible refreshes change from five to ten minutes; time-sensitive visible refreshes change from two to five minutes. Existing refresh-on-focus/visibility behavior remains and still refreshes stale data when a user returns. Laptop phone-capture polling changes from three to ten seconds, and paired phone status polling from ten to 30 seconds. The one-minute expired-session cleanup changes to every 15 minutes. On phone-capture polls, clients send the current session revision. If unchanged, the API selects only session identity/owner/expiry/revision and returns without loading the JSON photo queue or rechecking related academic records. Clients force the existing full eligibility/session check every two minutes; changed revisions use that same full load and return the current queue. Upload and receive mutations retain their existing eligibility and revision checks.
+
+**Affected users and workflows:** Applicants, Scholars and staff using open dashboards can see routine changes later, with immediate stale refresh on return/focus. The phone document capture experience can take up to ten seconds for a new page to appear on the laptop and up to 30 seconds for phone-side session status changes. No impact to document approval policy, payroll-list generation, attendance, Scholar receipt acknowledgement, or Reports monetary totals.
+
+**Implementation and data flow:** `dataRefresh.js` sets shared refresh periods consumed across portal/admin workspaces. Laptop and phone capture clients track session revision. The existing session GET accepts an optional `revision` query; unchanged reads return a minimal payload, while changed/unconditional reads retain the existing full session and eligibility path. The server's expired-session janitor now runs every 15 minutes; session creation and expired-session access retain their existing cleanup behavior.
+
+**Files/system areas changed:** `frontend/src/utils/dataRefresh.js`, `frontend/src/components/SystemHealthPanel.jsx`, `frontend/src/LaptopPhoneCapture.jsx`, `frontend/src/PhoneCapturePage.jsx`, `backend/controllers/phoneCaptureController.js`, `backend/server.js`, and both change logs.
+
+**API impact:** Existing phone-capture GET remains compatible. The optional `revision` query can return `{ unchanged: true, revision }` instead of the full session when unchanged; older clients that omit it continue to receive the existing full response, with an additive session revision field. Database schema/data: no change or migration. Configuration/dependencies: no change. Security: unchanged polls verify session ownership and expiry; clients force full eligibility checks every two minutes, and mutations retain their authorization and current eligibility checks. Privacy: no new collection or log data; unchanged polls avoid reading photo payloads. Accessibility: no UI control changes. Deployment: frontend and backend should be deployed together; interval changes also require the frontend, while revision-based database reduction requires both. No production deployment was performed by this commit.
+
+**Validation performed and results:** Reviewed the changed source paths, client request/response flow, existing ownership/expiry checks and diff for consistency. Automated tests, lint and builds were not run. Hosted usage attribution and production verification remain pending.
+
+**Limitations, rollback considerations, and recommended next work:** This reduces known recurring queries but does not identify all database usage drivers; provider request breakdown and backend instance count are still needed to attribute production operations. Routine data freshness is slower by design. Revert the application commit to restore prior refresh intervals and janitor cadence; no database rollback is required. Deploy, then compare daily operation slope and API route counts. If phone-capture latency is too high, adjust its interval while retaining revision-only unchanged reads.
+
 ## 2026-11-01 - Reduce Idle Email Worker Database Polling
 
 **TL;DR**
