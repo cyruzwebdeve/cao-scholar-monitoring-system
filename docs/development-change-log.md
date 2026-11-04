@@ -5,6 +5,30 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-05 - Compact Potential Scholars Workspace
+
+**TL;DR**
+- Reduced the Potential Scholars page width, panel padding, input/button heights and table row spacing.
+- Moved selection count and acceptance actions into the directory header, removing a separate full-width card.
+- Applicant review and acceptance behavior, API, database, security and privacy are unchanged; responsive mobile cards remain.
+- Source/diff review only; automated tests and builds were not run.
+
+**Objective and reason:** The first layout pass still felt oversized in the deployed page. This refinement reduces vertical and horizontal bulk while preserving the directory’s search, filtering, selection and acceptance controls.
+
+**Previous and new behavior:** The workspace previously expanded to the available page width and placed selection actions in a separate full-width panel above the directory. It is now centered with a 1,320px maximum width, uses tighter spacing and smaller controls, and displays selection count and actions alongside the directory heading. On narrow screens, those actions wrap beneath the heading and mobile applicant cards remain in use.
+
+**Affected users and workflows:** Staff using the Potential Scholars tab see more queue content in a smaller area. Authorized staff retain the same candidate selection cap and final acceptance confirmation. No applicant data or decision rules changed.
+
+**Implementation and data flow:** The directory component now receives the current selection count and callbacks for clearing or accepting the selected rows. Those callbacks update the existing React selection state and confirmation dialog; no extra requests or stored data were added.
+
+**Files or system areas changed:** `frontend/src/PotentialScholars.jsx`, `frontend/src/styles/potential-scholars.css`, `change_log.txt`, and this detailed record.
+
+**Impact assessment:** API: no impact. Database/schema: no impact. Configuration/dependencies: no impact. Security/permissions: no change; server-side acceptance checks remain authoritative. Privacy: no new data collection. Accessibility: labels, focus indicators and responsive layouts remain. Deployment: frontend rebuild and deployment required; no backend deployment or migration required.
+
+**Validation performed and results:** Reviewed component props, selection callbacks, responsive breakpoints and diff. Automated tests, lint and builds were not run.
+
+**Known limitations, rollback considerations, and recommended next work:** Verify the compact layout in the deployed frontend at desktop and mobile widths. Revert the frontend commit to restore the prior spacing; no data or schema rollback is required.
+
 ## 2026-11-04 - Improve Potential Scholars Workspace Layout
 
 **TL;DR**

@@ -1,56 +1,55 @@
-.potential-scholars { display: grid; gap: 16px; min-width: 0; color: #234536; }
+.potential-scholars { display: grid; gap: 12px; width: min(100%, 1320px); margin-inline: auto; min-width: 0; color: #234536; }
 .potential-scholars h2, .potential-scholars h3, .potential-scholars p { margin: 0; }
 .potential-scholars h2, .potential-scholars h3 { color: #173e2b; }
 .potential-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.potential-page-heading h2 { margin-top: 4px; font-size: clamp(1.45rem, 2vw, 1.8rem); line-height: 1.2; font-weight: 800; }
-.potential-page-heading p { margin-top: 6px; color: #5a7164; font-size: .95rem; }
+.potential-page-heading h2 { margin-top: 3px; font-size: clamp(1.35rem, 1.8vw, 1.6rem); line-height: 1.2; font-weight: 800; }
+.potential-page-heading p { margin-top: 4px; color: #5a7164; font-size: .86rem; }
 .potential-eyebrow { display: block; color: #63806e; font-size: .68rem; font-weight: 800; letter-spacing: .11em; }
-.potential-period { display: grid; gap: 3px; min-width: 170px; padding: 10px 14px; border: 1px solid #d4e3d7; border-radius: 12px; background: #f8fbf8; }
+.potential-period { display: grid; gap: 2px; min-width: 150px; padding: 8px 11px; border: 1px solid #d4e3d7; border-radius: 10px; background: #f8fbf8; }
 .potential-period > span { color: #6a8172; font-size: .62rem; font-weight: 800; letter-spacing: .09em; }
 .potential-period strong { color: #1b5434; font-size: .98rem; }
 .potential-period small { color: #64796b; font-size: .75rem; }
-.potential-guidance { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border: 1px solid #cfe2d4; border-radius: 13px; background: #f1f8f2; }
-.potential-guidance-icon { display: grid; flex: 0 0 34px; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: #e0f0e4; color: #267344; }
-.potential-guidance strong { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; color: #24583a; font-size: .83rem; }
-.potential-guidance strong svg { color: #7c9884; }
-.potential-guidance p { margin-top: 4px; color: #526b5b; font-size: .82rem; line-height: 1.5; }
-.potential-directory { min-width: 0; padding: 22px; border: 1px solid #dce6dc; border-radius: 16px; background: #fff; }
-.potential-directory-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
-.potential-scholars h3 { margin-top: 4px; font-size: 1.08rem; font-weight: 750; }
-.potential-result-count { display: flex; align-items: baseline; gap: 6px; color: #1a6840; font-size: 1.2rem; font-weight: 800; }
-.potential-result-count span { color: #718177; font-size: .78rem; font-weight: 500; }
-.potential-filters { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(220px, .8fr); gap: 14px; margin: 18px 0 14px; }
-.potential-filters label { display: grid; gap: 7px; color: #40594a; font-size: .77rem; font-weight: 750; min-width: 0; }
-.potential-filters label > span { display: flex; align-items: center; gap: 9px; min-height: 43px; border: 1px solid #d3dfd5; border-radius: 9px; padding: 0 12px; color: #718579; background: #fff; }
-.potential-filters input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; padding: 10px 0; color: #294638; font: inherit; font-weight: 500; }
+.potential-guidance { display: flex; align-items: center; gap: 9px; padding: 9px 11px; border: 1px solid #cfe2d4; border-radius: 10px; background: #f1f8f2; }
+.potential-guidance-icon { display: grid; flex: 0 0 27px; width: 27px; height: 27px; place-items: center; border-radius: 8px; background: #e0f0e4; color: #267344; }
+.potential-guidance-icon svg { width: 15px; height: 15px; }
+.potential-guidance strong { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; color: #24583a; font-size: .75rem; }
+.potential-guidance strong svg { width: 11px; height: 11px; color: #7c9884; }
+.potential-guidance p { margin-top: 2px; color: #526b5b; font-size: .73rem; line-height: 1.4; }
+.potential-directory { min-width: 0; padding: 16px; border: 1px solid #dce6dc; border-radius: 13px; background: #fff; }
+.potential-directory-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.potential-scholars h3 { margin-top: 3px; font-size: .98rem; font-weight: 750; }
+.potential-directory-summary { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 14px; }
+.potential-result-count { display: flex; align-items: baseline; gap: 5px; color: #1a6840; font-size: 1rem; font-weight: 800; white-space: nowrap; }
+.potential-result-count span { color: #718177; font-size: .72rem; font-weight: 500; }
+.potential-filters { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(220px, .8fr); gap: 11px; margin: 12px 0 10px; }
+.potential-filters label { display: grid; gap: 5px; color: #40594a; font-size: .72rem; font-weight: 750; min-width: 0; }
+.potential-filters label > span { display: flex; align-items: center; gap: 8px; min-height: 36px; border: 1px solid #d3dfd5; border-radius: 8px; padding: 0 10px; color: #718579; background: #fff; }
+.potential-filters input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; padding: 8px 0; color: #294638; font: inherit; font-size: .8rem; font-weight: 500; }
 .potential-filters input::placeholder { color: #8a9a8f; }
 .potential-filters label > span:focus-within, .potential-filters select:focus-visible { outline: 3px solid #287c42; outline-offset: 2px; }
-.potential-filters select { width: 100%; min-height: 43px; min-width: 0; border: 1px solid #d3dfd5; border-radius: 9px; padding: 9px 11px; background: #fff; color: #294638; font: inherit; }
+.potential-filters select { width: 100%; min-height: 36px; min-width: 0; border: 1px solid #d3dfd5; border-radius: 8px; padding: 7px 10px; background: #fff; color: #294638; font: inherit; font-size: .8rem; }
 .potential-table-wrap { overflow-x: auto; border: 1px solid #e5ece6; border-radius: 11px; }
 .potential-table { width: 100%; border-collapse: collapse; text-align: left; font-size: .84rem; }
 .potential-table th { color: #476252; background: #f5f8f5; font-size: .72rem; font-weight: 750; }
-.potential-table td, .potential-table th { padding: 13px 12px; border-bottom: 1px solid #e8eee9; overflow-wrap: anywhere; vertical-align: middle; }
+.potential-table td, .potential-table th { padding: 9px 10px; border-bottom: 1px solid #e8eee9; overflow-wrap: anywhere; vertical-align: middle; }
 .potential-table tr:last-child td { border-bottom: 0; }
 .potential-table td { color: #385044; }
 .potential-table small { display: block; margin-top: 4px; color: #718177; font-size: .75rem; line-height: 1.4; }
 .potential-badge { display: inline-block; margin-top: 5px; padding: 3px 7px; border-radius: 999px; background: #edf5ef; color: #326443; font-size: .68rem; font-weight: 700; }
-.potential-scholars button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 8px 12px; border: 1px solid #c9ddcd; border-radius: 8px; background: #f6faf6; color: #28603b; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+.potential-scholars button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 6px 10px; border: 1px solid #c9ddcd; border-radius: 7px; background: #f6faf6; color: #28603b; font: inherit; font-size: .75rem; font-weight: 700; cursor: pointer; }
 .potential-scholars button:hover:not(:disabled) { border-color: #8bb99a; background: #edf6ef; }
 .potential-scholars button:disabled { opacity: .55; cursor: not-allowed; }
 .potential-scholars button:focus-visible { outline: 3px solid #287c42; outline-offset: 3px; }
-.potential-empty-state { display: flex; align-items: flex-start; gap: 13px; margin-top: 4px; padding: 18px; border: 1px dashed #d5e2d7; border-radius: 12px; background: #fafcfa; color: #668070; }
+.potential-empty-state { display: flex; align-items: flex-start; gap: 11px; margin-top: 4px; padding: 13px; border: 1px dashed #d5e2d7; border-radius: 10px; background: #fafcfa; color: #668070; }
 .potential-empty-state > svg { flex: 0 0 auto; margin-top: 1px; }
 .potential-empty-state strong { display: block; color: #294b37; font-size: .92rem; }
-.potential-empty-state p { margin: 4px 0 12px; color: #66796c; font-size: .82rem; line-height: 1.5; }
+.potential-empty-state p { margin: 3px 0 8px; color: #66796c; font-size: .76rem; line-height: 1.45; }
 .potential-empty-start { border-style: solid; background: linear-gradient(110deg, #f6faf6, #fbfcfa); }
-.potential-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+.potential-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .potential-pagination span { margin-right: 4px; color: #718177; font-size: .8rem; }
-.potential-selection { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 14px; border: 1px solid #dce6dc; border-radius: 12px; background: #fff; }
-.potential-selection > div:first-child { display: flex; align-items: baseline; gap: 5px; color: #687b6e; font-size: .8rem; }
-.potential-selection > div:first-child strong { color: #1d6840; font-size: 1rem; }
-.potential-selection > div:first-child i { padding: 0 3px; color: #9aaa9e; font-style: normal; }
-.potential-selection-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.potential-scholars .potential-selection-actions button { min-height: 36px; }
+.potential-selection-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.potential-selection-actions > span { margin-right: 2px; color: #63776a; font-size: .72rem; white-space: nowrap; }
+.potential-scholars .potential-selection-actions button { min-height: 29px; padding: 4px 8px; }
 .potential-scholars .potential-selection-actions .potential-accept-button { border-color: #14834b; background: #14834b; color: #fff; }
 .potential-scholars .potential-selection-actions .potential-accept-button:hover:not(:disabled) { border-color: #0f6d3e; background: #0f6d3e; }
 .potential-table input[type="checkbox"] { width: 19px; height: 19px; accent-color: #16763e; }
@@ -64,9 +63,8 @@
 .potential-confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 20px; }
 @media (max-width: 700px) {
   .potential-page-heading { align-items: flex-start; }
-  .potential-period { min-width: 125px; padding: 9px 10px; }
-  .potential-guidance { padding: 12px; }
-  .potential-directory { padding: 16px; }
+  .potential-period { min-width: 120px; padding: 7px 9px; }
+  .potential-directory { padding: 12px; }
   .potential-filters { grid-template-columns: minmax(0, 1fr); gap: 11px; }
   .potential-table-wrap { border: 0; overflow: visible; }
   .potential-table thead { display: none; }
@@ -78,14 +76,15 @@
   .potential-table td[data-label="Applicant"] { grid-column: 1 / -1; }
   .potential-table td[data-label="Action"] { grid-column: 1 / -1; }
   .potential-table td[data-label="Action"] button { width: 100%; }
-  .potential-selection { align-items: flex-start; flex-direction: column; }
-  .potential-selection-actions { width: 100%; }
-  .potential-selection-actions button { flex: 1; }
+  .potential-directory-heading { align-items: flex-start; }
+  .potential-directory-summary { align-items: flex-end; flex-direction: column; gap: 7px; }
 }
 @media (max-width: 420px) {
   .potential-page-heading { flex-direction: column; }
   .potential-period { width: 100%; }
   .potential-directory-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .potential-directory-summary { width: 100%; align-items: flex-start; }
+  .potential-selection-actions { justify-content: flex-start; }
   .potential-result-count { font-size: 1rem; }
   .potential-guidance strong { font-size: .76rem; }
   .potential-table tr { grid-template-columns: minmax(0, 1fr); }
