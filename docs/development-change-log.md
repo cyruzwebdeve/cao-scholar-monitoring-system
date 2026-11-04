@@ -5,6 +5,30 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-04 - Improve Potential Scholars Workspace Layout
+
+**TL;DR**
+- Potential Scholars now has a clearer period header, shorter workflow guidance, stronger queue count and helpful empty states with a Results shortcut for staff who have access.
+- Authorized acceptance controls are hidden when the queue is empty; selection and acceptance behavior is unchanged when applicants are present.
+- Mobile applicant rows remain responsive cards; no API, database, security, privacy or deployment configuration changes.
+- Source and diff review only; automated tests and builds were not run.
+
+**Objective and reason:** Improve the visual hierarchy and use of space in the Applicant section’s Potential Scholars tab, especially when the queue is empty, while keeping the staff review and final acceptance workflow clear.
+
+**Previous and new behavior:** The page previously showed a large generic workflow notice, a full-height selection bar even for an empty queue, and an unstructured empty message. It now presents the academic period in a compact summary, explains the workflow in a shorter guidance panel, shows the filtered and total queue counts together, provides distinct empty states for an empty queue versus no search matches, and offers an Open Results action when the current staff member has Examination access. The selection bar appears only when applicants exist. Applicant review, selection limits, eligibility revalidation and final acceptance are unchanged.
+
+**Affected users and workflows:** Staff who view the Potential Scholars tab can scan the current period and queue status more quickly. Staff with Examination access can move directly to Results from the empty state. Staff without that access do not receive a Results shortcut. On small screens, directory rows display as compact labeled cards.
+
+**Implementation and data flow:** The UI uses the existing complete-requirements API response and acceptance state. Dashboard passes the Results navigation action only when the current role can access Examinations. Empty-state clearing only resets the local search and review-status filters. No new data is collected or persisted.
+
+**Files or system areas changed:** `frontend/src/PotentialScholars.jsx`, `frontend/src/Dashboard.jsx`, `frontend/src/styles/potential-scholars.css`, `change_log.txt`, and this detailed log.
+
+**Impact assessment:** API: no endpoint or contract change. Database: no schema or data change. Configuration/dependencies: no change. Security: role permissions and backend acceptance checks are unchanged; the Results shortcut is only passed to staff with Examination access. Privacy: no impact or new data. Accessibility: semantic guidance and empty states, visible keyboard focus, and labeled mobile cards are retained/improved. Deployment: frontend deployment required; no migration or backend deployment required.
+
+**Validation performed and results:** Reviewed component state flow, role-gated Results navigation, responsive CSS and diff. Automated tests, lint and builds were not run.
+
+**Known limitations, rollback considerations, and recommended next work:** Live visual acceptance at desktop and narrow mobile widths remains recommended. Revert the frontend changes to restore the previous layout; there is no data or schema rollback.
+
 ## 2026-11-03 - Reduce Repeated Dashboard and Phone Capture Queries
 
 **TL;DR**

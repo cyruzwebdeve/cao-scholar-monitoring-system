@@ -1361,7 +1361,7 @@ function ApplicantWorkspace({ token, user, initialView }) {
         {canViewExaminations && <button type="button" className={view === 'results' ? 'active' : ''} onClick={() => setView('results')}>Results</button>}
       </nav>
       {view === 'applicants' && canViewApplicants && <ApplicantsManagement token={token} />}
-      {view === 'potential' && canViewApplicants && <PotentialScholars token={token} canAccept={canViewExaminations && ['SuperAdmin', 'BillingPayrollAdmin'].includes(user?.role)} onReview={canViewExaminations ? id => { setReviewApplicantId(id); setView('results'); } : undefined} />}
+      {view === 'potential' && canViewApplicants && <PotentialScholars token={token} canAccept={canViewExaminations && ['SuperAdmin', 'BillingPayrollAdmin'].includes(user?.role)} onOpenResults={canViewExaminations ? () => setView('results') : undefined} onReview={canViewExaminations ? id => { setReviewApplicantId(id); setView('results'); } : undefined} />}
       {view === 'schedules' && canViewExaminations && <ExaminationManagement token={token} />}
       {view === 'results' && canViewExaminations && <ResultsManagement key={reviewApplicantId || 'directory'} token={token} initialApplicantId={reviewApplicantId} />}
     </div>
