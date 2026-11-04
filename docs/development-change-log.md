@@ -5,6 +5,30 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-05 - Match Potential Scholars Typography to Applicants
+
+**TL;DR**
+- Potential Scholars now uses the Applicants section’s lighter title weight, green uppercase eyebrow, muted descriptions and compact uppercase field/table labels.
+- Search, filtering, selection, acceptance and applicant data are unchanged.
+- No API, database, configuration, security, privacy or deployment pipeline changes; frontend deployment is required to show the update.
+- Source/diff review only; automated tests and builds were not run.
+
+**Objective and reason:** Carry the Applicants section’s compact, light typography into Potential Scholars after the user identified that the section still felt visually oversized.
+
+**Previous and new behavior:** Potential Scholars used bold dark-green page and section headings, heavier field labels, and larger count/body typography. It now uses the same visual type hierarchy as Applicants: 24px regular page heading, small tracked green eyebrow labels, muted 13px descriptions, a regular-weight 17px directory heading, small uppercase filter/table labels and compact body/count text. The existing compact layout, responsive breakpoints and actions remain.
+
+**Affected users and workflows:** Staff see consistent typography when moving between Applicants and Potential Scholars. No workflow, permissions or record behavior changes.
+
+**Implementation and data flow:** CSS rules in the Potential Scholars stylesheet now set typography values to match the shared Applicants admin styles. No component state, API request or data flow changed.
+
+**Files or system areas changed:** `frontend/src/styles/potential-scholars.css`, `change_log.txt`, and this detailed log.
+
+**Impact assessment:** API: no impact. Database/schema: no impact. Configuration/dependencies: no impact. Security/access control: no impact. Privacy/data retention: no impact. Accessibility: semantic structure, keyboard focus and control labels are unchanged; font sizes follow the compact reference scale. Deployment: frontend rebuild and deployment required.
+
+**Validation performed and results:** Compared the typography values against the Applicants section styles and reviewed the stylesheet diff. Automated tests, lint and builds were not run.
+
+**Known limitations, rollback considerations, and recommended next work:** Confirm the type scale against the live Applicants page after deployment at desktop and narrow mobile widths. Reverting the stylesheet change restores the prior Potential Scholars typography; no data rollback is needed.
+
 ## 2026-11-05 - Compact Potential Scholars Workspace
 
 **TL;DR**
