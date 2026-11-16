@@ -567,6 +567,8 @@ test('lifecycle reporting ends with separate certification/payroll lists and ret
   assert.equal(res.body.finance, undefined);
   assert.equal(res.body.scope.schoolYear, period.school_year);
   assert.equal(res.body.scope.defaultSource, 'primary');
+  assert.equal(res.body.overviewPopulation.mode, 'current-directory');
+  assert.deepEqual(res.body.overviewPopulation.period, { id: period.id, schoolYear: period.school_year, semester: period.semester });
   assert.equal(res.body.fourthYearPlanning.mode, 'current-directory');
   assert.deepEqual(res.body.fourthYearPlanning.period, { id: period.id, schoolYear: period.school_year, semester: period.semester });
   assert.equal(res.body.records.reduce((sum, row) => sum + (row.payrollAmount || 0), 0), 8000);
@@ -578,7 +580,7 @@ test('lifecycle reporting ends with separate certification/payroll lists and ret
   assert.equal(writes.length, 0);
 });
 
-test('current-year fourth-year report matches the Scholars directory before semester activity is saved', async () => {
+test('current-year overview and fourth-year report match the Scholars directory before semester activity is saved', async () => {
   const period = { id: 31, school_year: '2028-2029', semester: '1st Semester', is_active: true, is_primary: true };
   const people = Array.from({ length: 9 }, (_, index) => ({ id: 100 + index, first_name: 'SYNTHETIC', last_name: String(index),
     email: `synthetic-${index}@example.test`, school_year: '2025-2026', school_id: 1, municipality: 'Synthetic municipality', barangay: 'Synthetic barangay' }));
@@ -602,14 +604,19 @@ test('current-year fourth-year report matches the Scholars directory before seme
   const report = response();
   await getLifecycleReport({ query: { schoolYear: period.school_year } }, report);
   assert.equal(report.statusCode, 200);
+  assert.equal(report.body.overviewPopulation.scholars.length, 9);
+  assert.deepEqual(report.body.overviewPopulation.scholars.map(person => person.applicantId).sort((left, right) => left - right),
+    directory.body.scholars.map(person => person.applicantId).sort((left, right) => left - right));
   assert.deepEqual(report.body.fourthYearPlanning.scholars.map(person => person.applicantId).sort((left, right) => left - right),
     directoryFourthYears.map(person => person.applicantId).sort((left, right) => left - right));
   assert.equal(report.body.fourthYearPlanning.scholars.find(person => person.applicantId === 100).status, 'Inactive');
+  assert.equal(report.body.overviewPopulation.scholars.find(person => person.applicantId === 100).status, 'Inactive');
   assert.equal(report.body.processing.scholars, 0);
   assert.deepEqual(report.body.scholars, []);
   assert.deepEqual(report.body.records, []);
   assert.equal(report.headers['Cache-Control'], 'private, no-store');
   assert.doesNotMatch(JSON.stringify(report.body.fourthYearPlanning), /example\.test|initial_docs|fileName|claim_status|claimed_date/);
+  assert.doesNotMatch(JSON.stringify(report.body.overviewPopulation), /example\.test|initial_docs|fileName|claim_status|claimed_date/);
   assert.equal(writes.length, 0);
 });
 

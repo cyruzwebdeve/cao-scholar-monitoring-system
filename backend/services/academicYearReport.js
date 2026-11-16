@@ -181,8 +181,8 @@ const buildAcademicYearReport = ({ scope, periods, primaryPeriod, applicants, ap
       yearLevelPeriodId: yearLevelRecord?.billing_period_id || null,
       academicPeriodId: latestPeriod?.id || null, schoolYear: latestPeriod?.school_year || 'Legacy period', semester: latestPeriod?.semester || 'Not specified' };
   }).sort((left, right) => left.name.localeCompare(right.name) || left.applicantId - right.applicantId);
-  // Current fourth-year planning follows the Scholar directory even before a
-  // new semester has recorded activity. Keep this separate from annual counts.
+  // Current overview and fourth-year planning follow the Scholar directory even
+  // before semester activity is recorded. Keep annual processing counts separate.
   const currentDirectory = Boolean(primaryPeriod?.is_active && !scope.allYears
     && scope.schoolYear === primaryPeriod.school_year && selectedPeriods.has(primaryPeriod.id));
   let planningScholars = reportScholars;
@@ -202,11 +202,16 @@ const buildAcademicYearReport = ({ scope, periods, primaryPeriod, applicants, ap
         academicPeriodId: primaryPeriod.id, schoolYear: primaryPeriod.school_year, semester: primaryPeriod.semester };
     });
   }
-  const fourthYearPlanning = {
+  const overviewPopulation = {
     mode: currentDirectory ? 'current-directory' : 'recorded-years',
     period: currentDirectory ? { id: primaryPeriod.id, schoolYear: primaryPeriod.school_year, semester: primaryPeriod.semester } : null,
-    scholars: planningScholars.filter(scholar => isFourthYear(scholar.yearLevel))
+    scholars: [...planningScholars]
       .sort((left, right) => left.name.localeCompare(right.name) || left.applicantId - right.applicantId),
+  };
+  const fourthYearPlanning = {
+    mode: overviewPopulation.mode,
+    period: overviewPopulation.period,
+    scholars: overviewPopulation.scholars.filter(scholar => isFourthYear(scholar.yearLevel)),
   };
   records.sort((left, right) => left.name.localeCompare(right.name) || right.schoolYear.localeCompare(left.schoolYear)
     || (semesterOrder[right.semester] || 0) - (semesterOrder[left.semester] || 0) || left.id.localeCompare(right.id));
@@ -215,7 +220,7 @@ const buildAcademicYearReport = ({ scope, periods, primaryPeriod, applicants, ap
   const listsWithRecords = selectedBatches.filter(batch => listedBatchIds.has(batch.id));
   const certificationLists = listsWithRecords.filter(isCertificationBatch).length;
   return { scope, periods: periods.map(period => ({ id: period.id, schoolYear: period.school_year, semester: period.semester,
-    isActive: period.is_active, isPrimary: Boolean(period.is_primary) })), intake, processing, scholars: reportScholars, records, fourthYearPlanning,
+    isActive: period.is_active, isPrimary: Boolean(period.is_primary) })), intake, processing, scholars: reportScholars, records, overviewPopulation, fourthYearPlanning,
     // Compatibility fields now describe an annual scope. New consumers use
     // intake/processing rather than treating them as one continuous funnel.
     period: { id: null, schoolYear: scope.schoolYear, semester: 'All semesters', isActive: scope.periodIds.some(id => periodById.get(id)?.is_active) },

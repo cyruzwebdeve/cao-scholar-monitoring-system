@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ALL_SCHOOL_YEARS, academicYearDefaultLabel, academicYearReportQuery, academicYearScopeLabel, academicYearStageSummaries,
-  createAcademicYearReportLoader, fourthYearPlanningView, uniqueReportScholars, validateAcademicYearReport,
+  createAcademicYearReportLoader, fourthYearPlanningView, overviewPopulationView, uniqueReportScholars, validateAcademicYearReport,
 } from '../src/utils/academicYearReport.js';
 import { filterScholarReportRows, scholarReportColumns, summarizePayrollReport } from '../src/utils/reportScholarSearch.js';
 
@@ -11,6 +11,7 @@ const report = (schoolYear = '2027-2028') => ({
   periods: [{ id: 10, schoolYear: '2027-2028', semester: '1st Semester', isActive: false }, { id: 11, schoolYear: '2027-2028', semester: '2nd Semester', isActive: true }],
   scholars: [], records: [],
   fourthYearPlanning: { mode: 'recorded-years', period: null, scholars: [] },
+  overviewPopulation: { mode: 'recorded-years', period: null, scholars: [] },
   intake: { applied: 3, scheduled: 2, examined: 1, passed: 1 },
   processing: { scholars: 5, requirementSets: 8, requirementsClearedSets: 6, certificationListed: 2, payrollListed: 4, certificationEntries: 3, payrollEntries: 7 },
 });
@@ -32,7 +33,7 @@ test('annual intake and processing retain distinct people and requirement/list e
   assert.deepEqual(intake.stages.map(([, count]) => count), [3, 2, 1, 1]);
   assert.match(processing.description, /continuing Scholars from earlier intakes/);
   const values = Object.fromEntries(processing.stages);
-  assert.equal(values['Scholars with records'], 5);
+  assert.equal(values['Scholars with recorded activity'], 5);
   assert.equal(values['Requirement sets'], 8);
   assert.equal(values['Cleared requirement sets'], 6);
   assert.equal(values['Payroll-listed Scholars'], 4);
@@ -55,6 +56,79 @@ test('coverage deduplicates participants across semesters without dropping curre
   assert.equal(unique.length, 2);
   assert.equal(unique.find(row => row.applicantId === 1).status, 'Inactive');
   assert.equal(source.length, 3);
+});
+
+test('current-year overview includes the complete directory independently of activity and payroll records', () => {
+  const body = report();
+  body.processing.scholars = 1;
+  body.scholars = [{ applicantId: 1, name: 'Only recorded Scholar', yearLevel: '4th Year' }];
+  body.overviewPopulation = {
+    mode: 'current-directory', period: { id: 11, schoolYear: '2027-2028', semester: '2nd Semester' },
+    scholars: Array.from({ length: 15 }, (_, index) => ({ applicantId: index + 1, name: `Synthetic ${index + 1}`,
+      status: index ? 'Active' : 'Inactive', yearLevel: index < 8 ? '4th Year' : index === 14 ? null : '3rd Year',
+      municipality: index < 8 ? 'Synthetic municipality one' : 'Synthetic municipality two', barangay: 'Synthetic barangay' })),
+  };
+  body.overviewPopulation.scholars.push({ ...body.overviewPopulation.scholars[0] });
+  const original = structuredClone(body);
+  const view = overviewPopulationView(validateAcademicYearReport(body));
+  assert.equal(view.scholars.length, 15);
+  assert.equal(view.title, 'Total Scholars');
+  assert.equal(view.metricMeta, 'All Scholars in the current directory');
+  assert.equal(view.yearLevelLabel, 'Current year level');
+  assert.equal(view.missingYearLevelLabel, 'Not specified');
+  assert.match(view.scopeLabel, /2027-2028 · 2nd Semester/);
+  assert.match(view.description, /continuing Scholars and those without recorded activity this year/);
+  assert.match(view.description, /regardless of current account status/);
+  assert.match(view.yearLevelDescription, /application values when no semester value is saved/);
+  assert.equal(view.scholars.filter(person => person.municipality === 'Synthetic municipality one').length, 8);
+  assert.equal(view.scholars.filter(person => person.yearLevel === '4th Year').length, 8);
+  assert.equal(view.scholars.filter(person => person.yearLevel === null).length, 1);
+  assert.equal(view.scholars.find(person => person.applicantId === 1).status, 'Inactive');
+  assert.equal(body.processing.scholars, 1);
+  assert.equal(body.scholars.length, 1);
+  assert.deepEqual(body.records, []);
+  assert.equal(summarizePayrollReport(body.records).payrollAmount, 0);
+  assert.deepEqual(body, original);
+});
+
+test('historical and all-years overview retains the recorded population and its year-level scope', () => {
+  for (const schoolYear of ['2026-2027', ALL_SCHOOL_YEARS]) {
+    const body = report(schoolYear);
+    body.overviewPopulation.scholars = [{ applicantId: 2, name: 'Saved participant', yearLevel: null, status: 'Inactive' }];
+    body.scholars = [...body.overviewPopulation.scholars];
+    const view = overviewPopulationView(validateAcademicYearReport(body, schoolYear));
+    assert.deepEqual(view.scholars.map(person => person.applicantId), [2]);
+    assert.equal(view.title, 'Scholars with records');
+    assert.equal(view.currentDirectory, false);
+    assert.equal(view.metricMeta, 'Recorded activity in this report');
+    assert.equal(view.yearLevelLabel, 'Latest recorded year level');
+    assert.equal(view.missingYearLevelLabel, 'Not recorded');
+    assert.match(view.description, /recorded activity in the selected years/);
+    assert.doesNotMatch(view.description, /application values/);
+  }
+  const empty = overviewPopulationView(null);
+  assert.deepEqual(empty.scholars, []);
+  assert.equal(empty.scopeLabel, 'No school year configured');
+});
+
+test('missing or mismatched overview populations cannot become a misleading total or coverage count', () => {
+  const missing = report(); delete missing.overviewPopulation;
+  assert.throws(() => validateAcademicYearReport(missing), /Scholar overview is unavailable/);
+  for (const population of [
+    { mode: 'unknown', period: null, scholars: [] },
+    { mode: 'recorded-years', scholars: [] },
+    { mode: 'recorded-years', period: null, scholars: null },
+    { mode: 'current-directory', period: null, scholars: [] },
+    { mode: 'current-directory', period: { id: 9, schoolYear: '2027-2028', semester: '1st Semester' }, scholars: [] },
+    { mode: 'current-directory', period: { id: 11, schoolYear: '2026-2027', semester: '2nd Semester' }, scholars: [] },
+    { mode: 'current-directory', period: { id: 11, schoolYear: '2027-2028', semester: '' }, scholars: [] },
+  ]) {
+    const body = report(); body.overviewPopulation = population;
+    assert.throws(() => validateAcademicYearReport(body), /Scholar overview is unavailable/);
+  }
+  const all = report(ALL_SCHOOL_YEARS);
+  all.overviewPopulation = { mode: 'current-directory', period: { id: 11, schoolYear: ALL_SCHOOL_YEARS, semester: '2nd Semester' }, scholars: [] };
+  assert.throws(() => validateAcademicYearReport(all), /Scholar overview is unavailable/);
 });
 
 test('current fourth-year planning shows all eight directory Scholars without adding annual activity or amounts', () => {

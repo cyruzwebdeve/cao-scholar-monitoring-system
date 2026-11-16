@@ -81,6 +81,57 @@ const currentPlanningFixture = () => {
   return data;
 };
 
+test('current overview includes the complete Scholar roster without annual activity, including continuing and inactive accounts', () => {
+  const data = currentPlanningFixture(), result = report(data);
+  assert.equal(result.overviewPopulation.mode, 'current-directory');
+  assert.deepEqual(result.overviewPopulation.period, { id: 31, schoolYear: '2028-2029', semester: '1st Semester' });
+  assert.deepEqual(result.overviewPopulation.scholars.map(scholar => scholar.applicantId).sort((left, right) => left - right), [1, 2, 3, 10, 11, 12, 13, 14, 15, 16, 17]);
+  assert.equal(result.overviewPopulation.scholars.length, 11);
+  assert.equal(result.overviewPopulation.scholars.filter(scholar => scholar.status === 'Inactive').length, 2);
+  assert.equal(result.overviewPopulation.scholars.find(scholar => scholar.applicantId === 3).yearLevel, '3rd Year');
+  assert.equal(result.overviewPopulation.scholars.every(scholar => scholar.schoolYear === '2028-2029'), true);
+  assert.equal(result.fourthYearPlanning.scholars.length, 8);
+  assert.equal(result.fourthYearPlanning.scholars.every(scholar => result.overviewPopulation.scholars.some(person => person.applicantId === scholar.applicantId)), true);
+  assert.equal(result.processing.scholars, 0); assert.deepEqual(result.scholars, []); assert.deepEqual(result.records, []);
+  assert.equal(result.processing.payrollEntries, 0); assert.equal(result.processing.certificationEntries, 0);
+  assert.deepEqual(result.intake, { applied: 0, scheduled: 0, examined: 0, passed: 0 });
+});
+
+test('current overview retains unknown year levels, deduplicates people, excludes deleted applicants and private fields', () => {
+  const data = currentPlanningFixture();
+  data.scholarAccounts.push({ ...data.scholarAccounts.find(scholar => scholar.applicant_id === 10) });
+  data.applicants.find(applicant => applicant.id === 13).deleted_at = new Date('2028-01-01');
+  const unknownApplication = data.applications.find(application => application.applicant_id === 12);
+  unknownApplication.school_plan.incomingYearLevel = null;
+  unknownApplication.initial_docs = { privateFileUrl: 'synthetic-private-location', contactEmail: 'private@example.test' };
+  data.applicants.find(applicant => applicant.id === 12).email = 'private@example.test';
+  const result = report(data), population = result.overviewPopulation.scholars;
+  assert.equal(population.length, 10);
+  assert.equal(population.filter(scholar => scholar.applicantId === 10).length, 1);
+  assert.equal(population.some(scholar => scholar.applicantId === 13), false);
+  assert.equal(population.find(scholar => scholar.applicantId === 12).yearLevel, null);
+  assert.equal(result.fourthYearPlanning.scholars.some(scholar => scholar.applicantId === 12), false);
+  for (const scholar of population) for (const field of ['initial_docs', 'fileUrl', 'email', 'claim_amount', 'claimed_date', 'claim_status']) assert.equal(field in scholar, false, field);
+  assert.doesNotMatch(JSON.stringify(result.overviewPopulation), /synthetic-private-location|private@example\.test/);
+  assert.equal(result.processing.scholars, 0); assert.deepEqual(result.records, []);
+});
+
+test('historical, all-years and inactive-default overview populations preserve recorded-year people only', () => {
+  const data = currentPlanningFixture();
+  for (const year of ['2026-2027', 'all']) {
+    const result = report(data, year);
+    assert.deepEqual(result.overviewPopulation, { mode: 'recorded-years', period: null, scholars: result.scholars });
+    assert.equal(result.overviewPopulation.scholars.some(scholar => scholar.applicantId >= 10), false);
+  }
+  data.primaryPeriod.is_active = false;
+  const inactive = report(data, '2028-2029');
+  assert.deepEqual(inactive.overviewPopulation, { mode: 'recorded-years', period: null, scholars: [] });
+  data.primaryPeriod = null;
+  assert.deepEqual(report(data).overviewPopulation, inactive.overviewPopulation);
+  const empty = report({ ...fixture(), periods: [], primaryPeriod: null });
+  assert.deepEqual(empty.overviewPopulation, { mode: 'recorded-years', period: null, scholars: [] });
+});
+
 test('current fourth-year planning includes eight directory Scholars without annual activity or saved requirements', () => {
   const data = currentPlanningFixture(), result = report(data);
   assert.equal(result.fourthYearPlanning.mode, 'current-directory');
@@ -290,6 +341,8 @@ const facade = data => {
 test('current planning loader includes directory application levels without broadening annual requirements or writing records', async () => {
   const { client, calls } = facade(currentPlanningFixture());
   const result = await loadAcademicYearReport(client, '2028-2029');
+  assert.equal(result.overviewPopulation.scholars.length, 11);
+  assert.equal(result.overviewPopulation.mode, 'current-directory');
   assert.equal(result.fourthYearPlanning.scholars.length, 8);
   assert.deepEqual(calls.find(call => call.name === 'scholar_requirements').query.where.billing_period_id.in, [31]);
   assert.equal(calls.filter(call => call.name === 'scholar_requirements').length, 1);

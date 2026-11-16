@@ -20,6 +20,32 @@ export const uniqueReportScholars = (scholars = []) => [...new Map(
   scholars.map(scholar => [scholar.applicantId, scholar]),
 ).values()];
 
+export const overviewPopulationView = (report) => {
+  const population = report?.overviewPopulation;
+  const currentDirectory = population?.mode === 'current-directory';
+  const scopeLabel = currentDirectory
+    ? `Current Scholar directory · ${population.period.schoolYear} · ${population.period.semester}`
+    : academicYearScopeLabel(report?.scope);
+  return {
+    scholars: uniqueReportScholars(population?.scholars || []).sort((left, right) => left.name.localeCompare(right.name)),
+    currentDirectory,
+    scopeLabel,
+    title: currentDirectory ? 'Total Scholars' : 'Scholars with records',
+    metricMeta: currentDirectory ? 'All Scholars in the current directory' : 'Recorded activity in this report',
+    yearLevelLabel: currentDirectory ? 'Current year level' : 'Latest recorded year level',
+    missingYearLevelLabel: currentDirectory ? 'Not specified' : 'Not recorded',
+    yearLevelDescription: currentDirectory
+      ? 'Current semester year levels, using application values when no semester value is saved. Missing levels remain unknown.'
+      : 'Latest saved year level in the selected years. Missing records remain unknown.',
+    distributionDescription: currentDirectory
+      ? 'Current locations of all Scholars in the directory.'
+      : 'Current locations of Scholars with records in the selected years.',
+    description: currentDirectory
+      ? `${scopeLabel}. All Scholars are counted once, including continuing Scholars and those without recorded activity this year, regardless of current account status. Year levels use saved semester values or application values when no semester value is saved. Names, school, course, locations and account status are current.`
+      : `${scopeLabel}. Each Scholar with recorded activity in the selected years is counted once, regardless of current account status. Year levels are the latest saved in the selected years. Names, school, course, locations and account status are current; historical active status is not recorded.`,
+  };
+};
+
 export const fourthYearPlanningView = (report) => {
   const planning = report?.fourthYearPlanning;
   const currentDirectory = planning?.mode === 'current-directory';
@@ -48,7 +74,7 @@ export const academicYearStageSummaries = (report) => [
     ['Examined', report.intake.examined], ['Passed', report.intake.passed],
   ] },
   { title: 'Scholar processing', description: 'Recorded activity in the selected years, including continuing Scholars from earlier intakes.', stages: [
-    ['Scholars with records', report.processing.scholars],
+    ['Scholars with recorded activity', report.processing.scholars],
     ['Requirement sets', report.processing.requirementSets],
     ['Cleared requirement sets', report.processing.requirementsClearedSets],
     ['Certification-listed Scholars', report.processing.certificationListed],
@@ -71,6 +97,15 @@ export const validateAcademicYearReport = (body, schoolYear = '') => {
       || planning.period.schoolYear !== body.scope.schoolYear || !planning.period.semester
       || !body.scope.periodIds?.includes(planning.period.id)))) {
     throw new Error('The fourth-year report is unavailable. Please refresh after the report update.');
+  }
+  const population = body.overviewPopulation;
+  if (!population || !['current-directory', 'recorded-years'].includes(population.mode) || !Array.isArray(population.scholars)
+    || (population.mode === 'recorded-years' && population.period !== null)
+    || (population.mode === 'current-directory' && (body.scope.allYears
+      || !Number.isInteger(population.period?.id) || population.period.id <= 0
+      || population.period.schoolYear !== body.scope.schoolYear || !population.period.semester
+      || !body.scope.periodIds?.includes(population.period.id)))) {
+    throw new Error('The Scholar overview is unavailable. Please refresh after the report update.');
   }
   if (schoolYear && body.scope.schoolYear !== schoolYear) {
     throw new Error('The report does not match the selected school year. Please retry.');

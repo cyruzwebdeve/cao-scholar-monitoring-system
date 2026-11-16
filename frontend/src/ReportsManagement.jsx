@@ -1,7 +1,7 @@
 import ReportScholarSearch from './components/ReportScholarSearch';
 import ReportsTabs from './components/ReportsTabs';
 import { filterScholarReportRows, scholarReportColumns, summarizePayrollReport } from './utils/reportScholarSearch';
-import { ALL_SCHOOL_YEARS, academicYearDefaultLabel, academicYearScopeLabel, academicYearStageSummaries, createAcademicYearReportLoader, fourthYearPlanningView, uniqueReportScholars } from './utils/academicYearReport';
+import { ALL_SCHOOL_YEARS, academicYearDefaultLabel, academicYearScopeLabel, academicYearStageSummaries, createAcademicYearReportLoader, fourthYearPlanningView, overviewPopulationView } from './utils/academicYearReport';
 import MetricDetailsCard from './components/MetricDetailsCard';
 import ReportLocationFilters from './components/ReportLocationFilters';
 import { getReportBarangayOptions, matchesReportLocation, getReportLocationLevel } from './utils/reportLocationFilters';
@@ -36,7 +36,7 @@ const reportExportColumns = [
   { key: 'coverageLocation', label: 'Location', group: 'Priority locations', value: (record) => record.location },
   { key: 'coverageMunicipality', label: 'Municipality', group: 'Priority locations', value: (record) => record.municipality },
   { key: 'coverageType', label: 'Type', group: 'Priority locations', value: (record) => record.type },
-  { key: 'recordedScholars', label: 'Scholars with records', group: 'Priority locations', value: (record) => record.count },
+  { key: 'recordedScholars', label: 'Scholar count', group: 'Priority locations', value: (record) => record.count },
   { key: 'coverageStatus', label: 'Coverage Status', group: 'Priority locations', value: (record) => record.count === 0 ? 'No scholars' : record.count <= 2 ? 'Low coverage' : 'Covered' },
   { key: 'graduateControlNumber', label: 'Control Number', group: 'Fourth-year records', value: (record) => record.controlNumber },
   { key: 'graduateName', label: 'Current Name', group: 'Fourth-year records', value: (record) => record.name },
@@ -128,13 +128,14 @@ export default function ReportsManagement({ token }) {
     ...(lifecycleReport?.periods || []).map((period) => period.schoolYear),
   ].filter(year => year && year !== 'Legacy period'))].sort().reverse(), [lifecycleReport, scholarReportRows]);
 
-  const recordedScholars = useMemo(() => uniqueReportScholars(reportIsCurrent ? lifecycleReport?.scholars || [] : []), [lifecycleReport, reportIsCurrent]);
+  const overviewView = useMemo(() => overviewPopulationView(reportIsCurrent ? lifecycleReport : null), [lifecycleReport, reportIsCurrent]);
+  const populationScholars = overviewView.scholars;
   const automaticYearLabel = academicYearDefaultLabel(lifecycleReport?.scope, hasLoadedReport);
-  const coverageDescription = `${scopeLabel}. Each Scholar with recorded activity is counted once, regardless of current account status. Locations and profile fields are current. Directory/location filters are not applied to these summary totals.`;
+  const coverageDescription = `${overviewView.description} Directory/location filters are not applied to these summary totals.`;
 
   const coverageRows = useMemo(() => {
     const counts = new Map();
-    recordedScholars.forEach((scholar) => {
+    populationScholars.forEach((scholar) => {
       const municipality = normalizeLocation(scholar.municipality);
       const barangay = normalizeLocation(scholar.barangay);
       if (municipality) counts.set(`municipality:${municipality}`, (counts.get(`municipality:${municipality}`) || 0) + 1);
@@ -163,11 +164,11 @@ export default function ReportsManagement({ token }) {
         count: counts.get(`barangay:${normalizeLocation(municipality)}:${normalizeLocation(barangay.name)}`) || 0,
       };
     });
-  }, [recordedScholars, locationLevel]);
+  }, [populationScholars, locationLevel]);
 
   const barangayCoverageByMunicipality = useMemo(() => {
     const counts = new Map();
-    recordedScholars.forEach((scholar) => {
+    populationScholars.forEach((scholar) => {
       const municipality = normalizeLocation(scholar.municipality);
       const barangay = normalizeLocation(scholar.barangay);
       if (municipality && barangay) {
@@ -189,7 +190,7 @@ export default function ReportsManagement({ token }) {
     });
     grouped.forEach((rows) => rows.sort((left, right) => right.count - left.count || left.name.localeCompare(right.name)));
     return grouped;
-  }, [recordedScholars]);
+  }, [populationScholars]);
 
   const filteredCoverage = useMemo(() => coverageRows
     .filter((row) => {
@@ -214,12 +215,12 @@ export default function ReportsManagement({ token }) {
 
   const municipalityCounts = useMemo(() => {
     const counts = new Map();
-    recordedScholars.forEach((scholar) => {
+    populationScholars.forEach((scholar) => {
       const key = normalizeLocation(scholar.municipality);
       if (key) counts.set(key, (counts.get(key) || 0) + 1);
     });
     return municipalitiesData.map((municipality) => counts.get(normalizeLocation(municipality.name)) || 0);
-  }, [recordedScholars]);
+  }, [populationScholars]);
 
   const municipalityDistribution = useMemo(() => municipalitiesData.map((municipality, index) => ({
     name: municipality.name,
@@ -234,11 +235,11 @@ export default function ReportsManagement({ token }) {
 
   const yearLevelDistribution = useMemo(() => {
     const counts = new Map();
-    recordedScholars.forEach((scholar) => {
-      const label = String(scholar.yearLevel || 'Not recorded').trim() || 'Not recorded';
+    populationScholars.forEach((scholar) => {
+      const label = String(scholar.yearLevel || overviewView.missingYearLevelLabel).trim() || overviewView.missingYearLevelLabel;
       counts.set(label, (counts.get(label) || 0) + 1);
     });
-    const preferredOrder = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduate', 'Not recorded'];
+    const preferredOrder = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduate', overviewView.missingYearLevelLabel];
     return [...counts.entries()]
       .map(([label, count]) => ({ label, count }))
       .sort((left, right) => {
@@ -249,11 +250,11 @@ export default function ReportsManagement({ token }) {
         if (rightIndex === -1) return -1;
         return leftIndex - rightIndex;
       });
-  }, [recordedScholars]);
+  }, [populationScholars, overviewView.missingYearLevelLabel]);
 
   const barangayAttentionCount = useMemo(() => {
     const counts = new Map();
-    recordedScholars.forEach((scholar) => {
+    populationScholars.forEach((scholar) => {
       const key = `${normalizeLocation(scholar.municipality)}:${normalizeLocation(scholar.barangay)}`;
       counts.set(key, (counts.get(key) || 0) + 1);
     });
@@ -261,7 +262,7 @@ export default function ReportsManagement({ token }) {
       const municipality = municipalityByCode.get(barangay.municipalityCode) || '';
       return (counts.get(`${normalizeLocation(municipality)}:${normalizeLocation(barangay.name)}`) || 0) <= 2;
     }).length;
-  }, [recordedScholars]);
+  }, [populationScholars]);
 
   const exportReport = async (selectedColumns) => {
     if (exporting || !reportReady || !lifecycleReport?.scope.schoolYear) return;
@@ -272,7 +273,7 @@ export default function ReportsManagement({ token }) {
       const scholarColumns = selectedColumns.filter(({ group }) => group === 'Scholar records');
       const graduateColumns = selectedColumns.filter(({ group }) => group === 'Fourth-year records');
       const rows = [['Scholar Academic Year Report'], ['School Year', effectiveSchoolYear], ['Period Scope', scopeLabel],
-        ['Coverage Scope', 'Scholars with recorded activity in the selected years; each person counted once.'],
+        ['Coverage Scope', overviewView.description], ['Overview Scholar Count', populationScholars.length],
         ['Profile Scope', 'Names, school, course, account status and locations are current.']];
       const headerRows = [];
       const addTable = (columns, records) => {
@@ -329,16 +330,16 @@ export default function ReportsManagement({ token }) {
       <ReportsTabs activeTab={activeTab} onChange={setActiveTab} />
       <p className="reports-tab-scope">{scopeLabel}</p>
       <div className="reports-tab-panel" role="tabpanel" id="reports-panel-overview" aria-labelledby="reports-tab-overview" hidden={activeTab !== 'overview'} tabIndex={0}>
-      <div className="report-coverage-heading"><h2>Coverage and program overview</h2><p>{scopeLabel}. Coverage counts Scholars with recorded activity once. The fourth-year planning card uses its separately labeled year-level scope. Names, locations and account status are current; historical active status is not recorded. Record search and list-status filters do not change coverage totals.</p></div>
+      <div className="report-coverage-heading"><h2>Coverage and program overview</h2><p>{overviewView.description} Directory, location and list-status filters do not change overview totals.</p></div>
       <section className="reports-metrics" aria-label="Report summary">
-        <MetricDetailsCard title='Scholars with records' rows={recordedScholars.map(scholar => ({ ...scholar, yearLevel: scholar.yearLevel || 'Not recorded' }))} columns={[{ key: 'name', label: 'Current Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Current Municipality' }, { key: 'status', label: 'Current account status' }, { key: 'yearLevel', label: 'Latest recorded year level' }]} description={coverageDescription} className="green"><div><span>Scholars with records</span><strong>{recordedScholars.length}</strong><small>Recorded activity in this report</small></div><i><UsersRound size={22} /></i></MetricDetailsCard>
-        <MetricDetailsCard title='Municipalities with None' rows={municipalityDistribution.filter(row => row.count === 0).map(row => ({ location: row.name, count: row.count }))} description={coverageDescription} columns={[{ key: 'location', label: 'Current Location' }, { key: 'count', label: 'Scholars with records' }]} className="red"><div><span>Municipalities with None</span><strong>{municipalityCounts.filter((count) => count === 0).length}</strong><small>No recorded-year scholars</small></div><i><MapPin size={22} /></i></MetricDetailsCard>
-        <MetricDetailsCard title='Barangays with Low / None' rows={[...barangayCoverageByMunicipality.entries()].flatMap(([municipality, rows]) => rows.filter(row => row.count <= 2).map(row => ({ location: row.name, municipality: municipalitiesData.find(item => normalizeLocation(item.name) === municipality)?.name || municipality, count: row.count })))} description={coverageDescription} columns={[{ key: 'location', label: 'Current Location' }, { key: 'municipality', label: 'Current Municipality' }, { key: 'count', label: 'Scholars with records' }]} className="orange"><div><span>Barangays with Low / None</span><strong>{barangayAttentionCount}</strong><small>Two recorded-year scholars or fewer</small></div><i><ChartColumn size={22} /></i></MetricDetailsCard>
+        <MetricDetailsCard title={overviewView.title} rows={populationScholars.map(scholar => ({ ...scholar, yearLevel: String(scholar.yearLevel || '').trim() || overviewView.missingYearLevelLabel }))} columns={[{ key: 'name', label: 'Current Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Current Municipality' }, { key: 'status', label: 'Current account status' }, { key: 'yearLevel', label: overviewView.yearLevelLabel }]} description={coverageDescription} className="green"><div><span>{overviewView.title}</span><strong>{populationScholars.length}</strong><small>{overviewView.metricMeta}</small></div><i><UsersRound size={22} /></i></MetricDetailsCard>
+        <MetricDetailsCard title='Municipalities with None' rows={municipalityDistribution.filter(row => row.count === 0).map(row => ({ location: row.name, count: row.count }))} description={coverageDescription} columns={[{ key: 'location', label: 'Current Location' }, { key: 'count', label: 'Scholar count' }]} className="red"><div><span>Municipalities with None</span><strong>{municipalityCounts.filter((count) => count === 0).length}</strong><small>{overviewView.currentDirectory ? 'No Scholars in the current directory' : 'No recorded-year scholars'}</small></div><i><MapPin size={22} /></i></MetricDetailsCard>
+        <MetricDetailsCard title='Barangays with Low / None' rows={[...barangayCoverageByMunicipality.entries()].flatMap(([municipality, rows]) => rows.filter(row => row.count <= 2).map(row => ({ location: row.name, municipality: municipalitiesData.find(item => normalizeLocation(item.name) === municipality)?.name || municipality, count: row.count })))} description={coverageDescription} columns={[{ key: 'location', label: 'Current Location' }, { key: 'municipality', label: 'Current Municipality' }, { key: 'count', label: 'Scholar count' }]} className="orange"><div><span>Barangays with Low / None</span><strong>{barangayAttentionCount}</strong><small>{overviewView.currentDirectory ? 'Two Scholars or fewer' : 'Two recorded-year scholars or fewer'}</small></div><i><ChartColumn size={22} /></i></MetricDetailsCard>
         <MetricDetailsCard title={fourthYearView.title} rows={fourthYearScholars} columns={[{ key: 'name', label: 'Current Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Current Municipality' }, { key: 'yearLevel', label: fourthYearView.yearLevelLabel }]} description={fourthYearView.description} className="blue"><div><span>{fourthYearView.title}</span><strong>{fourthYearScholars.length}</strong><small>{fourthYearView.metricMeta}</small></div><i><GraduationCap size={22} /></i></MetricDetailsCard>
       </section>
       <section className="reports-analytics-grid" aria-label="Scholar analytics">
         <article className="reports-surface reports-chart-card reports-municipality-chart">
-          <header><div><h2>Scholar distribution</h2><p>Current locations of Scholars with records in the selected years.</p></div><span>Municipality</span></header>
+          <header><div><h2>Scholar distribution</h2><p>{overviewView.distributionDescription}</p></div><span>Municipality</span></header>
           <div className="reports-horizontal-chart">
             {municipalityDistribution.slice(0, 6).map((item) => {
               const maximum = municipalityDistribution[0]?.count || 1;
@@ -375,12 +376,12 @@ export default function ReportsManagement({ token }) {
         </article>
 
         <article className="reports-surface reports-chart-card reports-year-chart">
-          <header><div><h2>Scholars by recorded year level</h2><p>Latest saved year level in the selected years. Missing records remain unknown.</p></div></header>
+          <header><div><h2>Scholars by {overviewView.currentDirectory ? 'year level' : 'recorded year level'}</h2><p>{overviewView.yearLevelDescription}</p></div></header>
           <div className="reports-year-bars">
             {yearLevelDistribution.map((item) => (
               <div key={item.label}>
                 <span>{item.label}</span>
-                <div><i style={{ width: `${recordedScholars.length ? (item.count / recordedScholars.length) * 100 : 0}%` }} /></div>
+                <div><i style={{ width: `${populationScholars.length ? (item.count / populationScholars.length) * 100 : 0}%` }} /></div>
                 <strong>{item.count}</strong>
               </div>
             ))}
@@ -404,7 +405,7 @@ export default function ReportsManagement({ token }) {
             onQueryChange={setQuery} onCoverageChange={(value) => { setCoverageFilter(value); setExpandedMunicipality(null); }} />
           <div className="reports-table-wrap">
             <table>
-              <thead><tr><th>Current Location</th><th>{locationLevel === 'municipality' ? 'Barangay coverage' : 'Municipality'}</th><th>Scholars with records</th><th>Priority</th></tr></thead>
+              <thead><tr><th>Current Location</th><th>{locationLevel === 'municipality' ? 'Barangay coverage' : 'Municipality'}</th><th>Scholar count</th><th>Priority</th></tr></thead>
               <tbody>
                 {filteredCoverage.map((row) => {
                   const municipalityKey = normalizeLocation(row.municipality);
@@ -477,7 +478,7 @@ export default function ReportsManagement({ token }) {
         <ReportScholarSearch rows={filteredScholarRows} total={filterScholarReportRows(scholarReportRows, '', effectiveSchoolYear, reportListType).length} query={scholarQuery} listType={reportListType} onListType={value => { setReportListType(value); setScholarPage(1); }} onQuery={value => { setScholarQuery(value); setScholarPage(1); }} page={scholarPage} onPage={setScholarPage} onExport={() => exportReport(scholarReportColumns)} disabled={exporting} />
       </div>
       </>}
-      {exportOpen && reportReady && <CsvExportModal formatLabel="EXCEL EXPORT" exportLabel="Export XLSX" title="Export reports and insights" description={`Choose columns from scholar records, priority locations and fourth-year planning. Scholar records and coverage use the selected academic years; scholar records also follow search and list-status filters. ${fourthYearView.currentDirectory ? 'Fourth-year planning matches the current Scholar directory, including application year levels when no semester value is saved.' : 'Fourth-year planning uses the latest saved year levels in the selected years.'} All matching pages are exported.`} columns={reportExportColumns} rowCount={filteredScholarRows.length + filteredCoverage.length + fourthYearScholars.length} getRowCount={(columns) => (columns.some(({ group }) => group === 'Scholar records') ? filteredScholarRows.length : 0) + (columns.some(({ group }) => group === 'Priority locations') ? filteredCoverage.length : 0) + (columns.some(({ group }) => group === 'Fourth-year records') ? fourthYearScholars.length : 0)} onClose={() => setExportOpen(false)} onExport={exportReport} />}
+      {exportOpen && reportReady && <CsvExportModal formatLabel="EXCEL EXPORT" exportLabel="Export XLSX" title="Export reports and insights" description={`Choose columns from scholar records, priority locations and fourth-year planning. Scholar records use the selected academic years, search and list-status filters. ${overviewView.currentDirectory ? 'Coverage includes all Scholars in the current directory, including those without activity this year.' : 'Coverage counts Scholars with recorded activity in the selected academic years.'} ${fourthYearView.currentDirectory ? 'Fourth-year planning matches the current Scholar directory, including application year levels when no semester value is saved.' : 'Fourth-year planning uses the latest saved year levels in the selected years.'} All matching pages are exported.`} columns={reportExportColumns} rowCount={filteredScholarRows.length + filteredCoverage.length + fourthYearScholars.length} getRowCount={(columns) => (columns.some(({ group }) => group === 'Scholar records') ? filteredScholarRows.length : 0) + (columns.some(({ group }) => group === 'Priority locations') ? filteredCoverage.length : 0) + (columns.some(({ group }) => group === 'Fourth-year records') ? fourthYearScholars.length : 0)} onClose={() => setExportOpen(false)} onExport={exportReport} />}
     </div>
   );
 }
