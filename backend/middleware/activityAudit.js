@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const { recordActivitySafely } = require('../services/activityLog');
 
 const ACTIONS = {
+  'PUT /intake-period': ['INTAKE_PERIOD_SELECTED', 'intake_settings', 'Selected the application and examination intake; Scholar processing periods retained.'],
   'PUT /payroll/schedules/:id/attendance/:applicantId': ['PAYOUT_ATTENDANCE_RECORDED', 'payout_schedules', 'Recorded schedule attendance; receipt status is independent.'],
   'PUT /payout-schedules/:id/receipt': ['SCHOLAR_RECEIPT_REPORTED', 'payout_schedules', 'Scholar updated their self-reported payout acknowledgement.'],
   'PUT /graduations/me': ['GRADUATION_SUBMITTED', 'scholar_graduations', 'Submitted a graduation record for verification.'],

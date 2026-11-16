@@ -36,6 +36,7 @@ test('Applicants card details preserve scheduled-person and examination-result c
     { id: 21, applicant_id: 7, exam_id: 4, passed: false, created_at: new Date() },
   ];
   prisma.results.findMany = async () => results;
+  prisma.exams.findMany = async () => [exam, { ...exam, id: 4 }];
   const res = response(); await getApplicantManagement({ user: { role: 'SuperAdmin' } }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.stats.scheduled, res.body.metricRecords.scheduled.length);
@@ -61,6 +62,8 @@ beforeEach(() => {
   application = { id: 1, applicant_id: 7, status: 'Applied', school_plan: {}, initial_docs: { requirements: Object.fromEntries(['tax_exemption', 'valid_id', 'grades', 'registration_form'].map((key) => [key, { fileName: key+'.pdf', status: 'Approved' }])) } };
   Object.assign(prisma, {
     academic_periods: { findFirst: async () => ({ id: 1, school_year: '2026-2027', is_active: true }) },
+    intake_settings: { findUnique: async () => ({ id: 1, academic_period_id: 1, revision: 1 }) },
+    $queryRaw: async () => [{ id: 1 }],
     application_settings: { findUnique: async () => settings },
     applicants: { findFirst: async () => applicant, findUnique: async () => applicant, findMany: async () => [applicant] },
     exams: { findFirst: async () => exam, findMany: async () => [exam], findUnique: async () => exam },
@@ -88,6 +91,8 @@ beforeEach(() => {
       },
     },
   });
+  prisma.academic_periods.findUnique = async ({ where }) => { const period = await prisma.academic_periods.findFirst(); return period?.id === where.id ? period : null; };
+  prisma.academic_periods.findMany = async () => [await prisma.academic_periods.findFirst()];
   // Serialize synthetic transactions and restore their state on rollback. This
   // exercises controller use of the transaction client, not PostgreSQL itself.
   let pending = Promise.resolve();
@@ -405,6 +410,7 @@ const openAtomicTestAttempt = async () => {
   await getOnlineExamQuestions({ user: { id: 7 } }, opened);
   assert.equal(opened.statusCode, 200);
   writes = [];
+  transactionEvents = [];
   return { user: { id: 7 }, body: { examTicket: opened.body.examTicket, answers: { multipleChoice: { 1: 1 } } } };
 };
 
@@ -422,6 +428,67 @@ test('online result and Examined status commit together before receipt delivery'
   assert.equal(emailReceipts[0].result.id, result.id);
   assert.equal(res.body.result, undefined);
   assert.equal(res.body.receipt.recorded, true);
+});
+
+test('online intake completes in an independent upcoming year while Scholar processing stays primary', async () => {
+  const processingPeriod = { id: 1, school_year: '2026-2027', semester: '1st Semester', is_active: true, is_primary: true };
+  const intakePeriod = { id: 2, school_year: '2027-2028', semester: '1st Semester', is_active: false, is_primary: false };
+  const periods = [processingPeriod, intakePeriod];
+  const originalPeriods = structuredClone(periods);
+  prisma.academic_periods.findUnique = async ({ where }) => periods.find(period => period.id === where.id) || null;
+  prisma.academic_periods.findFirst = async ({ where = {} } = {}) => periods.find(period =>
+    (!where.id || period.id === where.id) && (!where.school_year || period.school_year === where.school_year)
+    && (where.is_active === undefined || period.is_active === where.is_active)
+    && (where.is_primary === undefined || period.is_primary === where.is_primary)) || null;
+  prisma.academic_periods.findMany = async ({ where = {} } = {}) => periods.filter(period => where.is_active === undefined || period.is_active === where.is_active);
+  prisma.intake_settings.findUnique = async () => ({ id: 1, academic_period_id: 2, revision: 1 });
+  const applicant = await prisma.applicants.findFirst();
+  applicant.school_year = intakePeriod.school_year;
+  exam.academic_year = intakePeriod.school_year;
+  prisma.exams.findFirst = async ({ where = {} } = {}) => !where.academic_year || exam.academic_year === where.academic_year ? exam : null;
+
+  const management = response();
+  await getApplicantManagement({}, management);
+  assert.equal(management.statusCode, 200);
+  assert.equal(management.body.intakePeriod.id, 2);
+  assert.equal(management.body.applicants[0].academicPeriodId, 2);
+  assert.equal(management.body.applicants[0].schoolYear, intakePeriod.school_year);
+  const submitted = response();
+  await submitOnlineExam(await openAtomicTestAttempt(), submitted);
+  assert.equal(submitted.statusCode, 201);
+  assert.equal(result.exam_id, exam.id);
+  assert.equal(application.status, 'Examined');
+  assert.deepEqual(writes.map(({ table }) => table), ['results', 'application_submissions']);
+  assert.deepEqual(transactionEvents, ['begin', 'commit']);
+
+  // An existing Scholar continues to use the processing period and never
+  // consults the selected Application/Examination intake for period access.
+  scholar = { id: 4, applicant_id: applicant.id, is_active: true, result_id: result.id, scholar_id: 'SYNTHETIC' };
+  application.school_plan = { incomingYearLevel: '1st Year', school: 'TEST SCHOOL' };
+  prisma.payroll_claims.findMany = async () => [];
+  prisma.intake_settings.findUnique = async () => { throw new Error('Scholar processing must not read intake settings'); };
+  const beforeDirectory = writes.length;
+  const directory = response();
+  await getScholarManagement({ query: {}, user: { role: 'SuperAdmin' } }, directory);
+  assert.equal(directory.statusCode, 200);
+  assert.equal(directory.body.activePeriod.id, 1);
+  assert.equal(directory.body.scholars.length, 1);
+  const portal = response();
+  await getMyApplication({ user: { id: applicant.id }, query: {} }, portal);
+  assert.equal(portal.statusCode, 200);
+  assert.equal(portal.body.activePeriod.id, 1);
+  assert.equal(portal.body.requirementWave.academicPeriodId, 1);
+  assert.deepEqual(portal.body.continuingPeriods, []);
+  assert.equal(portal.body.processingEligibility.eligible, false);
+  assert.equal(portal.body.processingEligibility.entrySchoolYear, intakePeriod.school_year);
+  assert.equal(portal.body.requirementWave.continuingOpen, false);
+  assert.equal(portal.body.requirementWave.submission.state, 'waiting_entry_year');
+  assert.equal(portal.body.requirementWave.submission.visible, false);
+  assert.equal(portal.body.requirementWave.submission.isOpen, false);
+  assert.equal(portal.body.examination.academicYear, intakePeriod.school_year);
+  assert.equal(writes.length, beforeDirectory);
+  assert.deepEqual(periods, originalPeriods);
+  assert.equal(scholar.is_active, true);
 });
 
 test('a failed application-status write rolls back the score and permits a safe retry', async (t) => {

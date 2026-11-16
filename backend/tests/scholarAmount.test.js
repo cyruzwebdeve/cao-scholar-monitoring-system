@@ -5,16 +5,16 @@ const prismaPath = require.resolve('../config/prisma');
 require.cache[prismaPath] = { id: prismaPath, filename: prismaPath, loaded: true, exports: prisma };
 const { save } = require('../controllers/scholarAmountController');
 const { checkRole, checkSectionAccess } = require('../middleware/rbac');
-let row, type, active, scholarActive, deleted, listed, events;
+let row, type, active, scholarActive, deleted, listed, events, entryYear;
 const response = () => ({ locals: {}, statusCode: 200, set() { return this; }, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
 const request = (amount = 4321.09, extra = {}) => ({ params: { applicantId: '7' }, body: { academicPeriodId: 10, amount, expectedAmount: type === 'private' ? 5000 : 3000, ...extra }, user: { id: 9, role: 'SuperAdmin' } });
 beforeEach(() => {
-  row = null; type = 'public'; active = true; scholarActive = true; deleted = false; listed = false; events = [];
+  row = null; type = 'public'; active = true; scholarActive = true; deleted = false; listed = false; events = []; entryYear = '2025-2026';
   const period = { id: 10, is_active: true, school_year: '2026-2027', semester: '1st Semester' };
   Object.assign(prisma, {
     academic_periods: { findFirst: async () => active ? period : null },
     scholar_accounts: { findFirst: async () => scholarActive ? { id: 1 } : null },
-    applicants: { findUnique: async () => ({ id: 7, school_id: 1, deleted_at: deleted ? new Date() : null }) },
+    applicants: { findUnique: async () => ({ id: 7, school_id: 1, school_year: entryYear, deleted_at: deleted ? new Date() : null }) },
     application_submissions: { findFirst: async () => ({ id: 1, initial_docs: { initialRequirementPeriodId: 10 } }) },
     schools: { findMany: async () => [{ id: 1, school_type: type }] },
     scholar_requirements: { findUnique: async () => row, findMany: async () => row ? [row] : [], upsert: async ({ create, update }) => { events.push('save'); row = row ? { ...row, ...update } : create; return row; } },
@@ -72,4 +72,10 @@ test('serialization conflicts return a retry response with no successful update'
 test('a transferred Public scholar can edit below obsolete Private tuition without retaining an invalid breakdown', async () => {
  row={applicant_id:7,billing_period_id:10,tuition_fee_assistance:3500,grant_prepared_at:new Date(),grant_prepared_by:9};
  const res=response();await save(request(2000),res);assert.equal(res.statusCode,200);assert.equal(row.list_amount_override,2000);assert.equal(row.tuition_fee_assistance,null);assert.equal(row.grant_prepared_at,null);assert.equal(res.body.allowance,null);
+});
+
+test('an upcoming Scholar cannot receive a list amount for an earlier processing year', async () => {
+ entryYear='2027-2028';const res=response();await save(request(),res);
+ assert.equal(res.statusCode,409);assert.match(res.body.message,/2027-2028/);assert.equal(row,null);assert.deepEqual(events,['lock']);assert.equal(res.locals.auditAction,undefined);
+ entryYear='2026-2027';const current=response();await save(request(),current);assert.equal(current.statusCode,200);assert.equal(row.billing_period_id,10);
 });

@@ -81,7 +81,9 @@ const response = () => ({ statusCode: 200, headers: {}, set(k, v) { this.headers
 let queries, data;
 const setup = () => {
   data = fixture(); queries = [];
+  prisma.intake_settings = { findUnique: async () => ({ id: 1, academic_period_id: data.period.id, revision: 1 }) };
   prisma.academic_periods = { findFirst: async () => ({ ...data.period, semester: '1st Semester', is_active: true, is_primary: true }) };
+  prisma.academic_periods.findUnique = async ({ where }) => { const period = await prisma.academic_periods.findFirst(); return period?.id === where.id ? period : null; };
   for (const [model, key] of Object.entries({ passer_list_members: 'members', applicants: 'applicants', application_submissions: 'applications', results: 'results', exams: 'exams', exam_slots: 'slots', scholar_accounts: 'scholars', control_accounts: 'accounts', schools: 'schools' })) {
     prisma[model] = { findMany: async query => { queries.push([model, query]); return data[key]; } };
   }
@@ -117,4 +119,8 @@ test('complete and approved files alone never auto-add an applicant; changed rec
   const unmarked = baseFixture(); assert.deepEqual(buildPotentialScholars(unmarked), []);
   const changed = fixture(); changed.results[0].updated_at = '2026-10-04T00:00:00Z';
   const rows = buildPotentialScholars(changed); assert.equal(rows.length, 1); assert.equal(rows[0].canAccept, false); assert.match(rows[0].reviewIssue, /Recheck/);
+});
+
+test('historical placeholder and unassigned years never appear in the current intake queue', () => {
+  for(const school_year of ['2025-2026',null,'']){const data=fixture();data.applicants[0].school_year=school_year;assert.deepEqual(buildPotentialScholars(data),[]);}
 });

@@ -5,6 +5,7 @@ const { loadResolvedScholarSchool, schoolClassification } = require('../services
 const { resolveProcessingRoute } = require('../services/processingRoute');
 const { loadContinuingSchedule } = require('../services/continuingSchedule');
 const { findPrimaryActivePeriod } = require('../services/academicPeriod');
+const { assertScholarPeriodEligible } = require('../services/scholarProcessingPeriod');
 const { hasSectionAccess } = require('../services/sectionAccess');
 const save = async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
@@ -24,6 +25,7 @@ const save = async (req, res) => {
         findPrimaryActivePeriod(tx),
       ]);
       if (!period || !primary || !scholar || !applicant || applicant.deleted_at || !application) throw error('Select an active Scholar and active academic period.', 409);
+      assertScholarPeriodEligible(applicant, period);
       const school = await loadResolvedScholarSchool(tx, { applicantId, applicant, application, requirement });
       const schoolType = schoolClassification(school?.school_type);
       if (schoolType === 'Unclassified') throw error('Classify this school before editing the amount.', 409);

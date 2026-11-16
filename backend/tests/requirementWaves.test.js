@@ -31,15 +31,20 @@ const setup = (options = {}) => {
   };
   Object.assign(prisma, {
     application_submissions: applications,
-    academic_periods: { findFirst: async ({ where }) => where?.id === 99 ? null : { ...period, id: where?.id || 10 } },
+    academic_periods: {
+      findFirst: async ({ where }) => where?.id === 99 ? null : { ...period, id: where?.id || 10 },
+      findUnique: async ({ where }) => where.id === 99 ? null : { ...period, id: where.id },
+    },
+    intake_settings: { findUnique: async () => ({ id: 1, academic_period_id: 10, revision: 0 }) },
     scholar_accounts: { findFirst: async () => inactive ? null : { id: 1, applicant_id: 7, is_active: true } },
     admins: { findUnique: async ({ where }) => ({ id: where.id, is_active: true, auth_version: 0, is_super_admin: where.id === 9, role: where.id === 4 ? 'billing' : 'admin', section_access: where.id === 3 ? ['examination'] : ['scholars'] }) },
     control_accounts: { findFirst: async () => ({ applicant_id: 7, is_active: true, auth_version: 0 }) },
     activity_logs: { create: async () => ({ id: 1 }) },
-    applicants: { findUnique: async () => ({ id: 7, school_id: 1 }) },
+    applicants: { findUnique: async () => ({ id: 7, school_id: 1 }), findMany: async () => [{ id: 7, school_id: 1 }] },
     scholar_requirements: { findMany: async () => [], findUnique: async () => ({ applicant_id: 7, school_id: 1, billing_period_id: 10 }) },
     schools: { findMany: async () => [{ id: 1, name: 'TEST SCHOOL', school_type: schoolType }], findUnique: async () => ({ id: 1, name: 'TEST SCHOOL', school_type: schoolType }) },
     $transaction: async (callback) => callback(prisma),
+    $queryRaw: async () => [{ id: 1 }],
   });
 };
 const file = (name = 'fixture.pdf') => ({ fileName: name, fileData: dataUrl() });

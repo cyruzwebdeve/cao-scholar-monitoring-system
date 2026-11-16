@@ -4,37 +4,58 @@ import './styles/passer-lists.css';
 import Notification from './components/Notification';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { API_BASE, authHeaders } from './services/api';
-export default function PasserLists({ applicants, token, onPosted }) {
+import { intakeYearQuery } from './utils/intakePeriod';
+export default function PasserLists({ applicants, token, onPosted, academicPeriodId, schoolYear = '', readOnly = false }) {
   const [lists, setLists] = useState([]), [title, setTitle] = useState('Examination Passer List'), [selected, setSelected] = useState([]);
   const [previous, setPrevious] = useState(''), [reason, setReason] = useState(''), [notice, setNotice] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [ready, setReady] = useState(false);
-  const requestKey = useRef(null);
+  const requestKey = useRef(null), mounted = useRef(false), viewVersion = useRef(0);
   const candidates = applicants.filter((item) => item.status === 'Passed' && item.resultId && !item.isScholar);
   const load = useCallback(async () => {
-    const response = await fetch(`${API_BASE}/passer-lists`, { headers: authHeaders(token), cache: 'no-store' });
+    const version = viewVersion.current;
+    const response = await fetch(`${API_BASE}/passer-lists${intakeYearQuery(schoolYear)}`, { headers: authHeaders(token), cache: 'no-store' });
     const body = await response.json();
+    if (!mounted.current || version !== viewVersion.current) return;
     if (!response.ok) throw new Error(body.message || 'Unable to load saved passer lists.');
     setLists(body.lists); setReady(true);
-  }, [token]);
-  useEffect(() => { let active = true; const timer = window.setTimeout(() => load().catch((failure) => { if (active) setError(failure.message); }), 0); return () => { active = false; window.clearTimeout(timer); }; }, [load]);
-  const act = async (operation) => { setBusy(true); setError(''); setNotice(''); try { await operation(); } catch (failure) { setError(failure.message); } finally { setBusy(false); } };
+  }, [token, schoolYear]);
+  useEffect(() => {
+    mounted.current = true; viewVersion.current += 1;
+    const version = viewVersion.current;
+    const timer = window.setTimeout(() => { setReady(false); setSelected([]); requestKey.current = null; void load().catch((failure) => { if (mounted.current && version === viewVersion.current) setError(failure.message); }); }, 0);
+    return () => { mounted.current = false; viewVersion.current += 1; window.clearTimeout(timer); };
+  }, [load, academicPeriodId]);
+  const act = async (operation) => {
+    const version = viewVersion.current;
+    setBusy(true); setError(''); setNotice('');
+    try { await operation(); }
+    catch (failure) { if (mounted.current && version === viewVersion.current) setError(failure.message); }
+    finally { if (mounted.current && version === viewVersion.current) setBusy(false); }
+  };
   const send = async (path, payload) => {
+    if (readOnly) throw new Error('Historical passer lists are view-only.');
+    const version = viewVersion.current;
     const response = await fetch(`${API_BASE}${path}`, { method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    const body = await response.json(); if (!response.ok) throw new Error(body.message || 'Unable to save list.');
-    setNotice(body.message); await load(); if (body.list.status === 'posted') await onPosted(); return body;
+    const body = await response.json();
+    if (!mounted.current || version !== viewVersion.current) return;
+    if (!response.ok) throw new Error(body.message || 'Unable to save list.');
+    setNotice(body.message); await load();
+    if (!mounted.current || version !== viewVersion.current) return;
+    if (body.list.status === 'posted') await onPosted(); return body;
   };
   const save = (status) => act(async () => {
     requestKey.current ||= crypto.randomUUID();
-    await send('/passer-lists', { title, status, requestKey: requestKey.current, supersedesId: previous ? Number(previous) : null, revisionReason: reason, members: candidates.filter((item) => selected.includes(item.id)).map((item) => ({ applicantId: item.id, applicationId: item.applicationId, examId: item.examId, resultId: item.resultId, updatedAt: item.resultUpdatedAt })) });
+    const body = await send('/passer-lists', { academicPeriodId, title, status, requestKey: requestKey.current, supersedesId: previous ? Number(previous) : null, revisionReason: reason, members: candidates.filter((item) => selected.includes(item.id)).map((item) => ({ applicantId: item.id, applicationId: item.applicationId, examId: item.examId, resultId: item.resultId, updatedAt: item.resultUpdatedAt })) });
+    if (!body) return;
     requestKey.current = null; setSelected([]);
   });
   // A changed selection represents a different request, not a retry of a lost response.
   const choose = (ids) => { setSelected(ids); requestKey.current = null; };
-  const invalid = busy || !ready || !title.trim() || !selected.length || selected.length > 500 || (previous && !reason.trim());
+  const invalid = readOnly || !academicPeriodId || busy || !ready || !title.trim() || !selected.length || selected.length > 500 || (previous && !reason.trim());
   return <section className="passer-lists passer-workspace" aria-label="Passer Lists">
     <div className="passer-list-heading"><div><span className="passer-eyebrow">EXAMINATION RESULTS</span><h3>Passer Lists</h3><p>Prepare reviewed passers for initial document verification and Scholar acceptance.</p></div><button type="button" className="passer-refresh" disabled={busy} onClick={() => act(load)}><RefreshCw size={15} aria-hidden="true" />Refresh lists</button></div>
     {busy && <Notification tone="progress" title="Saving passer list">Keep this page open while records are checked and saved.</Notification>}{notice && <Notification tone="success" title="Passer list saved" onDismiss={() => setNotice('')}>{notice}</Notification>}{error && <Notification tone="error" title="Passer list needs attention">{error}</Notification>}
     <div className="passer-workspace-grid">
-      <fieldset className="passer-prepare-panel" disabled={busy}>
+      <fieldset className="passer-prepare-panel" disabled={busy || readOnly}>
         <legend>Prepare a list</legend>
         <p className="passer-panel-description">Enter the list details, then select the applicants to include.</p>
         <div className="passer-form-fields">
@@ -47,7 +68,7 @@ export default function PasserLists({ applicants, token, onPosted }) {
         <p className="passer-posting-note">Posting publishes the selected results and locks the retained list. Initial document verification comes before Scholar acceptance.</p>
         <div className="passer-list-actions"><button type="button" disabled={invalid} onClick={() => save('draft')}><Save size={15} aria-hidden="true" />Save draft</button><button type="button" className="passer-primary-action" disabled={invalid} onClick={() => save('posted')}><LockKeyhole size={15} aria-hidden="true" />Post &amp; lock list</button></div>
       </fieldset>
-      <RetainedPasserLists lists={lists} ready={ready} busy={busy} onPostDraft={(id) => act(() => send(`/passer-lists/${id}/post`, {}))} />
+      <RetainedPasserLists lists={lists} readOnly={readOnly} ready={ready} busy={busy} onPostDraft={(id) => act(() => send(`/passer-lists/${id}/post`, {}))} />
     </div>
   </section>;
 }

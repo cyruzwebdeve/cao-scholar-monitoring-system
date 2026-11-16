@@ -42,6 +42,7 @@ const setup = ({ schoolType = 'public', schoolName = 'TEST PUBLIC SCHOOL', appli
     payroll_claims: { findMany: async () => claims, findFirst: async () => null },
     payroll_batches: { findMany: async () => batches },
     $transaction: async (callback) => callback({
+      applicants: { findMany: async () => [applicant] },
       $queryRaw: async () => [{ value: 1 }],
       payroll_batches: {
         create: async ({ data }) => { writes.push({ type: 'batch', data }); return { id: 51, ...data }; },

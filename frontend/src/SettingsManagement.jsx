@@ -18,6 +18,7 @@ import SystemHealthPanel from './components/SystemHealthPanel';
 import SchoolCatalogManagement from './SchoolCatalogManagement';
 import SettingsTabs from './components/SettingsTabs';
 import OnlineQuestionsSettings from './OnlineQuestionsSettings';
+import IntakePeriodSettings from './components/IntakePeriodSettings';
 import { canManageStaffSection } from './utils/staffAccess';
 
 const emptyPeriodForm = { schoolYear: '', semester: '1st Semester', startDate: '', endDate: '' };
@@ -419,9 +420,10 @@ export default function SettingsManagement({ token, user }) {
         </form>
       </section>
 
+      <IntakePeriodSettings token={token} periods={periods} canEdit={canManagePeriods} />
       <section className="settings-card settings-period-card">
         <div className="settings-card-heading">
-          <div><span className="settings-eyebrow">ACADEMIC PERIODS</span><h3>School year and semester</h3><p>Keep multiple periods active for processing and choose one Primary System Period for applications and examinations.</p></div>
+          <div><span className="settings-eyebrow">ACADEMIC PERIODS</span><h3>School year and semester</h3><p>Keep multiple periods active for Scholar requirements and Billing/Payroll, and choose their Primary System Period. Application and examination intake is selected separately above.</p></div>
           <CalendarRange size={24} />
         </div>
 
@@ -566,7 +568,7 @@ export default function SettingsManagement({ token, user }) {
         <div className="admin-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !updatingPeriodId) setPendingPrimary(null); }}>
           <section className="admin-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="primary-period-title" aria-describedby="primary-period-description">
             <div className="admin-confirm-icon warning"><TriangleAlert size={24} /></div>
-            <div className="admin-confirm-copy"><span>CHANGE PRIMARY SYSTEM PERIOD</span><h3 id="primary-period-title">Use {pendingPrimary.schoolYear} · {pendingPrimary.semester} as primary?</h3><p id="primary-period-description">New application, examination, document-review, and default report activity will use this period. Other active periods will remain available in Billing and Payroll.</p></div>
+            <div className="admin-confirm-copy"><span>CHANGE PRIMARY SYSTEM PERIOD</span><h3 id="primary-period-title">Use {pendingPrimary.schoolYear} · {pendingPrimary.semester} as primary?</h3><p id="primary-period-description">Scholar requirements, processing defaults and default Reports will use this period. Other active periods remain available in Billing and Payroll. Application and examination intake keeps its separate selection.</p></div>
             <div className="admin-confirm-actions"><button type="button" className="cancel" disabled={Boolean(updatingPeriodId)} onClick={() => setPendingPrimary(null)}>Cancel</button><button type="button" className="danger settings-activate-confirm" disabled={Boolean(updatingPeriodId)} onClick={() => updatePeriodState(pendingPrimary, 'primary')}><CalendarRange size={15} />{updatingPeriodId ? 'Updating…' : 'Set as primary'}</button></div>
           </section>
         </div>

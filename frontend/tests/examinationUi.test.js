@@ -77,11 +77,11 @@ test('integration preserves existing attendance/download/publication/acceptance 
   for (const marker of ['<AssignedApplicantsModal', 'onAttendanceChange={updateAttendance}', 'onDownload={() => downloadAttendanceList(rosterExam)}', 'onToggleActivation={() => toggleExamActivation(rosterExam.municipality)}', 'rosterApplicants.filter(applicant => applicant.examId === rosterExam.id)']) assert.ok(dashboard.includes(marker), marker);
   const results = await readFile(new URL('../src/ResultsManagement.jsx', import.meta.url), 'utf8');
   assert.doesNotMatch(results, /examVenueData|localScheduleByMunicipality/);
-  assert.ok(results.includes("disabled={selected.status !== 'Passed' || selected.isScholar || !selected.resultPublishedAt || publishing || acceptingScholar || !intake?.initialVerified || !intake?.reviewToken || !requirementsChecked || intake?.potentialReview?.current}"));
+  assert.ok(results.includes("disabled={!canEditIntake || selected.status !== 'Passed' || selected.isScholar || !selected.resultPublishedAt || publishing || acceptingScholar || !intake?.initialVerified || !intake?.reviewToken || !requirementsChecked || intake?.potentialReview?.current}"));
   for (const marker of ['onClick={addToPotential}', '<PublishResultModal', '<ResultReviewNotice', 'I have individually checked the current initial requirements.', 'Add to Potential Scholars']) assert.ok(results.includes(marker), marker);
   assert.doesNotMatch(results, /Latest exam result is not passing/);
   const modal = await readFile(new URL('../src/components/AssignedApplicantsModal.jsx', import.meta.url), 'utf8');
-  for (const marker of ['Number.isFinite(applicant.examScore)', 'disabled={saving || locked}', 'onAttendanceChange(applicant, event.target.value)', 'element.showModal()', 'element.close()', 'previous?.focus()', 'document.body.style.overflow = overflow']) assert.ok(modal.includes(marker), marker);
+  for (const marker of ['Number.isFinite(applicant.examScore)', 'disabled={saving || locked || readOnly}', 'onAttendanceChange(applicant, event.target.value)', 'element.showModal()', 'element.close()', 'previous?.focus()', 'document.body.style.overflow = overflow']) assert.ok(modal.includes(marker), marker);
 });
 test('responsive layout uses centred viewport bounds, a single roster scroller and readable status controls', async () => {
   const css = await readFile(new URL('../src/styles/examination-ui.css', import.meta.url), 'utf8');

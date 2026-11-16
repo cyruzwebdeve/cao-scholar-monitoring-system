@@ -1,7 +1,7 @@
 const { reviewFingerprint, reviewMarker } = require('../services/potentialReview');
 const prisma = require('../config/prisma');
-const { findPrimaryActivePeriod } = require('../services/academicPeriod');
-const { isExaminationApplicationEligible } = require('../services/examinationEligibility');
+const { findIntakePeriod, lockIntakePeriod } = require('../services/intakePeriod');
+const { isExaminationApplicationEligible, isCurrentExaminationApplicant } = require('../services/examinationEligibility');
 const { getPostedPasser, initialChecklist, initialApproved } = require('../services/passerIntake');
 const { loadResolvedScholarSchool, schoolClassification } = require('../services/scholarSchool');
 const fail = (message, statusCode = 409) => Object.assign(new Error(message), { statusCode });
@@ -23,14 +23,15 @@ const validateMember = async (tx, member, period) => {
     tx.exam_slots.findUnique({ where: { applicant_id_exam_id: { applicant_id: member.applicant_id, exam_id: member.exam_id } } }),
   ]);
   const currentExam = applicant ? await tx.exams.findFirst({ where: { academic_year: period.school_year, municipality: { equals: String(applicant.municipality || '').trim(), mode: 'insensitive' } }, orderBy: { updated_at: 'desc' } }) : null;
-  if (!result?.passed || result.score == null || !applicant || applicant.deleted_at || !isExaminationApplicationEligible(application) || application.id !== member.application_id || !exam || exam.academic_year !== period.school_year || currentExam?.id !== exam.id || !slot || slot.id !== result.exam_slot_id || +new Date(result.updated_at) !== +new Date(member.snapshot.resultUpdatedAt)) throw fail('A selected passer, assignment, application or score changed. Refresh Results and create a new draft.');
+  if (!result?.passed || result.score == null || !isCurrentExaminationApplicant(applicant, period.school_year) || !isExaminationApplicationEligible(application) || application.id !== member.application_id || !exam || exam.academic_year !== period.school_year || currentExam?.id !== exam.id || !slot || slot.id !== result.exam_slot_id || +new Date(result.updated_at) !== +new Date(member.snapshot.resultUpdatedAt)) throw fail('A selected passer, assignment, application or score changed. Refresh Results and create a new draft.');
   return { result, applicant };
 };
 const snapshotOf = (result, applicant) => ({ name: [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' '), score: Number(result.score), passingScore: Number(result.passing_score ?? 14), resultUpdatedAt: new Date(result.updated_at).toISOString(), publishedAt: result.published_at ? new Date(result.published_at).toISOString() : null });
 const postDraft = async (tx, list, actorId) => {
   if (list.status === 'posted') return list;
-  const period = await findPrimaryActivePeriod(tx);
-  if (!period || period.id !== list.academic_period_id) throw fail('The primary period changed. Create a list in the current period.');
+  const period = await findIntakePeriod(tx);
+  if (!period || period.id !== list.academic_period_id) throw fail('The intake period changed. Create a list in the current intake.');
+  await lockIntakePeriod(tx, period.id, period.school_year);
   if (list.supersedes_id) {
     const previous = await tx.passer_lists.findUnique({ where: { id: list.supersedes_id }, include: { revisions: true } });
     if (!previous || previous.status !== 'posted' || previous.academic_period_id !== period.id || previous.revisions.some((revision) => revision.status === 'posted')) throw fail('The previous list has already been revised or is unavailable.');
@@ -52,11 +53,23 @@ const postDraft = async (tx, list, actorId) => {
   return tx.passer_lists.update({ where: { id: list.id }, data: { status: 'posted', posted_at: now, posted_by: actorId }, include: { members: true } });
 };
 const index = safe(async (req, res) => {
-  const period = await findPrimaryActivePeriod(prisma);
-  return res.json({ lists: period ? await prisma.passer_lists.findMany({ where: { academic_period_id: period.id }, include: { members: true }, orderBy: { id: 'desc' }, take: 100 }) : [] });
+  const period = await findIntakePeriod(prisma);
+  const schoolYear = String(req.query?.schoolYear || '').trim();
+  let periodIds = period ? [period.id] : [];
+  if (schoolYear) {
+    const match = /^(\d{4})-(\d{4})$/.exec(schoolYear);
+    if (schoolYear !== 'all' && (!match || Number(match[2]) !== Number(match[1]) + 1)) throw fail('Select a valid school year for Passer List history.', 400);
+    const periods = await prisma.academic_periods.findMany({
+      where: schoolYear === 'all' ? {} : { school_year: schoolYear },
+      select: { id: true },
+    });
+    periodIds = periods.map(({ id }) => id);
+  }
+  return res.json({ lists: periodIds.length ? await prisma.passer_lists.findMany({ where: { academic_period_id: { in: periodIds } }, include: { members: true }, orderBy: { id: 'desc' }, take: 100 }) : [] });
 });
 const create = safe(async (req, res) => {
   const body = req.body || {};
+  if (!Number.isSafeInteger(body.academicPeriodId) || body.academicPeriodId <= 0) throw fail('Reload the intake period before creating a Passer List.', 400);
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.requestKey || '') || !['draft', 'posted'].includes(body.status) || typeof body.title !== 'string' || !body.title.trim() || body.title.length > 160 || !Array.isArray(body.members) || !body.members.length || body.members.length > 500 || new Set(body.members.map((member) => member.applicantId)).size !== body.members.length) throw fail('Enter a title and select 1–500 distinct passers.', 400);
   if (body.supersedesId && (!Number.isSafeInteger(body.supersedesId) || body.supersedesId <= 0 || typeof body.revisionReason !== 'string' || !body.revisionReason.trim() || body.revisionReason.length > 2000)) throw fail('A revision needs the previous list and a reason of up to 2,000 characters.', 400);
   for (const member of body.members) if (!['applicantId','resultId','examId','applicationId'].every((key) => Number.isSafeInteger(member[key]) && member[key] > 0) || !Number.isFinite(+new Date(member.updatedAt))) throw fail('Reload the selected results before saving.', 400);
@@ -66,8 +79,9 @@ const create = safe(async (req, res) => {
       if (existing.created_by !== req.user.id) throw fail('Request key already used.', 409);
       return existing;
     }
-    const period = await findPrimaryActivePeriod(tx);
-    if (!period) throw fail('Configure a primary academic period.');
+    const period = await findIntakePeriod(tx);
+    if (!period || period.id !== body.academicPeriodId) throw fail('The intake period changed. Reload Results before creating a Passer List.');
+    await lockIntakePeriod(tx, period.id, period.school_year);
     const members = body.members.map((member) => ({ academic_period_id: period.id, applicant_id: member.applicantId, application_id: member.applicationId, exam_id: member.examId, result_id: member.resultId, snapshot: { resultUpdatedAt: member.updatedAt } }));
     for (const member of members) {
       const { result, applicant } = await validateMember(tx, member, period);
@@ -93,8 +107,8 @@ const post = safe(async (req, res) => {
 const intake = safe(async (req, res) => {
   const applicantId = Number(req.params.applicantId);
   if (!Number.isSafeInteger(applicantId) || applicantId <= 0) throw fail('Select a passer.', 400);
-  const period = await findPrimaryActivePeriod(prisma);
-  if (!period) throw fail('No primary period.');
+  const period = await findIntakePeriod(prisma);
+  if (!period) throw fail('No application and examination intake period is configured.');
   const application = await prisma.application_submissions.findFirst({ where: { applicant_id: applicantId }, orderBy: { submitted_at: 'desc' } });
   const member = await getPostedPasser(prisma, applicantId, period.id, null, application?.id);
   const result = member ? await prisma.results.findFirst({ where: { id: member.result_id, applicant_id: applicantId } }) : null;

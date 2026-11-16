@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const { lockGrantRecords, error } = require('../services/grantPreparation');
 const { loadResolvedScholarSchool, schoolClassification } = require('../services/scholarSchool');
 const { hasSectionAccess } = require('../services/sectionAccess');
+const { assertScholarPeriodEligible } = require('../services/scholarProcessingPeriod');
 const sendToPayroll = async (req, res) => {
   try {
     if (!hasSectionAccess(req.user, 'payroll')) throw error('Payroll section access is required.', 403);
@@ -19,6 +20,7 @@ const sendToPayroll = async (req, res) => {
         tx.payroll_batches.findMany({ where: { billing_period_id: periodId } }),
       ]);
       if (!period || !scholar || !applicant || applicant.deleted_at || !application) throw error('Select an active Scholar and active academic period.', 409);
+      assertScholarPeriodEligible(applicant, period);
       if (membership.some(claim => claim.academic_period_id === periodId || previousList.some(batch => batch.id === claim.payroll_batch_id))) throw error('This Scholar is already included in a Billing or Payroll list for this period.', 409);
       if (!previousList.some(batch => ['billed', 'generated'].includes(batch.status))) throw error('Generate the regular list for this period before preparing remaining Scholars for Payroll.', 409);
       const school = await loadResolvedScholarSchool(tx, { applicantId, applicant, application, requirement });

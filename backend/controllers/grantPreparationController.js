@@ -5,6 +5,7 @@ const { loadResolvedScholarSchool, schoolClassification } = require('../services
 const { resolveProcessingRoute } = require('../services/processingRoute');
 const { loadContinuingSchedule } = require('../services/continuingSchedule');
 const { findPrimaryActivePeriod } = require('../services/academicPeriod');
+const { assertScholarPeriodEligible } = require('../services/scholarProcessingPeriod');
 const { hasSectionAccess } = require('../services/sectionAccess');
 const { getInitialRequirements, getWaveSet } = require('../services/requirementWaves');
 const { streamDocument } = require('./documentReviewController');
@@ -15,6 +16,7 @@ const contextFor = async (client, req) => {
     client.academic_periods.findFirst({where:{id:periodId,is_active:true}}),client.scholar_accounts.findFirst({where:{applicant_id:applicantId,is_active:true}}),client.applicants.findUnique({where:{id:applicantId}}),client.application_submissions.findFirst({where:{applicant_id:applicantId},orderBy:{submitted_at:'desc'}}),client.scholar_requirements.findUnique({where:{applicant_id_billing_period_id:{applicant_id:applicantId,billing_period_id:periodId}}}),findPrimaryActivePeriod(client),
   ]);
   if (!period || !scholar || !applicant || applicant.deleted_at || !application || !primary) throw error('Select an active Scholar and active academic period.',409);
+  assertScholarPeriodEligible(applicant, period);
   const school = await loadResolvedScholarSchool(client,{applicantId,applicant,application,requirement});
   if (schoolClassification(school?.school_type)!=='Private') throw error('Grant preparation applies only to Private-school Scholars.',409);
   const route = resolveProcessingRoute({requirement,schoolType:school.school_type,docs:application.initial_docs,period,schedule:await loadContinuingSchedule(client,period.id),applicantId,legacyPeriodId:primary.id});

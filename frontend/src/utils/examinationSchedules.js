@@ -15,7 +15,8 @@ export const hydrateExaminationSchedules = (templates, savedSchedules = [], thum
 };
 
 export const examinationSchedulePayload = state => {
-  if (!state.ready || !state.activePeriod) throw new Error('Load an active academic year before editing schedules.');
+  if (!state.ready || !state.activePeriod) throw new Error('Load the examination intake year before editing schedules.');
+  if (state.readOnly) throw new Error('Historical examination schedules are view-only.');
   const active = new Set(state.activeExamMunicipalities);
   if (state.examinations.some(exam => active.has(exam.municipality) && !validDate(exam.date))) {
     throw new Error('Set an examination date before activating a venue.');
@@ -33,17 +34,21 @@ export const createExaminationScheduleEditor = ({ templates, loadSchedules, save
   readThumbnails = () => ({}), writeThumbnails = () => {}, onSaved = () => {},
   setTimer = setTimeout, clearTimer = clearTimeout, saveDelay = 450 }) => {
   let state = { examinations: hydrateExaminationSchedules(templates), activeExamMunicipalities: [],
-    activePeriod: null, ready: false, loading: false, saving: false, error: '', scopeVersion: 0, saveVersion: 0 };
+    activePeriod: null, ready: false, loading: false, saving: false, error: '', scopeVersion: 0, saveVersion: 0,
+    schoolYear: null, schoolYears: [], selectedYear: '', readOnly: false };
   const listeners = new Set();
   let epoch = 0, readRevision = 0, editRevision = 0, savedRevision = 0;
   let timer, readController, saveController, savePromise;
   let stopped = false;
+  let requestedYear = '';
   const publish = patch => { state = { ...state, ...patch }; listeners.forEach(listener => listener()); };
   const cancelTimer = () => { clearTimer(timer); timer = undefined; };
   const isDirty = () => editRevision !== savedRevision;
 
-  const load = async ({ force = false, notice = '' } = {}) => {
+  const load = async ({ force = false, notice = '', schoolYear = requestedYear } = {}) => {
     if (stopped) return;
+    if (schoolYear !== requestedYear) force = true;
+    requestedYear = schoolYear;
     if (force) {
       epoch += 1;
       cancelTimer();
@@ -51,7 +56,7 @@ export const createExaminationScheduleEditor = ({ templates, loadSchedules, save
       editRevision = savedRevision = 0;
       publish({ ready: false, saving: false, activePeriod: null,
         examinations: hydrateExaminationSchedules(templates), activeExamMunicipalities: [],
-        scopeVersion: epoch, error: notice });
+        scopeVersion: epoch, selectedYear: requestedYear, error: notice });
     }
     readController?.abort();
     readController = new AbortController();
@@ -61,13 +66,16 @@ export const createExaminationScheduleEditor = ({ templates, loadSchedules, save
     const preserveAtStart = isDirty() || state.saving;
     publish({ loading: true });
     try {
-      const payload = await loadSchedules(signal);
+      const payload = await loadSchedules(signal, requestedYear);
       if (stopped || signal.aborted || requestRevision !== readRevision || requestEpoch !== epoch) return;
-      const period = payload?.activePeriod;
-      if (period && (!Number.isInteger(period.id) || !period.schoolYear || period.isActive !== true)) {
+      const period = payload?.intakePeriod || payload?.activePeriod;
+      if (period && (!Number.isInteger(period.id) || !period.schoolYear || (period.isCurrentIntake !== true && period.isActive !== true))) {
         throw new Error('The examination academic year could not be verified. Reload to retry.');
       }
-      const sameScope = period?.id === state.activePeriod?.id && period?.schoolYear === state.activePeriod?.schoolYear;
+      const viewYear = payload?.scope?.schoolYear || period?.schoolYear || requestedYear || null;
+      const readOnly = payload?.scope ? payload.scope.isCurrentIntake !== true : false;
+      const sameScope = period?.id === state.activePeriod?.id && period?.schoolYear === state.activePeriod?.schoolYear
+        && viewYear === state.schoolYear && readOnly === state.readOnly;
       if (sameScope && (preserveAtStart || isDirty() || state.saving || editsAtStart !== editRevision)) {
         publish({ loading: false, ready: Boolean(period), error: notice || (state.ready ? state.error : '') });
         return;
@@ -78,13 +86,14 @@ export const createExaminationScheduleEditor = ({ templates, loadSchedules, save
         saveController?.abort();
       }
       editRevision = savedRevision = 0;
-      const schedules = period && Array.isArray(payload.examinations) ? payload.examinations : [];
+      const schedules = Array.isArray(payload?.examinations) ? payload.examinations : [];
       let thumbnails = {};
-      try { thumbnails = period ? readThumbnails(period.schoolYear) || {} : {}; } catch { /* Optional local photos. */ }
+      try { thumbnails = viewYear ? readThumbnails(viewYear) || {} : {}; } catch { /* Optional local photos. */ }
       publish({ activePeriod: period || null, examinations: hydrateExaminationSchedules(templates, schedules, thumbnails),
         activeExamMunicipalities: schedules.filter(exam => exam.isActive && validDate(exam.date)).map(exam => exam.municipality),
-        ready: Boolean(period), loading: false, saving: false, scopeVersion: epoch,
-        error: notice || (period ? '' : 'No active academic year is configured. Choose one in Settings to manage examinations.') });
+        ready: Boolean(period) || Boolean(viewYear && readOnly), loading: false, saving: false, scopeVersion: epoch,
+        schoolYear: viewYear, schoolYears: payload.schoolYears || (period ? [period.schoolYear] : []), readOnly,
+        error: notice || (period || readOnly ? '' : 'No examination intake is configured. Select one in Settings.') });
     } catch (error) {
       if (stopped || signal.aborted || requestRevision !== readRevision || requestEpoch !== epoch) return;
       publish({ loading: false, ready: false, error: error.message || 'Unable to load examination schedules. Reload to retry.' });
@@ -93,7 +102,7 @@ export const createExaminationScheduleEditor = ({ templates, loadSchedules, save
 
   const flushSave = () => {
     cancelTimer();
-    if (stopped || !state.ready || !isDirty()) return Promise.resolve();
+    if (stopped || !state.ready || state.readOnly || !isDirty()) return Promise.resolve();
     if (savePromise) return savePromise;
     const saveEpoch = epoch;
     const run = async () => {
@@ -146,10 +155,11 @@ export const createExaminationScheduleEditor = ({ templates, loadSchedules, save
     getState: () => state,
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
     load, flushSave,
+    selectYear: schoolYear => load({ force: true, schoolYear }),
     start: () => { stopped = false; },
     stop: () => { stopped = true; epoch += 1; readRevision += 1; cancelTimer(); readController?.abort(); saveController?.abort(); },
     updateExaminations: (updater, { photoOnly = false, scopeVersion = state.scopeVersion } = {}) => {
-      if (stopped || !state.ready || scopeVersion !== state.scopeVersion) return;
+      if (stopped || !state.ready || state.readOnly || scopeVersion !== state.scopeVersion) return;
       const examinations = updater(state.examinations);
       publish({ examinations });
       if (photoOnly) {
@@ -157,7 +167,7 @@ export const createExaminationScheduleEditor = ({ templates, loadSchedules, save
       } else markEdited();
     },
     updateActivation: (updater, { scopeVersion = state.scopeVersion } = {}) => {
-      if (stopped || !state.ready || scopeVersion !== state.scopeVersion) return;
+      if (stopped || !state.ready || state.readOnly || scopeVersion !== state.scopeVersion) return;
       const activeExamMunicipalities = updater(state.activeExamMunicipalities);
       try { examinationSchedulePayload({ ...state, activeExamMunicipalities }); }
       catch (error) { publish({ error: error.message }); return; }

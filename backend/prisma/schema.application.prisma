@@ -10,6 +10,7 @@ datasource db {
 }
 
 model academic_periods {
+  intake_settings intake_settings[]
   id          Int       @id @default(autoincrement())
   school_year String    @db.VarChar(20)
   semester    String    @db.VarChar(30)
@@ -27,6 +28,18 @@ model academic_periods {
   @@index([is_active])
   @@index([is_primary])
   @@index([school_year])
+}
+
+model intake_settings {
+  id                 Int       @id @default(1)
+  academic_period_id Int?
+  revision           Int       @default(0)
+  updated_by         Int?
+  created_at         DateTime  @default(now()) @db.Timestamp(6)
+  updated_at         DateTime  @updatedAt @db.Timestamp(6)
+  intake_period      academic_periods? @relation(fields: [academic_period_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([academic_period_id])
 }
 
 model activity_logs {

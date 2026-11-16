@@ -7,6 +7,7 @@ const {
   buildExamSlotAssignments,
   countScheduledApplicants,
 } = require('../services/examAssignments');
+const { isCurrentExaminationApplicant } = require('../services/examinationEligibility');
 
 const academicYear = '2026-2027';
 const exams = [
@@ -97,4 +98,27 @@ test('bulk assignment uses duplicate-safe inserts for matching existing applican
   assert.deepEqual(result, { matched: 2, created: 1 });
   assert.equal(createManyPayload.skipDuplicates, true);
   assert.equal(createManyPayload.data.length, 2);
+});
+
+test('new intake eligibility preserves recorded years and never aliases historical or unassigned applicants', () => {
+  for (const school_year of ['2025-2026', '', null]) {
+    assert.equal(isCurrentExaminationApplicant({ id: 1, school_year }, academicYear), false);
+  }
+  assert.equal(isCurrentExaminationApplicant({ id: 1, school_year: academicYear }, academicYear), true);
+  assert.equal(isCurrentExaminationApplicant({ id: 1, school_year: academicYear, deleted_at: new Date() }, academicYear), false);
+  assert.equal(isCurrentExaminationApplicant({ id: 1, school_year: '2025-2026' }, academicYear, '2025-2026'), true);
+});
+
+test('scheduled counts default to the exact intake even when old or unassigned applicants have saved slots', () => {
+  const scheduled = countScheduledApplicants({ academicYear, exams,
+    applicants: [{ id: 1, municipality: 'Daet', school_year: academicYear },
+      { id: 2, municipality: 'Daet', school_year: '2025-2026' }, { id: 3, municipality: 'Daet', school_year: null }],
+    slots: [{ applicant_id: 2, exam_id: 10 }, { applicant_id: 3, exam_id: 10 }] });
+  assert.equal(scheduled, 1);
+});
+
+test('new intake bulk assignment queries only the recorded year without a legacy alias', async () => {
+  let query;
+  await assignApplicantsToMunicipalityExams({ applicants: { findMany: async payload => { query = payload; return []; } } }, { exams, academicYear });
+  assert.deepEqual(query.where.OR, [{ school_year: academicYear }]);
 });

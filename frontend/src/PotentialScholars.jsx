@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, Info, Search, SearchX, UsersRound } from 'lucide-react';
 import Notification from './components/Notification';
 import { API_BASE, authHeaders } from './services/api';
 import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
+import { createIntakeRequestGuard } from './utils/intakePeriod';
 import './styles/potential-scholars.css';
 
 export function PotentialScholarDirectory({ applicants, query, verification, onQuery, onVerification, onClearFilters, onClearSelection, onAcceptSelection, onOpenResults, onReview, reviewDisabled = false, page = 1, onPage, selected = {}, selectionCount = 0, canAccept = false, accepting = false, onSelect }) {
@@ -34,55 +35,75 @@ export default function PotentialScholars({ token, onReview, onOpenResults, canA
   const [data, setData] = useState(null), [loading, setLoading] = useState(true), [error, setError] = useState('');
   const [query, setQuery] = useState(''), [verification, setVerification] = useState('all'), [page, setPage] = useState(1), [retry, setRetry] = useState(0);
   const [selected, setSelected] = useState({}), [confirmation, setConfirmation] = useState(null), [accepting, setAccepting] = useState(false), [decisionError, setDecisionError] = useState(''), [success, setSuccess] = useState('');
-  const requestActive = useRef(false), dialog = useRef(null);
+  const requestActive = useRef(false), dialog = useRef(null), mounted = useRef(false);
+  const loadGuard = useRef(null), loadedPeriodId = useRef(null), scopeEpoch = useRef(0);
+  if (!loadGuard.current) loadGuard.current = createIntakeRequestGuard();
   useEffect(() => {
     if (confirmation) { dialog.current?.showModal(); }
   }, [confirmation]);
+  const load = useCallback(() => loadGuard.current.run(async signal => {
+    const response = await fetch(`${API_BASE}/applicants/complete-requirements`, { headers: authHeaders(token), cache: 'no-store', signal });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || 'Potential Scholars could not be refreshed. Please retry.');
+    if (!Array.isArray(payload.applicants)) throw new Error('The applicant response was unreadable. Please retry.');
+    return payload;
+  }, { onLoading: setLoading, onError: failure => setError(failure.message || 'Unable to load potential scholars. Please retry.'), onSuccess: payload => {
+    const periodId = payload.period?.id || null;
+    if (loadedPeriodId.current !== periodId) {
+      scopeEpoch.current += 1;
+      setSelected({}); setConfirmation(null); setDecisionError(''); setSuccess('');
+    }
+    loadedPeriodId.current = periodId;
+    setData(payload); setError('');
+    const currentReview = (id, reviewId) => payload.applicants.some(row => row.id === Number(id) && row.reviewId === reviewId && row.canAccept);
+    setSelected(current => Object.fromEntries(Object.entries(current).filter(([id, reviewId]) => currentReview(id, reviewId))));
+    setConfirmation(current => current && current.periodId === periodId && current.rows.every(row => currentReview(row.id, row.reviewId)) ? current : null);
+  } }), [token]);
   useEffect(() => {
-    let active = true;
-    const load = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/applicants/complete-requirements`, { headers: authHeaders(token), cache: 'no-store' });
-        if (!response.ok) throw new Error('Potential Scholars could not be refreshed. Please retry.');
-        const payload = await response.json();
-        if (!Array.isArray(payload.applicants)) throw new Error('The applicant response was unreadable. Please retry.');
-        if (active) {
-          setData(payload); setError('');
-          setSelected(current => Object.fromEntries(Object.entries(current).filter(([id, reviewId]) => payload.applicants.some(row => row.id === Number(id) && row.reviewId === reviewId && row.canAccept))));
-        }
-      } catch (failure) { if (active) setError(failure.message || 'Unable to load potential scholars. Please retry.'); }
-      finally { if (active) setLoading(false); }
+    mounted.current = true;
+    const reloadIntake = () => {
+      scopeEpoch.current += 1; loadGuard.current.cancel(); loadedPeriodId.current = null;
+      setData(null); setSelected({}); setConfirmation(null); setDecisionError(''); setSuccess(''); setError('');
+      void load();
     };
-    load();
+    const fromStorage = event => { if (event.key === 'intakePeriodRevision') reloadIntake(); };
+    const initialLoad = window.setTimeout(load, 0);
     const stop = subscribeToVisibleRefresh(load, { intervalMs: ROUTINE_DATA_REFRESH_MS });
-    return () => { active = false; stop(); };
-  }, [token, retry]);
+    window.addEventListener('intake-period-changed', reloadIntake);
+    window.addEventListener('storage', fromStorage);
+    return () => { mounted.current = false; scopeEpoch.current += 1; window.clearTimeout(initialLoad); loadGuard.current.cancel(); stop(); window.removeEventListener('intake-period-changed', reloadIntake); window.removeEventListener('storage', fromStorage); };
+  }, [load, retry]);
   const selectedRows = (data?.applicants || []).filter(row => row.canAccept && selected[row.id] === row.reviewId);
+  const reviewDisabled = loading || Boolean(error) || accepting || !data?.period;
   const acceptSelected = async () => {
-    if (requestActive.current || !confirmation || !canAccept || error) return;
+    if (requestActive.current || !confirmation || !canAccept || reviewDisabled || confirmation.periodId !== data.period.id
+      || !confirmation.rows.length || !confirmation.rows.every(row => data.applicants.some(current => current.id === row.id && current.reviewId === row.reviewId && current.canAccept))) return;
+    const acceptanceEpoch = scopeEpoch.current;
+    const currentScope = () => mounted.current && scopeEpoch.current === acceptanceEpoch;
     requestActive.current = true; setAccepting(true); setDecisionError('');
     try {
       const response = await fetch(`${API_BASE}/potential-scholars/accept-batch`, { method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, body: JSON.stringify({ academicPeriodId: confirmation.periodId, selected: confirmation.rows.map(row => ({ applicantId: row.id, reviewId: row.reviewId })) }) });
       const body = await response.json();
+      if (!currentScope()) return;
       if (!response.ok) throw new Error(body.message || 'Batch acceptance could not be confirmed. Refresh before retrying.');
       setSuccess(body.message || 'Selected applicants accepted as Scholars.'); setSelected({}); setConfirmation(null); setRetry(value => value + 1);
-    } catch (failure) { setDecisionError(failure.message || 'Acceptance could not be confirmed. Refresh before retrying.'); }
-    finally { requestActive.current = false; setAccepting(false); }
+    } catch (failure) { if (currentScope()) setDecisionError(failure.message || 'Acceptance could not be confirmed. Refresh before retrying.'); }
+    finally { requestActive.current = false; if (mounted.current) setAccepting(false); }
   };
   return <div className="potential-scholars">
-    <header className="potential-page-heading"><div><span className="potential-eyebrow">APPLICANT REVIEW</span><h2>Potential Scholars</h2><p>Review checked applicants before accepting them as Scholars.</p></div>{data?.period && <span className="potential-period"><span>ACTIVE REVIEW PERIOD</span><strong>{data.period.schoolYear}</strong><small>{data.period.semester}</small></span>}</header>
+    <header className="potential-page-heading"><div><span className="potential-eyebrow">APPLICANT REVIEW</span><h2>Potential Scholars</h2><p>Review checked applicants before accepting them as Scholars.</p></div>{data?.period && <span className="potential-period"><span>APPLICATION INTAKE</span><strong>{data.period.schoolYear}</strong><small>{data.period.semester}</small></span>}</header>
     <aside className="potential-guidance"><span className="potential-guidance-icon"><Info size={18} aria-hidden="true" /></span><div><strong>Results <ArrowRight size={13} aria-hidden="true" /> Check requirements <ArrowRight size={13} aria-hidden="true" /> Add to Potential Scholars</strong><p>Adding an applicant here does not grant Scholar status. Changed records must be rechecked before final acceptance.</p></div></aside>
     {success && <Notification tone="success" title="Scholar acceptance recorded">{success}</Notification>}
     {error && <Notification tone="error" title="Unable to refresh potential scholars" action={<button type="button" onClick={() => { setLoading(true); setRetry(value => value + 1); }}>Retry</button>}>{error}{data && ' Previously loaded records are shown; review and acceptance are disabled until refresh succeeds.'}</Notification>}
     {loading && !data && <Notification tone="progress" title="Loading Potential Scholars">Loading applicants explicitly added after checking.</Notification>}
-    {data && !data.period && !error && <Notification title="No primary academic period">Set a primary academic period before reviewing potential scholars.</Notification>}
+    {data && !data.period && !error && <Notification title="No application intake selected">Select an application and examination intake in Settings before reviewing potential scholars.</Notification>}
     {!canAccept && data?.period && <Notification title="Final acceptance requires an authorized administrator">Provincial Admin or Billing/Payroll Admin with Applicants and Examination access can accept selected candidates. Examination-assigned staff can check and add candidates in Results.</Notification>}
-    {data?.period && <PotentialScholarDirectory applicants={data.applicants} query={query} verification={verification} onQuery={value => { setQuery(value); setPage(1); }} onVerification={value => { setVerification(value); setPage(1); }} onClearFilters={() => { setQuery(''); setVerification('all'); setPage(1); }} onClearSelection={() => setSelected({})} onAcceptSelection={() => { setDecisionError(''); setConfirmation({ periodId: data.period.id, rows: selectedRows }); }} canAccept={canAccept && data.applicants.length > 0} selectionCount={selectedRows.length} accepting={accepting} onOpenResults={onOpenResults} onReview={onReview} reviewDisabled={Boolean(error) || accepting} page={page} onPage={setPage} selected={selected} onSelect={canAccept ? (row, checked) => setSelected(current => { const next = { ...current }; if (checked && Object.keys(current).length < 50) next[row.id] = row.reviewId; else if (!checked) delete next[row.id]; return next; }) : undefined} />}
+    {data?.period && <PotentialScholarDirectory applicants={data.applicants} query={query} verification={verification} onQuery={value => { setQuery(value); setPage(1); }} onVerification={value => { setVerification(value); setPage(1); }} onClearFilters={() => { setQuery(''); setVerification('all'); setPage(1); }} onClearSelection={() => setSelected({})} onAcceptSelection={() => { if (!reviewDisabled) { setDecisionError(''); setConfirmation({ periodId: data.period.id, rows: selectedRows }); } }} canAccept={canAccept && data.applicants.length > 0} selectionCount={selectedRows.length} accepting={accepting} onOpenResults={onOpenResults} onReview={onReview} reviewDisabled={reviewDisabled} page={page} onPage={setPage} selected={selected} onSelect={canAccept ? (row, checked) => { if (!reviewDisabled) setSelected(current => { const next = { ...current }; if (checked && Object.keys(current).length < 50) next[row.id] = row.reviewId; else if (!checked) delete next[row.id]; return next; }); } : undefined} />}
     {confirmation && <dialog ref={dialog} className="potential-confirm-dialog" aria-labelledby="potential-confirm-title" onCancel={event => { if (accepting) event.preventDefault(); else setConfirmation(null); }}>
       <h3 id="potential-confirm-title">Accept {confirmation.rows.length} selected applicants as Scholars?</h3><p>Only the applicants listed below will be accepted. Their checked requirements and eligibility are revalidated together. If any record changed, the entire batch is left unaccepted.</p>
       <ul>{confirmation.rows.map(row => <li key={row.id}><strong>{row.name}</strong> · {row.controlNo}</li>)}</ul>
       {decisionError && <Notification tone="error" title="Batch acceptance needs attention">{decisionError}</Notification>}
-      <div className="potential-confirm-actions">{decisionError && <button type="button" disabled={accepting} onClick={() => { setConfirmation(null); setRetry(value => value + 1); }}>Refresh selection</button>}<button type="button" disabled={accepting} onClick={() => setConfirmation(null)}>Back to selection</button><button type="button" disabled={accepting || Boolean(error)} onClick={acceptSelected}>{accepting ? 'Accepting selected...' : 'Confirm acceptance'}</button></div>
+      <div className="potential-confirm-actions">{decisionError && <button type="button" disabled={accepting} onClick={() => { setConfirmation(null); setLoading(true); setRetry(value => value + 1); }}>Refresh selection</button>}<button type="button" disabled={accepting} onClick={() => setConfirmation(null)}>Back to selection</button><button type="button" disabled={reviewDisabled} onClick={acceptSelected}>{accepting ? 'Accepting selected...' : 'Confirm acceptance'}</button></div>
     </dialog>}
   </div>;
 }

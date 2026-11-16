@@ -8,6 +8,7 @@ const scholarAmount = require('../controllers/scholarAmountController');
 const grantPreparation = require('../controllers/grantPreparationController');
 const passerLists = require('../controllers/passerListController');
 const phoneCapture = require('../controllers/phoneCaptureController');
+const { getIntakePeriod, updateIntakePeriod } = require('../controllers/intakePeriodController');
 const { rateLimit } = require('express-rate-limit');
 const { getContinuingSchedule, saveContinuingSchedule } = require('../controllers/continuingScheduleController');
 const { examinationResultController } = require('../controllers/examinationResultController');
@@ -99,6 +100,8 @@ router.post('/phone-capture/sessions/:id/received', ...phoneCaptureAccess, phone
 router.delete('/phone-capture/sessions/:id', ...phoneCaptureAccess, phoneCaptureWriteLimit, phoneCapture.close);
 
 router.get('/academic-periods/active', getActiveAcademicPeriod);
+router.get('/intake-period', getIntakePeriod);
+router.put('/intake-period', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), updateIntakePeriod);
 router.get('/application-settings', getApplicationSettings);
 router.put('/application-settings', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('settings'), updateApplicationSettings);
 router.get('/examination-settings', authenticate, checkRole(['Applicant', 'Scholar', 'SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), getExaminationSettingsController);

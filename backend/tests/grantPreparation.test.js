@@ -3,14 +3,14 @@ const assert=require('node:assert/strict');
 const prisma={};const prismaPath=require.resolve('../config/prisma');require.cache[prismaPath]={id:prismaPath,filename:prismaPath,loaded:true,exports:prisma};
 const {save}=require('../controllers/grantPreparationController');
 const {validateTuitionAssistance,grantBreakdown,preparationBlocker,snapshotPrivateGrants}=require('../services/grantPreparation');
-let row,listed,type,active,events;
+let row,listed,type,active,events,entryYear;
 const response=()=>({locals:{},statusCode:200,set(){return this;},status(code){this.statusCode=code;return this;},json(body){this.body=body;return this;}});
 const request=(value,extra={})=>({params:{applicantId:'7'},body:{academicPeriodId:10,tuitionFeeAssistance:value,preparedAt:row?.grant_prepared_at?new Date(row.grant_prepared_at).toISOString():null,...extra},user:{id:9,role:'SuperAdmin'}});
 beforeEach(()=>{
- row=null;listed=false;type='private';active=true;events=[];
+ row=null;listed=false;type='private';active=true;events=[];entryYear='2025-2026';
  const period={id:10,is_active:true,school_year:'2026-2027',semester:'1st Semester'};
  Object.assign(prisma,{
- academic_periods:{findFirst:async()=>active?period:null},scholar_accounts:{findFirst:async()=>({id:1,is_active:true})},applicants:{findUnique:async()=>({id:7,school_id:1})},application_submissions:{findFirst:async()=>({id:1,initial_docs:{initialRequirementPeriodId:10}})},schools:{findMany:async()=>[{id:1,school_type:type}]},
+ academic_periods:{findFirst:async()=>active?period:null},scholar_accounts:{findFirst:async()=>({id:1,is_active:true})},applicants:{findUnique:async()=>({id:7,school_id:1,school_year:entryYear})},application_submissions:{findFirst:async()=>({id:1,initial_docs:{initialRequirementPeriodId:10}})},schools:{findMany:async()=>[{id:1,school_type:type}]},
  scholar_requirements:{findUnique:async()=>row,findMany:async()=>row?[row]:[],upsert:async({create,update})=>{events.push('save');row=row?{...row,...update}:create;return row;}},payroll_claims:{findFirst:async()=>{events.push('check-list');return listed?{id:1}:null;}},$queryRaw:async()=>{events.push('lock');return[{value:1}];},$transaction:async(fn)=>{const previous=structuredClone(row);try{return await fn(prisma);}catch(error){row=previous;throw error;}},
  });
 });
@@ -56,4 +56,10 @@ test('grant preparation respects an explicit period amount without resurrecting 
  let res=response();await save(request(5500.25),res);assert.equal(res.statusCode,200);assert.equal(res.body.grant.totalGrant,6500.75);assert.equal(res.body.grant.allowance,1000.5);
  const original=structuredClone(row);res=response();await save(request(6500.76),res);assert.equal(res.statusCode,400);assert.deepEqual(row,original);
  row={applicant_id:7,billing_period_id:10,billing_amount:9999};res=response();await save(request(3500),res);assert.equal(res.body.grant.totalGrant,5000);
+});
+
+test('upcoming Scholars cannot prepare a grant under the retained earlier processing year',async()=>{
+ entryYear='2027-2028';const res=response();await save(request(3500),res);
+ assert.equal(res.statusCode,409);assert.match(res.body.message,/2027-2028/);assert.equal(row,null);assert.deepEqual(events,['lock']);assert.equal(res.locals.auditAction,undefined);
+ entryYear='2026-2027';const current=response();await save(request(3500),current);assert.equal(current.statusCode,200);assert.equal(row.billing_period_id,10);
 });

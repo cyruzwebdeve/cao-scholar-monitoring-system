@@ -4,6 +4,7 @@ import { resultMetricRows } from './utils/metricDetails';
 import PublishResultModal from './components/PublishResultModal';
 import InitialVerificationDocuments from './components/InitialVerificationDocuments';
 import Notification from './components/Notification';
+import './styles/intake-period.css';
 import PasserLists from './PasserLists';
 import InitialRequirementCapture from './InitialRequirementCapture';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -27,6 +28,7 @@ import { API_BASE, authHeaders } from './services/api';
 import CsvExportModal from './components/CsvExportModal';
 import { buildRecordRows, downloadCsv } from './utils/csvExport';
 import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
+import { createIntakeRequestGuard, intakeScopeLabel, intakeYearQuery } from './utils/intakePeriod';
 
 const formatResultDate = (value) => {
   if (!value) return 'Not scheduled';
@@ -82,52 +84,63 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
   const [page, setPage] = useState(1);
   const [exportOpen, setExportOpen] = useState(false);
+  const [schoolYear, setSchoolYear] = useState(''), [schoolYears, setSchoolYears] = useState([]);
+  const [scope, setScope] = useState(null), [intakePeriod, setIntakePeriod] = useState(null);
+  const loadGuard = useRef(null), loadedScope = useRef(''), viewVersion = useRef(0);
+  const selectedId = useRef(null);
+  selectedId.current = selected?.id;
+  if (!loadGuard.current) loadGuard.current = createIntakeRequestGuard();
+  const canEditIntake = scope?.isCurrentIntake === true && !loading && !loadError;
   const pageSize = 10;
 
-  const loadResults = useCallback(async ({ showLoader = false } = {}) => {
-    if (showLoader) setLoading(true);
-    try {
-      const response = await fetch(`${API_BASE}/results/management`, { headers: authHeaders(token) });
-      if (!response.ok) throw new Error('Unable to load examination results.');
-      const payload = await response.json();
-      const settingsResponse = await fetch(`${API_BASE}/examination-settings`, { headers: authHeaders(token) });
-      if (!settingsResponse.ok) throw new Error('Unable to verify examination delivery mode.');
-      const settingsBody = await settingsResponse.json();
-      setDeliveryMode(settingsBody.examination?.deliveryMode || '');
-      const nextApplicants = (payload.applicants || []).map((applicant) => ({
-        ...applicant,
-        control: applicant.controlNo,
-        date: applicant.examDate || null,
-        examEndDate: applicant.examEndDate || null,
-        status: applicant.resultStatus || (applicant.status === 'Exam Completed' ? 'For review' : applicant.status),
-        score: applicant.examScore,
-        passingScore: applicant.passingScore,
-        notes: applicant.reviewerNotes || '',
-        reevaluatedAt: applicant.reviewerNotesUpdatedAt || null,
-      }));
-      setApplicants(nextApplicants);
-      if (initialApplicantId && !initialReviewOpened.current) {
-        const candidate = nextApplicants.find(applicant => applicant.id === initialApplicantId);
-        initialReviewOpened.current = true;
-        if (candidate) {
-          setSelected(candidate);
-          setPassingScore(String(candidate.passingScore ?? 14));
-          setReevaluationScore(String(candidate.score ?? ''));
-        }
-      }
-      setLoadError('');
-    } catch (error) {
-      setLoadError(error.message || 'Unable to load examination results.');
-    } finally {
-      setLoading(false);
+  const loadResults = useCallback(() => loadGuard.current.run(async signal => {
+    const responses = await Promise.all([
+      fetch(`${API_BASE}/results/management${intakeYearQuery(schoolYear)}`, { headers: authHeaders(token), cache: 'no-store', signal }),
+      fetch(`${API_BASE}/examination-settings`, { headers: authHeaders(token), cache: 'no-store', signal }),
+    ]);
+    const bodies = await Promise.all(responses.map(response => response.json()));
+    responses.forEach((response, index) => { if (!response.ok) throw new Error(bodies[index].message || 'Unable to load examination results.'); });
+    return { ...bodies[0], deliveryMode: bodies[1].examination?.deliveryMode || '' };
+  }, { onLoading: setLoading, onError: error => setLoadError(error.message), onSuccess: payload => {
+    const nextScope = `${payload.intakePeriod?.id}:${payload.scope?.schoolYear}`;
+    if (loadedScope.current !== nextScope) { viewVersion.current += 1; setSelected(null); setPublishConfirmation(null); setIntake(null); setExportOpen(false); }
+    loadedScope.current = nextScope;
+    setScope(payload.scope); setIntakePeriod(payload.intakePeriod); setSchoolYears(payload.schoolYears || []);
+    setDeliveryMode(payload.deliveryMode);
+    const nextApplicants = (payload.applicants || []).map((applicant) => ({
+      ...applicant, control: applicant.controlNo, date: applicant.examDate || null,
+      examEndDate: applicant.examEndDate || null,
+      status: applicant.resultStatus || (applicant.status === 'Exam Completed' ? 'For review' : applicant.status),
+      score: applicant.examScore, passingScore: applicant.passingScore, notes: applicant.reviewerNotes || '',
+      reevaluatedAt: applicant.reviewerNotesUpdatedAt || null,
+    }));
+    setApplicants(nextApplicants);
+    if (initialApplicantId && !initialReviewOpened.current) {
+      const candidate = nextApplicants.find(applicant => applicant.id === initialApplicantId);
+      initialReviewOpened.current = true;
+      if (candidate) { setSelected(candidate); setPassingScore(String(candidate.passingScore ?? 14)); setReevaluationScore(String(candidate.score ?? '')); }
     }
-  }, [token, initialApplicantId]);
+    setLoadError('');
+  } }), [token, initialApplicantId, schoolYear]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(loadResults, 0);
     const stopRefreshing = subscribeToVisibleRefresh(loadResults, { intervalMs: ROUTINE_DATA_REFRESH_MS });
-    return () => { window.clearTimeout(initialLoad); stopRefreshing(); };
+    const reloadIntake = () => { void loadResults(); };
+    const fromStorage = event => { if (event.key === 'intakePeriodRevision') reloadIntake(); };
+    window.addEventListener('intake-period-changed', reloadIntake);
+    window.addEventListener('storage', fromStorage);
+    return () => { window.clearTimeout(initialLoad); loadGuard.current.cancel(); viewVersion.current += 1; stopRefreshing(); window.removeEventListener('intake-period-changed', reloadIntake); window.removeEventListener('storage', fromStorage); };
   }, [loadResults]);
+
+  const selectIntakeYear = (year) => {
+    loadGuard.current.cancel();
+    viewVersion.current += 1;
+    loadedScope.current = '';
+    setLoading(true); setLoadError(''); setScope(null); setApplicants([]);
+    setSelected(null); setIntake(null); setPublishConfirmation(null);
+    setReevaluationOpen(false); setExportOpen(false); setPage(1); setSchoolYear(year);
+  };
 
   useEffect(() => {
     if (!selected) return undefined;
@@ -204,21 +217,27 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
   };
 
   const loadIntake = useCallback(async () => {
-    if (!selected || selected.isScholar || selected.status !== 'Passed') return;
+    if (!canEditIntake || !selected || selected.isScholar || selected.status !== 'Passed') return;
     const response = await fetch(`${API_BASE}/passers/${selected.id}/intake`, { headers: authHeaders(token), cache: 'no-store' });
     const body = await response.json();
     if (!response.ok) throw new Error(body.message || 'Unable to load initial verification.');
     return { ...body.intake, isPasser: true };
-  }, [selected, token]);
+  }, [selected, token, canEditIntake]);
   useEffect(() => {
     let active = true;
     loadIntake().then((value) => { if (active) { setIntake(value || null); setIntakeError(''); setRequirementsChecked(false); } }).catch((failure) => { if (active) { setIntake(null); setIntakeError(failure.message); } });
     return () => { active = false; };
   }, [loadIntake]);
-  const refreshIntake = async () => { setRequirementsChecked(false); try { setIntake(await loadIntake()); setIntakeError(''); } catch (failure) { setIntake(null); setIntakeError(failure.message); } };
+  const refreshIntake = async () => {
+    const version = viewVersion.current, applicantId = selected?.id;
+    const isCurrent = () => version === viewVersion.current && selectedId.current === applicantId;
+    setRequirementsChecked(false);
+    try { const value = await loadIntake(); if (isCurrent()) { setIntake(value); setIntakeError(''); } }
+    catch (failure) { if (isCurrent()) { setIntake(null); setIntakeError(failure.message); } }
+  };
 
   const saveReevaluation = async () => {
-    if (!selected || selected.isScholar) return;
+    if (!canEditIntake || !selected || selected.isScholar) return;
     const isFirstResult = !selected.resultId;
     const score = Number(reevaluationScore);
     if (!reevaluationScore.trim() || !Number.isFinite(score) || score < 0 || score > 20) {
@@ -231,6 +250,7 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
     }
     setReevaluating(true);
     setReevaluationError('');
+    const version = viewVersion.current;
     try {
       const response = await fetch(`${API_BASE}/examinations/${selected.examId}/results/${selected.id}`, {
         method: isFirstResult ? 'POST' : 'PUT',
@@ -238,6 +258,7 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
         body: JSON.stringify({ score, passingScore: Number(passingScore), resultId: selected.resultId, updatedAt: selected.resultUpdatedAt }),
       });
       const payload = await response.json();
+      if (version !== viewVersion.current) return;
       if (!response.ok) throw new Error(payload.message || 'Unable to re-evaluate this result.');
       const updated = {
         ...selected,
@@ -251,18 +272,19 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
         notes: payload.result.remarks,
         reevaluatedAt: payload.result.updatedAt,
       };
-      setSelected(updated);
+      setSelected(current => current?.id === updated.id ? updated : current);
       setApplicants((current) => current.map((applicant) => applicant.id === updated.id ? { ...applicant, ...updated } : applicant));
       setReevaluationOpen(false);
       await loadResults();
     } catch (error) {
-      setReevaluationError(error.message || 'Unable to re-evaluate this result.');
+      if (version === viewVersion.current) setReevaluationError(error.message || 'Unable to re-evaluate this result.');
     } finally {
       setReevaluating(false);
     }
   };
 
   const publishResult = async () => {
+    if (!canEditIntake) return;
     const result = publishConfirmation;
     if (!result?.resultId || result.isScholar || result.resultPublishedAt || publishing || publishRequest.current) return;
     if (!selected || selected.id !== result.id || selected.resultId !== result.resultId || selected.resultUpdatedAt !== result.resultUpdatedAt) {
@@ -272,32 +294,37 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
     setPublishing(true);
     setPublishError('');
     setAcceptError('');
+    const version = viewVersion.current;
     try {
       const response = await fetch(`${API_BASE}/examinations/${result.examId}/results/${result.id}/publish`, {
         method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({ resultId: result.resultId, updatedAt: result.resultUpdatedAt }),
       });
       const payload = await response.json();
+      if (version !== viewVersion.current) return;
       if (!response.ok) throw new Error(payload.message || 'Unable to publish the result.');
-      setSelected((current) => ({ ...current, resultUpdatedAt: payload.result.updatedAt, resultPublishedAt: payload.result.publishedAt }));
+      setSelected((current) => current?.id === result.id ? { ...current, resultUpdatedAt: payload.result.updatedAt, resultPublishedAt: payload.result.publishedAt } : current);
       setPublishConfirmation(null);
       await loadResults();
-    } catch (error) { setPublishError(error.message || 'Unable to publish the result.'); }
+    } catch (error) { if (version === viewVersion.current) setPublishError(error.message || 'Unable to publish the result.'); }
     finally { publishRequest.current = false; setPublishing(false); }
   };
 
   const addToPotential = async () => {
+    if (!canEditIntake) return;
     if (!selected || selected.isScholar || !requirementsChecked || !intake?.initialVerified || !intake.reviewToken) return;
     setAcceptingScholar(true); setAcceptError('');
+    const version = viewVersion.current;
     try {
       const response = await fetch(`${API_BASE}/potential-scholars/${selected.id}`, {
         method: 'POST', headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({ examId: selected.examId, resultId: selected.resultId, applicationId: selected.applicationId, academicPeriodId: selected.academicPeriodId, updatedAt: selected.resultUpdatedAt, reviewToken: intake.reviewToken }),
       });
       const body = await response.json();
+      if (version !== viewVersion.current) return;
       if (!response.ok) throw new Error(body.message || 'Unable to add this applicant to Potential Scholars.');
       await refreshIntake();
-    } catch (failure) { setAcceptError(failure.message || 'Unable to add to Potential Scholars.'); }
+    } catch (failure) { if (version === viewVersion.current) setAcceptError(failure.message || 'Unable to add to Potential Scholars.'); }
     finally { setAcceptingScholar(false); }
   };
 
@@ -320,12 +347,13 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
   return <>
     <div className="results-management">
       <header className="rm-heading">
-        <div><span className="rm-eyebrow">EXAMINATION OUTCOMES</span><h2>Results Management</h2><p>Review examination outcomes and track applicant qualification status.</p></div>
-        <div className="rm-heading-actions"><span className="rm-live"><i />Refreshes automatically</span><button type="button" className="rm-export" onClick={() => setExportOpen(true)} disabled={!sorted.length}><Download size={15} />Export CSV</button></div>
+        <div><span className="rm-eyebrow">EXAMINATION OUTCOMES</span><h2>Results Management</h2><p>{loading ? 'Loading intake records...' : intakeScopeLabel(scope, intakePeriod)}</p></div>
+        <div className="rm-heading-actions"><span className="rm-live"><i />Refreshes automatically</span><button type="button" className="rm-export" onClick={() => setExportOpen(true)} disabled={loading || Boolean(loadError) || !sorted.length}><Download size={15} />Export CSV</button></div>
       </header>
 
+      <label className="intake-year-filter">Intake school year<select aria-label="Results intake school year" value={schoolYear} onChange={event => selectIntakeYear(event.target.value)}><option value="">{intakePeriod?.schoolYear || 'Current'} · Current intake</option><option value="all">All intake years · History</option>{schoolYears.map(year => <option key={year} value={year}>{year}</option>)}</select></label>
       <nav className="examination-workspace-tabs" aria-label="Results sections"><button type="button" className={view === 'results' ? 'active' : ''} aria-pressed={view === 'results'} onClick={() => setView('results')}>Examination results</button><button type="button" className={view === 'passers' ? 'active' : ''} aria-pressed={view === 'passers'} onClick={() => setView('passers')}>Passer Lists</button></nav>
-      {view === 'passers' && <PasserLists applicants={applicants} token={token} onPosted={async () => { setSelected(null); await loadResults(); }} />}
+      {view === 'passers' && <PasserLists key={`${scope?.schoolYear}:${intakePeriod?.id}`} academicPeriodId={intakePeriod?.id} schoolYear={schoolYear} readOnly={!canEditIntake} applicants={applicants} token={token} onPosted={async () => { setSelected(null); await loadResults(); }} />}
       {view === 'results' && <>
       <div className="rm-stats">{stats.map(({ label, value, detail, tone, Icon }) => <MetricDetailsCard title={label} rows={resultMetricRows(applicants, label)} columns={[{ key: 'name', label: 'Name' }, { key: 'control', label: 'Control no.' }, { key: 'score', label: 'Score' }, { key: 'status', label: 'Status' }]} disabled={loading || Boolean(loadError && !applicants.length)} key={label} className={tone}><div><span>{label}</span><strong>{loading || (loadError && !applicants.length) ? '—' : value}</strong><small>{detail}</small></div><i className="rm-stat-icon"><Icon size={20} /></i></MetricDetailsCard>)}</div>
 
@@ -376,7 +404,7 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
           <section className="rm-detail-section"><h4>Examination details</h4><dl><div><dt>Examination</dt><dd>{selected.examTitle || 'PGCEAP Qualifying Examination'}</dd></div><div><dt>Date</dt><dd>{formatResultDate(selected.date)}</dd></div><div><dt>Academic year</dt><dd>{selected.academicYear || '2026-2027'}</dd></div><div><dt>Venue</dt><dd>{selected.examVenue || selected.municipality || 'Not specified'}</dd></div></dl></section>
           <section className="rm-detail-section"><h4>Applicant location</h4><dl><div><dt>Municipality</dt><dd>{selected.municipality || 'Not specified'}</dd></div><div><dt>Barangay</dt><dd>{selected.barangay || 'Not specified'}</dd></div></dl></section>
 
-          {!selected.isScholar && selected.status === 'Passed' && <section className="rm-detail-section"><h4>Initial verification before Scholar acceptance</h4>{intakeError && <Notification tone="error" title="Unable to load initial verification">{intakeError}</Notification>}{intake ? <><Notification tone={intake.initialVerified ? 'success' : 'info'} title="Initial requirement verification">{intake.initialVerified ? 'Required initial documents approved. Ready for Scholar acceptance.' : 'Admin must upload and verify all required initial documents. Barangay Indigency is optional.'}</Notification><InitialRequirementCapture key={`${selected.id}:${intake.academicPeriodId}`} scholar={intake} token={token} onSaved={refreshIntake} /><InitialVerificationDocuments intake={intake} token={token} /></> : !intakeError && <Notification tone="progress" title="Checking initial verification">Loading the posted passer and initial requirements.</Notification>}</section>}
+          {canEditIntake && !selected.isScholar && selected.status === 'Passed' && <section className="rm-detail-section"><h4>Initial verification before Scholar acceptance</h4>{intakeError && <Notification tone="error" title="Unable to load initial verification">{intakeError}</Notification>}{intake ? <><Notification tone={intake.initialVerified ? 'success' : 'info'} title="Initial requirement verification">{intake.initialVerified ? 'Required initial documents approved. Ready for Scholar acceptance.' : 'Admin must upload and verify all required initial documents. Barangay Indigency is optional.'}</Notification><InitialRequirementCapture key={`${selected.id}:${intake.academicPeriodId}`} scholar={intake} token={token} onSaved={refreshIntake} /><InitialVerificationDocuments intake={intake} token={token} /></> : !intakeError && <Notification tone="progress" title="Checking initial verification">Loading the posted passer and initial requirements.</Notification>}</section>}
 
           {reevaluationOpen && (
             <section className="rm-reevaluation-panel">
@@ -387,20 +415,20 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
               </div>
               {reevaluationScore !== '' && <div className="rm-reevaluation-preview"><span>Updated outcome</span><StatusBadge status={Number(reevaluationScore) >= Number(selected.passingScore ?? passingScore) ? 'Passed' : 'Failed'} /></div>}
               {reevaluationError && <Notification tone="error" title="Unable to save examination score">{reevaluationError}</Notification>}
-              <button type="button" className="rm-save-reevaluation" disabled={reevaluating} onClick={saveReevaluation}><Save size={15} />{reevaluating ? 'Saving score…' : 'Save score for review'}</button>
+              <button type="button" className="rm-save-reevaluation" disabled={!canEditIntake || reevaluating} onClick={saveReevaluation}><Save size={15} />{reevaluating ? 'Saving score…' : 'Save score for review'}</button>
             </section>
           )}
 
           <footer className="rm-scholar-action">
-            {!reevaluationOpen && <button type="button" className="rm-reevaluate-trigger" disabled={selected.isScholar || publishing || ((!selected.resultId) && (deliveryMode !== 'paper' || selected.attendanceStatus !== 'Present' || !selected.examId))} onClick={() => { setReevaluationOpen(true); setReevaluationScore(String(selected.score ?? '')); setReevaluationError(''); }}><RefreshCw size={16} />{selected.isScholar ? 'Result locked after acceptance' : !selected.resultId ? deliveryMode === 'online' ? 'Online score computed on submission' : selected.attendanceStatus !== 'Present' ? 'Confirm Present attendance before recording' : 'Record paper score' : 'Correct score'}</button>}
-            {selected.resultId && !selected.resultPublishedAt && !selected.isScholar && !reevaluationOpen && <button type="button" className="rm-save-reevaluation" disabled={publishing || reevaluating} onClick={() => { setPublishError(''); setPublishConfirmation({ ...selected }); }}>{publishing ? 'Publishing…' : 'Publish reviewed result'}</button>}
+            {!reevaluationOpen && <button type="button" className="rm-reevaluate-trigger" disabled={!canEditIntake || selected.isScholar || publishing || ((!selected.resultId) && (deliveryMode !== 'paper' || selected.attendanceStatus !== 'Present' || !selected.examId))} onClick={() => { setReevaluationOpen(true); setReevaluationScore(String(selected.score ?? '')); setReevaluationError(''); }}><RefreshCw size={16} />{selected.isScholar ? 'Result locked after acceptance' : !selected.resultId ? deliveryMode === 'online' ? 'Online score computed on submission' : selected.attendanceStatus !== 'Present' ? 'Confirm Present attendance before recording' : 'Record paper score' : 'Correct score'}</button>}
+            {canEditIntake && selected.resultId && !selected.resultPublishedAt && !selected.isScholar && !reevaluationOpen && <button type="button" className="rm-save-reevaluation" disabled={!canEditIntake || publishing || reevaluating} onClick={() => { setPublishError(''); setPublishConfirmation({ ...selected }); }}>{publishing ? 'Publishing…' : 'Publish reviewed result'}</button>}
             {reevaluationOpen && <ResultReviewNotice />}
             {acceptError && <Notification tone="error" title="Unable to add to Potential Scholars">{acceptError}</Notification>}
             <Notification title={selected.isScholar ? 'Accepted as Scholar' : intake?.potentialReview?.current ? 'Added to Potential Scholars' : 'Check requirements, then add to Potential Scholars'} tone={selected.isScholar || intake?.potentialReview?.current ? 'success' : 'info'}>
               {selected.isScholar ? 'This applicant is already an active scholar.' : intake?.potentialReview?.current ? 'This checked applicant is ready for selection and final batch acceptance in Potential Scholars.' : 'Individually check the current initial requirements before adding this applicant. Adding does not activate a Scholar account.'}
             </Notification>
             {!selected.isScholar && !intake?.potentialReview?.current && <label className="rm-potential-confirm"><input type="checkbox" checked={requirementsChecked} disabled={!intake?.initialVerified || acceptingScholar} onChange={event => setRequirementsChecked(event.target.checked)} />I have individually checked the current initial requirements.</label>}
-            <button type="button" className={selected.isScholar || intake?.potentialReview?.current ? 'accepted' : ''} disabled={selected.status !== 'Passed' || selected.isScholar || !selected.resultPublishedAt || publishing || acceptingScholar || !intake?.initialVerified || !intake?.reviewToken || !requirementsChecked || intake?.potentialReview?.current} onClick={addToPotential}><UserCheck size={16} />{acceptingScholar ? 'Adding...' : selected.isScholar ? 'Accepted as Scholar' : intake?.potentialReview?.current ? 'Added to Potential Scholars' : 'Add to Potential Scholars'}</button>
+            <button type="button" className={selected.isScholar || intake?.potentialReview?.current ? 'accepted' : ''} disabled={!canEditIntake || selected.status !== 'Passed' || selected.isScholar || !selected.resultPublishedAt || publishing || acceptingScholar || !intake?.initialVerified || !intake?.reviewToken || !requirementsChecked || intake?.potentialReview?.current} onClick={addToPotential}><UserCheck size={16} />{acceptingScholar ? 'Adding...' : selected.isScholar ? 'Accepted as Scholar' : intake?.potentialReview?.current ? 'Added to Potential Scholars' : 'Add to Potential Scholars'}</button>
           </footer>
         </aside>
       </div>

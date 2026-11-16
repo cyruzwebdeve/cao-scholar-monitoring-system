@@ -3,7 +3,9 @@ import AssignedApplicantsModal from './components/AssignedApplicantsModal';
 import MetricDetailsCard from './components/MetricDetailsCard';
 import ApplicantEligibilityFilter from './components/ApplicantEligibilityFilter';
 import { matchesApplicantEligibility } from './utils/applicantEligibilityFilter';
+import './styles/intake-period.css';
 import { useExaminationSchedules } from './services/useExaminationSchedules';
+import { createIntakeRequestGuard, intakeScopeLabel, intakeYearQuery } from './utils/intakePeriod';
 import './styles/applicant-eligibility-filter.css';
 import Notification from './components/Notification';
 import { canAccessBillingWorkspace } from './utils/staffAccess';
@@ -46,7 +48,7 @@ import {
   X,
   Boxes,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { API_BASE, authHeaders } from './services/api';
@@ -808,7 +810,9 @@ function ApplicantsManagement({ token }) {
   const [eligibilityFilter, setEligibilityFilter] = useState('all');
   const [status, setStatus] = useState('All Status');
   const [municipality, setMunicipality] = useState('All Municipalities');
-  const [schoolYear, setSchoolYear] = useState('All School Years');
+  const [schoolYear, setSchoolYear] = useState('');
+  const intakeLoadGuard = useRef(null), loadedIntakeScope = useRef('');
+  if (!intakeLoadGuard.current) intakeLoadGuard.current = createIntakeRequestGuard();
   const [barangay, setBarangay] = useState('All Barangays');
   const [page, setPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({ key: 'registered', direction: 'desc' });
@@ -820,24 +824,35 @@ function ApplicantsManagement({ token }) {
   const pageSize = 10;
 
   useEffect(() => {
-    let active = true;
-    const load = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/applicants/management`, { headers: authHeaders(token) });
-        if (!response.ok) throw new Error('Unable to load applicant records.');
-        const nextData = await response.json();
-        if (active) { setData(nextData); setLoadError(''); }
-      } catch (error) {
-        console.warn('Unable to load applicants:', error);
-        if (active) setLoadError('Applicant records could not be refreshed. Please try again.');
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    load();
+    const load = () => intakeLoadGuard.current.run(async signal => {
+      const response = await fetch(`${API_BASE}/applicants/management${intakeYearQuery(schoolYear)}`, { headers: authHeaders(token), cache: 'no-store', signal });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to load applicant records.');
+      return body;
+    }, { onLoading: setLoading, onSuccess: nextData => {
+      const nextScope = `${nextData.intakePeriod?.id}:${nextData.scope?.schoolYear}`;
+      if (loadedIntakeScope.current !== nextScope) { setSelectedApplicant(null); setExportOpen(false); }
+      loadedIntakeScope.current = nextScope;
+      setData(nextData); setLoadError('');
+    }, onError: error => setLoadError(error.message) });
+    const initialLoad = window.setTimeout(load, 0);
     const stopRefreshing = subscribeToVisibleRefresh(load, { intervalMs: ROUTINE_DATA_REFRESH_MS });
-    return () => { active = false; stopRefreshing(); };
-  }, [token, reloadKey]);
+    window.addEventListener('intake-period-changed', load);
+    const fromStorage = event => { if (event.key === 'intakePeriodRevision') load(); };
+    window.addEventListener('storage', fromStorage);
+    return () => { window.clearTimeout(initialLoad); intakeLoadGuard.current.cancel(); stopRefreshing(); window.removeEventListener('intake-period-changed', load); window.removeEventListener('storage', fromStorage); };
+  }, [token, reloadKey, schoolYear]);
+
+  const selectIntakeYear = (year) => {
+    if (year !== schoolYear) {
+      intakeLoadGuard.current.cancel();
+      loadedIntakeScope.current = '';
+      setLoading(true); setLoadError('');
+      setData(current => ({ ...current, scope: null, applicants: [], metricRecords: {}, stats: { total: 0, scheduled: 0, completed: 0, passed: 0 } }));
+      setSchoolYear(year);
+    }
+    setPage(1); setSelectedApplicant(null); setExportOpen(false);
+  };
 
   useEffect(() => {
     if (!selectedApplicant) return undefined;
@@ -852,7 +867,7 @@ function ApplicantsManagement({ token }) {
     : [...new Set(barangaysData.filter((item) => item.municipalityCode === municipalitiesData.find((item) => item.name === municipality)?.code).map((item) => item.name))];
   const filtered = data.applicants.filter((applicant) => {
     const matchesQuery = `${applicant.name} ${applicant.email} ${applicant.controlNo}`.toLowerCase().includes(query.toLowerCase());
-    return matchesQuery && (status === 'All Status' || applicant.status === status) && (municipality === 'All Municipalities' || applicant.municipality === municipality) && (schoolYear === 'All School Years' || applicant.schoolYear === schoolYear) && (barangay === 'All Barangays' || applicant.barangay === barangay) && matchesApplicantEligibility(applicant.eligibility, eligibilityFilter);
+    return !loading && !loadError && matchesQuery && (status === 'All Status' || applicant.status === status) && (municipality === 'All Municipalities' || applicant.municipality === municipality) && (!schoolYear || schoolYear === 'all' || applicant.schoolYear === schoolYear) && (barangay === 'All Barangays' || applicant.barangay === barangay) && matchesApplicantEligibility(applicant.eligibility, eligibilityFilter);
   });
   const getSortValue = (applicant, key) => {
     if (key === 'registered' || key === 'lastLogin') return applicant[key] ? new Date(applicant[key]).getTime() : 0;
@@ -870,13 +885,13 @@ function ApplicantsManagement({ token }) {
   const paginatedApplicants = sortedApplicants.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const metricCards = [['Total Applicants', data.stats.total, UsersRound, 'users'], ['Scheduled for Exam', data.stats.scheduled, CalendarDays, 'calendar'], ['Exam Completed', data.stats.completed, FileCheck2, 'document'], ['Passed Applicants', data.stats.passed, BadgeCheck, 'passed']];
 
-  const hasActiveFilters = query || status !== 'All Status' || municipality !== 'All Municipalities' || schoolYear !== 'All School Years' || barangay !== 'All Barangays' || eligibilityFilter !== 'all';
+  const hasActiveFilters = query || status !== 'All Status' || municipality !== 'All Municipalities' || schoolYear !== '' || barangay !== 'All Barangays' || eligibilityFilter !== 'all';
   const clearFilters = () => {
     setQuery('');
     setEligibilityFilter('all');
     setStatus('All Status');
     setMunicipality('All Municipalities');
-    setSchoolYear('All School Years');
+    selectIntakeYear('');
     setBarangay('All Barangays');
     setPage(1);
   };
@@ -900,8 +915,8 @@ function ApplicantsManagement({ token }) {
 
   return <>
     <div className="applicants-management">
-      <header className="applicants-heading"><div><span className="applicants-eyebrow">APPLICANT RECORDS</span><h2>Manage Applicants</h2><p>Review registrations, examination progress, and applicant activity.</p></div><button type="button" className="applicants-export" onClick={() => setExportOpen(true)} disabled={!sortedApplicants.length}><Download size={15} />Export CSV</button></header>
-      <div className="applicant-metrics">{metricCards.map(([label, value, Icon, tone]) => <MetricDetailsCard title={label} disabled={loading || Boolean(loadError && !data.applicants.length)} rows={label === 'Total Applicants' ? data.applicants : data.metricRecords?.[label === 'Scheduled for Exam' ? 'scheduled' : label === 'Exam Completed' ? 'completed' : 'passed'] || []} description={label === 'Exam Completed' || label === 'Passed Applicants' ? 'Examination result records matching the card total. A person may appear more than once for different examinations. Directory filters are not applied.' : 'Applicant records matching this summary total. Directory filters are not applied.'} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNo', label: 'Control no.' }, { key: 'municipality', label: 'Municipality' }, { key: 'status', label: 'Status' }, ...(['Exam Completed', 'Passed Applicants'].includes(label) ? [{ key: 'examination', label: 'Examination' }] : [])]} className={tone} key={label}><div><span>{label}</span><strong>{value}</strong><small>{label === 'Total Applicants' ? 'Registered records' : label === 'Scheduled for Exam' ? 'Matched to municipality schedules' : label === 'Exam Completed' ? 'Results submitted' : 'Qualified applicants'}</small></div><i className={`applicant-metric-icon ${tone}`}><Icon size={20} strokeWidth={2.2} /></i></MetricDetailsCard>)}</div>
+      <header className="applicants-heading"><div><span className="applicants-eyebrow">APPLICANT RECORDS</span><h2>Manage Applicants</h2><p>{loading ? 'Loading intake records...' : intakeScopeLabel(data.scope, data.intakePeriod)}</p></div><button type="button" className="applicants-export" onClick={() => setExportOpen(true)} disabled={!sortedApplicants.length}><Download size={15} />Export CSV</button></header>
+      <div className="applicant-metrics">{metricCards.map(([label, value, Icon, tone]) => <MetricDetailsCard title={label} disabled={loading || Boolean(loadError && !data.applicants.length)} rows={label === 'Total Applicants' ? data.applicants : data.metricRecords?.[label === 'Scheduled for Exam' ? 'scheduled' : label === 'Exam Completed' ? 'completed' : 'passed'] || []} description={label === 'Exam Completed' || label === 'Passed Applicants' ? 'Examination result records matching the card total. A person may appear more than once for different examinations. Directory filters are not applied.' : 'Applicant records matching this summary total. Directory filters are not applied.'} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNo', label: 'Control no.' }, { key: 'municipality', label: 'Municipality' }, { key: 'status', label: 'Status' }, ...(['Exam Completed', 'Passed Applicants'].includes(label) ? [{ key: 'examination', label: 'Examination' }] : [])]} className={tone} key={label}><div><span>{label}</span><strong>{loading || loadError ? '?' : value}</strong><small>{label === 'Total Applicants' ? 'Registered records' : label === 'Scheduled for Exam' ? 'Matched to municipality schedules' : label === 'Exam Completed' ? 'Results submitted' : 'Qualified applicants'}</small></div><i className={`applicant-metric-icon ${tone}`}><Icon size={20} strokeWidth={2.2} /></i></MetricDetailsCard>)}</div>
       {loadError && <div className="applicants-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => { setLoading(true); setReloadKey((current) => current + 1); }}>Retry</button></div>}
       <section className="applicant-records-panel">
         <div className="applicant-panel-heading"><div><h3>Applicant directory</h3><p>{filtered.length} of {data.stats.total} applicants</p></div>{hasActiveFilters && <button type="button" className="applicant-clear-filters" onClick={clearFilters}><X size={13} />Clear filters</button>}</div>
@@ -909,7 +924,7 @@ function ApplicantsManagement({ token }) {
           <label className="applicant-filter applicant-search"><span>Search applicants</span><div><Search size={15} /><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Name, email, or control number" /></div></label>
           <label className="applicant-filter"><span>Status</span><select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>{['All Status', ...values('status')].map((option) => <option key={option}>{option}</option>)}</select></label>
           <label className="applicant-filter"><span>Municipality</span><select value={municipality} onChange={(event) => { setMunicipality(event.target.value); setBarangay('All Barangays'); setPage(1); }}>{['All Municipalities', ...municipalityNames].map((option) => <option key={option}>{option}</option>)}</select></label>
-          <label className="applicant-filter"><span>School year</span><select value={schoolYear} onChange={(event) => { setSchoolYear(event.target.value); setPage(1); }}>{['All School Years', ...values('schoolYear')].map((option) => <option key={option}>{option}</option>)}</select></label>
+          <label className="applicant-filter"><span>Intake school year</span><select value={schoolYear} onChange={(event) => selectIntakeYear(event.target.value)}><option value="">{data.intakePeriod?.schoolYear || 'Current'} · Current intake</option><option value="all">All intake years · History</option>{(data.schoolYears || values('schoolYear')).map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
           <label className="applicant-filter"><span>Barangay</span><select value={barangay} onChange={(event) => { setBarangay(event.target.value); setPage(1); }}>{['All Barangays', ...barangayOptions].map((option) => <option key={option}>{option}</option>)}</select></label>
           <ApplicantEligibilityFilter value={eligibilityFilter} onChange={(value) => { setEligibilityFilter(value); setPage(1); }} />
         </div>
@@ -976,7 +991,9 @@ const examList = municipalitiesData.map((municipality) => ({
 
 function ExaminationManagement({ token }) {
   const { examinations, activeExamMunicipalities, activePeriod, ready: scheduleReady,
-    loading: scheduleLoading, saving: scheduleSaving, error: scheduleSaveError, scopeVersion, saveVersion, editor } = useExaminationSchedules(token, examList);
+    loading: scheduleLoading, saving: scheduleSaving, error: scheduleSaveError, scopeVersion, saveVersion,
+    schoolYear: examinationYear, schoolYears: examinationYears, selectedYear, readOnly, editor } = useExaminationSchedules(token, examList);
+  const canEditSchedules = scheduleReady && !readOnly;
   const setExaminations = (updater, options = {}) => editor.updateExaminations(updater, { scopeVersion, ...options });
   const academicPeriodId = activePeriod?.id;
   const [applicants, setApplicants] = useState([]);
@@ -1026,7 +1043,7 @@ function ExaminationManagement({ token }) {
   };
 
   const updateThumbnail = (index, file) => {
-    if (!file || !scheduleReady) return;
+    if (!file || !canEditSchedules) return;
     const photoScope = scopeVersion;
     const reader = new FileReader();
     reader.onload = () => {
@@ -1055,11 +1072,11 @@ function ExaminationManagement({ token }) {
     let active = true;
     const loadTimer = window.setTimeout(() => {
       if (!scheduleReady) return;
-      fetch(`${API_BASE}/applicants/management`, { headers: authHeaders(token), cache: 'no-store' })
+      fetch(`${API_BASE}/applicants/management${intakeYearQuery(selectedYear)}`, { headers: authHeaders(token), cache: 'no-store' })
       .then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.message || 'Unable to load assigned applicants.'); return body; })
       .then((data) => { if (active) {
         if (editor.getState().scopeVersion !== scopeVersion) return;
-        if ((data.applicants || []).some((applicant) => applicant.academicPeriodId !== academicPeriodId)) {
+        if (data.scope?.schoolYear !== examinationYear || (!readOnly && (data.applicants || []).some((applicant) => applicant.academicPeriodId !== academicPeriodId))) {
           void editor.load({ force: true });
           throw new Error('The academic period changed. Reload schedules to view assigned applicants.');
         }
@@ -1068,16 +1085,16 @@ function ExaminationManagement({ token }) {
       .catch((error) => { if (active) setApplicantsLoadError(error.message || 'Unable to load assigned applicants. Refresh this page to retry.'); });
     }, 0);
     return () => { active = false; window.clearTimeout(loadTimer); };
-  }, [token, academicPeriodId, scheduleReady, scopeVersion, saveVersion, editor]);
+  }, [token, academicPeriodId, scheduleReady, scopeVersion, saveVersion, editor, selectedYear, examinationYear, readOnly]);
 
   const beginEdit = (index, field) => {
-    if (!scheduleReady) return;
+    if (!canEditSchedules) return;
     setEditing({ index, field, scopeVersion });
     setDraft(examinations[index][field]);
   };
 
   const saveEdit = () => {
-    if (!editing || editing.scopeVersion !== scopeVersion || !scheduleReady) return;
+    if (!editing || editing.scopeVersion !== scopeVersion || !canEditSchedules) return;
     const value = draft.trim();
     if (value) {
       setExaminations((current) => current.map((exam, index) => (
@@ -1088,7 +1105,7 @@ function ExaminationManagement({ token }) {
   };
 
   const renderEditable = (index, field, className = '') => {
-    const isEditing = scheduleReady && editing?.scopeVersion === scopeVersion && editing?.index === index && editing?.field === field;
+    const isEditing = canEditSchedules && editing?.scopeVersion === scopeVersion && editing?.index === index && editing?.field === field;
     if (isEditing) {
       if (field === 'date') {
         const startDate = new Date(examinations[index].date);
@@ -1097,7 +1114,7 @@ function ExaminationManagement({ token }) {
       }
       return <input className={`exam-inline-input ${className}`} value={draft} autoFocus onChange={(event) => setDraft(event.target.value)} onBlur={saveEdit} onKeyDown={(event) => { if (event.key === 'Enter') saveEdit(); if (event.key === 'Escape') setEditing(null); }} />;
     }
-    return <button type="button" className={`exam-editable ${className}`} disabled={!scheduleReady} onClick={() => beginEdit(index, field)}><span>{field === 'date' ? formatExamDateRange(examinations[index].date, examinations[index].endDate) : examinations[index][field]}</span><FilePenLine size={13} aria-hidden="true" /></button>;
+    return <button type="button" className={`exam-editable ${className}`} disabled={!canEditSchedules} onClick={() => beginEdit(index, field)}><span>{field === 'date' ? formatExamDateRange(examinations[index].date, examinations[index].endDate) : examinations[index][field]}</span><FilePenLine size={13} aria-hidden="true" /></button>;
   };
 
   const normalizedExamQuery = examQuery.trim().toLowerCase();
@@ -1114,7 +1131,7 @@ function ExaminationManagement({ token }) {
       return matchesStatus && matchesQuery;
     });
 
-  const rosterApplicants = applicants.filter((applicant) => applicant.academicPeriodId === academicPeriodId
+  const rosterApplicants = applicants.filter((applicant) => (readOnly || applicant.academicPeriodId === academicPeriodId)
     && examinations.some((exam) => exam.id && exam.id === applicant.examId));
   const assignedApplicants = rosterApplicants.length;
   const rosterExam = selectedExam && examinations.find((exam) => exam.municipality === selectedExam.municipality);
@@ -1137,7 +1154,7 @@ function ExaminationManagement({ token }) {
     const examId = applicant.examId;
     const attendanceScope = scopeVersion;
     const currentScope = () => editor.getState().scopeVersion === attendanceScope;
-    if (!scheduleReady || !examId || !examinations.some((exam) => exam.id === examId)) {
+    if (!canEditSchedules || !examId || !examinations.some((exam) => exam.id === examId)) {
       setAttendanceSaveError('Save the examination schedule before recording attendance.');
       return;
     }
@@ -1181,7 +1198,7 @@ function ExaminationManagement({ token }) {
         <div>
           <span className="exam-page-eyebrow">EXAMINATION OPERATIONS</span>
           <h2>Examination Management</h2>
-          <p>{scheduleLoading && !scheduleReady ? 'Loading academic year...' : activePeriod ? `Academic year ${activePeriod.schoolYear}. Examination schedules are shared across both semesters.` : 'Choose an active academic year in Settings to manage schedules.'}</p>
+          <p>{scheduleLoading && !scheduleReady ? 'Loading intake year...' : examinationYear ? `${examinationYear} · ${readOnly ? 'Historical intake · View only' : 'Current application and examination intake'}. Schedules are shared across both semesters.` : 'Choose an application and examination intake in Settings.'}</p>
         </div>
         <div className="exam-heading-summary"><span>{activeExamMunicipalities.length} of {examinations.length}</span><small>examinations active</small></div>
       </header>
@@ -1196,12 +1213,13 @@ function ExaminationManagement({ token }) {
         <div><h3>Examination venues</h3><p>{filteredExaminations.length} {filteredExaminations.length === 1 ? 'venue' : 'venues'} shown. Set a date to save each venue’s schedule.</p></div>
         <div className="exam-master-control" role="group" aria-label="Control all examinations">
           <div><span>Examination access for this year</span><small>{allExaminationsActive ? 'All scheduled venues are active' : activeExamMunicipalities.length ? `${activeExamMunicipalities.length} of ${examinations.length} venues active` : 'All venues are inactive'}</small></div>
-          <button type="button" className="activate" onClick={() => setAllExamActivation(true)} disabled={!scheduleReady || !scheduledExaminations.length || allExaminationsActive}><Power size={14} />Activate scheduled</button>
-          <button type="button" className="deactivate" onClick={() => setAllExamActivation(false)} disabled={!scheduleReady || !activeExamMunicipalities.length}><Power size={14} />Deactivate all</button>
+          <button type="button" className="activate" onClick={() => setAllExamActivation(true)} disabled={!canEditSchedules || !scheduledExaminations.length || allExaminationsActive}><Power size={14} />Activate scheduled</button>
+          <button type="button" className="deactivate" onClick={() => setAllExamActivation(false)} disabled={!canEditSchedules || !activeExamMunicipalities.length}><Power size={14} />Deactivate all</button>
         </div>
       </div>
       <section className="exam-list-panel">
         <div className="exam-toolbar">
+          <label className="intake-year-filter">Intake school year<select aria-label="Examination intake school year" value={selectedYear} onChange={event => { void editor.selectYear(event.target.value); }}><option value="">{activePeriod?.schoolYear || 'Current'} · Current intake</option>{examinationYears.map(year => <option key={year} value={year}>{year}</option>)}</select></label>
           <label className="exam-search"><Search size={16} aria-hidden="true" /><input value={examQuery} onChange={(event) => setExamQuery(event.target.value)} placeholder="Search municipality or venue" aria-label="Search examination venues" /></label>
           <select value={examStatusFilter} onChange={(event) => setExamStatusFilter(event.target.value)} aria-label="Filter examinations by activation status"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Not active</option></select>
         </div>
@@ -1215,20 +1233,20 @@ function ExaminationManagement({ token }) {
                 {exam.thumbnail ? <img src={exam.thumbnail} alt={`${exam.municipality} venue`} /> : <div className="exam-thumbnail-placeholder"><School size={24} /><span>Venue photo</span></div>}
                 <span className={`exam-status-badge ${isActive ? 'active' : ''}`}><i aria-hidden="true" />{isActive ? 'Active' : 'Not active'}</span>
                 <label className="exam-thumbnail-upload" htmlFor={`exam-thumbnail-${index}`} aria-label={`Upload thumbnail for ${exam.municipality}`}><FilePenLine size={14} /><span>{exam.thumbnail ? 'Change' : 'Add photo'}</span></label>
-                <input id={`exam-thumbnail-${index}`} type="file" accept="image/*" disabled={!scheduleReady} onChange={(event) => updateThumbnail(index, event.target.files?.[0])} />
+                <input id={`exam-thumbnail-${index}`} type="file" accept="image/*" disabled={!canEditSchedules} onChange={(event) => updateThumbnail(index, event.target.files?.[0])} />
               </div>
               <div className="exam-card-content">
                 <div className="exam-card-title"><h4>{renderEditable(index, 'municipality')}</h4><span>{venueApplicantCount} {venueApplicantCount === 1 ? 'applicant' : 'applicants'}</span></div>
                 <div className="exam-detail-row"><MapPin size={16} aria-hidden="true" /><div><small>Venue</small>{renderEditable(index, 'venue')}</div></div>
                 <div className="exam-detail-row"><CalendarDays size={16} aria-hidden="true" /><div><small>Examination date range</small>{renderEditable(index, 'date')}</div></div>
-                <div className="exam-card-actions"><button type="button" className={`exam-toggle-button ${isActive ? 'active' : ''}`} disabled={!scheduleReady || !exam.date} title={!exam.date ? 'Set an examination date before activation' : undefined} onClick={() => toggleExamActivation(exam.municipality)}><Power size={14} />{isActive ? 'Deactivate' : 'Activate'}</button><button type="button" className="exam-view-button" disabled={!scheduleReady || !exam.id} onClick={() => setSelectedExam(exam)}><Eye size={15} />View applicants</button></div>
+                <div className="exam-card-actions"><button type="button" className={`exam-toggle-button ${isActive ? 'active' : ''}`} disabled={!canEditSchedules || !exam.date} title={!exam.date ? 'Set an examination date before activation' : undefined} onClick={() => toggleExamActivation(exam.municipality)}><Power size={14} />{isActive ? 'Deactivate' : 'Activate'}</button><button type="button" className="exam-view-button" disabled={!scheduleReady || !exam.id} onClick={() => setSelectedExam(exam)}><Eye size={15} />View applicants</button></div>
               </div>
             </article>
           );})}
           {!filteredExaminations.length && <div className="exam-no-results"><Search size={24} /><strong>No examination venues found</strong><span>Try another search term or status filter.</span><button type="button" onClick={() => { setExamQuery(''); setExamStatusFilter('all'); }}>Clear filters</button></div>}
         </div>
       </section>
-      {scheduleReady && rosterExam && <AssignedApplicantsModal key={`${scopeVersion}:${rosterExam.municipality}`} exam={rosterExam} dateLabel={formatExamDateRange(rosterExam.date, rosterExam.endDate)} applicants={rosterApplicants.filter(applicant => applicant.examId === rosterExam.id)} active={activeExamMunicipalities.includes(rosterExam.municipality)} applicantsLoadError={applicantsLoadError} attendanceSaveError={attendanceSaveError} attendanceSavingId={attendanceSavingId} attendanceDownloading={attendanceDownloading} onDownload={() => downloadAttendanceList(rosterExam)} onToggleActivation={() => toggleExamActivation(rosterExam.municipality)} onAttendanceChange={updateAttendance} onClose={() => setSelectedExam(null)} />}
+      {scheduleReady && rosterExam && <AssignedApplicantsModal key={`${scopeVersion}:${rosterExam.municipality}`} readOnly={readOnly} exam={rosterExam} dateLabel={formatExamDateRange(rosterExam.date, rosterExam.endDate)} applicants={rosterApplicants.filter(applicant => applicant.examId === rosterExam.id)} active={activeExamMunicipalities.includes(rosterExam.municipality)} applicantsLoadError={applicantsLoadError} attendanceSaveError={attendanceSaveError} attendanceSavingId={attendanceSavingId} attendanceDownloading={attendanceDownloading} onDownload={() => downloadAttendanceList(rosterExam)} onToggleActivation={() => toggleExamActivation(rosterExam.municipality)} onAttendanceChange={updateAttendance} onClose={() => setSelectedExam(null)} />}
       {showDeactivateAllDialog && (
         <div className="admin-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowDeactivateAllDialog(false); }}>
           <section className="admin-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="deactivate-all-title" aria-describedby="deactivate-all-description">

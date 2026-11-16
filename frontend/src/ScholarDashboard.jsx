@@ -219,6 +219,8 @@ function ScholarDashboard({ token, user, onLogout }) {
   const onlineRequirementsComplete = approvedCount === uploadableRequirements.length;
   const requirementsComplete = continuingOpen && onlineRequirementsComplete;
   const continuingSubmission = portalData.requirementWave?.submission || portalData.activePeriod?.requirementsSubmission;
+  const waitingEntryYear = (portalData.requirementWave?.processingEligibility || portalData.processingEligibility)?.eligible === false || continuingSubmission?.state === 'waiting_entry_year';
+  const entryYearMessage = `Scholar processing will be available when CAO opens ${portalData.processingEligibility?.entrySchoolYear || 'your entry school year'} or a later processing year. Your accepted application and initial documents are retained.`;
   const requirementsDeadline = continuingSubmission ? continuingSubmission.deadline : portalData.activePeriod?.requirementsDeadline || null;
   const requirementsSubmissionClosed = loadingRequirements || Boolean(requirementsError) || (requirementPeriodId && Number(requirementPeriodId) !== portalData.requirementWave?.academicPeriodId) || !continuingOpen || continuingSubmission?.isOpen === false;
   const payrollList = portalData.payrollList;
@@ -247,7 +249,7 @@ function ScholarDashboard({ token, user, onLogout }) {
   const initialApprovedCount = initialProgress.approved;
   const summaryApproved = continuingOpen ? approvedCount : initialApprovedCount;
   const summaryTotal = continuingOpen ? uploadableRequirements.length : initialProgress.total;
-  const nextStep = buildScholarNextStep({ loading: loadingRequirements, error: requirementsError,
+  const nextStep = waitingEntryYear ? { tone: 'waiting', title: 'Waiting for your entry school year', description: entryYearMessage } : buildScholarNextStep({ loading: loadingRequirements, error: requirementsError,
     continuingOpen, uploadsClosed: requirementsSubmissionClosed, rejectedCount, missingCount, pendingReviewCount,
     requirementsComplete, listed: useCertification ? certificationDate !== 'Not generated' : Boolean(payrollList), guidance: portalData.guidance });
   const openRequirements = (tab) => {
@@ -416,7 +418,7 @@ function ScholarDashboard({ token, user, onLogout }) {
             <div className="scholar-panel-heading"><div><p className="scholar-eyebrow">{requirementsComplete ? 'REQUIREMENTS COMPLETE' : rejectedCount > 0 ? 'CORRECTION REQUIRED' : 'ACTION NEEDED'}</p><h2>{!continuingOpen ? 'Continuing requirements' : requirementsComplete ? 'Continuing requirements approved' : rejectedCount > 0 ? 'Review returned documents' : 'Upload continuing requirements'}</h2></div><FileCheck2 size={21} className="scholar-heading-icon" /></div>
             <div className={`scholar-requirements-deadline ${requirementsSubmissionClosed ? 'closed' : requirementsDeadline ? 'scheduled' : 'open'}`} role="status">
               <CalendarDays size={17} />
-              <div><strong>{requirementsSubmissionClosed ? continuingSubmission?.state === 'waiting_initial' ? 'Waiting for initial verification' : 'Continuing uploads closed' : 'Continuing uploads open'}</strong><span>{continuingSubmission?.state === 'waiting_initial' ? 'CAO must approve all required initial documents first.' : requirementsSubmissionClosed ? 'CAO has closed continuing uploads for this academic period.' : 'You may upload continuing requirements until CAO closes submissions for this period.'}</span></div>
+              <div><strong>{waitingEntryYear ? 'Waiting for your entry school year' : requirementsSubmissionClosed ? continuingSubmission?.state === 'waiting_initial' ? 'Waiting for initial verification' : 'Continuing uploads closed' : 'Continuing uploads open'}</strong><span>{waitingEntryYear ? entryYearMessage : continuingSubmission?.state === 'waiting_initial' ? 'CAO must approve all required initial documents first.' : requirementsSubmissionClosed ? 'CAO has closed continuing uploads for this academic period.' : 'You may upload continuing requirements until CAO closes submissions for this period.'}</span></div>
             </div>
             <p className="scholar-panel-copy">{requirementsComplete ? 'All continuing files have been approved for this academic period.' : continuingOpen ? `Upload your updated grades, registration form${isPrivateRequirementPeriod ? ', and Private-school tuition receipt' : ''} for this continuing submission. Initial files are preserved.` : 'CAO uploads all initial documents, including grades, registration form, and applicable tuition receipt. Your continuing upload controls open in the second wave.'}</p>
             <div className="scholar-requirements-list" aria-busy={loadingRequirements}>

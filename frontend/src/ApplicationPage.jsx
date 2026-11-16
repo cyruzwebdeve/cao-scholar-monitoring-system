@@ -1,53 +1,55 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarClock, CircleOff, GraduationCap, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ApplicationForm from './components/ApplicationForm';
 import { API_BASE } from './services/api';
 import { subscribeToVisibleRefresh, TIME_SENSITIVE_DATA_REFRESH_MS } from './utils/dataRefresh';
+import { createIntakeRequestGuard } from './utils/intakePeriod';
 import './styles/application.css';
 import './styles/application-responsive.css';
 
 function ApplicationPage({ token, user }) {
   const [step, setStep] = useState(0);
-  const [activePeriod, setActivePeriod] = useState({ schoolYear: '2026-2027', semester: '1st Semester' });
+  const [activePeriod, setActivePeriod] = useState(null);
+  const [changedIntake, setChangedIntake] = useState(null);
+  const boundIntake = useRef(null);
+  const requestGuard = useRef(null);
+  if (!requestGuard.current) requestGuard.current = createIntakeRequestGuard();
   const [availability, setAvailability] = useState(null);
   const [availabilityError, setAvailabilityError] = useState('');
   const [availabilityLoading, setAvailabilityLoading] = useState(true);
   const navigate = useNavigate();
 
-  const loadAvailability = useCallback(async () => {
-    setAvailabilityLoading(true);
-    try {
-      const response = await fetch(`${API_BASE}/application-settings`, { cache: 'no-store' });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message || 'Unable to check application availability.');
-      setAvailability(body.availability);
-      setAvailabilityError('');
-    } catch (error) {
-      setAvailabilityError(error.message || 'Unable to check application availability.');
-    } finally {
-      setAvailabilityLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    fetch(`${API_BASE}/academic-periods/active`, { cache: 'no-store' })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((body) => { if (active && body?.period) setActivePeriod(body.period); })
-      .catch(() => {});
-    return () => { active = false; };
-  }, []);
+  const loadAvailability = useCallback(() => requestGuard.current.run(async signal => {
+    const responses = await Promise.all([
+      fetch(`${API_BASE}/application-settings`, { cache: 'no-store', signal }),
+      fetch(`${API_BASE}/intake-period`, { cache: 'no-store', signal }),
+    ]);
+    const bodies = await Promise.all(responses.map(response => response.json()));
+    responses.forEach((response, index) => { if (!response.ok) throw new Error(bodies[index].message || 'Unable to verify the application intake.'); });
+    if (!bodies[1].intakePeriod) throw new Error('No application intake is configured. Please check again after CAO opens an intake.');
+    return { availability: bodies[0].availability, period: bodies[1].intakePeriod };
+  }, { onLoading: setAvailabilityLoading, onError: error => setAvailabilityError(error.message), onSuccess: body => {
+    if (boundIntake.current && boundIntake.current.id !== body.period.id) setChangedIntake(body.period);
+    else { boundIntake.current = body.period; setActivePeriod(body.period); }
+    setAvailability(body.availability); setAvailabilityError('');
+  } }), []);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(loadAvailability, 0);
     const stopRefreshing = subscribeToVisibleRefresh(loadAvailability, { intervalMs: TIME_SENSITIVE_DATA_REFRESH_MS });
     const refreshFromSettings = () => loadAvailability();
     window.addEventListener('application-availability-changed', refreshFromSettings);
+    window.addEventListener('intake-period-changed', refreshFromSettings);
+    const refreshFromStorage = event => { if (event.key === 'intakePeriodRevision') loadAvailability(); };
+    window.addEventListener('storage', refreshFromStorage);
     return () => {
       window.clearTimeout(initialLoad);
       stopRefreshing();
       window.removeEventListener('application-availability-changed', refreshFromSettings);
+      window.removeEventListener('intake-period-changed', refreshFromSettings);
+      window.removeEventListener('storage', refreshFromStorage);
+      requestGuard.current.cancel();
     };
   }, [loadAvailability]);
 
@@ -60,6 +62,7 @@ function ApplicationPage({ token, user }) {
     : '';
 
   const renderApplicationContent = () => {
+    if (changedIntake) return <section className="application-availability-panel error" role="alert"><CircleOff /><h2>Application intake changed</h2><p>CAO is now accepting applications for {changedIntake.schoolYear} · {changedIntake.semester}. Reload and review your draft before submitting.</p><button type="button" onClick={() => window.location.reload()}>Reload intake</button></section>;
     if (availabilityLoading && !availability) {
       return (
         <section className="application-availability-panel loading" aria-live="polite">
@@ -70,7 +73,7 @@ function ApplicationPage({ token, user }) {
       );
     }
 
-    if (availabilityError && !availability) {
+    if (availabilityError || (!availabilityLoading && !activePeriod)) {
       return (
         <section className="application-availability-panel error" role="alert">
           <CircleOff />
@@ -111,6 +114,8 @@ function ApplicationPage({ token, user }) {
     return (
       <ApplicationForm
         token={token}
+        intakePeriod={activePeriod}
+        onIntakeChanged={loadAvailability}
         user={user}
         onCreated={handleCreated}
         onGoToLogin={() => navigate('/login')}
@@ -134,7 +139,7 @@ function ApplicationPage({ token, user }) {
 
           <div className="application-page-pill">
             <span className={`application-page-pill-dot${availability && !availability.isOpen ? ' closed' : ''}`} aria-hidden="true" />
-            <span>{availability && !availability.isOpen ? 'Applications Closed' : 'Application Form'} · {activePeriod.schoolYear} · {activePeriod.semester}</span>
+            <span>{availability && !availability.isOpen ? 'Applications Closed' : 'Application Form'} · {activePeriod ? `${activePeriod.schoolYear} · ${activePeriod.semester}` : 'Intake unavailable'}</span>
           </div>
         </div>
       </header>
@@ -142,7 +147,7 @@ function ApplicationPage({ token, user }) {
       <main className="application-stage">{renderApplicationContent()}</main>
 
       <footer className="application-page-footer">
-        Scholarship Monitoring System · All information is kept strictly confidential · A.Y. {activePeriod.schoolYear}
+        Scholarship Monitoring System · All information is kept strictly confidential{activePeriod ? ` · A.Y. ${activePeriod.schoolYear}` : ''}
       </footer>
     </div>
   );

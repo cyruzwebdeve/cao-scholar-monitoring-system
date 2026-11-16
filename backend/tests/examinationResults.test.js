@@ -8,14 +8,16 @@ const { resolveExaminationProgress } = require('../services/examinationProgress'
 const { buildApplicantGuidance } = require('../services/applicantGuidance');
 const response = () => ({ locals: {}, statusCode: 200, status(n) { this.statusCode = n; return this; }, json(body) { this.body = body; return this; } });
 const fixture = () => {
-  let state = { result: null, application: { id: 1, status: 'Applied' }, slot: { id: 3, applicant_id: 7, exam_id: 9, appeared: true }, mode: 'paper', scholar: null, year: '2026-2027', failStatus: false, periods: [{ school_year: '2026-2027', is_primary: true }] };
+  let state = { result: null, application: { id: 1, status: 'Applied' }, slot: { id: 3, applicant_id: 7, exam_id: 9, appeared: true }, mode: 'paper', scholar: null, year: '2026-2027', applicantYear: '2026-2027', intakePeriodId: 1, failStatus: false, periods: [{ id: 1, school_year: '2026-2027', is_primary: true }] };
   const client = { $transaction: async (fn, options) => {
     assert.equal(options.isolationLevel, 'Serializable');
     const draft = structuredClone(state);
     const tx = {
-      academic_periods: { findFirst: async ({ where }) => where.is_primary ? draft.periods.find(p => p.is_primary) || null : draft.periods[0] || null },
+      intake_settings: { findUnique: async () => ({ id: 1, academic_period_id: draft.intakePeriodId, revision: 1 }) },
+      academic_periods: { findFirst: async ({ where }) => where.is_primary ? draft.periods.find(p => p.is_primary) || null : draft.periods[0] || null, findUnique: async ({ where }) => draft.periods.find(p => p.id === where.id) || null },
+      $queryRaw: async () => { if (draft.changeIntakeOnLock) draft.intakePeriodId = draft.changeIntakeOnLock; return [{ id: 1 }]; },
       exams: { findUnique: async () => ({ id: 9, academic_year: draft.year }) },
-      applicants: { findUnique: async () => ({ id: 7 }) },
+      applicants: { findUnique: async () => ({ id: 7, school_year: draft.applicantYear }) },
       exam_slots: { findUnique: async () => draft.slot },
       scholar_accounts: { findFirst: async () => draft.scholar },
       application_submissions: { findFirst: async () => draft.application, updateMany: async ({ data }) => { if (draft.failStatus) throw new Error('Injected failure'); Object.assign(draft.application, data); return { count: 1 }; } },
@@ -131,11 +133,34 @@ test('an existing unscored result can be corrected but cannot be published empty
   assert.equal(f.state.result.score, 0);
 });
 
-test('paper record, correction and publication use the primary period even when a secondary year was updated later', async () => {
-  const f = fixture(); f.state.periods = [{ school_year: '2027-2028', is_primary: false }, { school_year: '2026-2027', is_primary: true }];
+test('paper result mutations retain the selected intake when processing primary or secondary periods differ', async () => {
+  const f = fixture(); f.state.periods = [{ id: 2, school_year: '2027-2028', is_primary: true }, { id: 1, school_year: '2026-2027', is_primary: false }];
   assert.equal((await f.call('record')).statusCode, 201);
   assert.equal((await f.call('correct', { ...f.revision(), score: 15, remarks: 'Synthetic checked correction' })).statusCode, 200);
   assert.equal((await f.call('publish', f.revision())).statusCode, 200);
+});
+
+test('paper results use a selected upcoming intake without activating its processing period', async () => {
+  const f = fixture();
+  f.state.periods.push({ id: 2, school_year: '2027-2028', is_primary: false, is_active: false });
+  f.state.intakePeriodId = 2; f.state.year = f.state.applicantYear = '2027-2028';
+  const before = structuredClone(f.state.periods);
+  assert.equal((await f.call('record')).statusCode, 201);
+  assert.deepEqual(f.state.periods, before);
+});
+
+test('old or unassigned applicant years cannot receive current-intake paper results', async () => {
+  for (const year of ['2025-2026', '', null]) {
+    const f = fixture(); f.state.applicantYear = year;
+    assert.equal((await f.call('record')).statusCode, 409);
+    assert.equal(f.state.result, null);
+  }
+});
+
+test('an intake switch before the transactional lock rejects the score without writes', async () => {
+  const f = fixture(); f.state.periods.push({ id: 2, school_year: '2027-2028' }); f.state.changeIntakeOnLock = 2;
+  assert.equal((await f.call('record')).statusCode, 409);
+  assert.equal(f.state.result, null);
 });
 
 test('paper result mutations reject terminal and unknown application states without writes', async () => {

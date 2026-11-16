@@ -16,6 +16,8 @@ const setup = (schoolType='public') => { sessions=new Map();active=true;type=sch
   scholar_accounts:{findFirst:async()=>active?{applicant_id:7,is_active:true}:null}, applicants:{findUnique:async()=>({id:7,first_name:'TEST',last_name:'SCHOLAR',school_id:1})},
   application_submissions:{findFirst:async()=>({id:1,applicant_id:7,initial_docs:{}})}, scholar_requirements:{findUnique:async()=>({school_id:1}),findMany:async()=>[]}, schools:{findMany:async()=>[{id:1,name:'TEST SCHOOL',school_type:type}]},
   admins:{findUnique:async({where})=>({id:where.id,is_active:true,auth_version:0,is_super_admin:where.id===9,role:where.id===4?'billing':'admin',section_access:where.id===3?['examination']:['scholars']})},
+  $queryRaw:async()=>[{id:1}],
+  $transaction:async(fn)=>{const before=structuredClone([...sessions]);try{return await fn(prisma);}catch(error){sessions=new Map(before);throw error;}},
  });
 };
 const res = ()=>({statusCode:200,locals:{},set(){return this;},status(code){this.statusCode=code;return this;},json(body){this.body=body;return this;}});
@@ -36,3 +38,43 @@ test('Real HTTP authentication and Scholars access reject anonymous, Billing and
 test('Creating a new pairing for the same owner/scholar/period invalidates the previous QR queue',async()=>{setup();const old=(await create()).body.session.id;await send(old);const next=(await create()).body.session.id;assert.notEqual(next,old);assert.equal(sessions.has(old),false);assert.equal(sessions.size,1);});
 
 test('Freezing capture preserves the final queued photo, rejects later sends and permits final receipt',async()=>{setup();const id=(await create()).body.session.id;const pageId=randomUUID();await send(id,pageId);const unsafe=res();await controller.close(req(id),unsafe);assert.equal(unsafe.statusCode,409);assert.equal(sessions.get(id).pages.length,1);const response=res();await controller.freeze(req(id),response);assert.equal(response.statusCode,200);assert.equal(response.body.pages[0].id,pageId);assert.equal((await send(id)).statusCode,409);await controller.acknowledge(req(id,{pageIds:[pageId]}),res());assert.equal(sessions.get(id).pages.length,0);});
+
+const configurePasserIntake=()=>{
+ let intakeId=20;
+ prisma.scholar_accounts.findFirst=async()=>null;
+ prisma.intake_settings={findUnique:async()=>({id:1,academic_period_id:intakeId,revision:1})};
+ prisma.academic_periods.findUnique=async({where})=>({id:where.id,school_year:where.id===20?'2027-2028':'2028-2029',semester:'1st Semester',is_active:false,is_primary:false});
+ prisma.applicants.findUnique=async()=>({id:7,first_name:'TEST',last_name:'PASSER',school_id:1,school_year:'2027-2028'});
+ prisma.application_submissions.findFirst=async()=>({id:1,applicant_id:7,status:'Applied',initial_docs:{}});
+ prisma.passer_list_members={findMany:async()=>[{application_id:1,result_id:30,snapshot:{resultUpdatedAt:'2026-11-01T00:00:00Z'}}]};
+ prisma.results={findFirst:async()=>({id:30,passed:true,published_at:'2026-11-01T00:00:00Z',updated_at:'2026-11-01T00:00:00Z'})};
+ return id=>{intakeId=id;};
+};
+const createPasser=async()=>{const response=res();await controller.create(req(null,{applicantId:7,academicPeriodId:20}),response);return response;};
+
+test('posted-passer capture uses an independent upcoming intake without activating Scholar processing',async()=>{
+ setup();configurePasserIntake();const response=await createPasser();assert.equal(response.statusCode,201);
+ const id=response.body.session.id;assert.equal(sessions.get(id).academic_period_id,20);assert.equal(sessions.get(id).context.intakeCapture,true);
+ assert.equal((await send(id)).statusCode,200);assert.equal((await create()).statusCode,400);
+});
+
+test('a changed intake invalidates unchanged polling and rejects a queued transfer before writing',async()=>{
+ setup();const switchIntake=configurePasserIntake();const id=(await createPasser()).body.session.id;
+ prisma.$queryRaw=async()=>{switchIntake(21);return[{id:1}];};
+ assert.equal((await send(id)).statusCode,409);assert.equal(sessions.get(id).pages.length,0);
+ const request=req(id);request.query={revision:'0'};const response=res();await controller.get(request,response);assert.equal(response.statusCode,409);
+});
+
+test('ordinary Scholar capture remains tied to processing period when intake differs',async()=>{
+ setup();prisma.intake_settings={findUnique:async()=>{throw new Error('Scholar capture must not use intake settings');}};
+ const response=await create();assert.equal(response.statusCode,201);const id=response.body.session.id;
+ assert.equal(sessions.get(id).context.intakeCapture,false);assert.equal((await send(id)).statusCode,200);
+});
+
+test('legacy passer sessions recheck intake before reporting an unchanged queue',async()=>{
+ setup();const switchIntake=configurePasserIntake();const id=(await createPasser()).body.session.id;
+ delete sessions.get(id).context.intakeCapture;
+ switchIntake(21);
+ const request=req(id);request.query={revision:'0'};const response=res();await controller.get(request,response);
+ assert.equal(response.statusCode,409);assert.equal(sessions.get(id).revision,0);assert.equal(sessions.get(id).pages.length,0);
+});

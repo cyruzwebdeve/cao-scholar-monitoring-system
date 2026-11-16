@@ -32,7 +32,7 @@ const buildPotentialScholars = ({ period, members, applicants, applications, res
     const exam = currentExams.get(normalizeMunicipality(applicant?.municipality));
     const slot = assignedSlots.get(result?.exam_slot_id);
     if (!staged.has(member.applicant_id) || seen.has(member.applicant_id) || accepted.has(member.applicant_id)
-      || !isCurrentExaminationApplicant(applicant, period.school_year, '2025-2026') || !isExaminationApplicationEligible(application)
+      || !isCurrentExaminationApplicant(applicant, period.school_year) || !isExaminationApplicationEligible(application)
       || application.id !== member.application_id || !result?.passed || !result.published_at
       || result.applicant_id !== applicant.id || result.exam_id !== member.exam_id || exam?.id !== result.exam_id
       || !slot || slot.exam_id !== result.exam_id || slot.applicant_id !== applicant.id
@@ -53,7 +53,7 @@ const buildPotentialScholars = ({ period, members, applicants, applications, res
   for (const [id, { marker }] of staged) {
     if (seen.has(id) || accepted.has(id)) continue;
     const applicant = people.get(id);
-    if (!applicant || applicant.deleted_at) continue;
+    if (!isCurrentExaminationApplicant(applicant, period.school_year)) continue;
     queue.push({ id, name: [applicant.last_name, [applicant.first_name, applicant.middle_name].filter(Boolean).join(' ')].filter(Boolean).join(', '), controlNo: controls.get(id) || `Applicant #${id}`, municipality: applicant.municipality || 'Not specified', school: 'Recheck current record', initialVerified: false, status: 'Potential scholar', canAccept: false, reviewId: marker.reviewId, addedAt: marker.addedAt, reviewIssue: 'Application, result, assignment or requirements changed. Recheck in Results and add again.' });
   }
   return queue.sort((a, b) => a.name.localeCompare(b.name));

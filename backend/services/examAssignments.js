@@ -43,9 +43,8 @@ const getScheduledApplicantIds = ({ applicants, exams, slots, academicYear, lega
     exams.filter((exam) => exam.academic_year === academicYear).map((exam) => exam.id),
   );
   const activeApplicants = new Set(applicants
-    .filter((applicant) => !applicant.school_year
-      || applicant.school_year === academicYear
-      || applicant.school_year === legacySchoolYear)
+    .filter((applicant) => applicant.school_year === academicYear
+      || legacySchoolYear && (!applicant.school_year || applicant.school_year === legacySchoolYear))
     .map((applicant) => applicant.id));
   const scheduledApplicants = new Set();
 
@@ -92,9 +91,10 @@ const assignApplicantsToMunicipalityExams = async (
 ) => {
   if (!exams.length) return { matched: 0, created: 0 };
 
-  const schoolYearFilters = [{ school_year: academicYear }, { school_year: null }, { school_year: '' }];
-  if (legacySchoolYear && legacySchoolYear !== academicYear) {
-    schoolYearFilters.push({ school_year: legacySchoolYear });
+  const schoolYearFilters = [{ school_year: academicYear }];
+  if (legacySchoolYear) {
+    schoolYearFilters.push({ school_year: null }, { school_year: '' });
+    if (legacySchoolYear !== academicYear) schoolYearFilters.push({ school_year: legacySchoolYear });
   }
 
   const applicants = await client.applicants.findMany({

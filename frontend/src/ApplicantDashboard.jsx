@@ -89,6 +89,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   const [profile, setProfile] = useState(user);
   const [application, setApplication] = useState(null);
   const [examination, setExamination] = useState(null);
+  const [intakeScope, setIntakeScope] = useState(null);
   const [initialVerification, setInitialVerification] = useState(null);
   const [guidance, setGuidance] = useState(null);
   const [eligibilityAssessment, setEligibilityAssessment] = useState(null);
@@ -123,6 +124,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
         if (!active) return;
         setApplication(body?.application || null);
         setExamination(body?.examination || null);
+        setIntakeScope(body?.intakeScope || null);
         setGuidance(body?.guidance || null);
         setInitialVerification(body?.initialVerification || null);
         setEligibilityAssessment(body?.eligibilityAssessment || null);
@@ -132,6 +134,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
         if (!active) return;
         setApplication(null);
         setExamination(null);
+        setIntakeScope(null);
         setGuidance(null);
         setEligibilityAssessment(null);
         setDashboardError(error.message || "Unable to load your dashboard.");
@@ -147,19 +150,21 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   useEffect(() => {
     const refreshDashboard = () => setDashboardReloadKey((key) => key + 1);
     const refreshFromStorage = (event) => {
-      if (['examinationSettingsRevision', 'examinationScheduleRevision', 'examinationAttendanceRevision'].includes(event.key)) refreshDashboard();
+      if (['intakePeriodRevision', 'examinationSettingsRevision', 'examinationScheduleRevision', 'examinationAttendanceRevision'].includes(event.key)) refreshDashboard();
     };
     const stopRefreshing = subscribeToVisibleRefresh(refreshDashboard, { intervalMs: TIME_SENSITIVE_DATA_REFRESH_MS });
     window.addEventListener('storage', refreshFromStorage);
     window.addEventListener('exam-mode-changed', refreshDashboard);
     window.addEventListener('exam-schedule-persisted', refreshDashboard);
     window.addEventListener('exam-attendance-persisted', refreshDashboard);
+    window.addEventListener('intake-period-changed', refreshDashboard);
     return () => {
       stopRefreshing();
       window.removeEventListener('storage', refreshFromStorage);
       window.removeEventListener('exam-mode-changed', refreshDashboard);
       window.removeEventListener('exam-schedule-persisted', refreshDashboard);
       window.removeEventListener('exam-attendance-persisted', refreshDashboard);
+      window.removeEventListener('intake-period-changed', refreshDashboard);
     };
   }, []);
 
@@ -288,6 +293,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
           </button>
         </div>
       </header>
+      {intakeScope?.archived && <section className="applicant-official-result" role="status"><span><strong>Historical intake{intakeScope.schoolYear ? ` · ${intakeScope.schoolYear}` : ''}</strong> Your application and examination records remain available. This intake is no longer accepting examination activity.</span></section>}
 
       <main className="applicant-dashboard-main">
         {dashboardLoading ? (

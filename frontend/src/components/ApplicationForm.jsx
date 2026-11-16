@@ -2,6 +2,7 @@ import { validateDocumentFile, documentDataUrl, DOCUMENT_FILE_ACCEPT, DOCUMENT_F
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleCheckBig, Info, UsersRound } from 'lucide-react';
 import { API_BASE, authHeaders } from '../services/api';
+import { applicationIntakeScope } from '../utils/intakePeriod';
 import municipalitiesData from '../../../municipality.json';
 import barangaysData from '../../../brgy.json';
 import schoolsListData from '../../../schools_list.json';
@@ -64,7 +65,7 @@ function FieldLabel({ children, required = false }) {
   );
 }
 
-function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalStep, setStep: externalSetStep }) {
+function ApplicationForm({ token, user, intakePeriod, onIntakeChanged, onCreated, onGoToLogin, step: externalStep, setStep: externalSetStep }) {
   const [internalStep, setInternalStep] = useState(0);
   const step = typeof externalStep === 'number' ? externalStep : internalStep;
   const setStep = externalSetStep || setInternalStep;
@@ -367,7 +368,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
       : null;
 
     try {
-      const bodyPayload = { personalInfo, initialDocs: priorityProof.fileData ? { priorityProof } : {} };
+      const bodyPayload = { ...applicationIntakeScope(intakePeriod), personalInfo, initialDocs: priorityProof.fileData ? { priorityProof } : {} };
       if (!user) {
         bodyPayload.email = formState.email;
         bodyPayload.password = generatedTemporaryPassword;
@@ -382,6 +383,7 @@ function ApplicationForm({ token, user, onCreated, onGoToLogin, step: externalSt
       const body = await response.json();
       if (!response.ok) {
         setError(body.message || 'Application submission failed.');
+        if (response.status === 409) onIntakeChanged?.();
         return;
       }
       setAccountCredentials(body.applicant ? {

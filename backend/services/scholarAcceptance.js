@@ -1,4 +1,4 @@
-const { findPrimaryActivePeriod } = require('./academicPeriod');
+const { findIntakePeriod, lockIntakePeriod } = require('./intakePeriod');
 const { isCurrentExaminationApplicant, isExaminationApplicationEligible } = require('./examinationEligibility');
 const { normalizeMunicipality } = require('./examAssignments');
 const { getPostedPasser, initialApproved } = require('./passerIntake');
@@ -6,11 +6,11 @@ const { loadResolvedScholarSchool } = require('./scholarSchool');
 const { evaluateEligibility } = require('./eligibilityRecommendation');
 const { AttemptError } = require('./onlineExamAttempt');
 const { assertPotentialReview } = require('./potentialReview');
-const STALE_DEFAULT_SCHOOL_YEAR = '2025-2026';
 
 const loadScholarReview = async (transaction, applicantId, review) => {
-      const activePeriod = await findPrimaryActivePeriod(transaction);
-      if (!activePeriod || activePeriod.id !== review.academicPeriodId) throw new AttemptError('The primary period changed. Reload Results Management before deciding.');
+      const activePeriod = await findIntakePeriod(transaction);
+      if (!activePeriod || activePeriod.id !== review.academicPeriodId) throw new AttemptError('The intake period changed. Reload Results Management before deciding.');
+      await lockIntakePeriod(transaction, activePeriod.id, activePeriod.school_year);
       const [applicant, latestResult, application, existingScholar, exam, slot] = await Promise.all([
         transaction.applicants.findFirst({
           where: { id: applicantId, deleted_at: null },
@@ -22,9 +22,9 @@ const loadScholarReview = async (transaction, applicantId, review) => {
         transaction.exams.findUnique({ where: { id: review.examId } }),
         transaction.exam_slots.findUnique({ where: { applicant_id_exam_id: { applicant_id: applicantId, exam_id: review.examId } } }),
       ]);
-      if (!isCurrentExaminationApplicant(applicant, activePeriod.school_year, STALE_DEFAULT_SCHOOL_YEAR)) throw new AttemptError('The applicant is unavailable in the primary academic year.');
+      if (!isCurrentExaminationApplicant(applicant, activePeriod.school_year)) throw new AttemptError('The applicant is unavailable in the current intake year.');
       if (!isExaminationApplicationEligible(application) || application.id !== review.applicationId) throw new AttemptError('The application changed or is unavailable. Reload before deciding.');
-      if (!exam || exam.academic_year !== activePeriod.school_year || normalizeMunicipality(exam.municipality) !== normalizeMunicipality(applicant.municipality) || !slot || slot.exam_id !== exam.id || slot.applicant_id !== applicantId) throw new AttemptError('Use the applicant’s assigned examination in the primary academic year.');
+      if (!exam || exam.academic_year !== activePeriod.school_year || normalizeMunicipality(exam.municipality) !== normalizeMunicipality(applicant.municipality) || !slot || slot.exam_id !== exam.id || slot.applicant_id !== applicantId) throw new AttemptError('Use the applicant’s assigned examination in the current intake year.');
       const scheduledExam = await transaction.exams.findFirst({ where: { academic_year: activePeriod.school_year, municipality: { equals: String(applicant.municipality || '').trim(), mode: 'insensitive' } }, orderBy: { updated_at: 'desc' } });
       if (scheduledExam?.id !== exam.id) throw new AttemptError('The assigned examination changed. Reload before deciding.');
       if (!latestResult || latestResult.id !== review.resultId || latestResult.exam_id !== review.examId || latestResult.applicant_id !== applicantId || latestResult.exam_slot_id !== slot.id || +new Date(latestResult.updated_at) !== +new Date(review.updatedAt)) throw new AttemptError('The reviewed result changed. Reload before deciding.');
@@ -46,9 +46,7 @@ const acceptReviewedScholar = async (transaction, applicantId, review, actorId, 
   const { activePeriod, applicant, latestResult, application, existingScholar } = context;
   if (potentialReviewId) assertPotentialReview(context, potentialReviewId);
       const assessment = evaluateEligibility({ application, result: latestResult });
-      const schoolYear = applicant.school_year === STALE_DEFAULT_SCHOOL_YEAR || !applicant.school_year
-        ? activePeriod.school_year
-        : applicant.school_year;
+      const schoolYear = applicant.school_year;
       const yearPrefix = String(schoolYear).split('-')[0];
       const scholarId = existingScholar?.scholar_id || `PGCEAP-${yearPrefix}-${String(applicantId).padStart(5, '0')}`;
 

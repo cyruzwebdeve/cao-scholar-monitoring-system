@@ -27,7 +27,6 @@ const {
 const {
   assignApplicantToMunicipalityExam,
   assignApplicantsToMunicipalityExams,
-  countScheduledApplicants,
   indexExamsByMunicipality,
   normalizeMunicipality,
 } = require('../services/examAssignments');
@@ -37,6 +36,8 @@ const { canAccessOnlineExamination, getExaminationSettings, isExaminationSchedul
 const { buildApplicantGuidance } = require('../services/applicantGuidance');
 const { resolveExaminationProgress } = require('../services/examinationProgress');
 const { findPrimaryActivePeriod } = require('../services/academicPeriod');
+const { findIntakePeriod, requireIntakePeriod, lockIntakePeriod, serializeIntakePeriod } = require('../services/intakePeriod');
+const { isScholarPeriodEligible, assertScholarPeriodEligible } = require('../services/scholarProcessingPeriod');
 const { isExaminationApplicationEligible, isCurrentExaminationApplicant } = require('../services/examinationEligibility');
 const { evaluateEligibility, serializeAssessment } = require('../services/eligibilityRecommendation');
 const { PRIORITY_PROOFS, selectedPriorityCriteria } = require('../services/priorityEligibility');
@@ -127,6 +128,58 @@ const getSelectedActiveAcademicPeriodRecord = async (value, client = prisma) => 
   return client.academic_periods.findFirst({ where: { id, is_active: true } });
 };
 
+const scholarProcessingEligibility = (applicant, period) => {
+  const eligible = isScholarPeriodEligible(applicant, period);
+  return { eligible, entrySchoolYear: applicant?.school_year || null, schoolYear: period.school_year,
+    message: eligible ? null : `This Scholar enters in ${applicant.school_year}. Select that school year or a later academic period for processing.` };
+};
+
+const evaluateScholarContinuingSchedule = ({ applicant, ...options }) => {
+  const access = evaluateContinuingSchedule(options);
+  const eligibility = scholarProcessingEligibility(applicant, options.period);
+  return eligibility.eligible ? access : { ...access, visible: false, isOpen: false, state: 'waiting_entry_year', message: eligibility.message };
+};
+
+const assertSelectedScholarsPeriodEligible = async (tx, applicantIds, period) => {
+  const applicants = await tx.applicants.findMany({ where: { id: { in: applicantIds }, deleted_at: null }, select: { id: true, school_year: true } });
+  const applicantById = new Map(applicants.map((applicant) => [applicant.id, applicant]));
+  for (const applicantId of applicantIds) {
+    const applicant = applicantById.get(applicantId);
+    if (!applicant) throw Object.assign(new Error('The Scholar applicant record changed. Reload before processing.'), { statusCode: 409 });
+    assertScholarPeriodEligible(applicant, period);
+  }
+};
+
+const expectedIntakeScope = (body = {}) => {
+  const academicPeriodId = Number(body.academicPeriodId);
+  const academicYear = String(body.academicYear || '').trim();
+  const match = /^(\d{4})-(\d{4})$/.exec(academicYear);
+  if (!Number.isSafeInteger(academicPeriodId) || academicPeriodId <= 0
+    || !match || Number(match[2]) !== Number(match[1]) + 1) {
+    throw Object.assign(new Error('Reload the application and examination intake year before submitting changes.'), { statusCode: 400 });
+  }
+  return { academicPeriodId, academicYear };
+};
+
+const getIntakePeriodRecord = async (client = prisma) => {
+  const period = await findIntakePeriod(client);
+  if (!period) throw Object.assign(new Error('No application and examination intake period is configured. Contact CAO.'), { statusCode: 409 });
+  return period;
+};
+
+const intakeViewScope = (requestedYear, intakePeriod, schoolYears) => {
+  if (requestedYear != null && typeof requestedYear !== 'string') throw Object.assign(new Error('Select a valid intake school year.'), { statusCode: 400 });
+  const requested = String(requestedYear || '').trim();
+  const schoolYear = requested === 'all' || requested === 'All School Years' ? 'all' : requested || intakePeriod?.school_year || null;
+  if (schoolYear && schoolYear !== 'all') {
+    const match = /^(\d{4})-(\d{4})$/.exec(schoolYear);
+    if (!match || Number(match[2]) !== Number(match[1]) + 1 || !schoolYears.includes(schoolYear)) {
+      throw Object.assign(new Error('Select an available intake school year.'), { statusCode: 400 });
+    }
+  }
+  return { schoolYear, isCurrentIntake: Boolean(intakePeriod && schoolYear === intakePeriod.school_year), includesArchived: true };
+};
+
 const normalizeFamilyName = (value) => String(value || '')
   .normalize('NFKD')
   .replace(/[\u0300-\u036f]/g, '')
@@ -191,7 +244,8 @@ const createApplication = async (req, res) => {
       });
     }
 
-    const activePeriod = await getActiveAcademicPeriodRecord();
+    const { academicPeriodId, academicYear } = expectedIntakeScope(req.body);
+    const activePeriod = await requireIntakePeriod(prisma, academicPeriodId, academicYear);
 
     const storedPriorityProof = await storePriorityProof({ applicantPath: normalizedEmail, eligibility: personalInfo.eligibility, priorityProof: initialDocs?.priorityProof });
     uploadedPriorityProofUrl = storedPriorityProof.uploadedUrl;
@@ -204,6 +258,7 @@ const createApplication = async (req, res) => {
     delete storedFamily.guardianOccupation;
 
     const { application, account } = await prisma.$transaction(async (tx) => {
+      await lockIntakePeriod(tx, academicPeriodId, academicYear);
       const applicant = await tx.applicants.create({
         data: {
           first_name: identity.firstName,
@@ -330,32 +385,8 @@ const inputExamScore = async (req, res) => {
 };
 
 const submitRequirements = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { payoutComplianceDocs } = req.body;
-
-    const scholar = await prisma.scholar.findUnique({ where: { id: Number(id) } });
-    if (!scholar) {
-      return res.status(404).json({ message: 'Scholar record not found.' });
-    }
-
-    if (req.user.id !== scholar.userId && req.user.role !== 'SuperAdmin') {
-      return res.status(403).json({ message: 'Access Denied. Cannot update this scholar.' });
-    }
-
-    const updatedScholar = await prisma.scholar.update({
-      where: { id: Number(id) },
-      data: {
-        payoutComplianceDocs: payoutComplianceDocs || scholar.payoutComplianceDocs,
-        status: APPLICATION_STATUSES.REQUIREMENTS_SUBMITTED,
-      },
-    });
-
-    return res.status(200).json({ message: 'Requirements submitted.', scholar: updatedScholar });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Server error submitting requirements.' });
-  }
+  // Obsolete payment-oriented payloads have no academic-period scope or current model.
+  return res.status(410).json({ message: 'This legacy requirements endpoint is retired. Use the Scholar portal continuing-requirements upload with a selected academic period.' });
 };
 
 const activateScholar = async (req, res) => {
@@ -844,7 +875,8 @@ const getScholarManagement = async (req, res) => {
       const school = resolveScholarSchool({ applicant, requirement, application, schoolById, schoolByName, schoolHistory: schoolHistoryByApplicant.get(applicant.id) });
       const resolvedSchoolType = String(school?.school_type || '').trim().toLowerCase();
       const schoolType = resolvedSchoolType === 'private' ? 'Private' : resolvedSchoolType === 'public' ? 'Public' : 'Unclassified';
-      const continuingAccess = evaluateContinuingSchedule({ schedule: continuingSchedule, period: activePeriod, docs: application?.initial_docs, applicantId: applicant.id, schoolType, legacyPeriodId: primaryPeriod.id, entryYearLevel: application?.school_plan?.incomingYearLevel });
+      const processingEligibility = scholarProcessingEligibility(applicant, activePeriod);
+      const continuingAccess = evaluateScholarContinuingSchedule({ applicant, schedule: continuingSchedule, period: activePeriod, docs: application?.initial_docs, applicantId: applicant.id, schoolType, legacyPeriodId: primaryPeriod.id, entryYearLevel: application?.school_plan?.incomingYearLevel });
       if (application) application.initial_docs = projectContinuingAccess(application.initial_docs, activePeriod.id, continuingAccess);
       const applicationRequirements = getEffectiveRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id).requirements;
       const configuredBillingAmount = requirement?.list_amount_override === null || requirement?.list_amount_override === undefined
@@ -954,6 +986,7 @@ const getScholarManagement = async (req, res) => {
       });
       const grantBlocker = preparationBlocker(schoolType, requirement, Boolean(payrollClaim));
       if (grantBlocker) billingEligibility = { ...billingEligibility, eligible: false, reasons: [...billingEligibility.reasons, grantBlocker] };
+      if (!processingEligibility.eligible) billingEligibility = { ...billingEligibility, eligible: false, reasons: [...billingEligibility.reasons, { code: 'SCHOLAR_ENTRY_YEAR', message: processingEligibility.message }] };
       const savedGrant = payrollClaim?.tuition_fee_assistance != null
         ? { grantPrepared: true, totalGrant: Number(payrollClaim.claim_amount), tuitionFeeAssistance: Number(payrollClaim.tuition_fee_assistance), allowance: Number(payrollClaim.allowance), grantPreparedAt: requirement?.grant_prepared_at || null }
         : payrollClaim || schoolType !== 'Private' ? { grantPrepared: false, totalGrant: schoolType === 'Private' ? 5000 : 3000, tuitionFeeAssistance: null, allowance: null, grantPreparedAt: null } : grantBreakdown(requirement);
@@ -976,7 +1009,8 @@ const getScholarManagement = async (req, res) => {
         processRoute,
         notYetIncluded: !payrollClaim && !(payrollClaimsByApplicant.get(applicant.id) || []).some((claim) => claim.academic_period_id === activePeriod.id),
         payrollRequested: Boolean(requirement?.payroll_requested_at),
-        canPreparePayroll: scholar.is_active && !payrollClaim && !((payrollClaimsByApplicant.get(applicant.id) || []).some((claim) => claim.academic_period_id === activePeriod.id)) && schoolType === 'Private' && processRoute === 'billing' && payrollBatches.some((batch) => batch.billing_period_id === activePeriod.id && ['billed', 'generated'].includes(batch.status)) && hasSectionAccess(req.user, 'payroll'),
+        canPreparePayroll: processingEligibility.eligible && scholar.is_active && !payrollClaim && !((payrollClaimsByApplicant.get(applicant.id) || []).some((claim) => claim.academic_period_id === activePeriod.id)) && schoolType === 'Private' && processRoute === 'billing' && payrollBatches.some((batch) => batch.billing_period_id === activePeriod.id && ['billed', 'generated'].includes(batch.status)) && hasSectionAccess(req.user, 'payroll'),
+        processingEligibility,
         academicPeriodId: activePeriod.id,
         schoolYear,
         semester,
@@ -1040,12 +1074,14 @@ const updateScholarBillingDetails = async (req, res) => {
     if (!Number.isInteger(applicantId) || applicantId <= 0) return res.status(400).json({ message: 'A valid scholar is required.' });
     const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
     if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period.' });
-    const [scholar, school, processedClaim] = await Promise.all([
+    const [scholar, school, processedClaim, applicant] = await Promise.all([
       prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true }, select: { id: true } }),
       prisma.schools.findFirst({ where: { id: Number(req.body.schoolId), is_active: true }, select: { id: true, name: true, school_type: true } }),
       prisma.payroll_claims.findFirst({ where: { applicant_id: applicantId, academic_period_id: activePeriod.id }, select: { id: true } }),
+      prisma.applicants.findUnique({ where: { id: applicantId }, select: { id: true, school_year: true } }),
     ]);
     if (!scholar) return res.status(404).json({ message: 'Active scholar account not found.' });
+    assertScholarPeriodEligible(applicant, activePeriod);
     if (!school) return res.status(400).json({ message: 'Select an active school from the catalog.' });
     if (schoolClassification(school.school_type) === 'Unclassified') return res.status(400).json({ message: 'Save the Public or Private classification for this school in School Catalog first.' });
     if (processedClaim) return res.status(409).json({ message: 'Billing details are locked after the scholar is processed for the active period.' });
@@ -1089,6 +1125,7 @@ const updateScholarBillingDetails = async (req, res) => {
       },
     });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.error(error);
     return res.status(500).json({ message: 'Server error updating scholar billing details.' });
   }
@@ -1112,6 +1149,7 @@ const updateScholarBillingMetadata = async (req, res) => {
       prisma.application_submissions.findFirst({ where: { applicant_id: applicantId }, orderBy: { submitted_at: 'desc' } }),
       prisma.scholar_requirements.findUnique({ where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: selectedPeriod.id } } }),
     ]);
+    assertScholarPeriodEligible(applicant, selectedPeriod);
     const school = await loadResolvedScholarSchool(prisma, { applicantId, applicant, application, requirement });
     if (!['Public', 'Private'].includes(schoolClassification(school?.school_type))) return res.status(409).json({ message: 'Correct the school classification before preparing a session.' });
     if (!hasSectionAccess(req.user, resolveProcessingRoute({ schoolType: school.school_type, requirement, docs: application?.initial_docs, period: selectedPeriod, schedule: await loadContinuingSchedule(prisma, selectedPeriod.id), applicantId, legacyPeriodId: (await getActiveAcademicPeriodRecord()).id }))) return res.status(403).json({ message: 'Access Denied. The required processing section is not assigned to your staff account.' });
@@ -1145,6 +1183,7 @@ const updateScholarBillingMetadata = async (req, res) => {
       },
     });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.error(error);
     return res.status(500).json({ message: 'Server error updating billing and payroll details.' });
   }
@@ -1171,7 +1210,7 @@ const processBillingSelection = async (req, res) => {
       }),
       prisma.applicants.findMany({
         where: { id: { in: applicantIds }, deleted_at: null },
-        select: { id: true, school_id: true },
+        select: { id: true, school_id: true, school_year: true },
       }),
       prisma.application_submissions.findMany({
         where: { applicant_id: { in: applicantIds } },
@@ -1238,7 +1277,8 @@ const processBillingSelection = async (req, res) => {
         schoolByName,
         schoolHistory: schoolHistoryByApplicant.get(applicantId),
       });
-      const access = evaluateContinuingSchedule({ schedule: continuingSchedule, period: activePeriod, docs: application?.initial_docs, applicantId, schoolType: school?.school_type, legacyPeriodId: primaryPeriod.id, entryYearLevel: application?.school_plan?.incomingYearLevel });
+      const processingEligibility = scholarProcessingEligibility(applicantById.get(applicantId), activePeriod);
+      const access = evaluateScholarContinuingSchedule({ applicant: applicantById.get(applicantId), schedule: continuingSchedule, period: activePeriod, docs: application?.initial_docs, applicantId, schoolType: school?.school_type, legacyPeriodId: primaryPeriod.id, entryYearLevel: application?.school_plan?.incomingYearLevel });
       let result = evaluateListEligibility({
         isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
         alreadyBilled: billedIds.has(applicantId),
@@ -1249,6 +1289,7 @@ const processBillingSelection = async (req, res) => {
       });
       const grantBlocker = preparationBlocker(school?.school_type, requirement, billedIds.has(applicantId));
       if (grantBlocker) result = { ...result, eligible: false, reasons: [...result.reasons, grantBlocker] };
+      if (!processingEligibility.eligible) result = { ...result, eligible: false, reasons: [...result.reasons, { code: 'SCHOLAR_ENTRY_YEAR', message: processingEligibility.message }] };
       if (school && resolveProcessingRoute({ schoolType: school.school_type, requirement, docs: application?.initial_docs, period: activePeriod, schedule: continuingSchedule, applicantId, legacyPeriodId: primaryPeriod.id }) !== 'billing') {
         result = {
           ...result,
@@ -1281,6 +1322,7 @@ const processBillingSelection = async (req, res) => {
 
     const timestamp = new Date();
     const result = await prisma.$transaction(async (transaction) => {
+      await assertSelectedScholarsPeriodEligible(transaction, eligibleIds, activePeriod);
       const amountSnapshots = await snapshotListAmounts(transaction, activePeriod.id, eligibility);
       billingAmountByApplicant = amountSnapshots;
       const batchTotal = totalListAmount(amountSnapshots);
@@ -1367,7 +1409,7 @@ const processPayrollSelection = async (req, res) => {
 
     const [scholarAccounts, applicants, applications, requirements, schools, existingClaims] = await Promise.all([
       prisma.scholar_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, is_active: true } }),
-      prisma.applicants.findMany({ where: { id: { in: applicantIds }, deleted_at: null }, select: { id: true, school_id: true } }),
+      prisma.applicants.findMany({ where: { id: { in: applicantIds }, deleted_at: null }, select: { id: true, school_id: true, school_year: true } }),
       prisma.application_submissions.findMany({
         where: { applicant_id: { in: applicantIds } },
         orderBy: { submitted_at: 'desc' },
@@ -1395,7 +1437,8 @@ const processPayrollSelection = async (req, res) => {
       const application = applicationByApplicant.get(applicantId);
       const requirement = requirementByApplicant.get(applicantId);
       const school = resolveScholarSchool({ applicant: applicantById.get(applicantId), requirement, application, schoolById, schoolByName, schoolHistory: schoolHistoryByApplicant.get(applicantId) });
-      const access = evaluateContinuingSchedule({ schedule: continuingSchedule, period: activePeriod, docs: application?.initial_docs, applicantId, schoolType: school?.school_type, legacyPeriodId: primaryPeriod.id, entryYearLevel: application?.school_plan?.incomingYearLevel });
+      const processingEligibility = scholarProcessingEligibility(applicantById.get(applicantId), activePeriod);
+      const access = evaluateScholarContinuingSchedule({ applicant: applicantById.get(applicantId), schedule: continuingSchedule, period: activePeriod, docs: application?.initial_docs, applicantId, schoolType: school?.school_type, legacyPeriodId: primaryPeriod.id, entryYearLevel: application?.school_plan?.incomingYearLevel });
       const readiness = evaluateListEligibility({
         isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
         alreadyBilled: false,
@@ -1406,6 +1449,7 @@ const processPayrollSelection = async (req, res) => {
         requireSchoolClassification: true,
       });
       const reasons = [...readiness.reasons];
+      if (!processingEligibility.eligible) reasons.push({ code: 'SCHOLAR_ENTRY_YEAR', message: processingEligibility.message });
       const grantBlocker = preparationBlocker(school?.school_type, requirement, processedIds.has(applicantId));
       if (grantBlocker) reasons.push(grantBlocker);
       if (school && resolveProcessingRoute({ schoolType: school.school_type, requirement, docs: application?.initial_docs, period: activePeriod, schedule: continuingSchedule, applicantId, legacyPeriodId: primaryPeriod.id }) !== 'payroll') {
@@ -1430,6 +1474,7 @@ const processPayrollSelection = async (req, res) => {
     const timestamp = new Date();
     let amountByApplicant;
     const batch = await prisma.$transaction(async (transaction) => {
+      await assertSelectedScholarsPeriodEligible(transaction, applicantIds, activePeriod);
       amountByApplicant = await snapshotListAmounts(transaction, activePeriod.id, eligibility);
       const totalAmount = totalListAmount(amountByApplicant);
       const grantSnapshots = await snapshotPrivateGrants(transaction, activePeriod.id, eligibility.filter((item) => String(item.schoolType).toLowerCase() === 'private').map((item) => item.applicantId));
@@ -1485,12 +1530,12 @@ const getOnlineExamQuestions = async (req, res) => {
   try {
     const applicantId = req.user.id;
     const [activePeriod, examinationSettings, applicant, application] = await Promise.all([
-      getActiveAcademicPeriodRecord(),
+      getIntakePeriodRecord(),
       getExaminationSettings(prisma),
       prisma.applicants.findUnique({ where: { id: applicantId }, select: { municipality: true, school_year: true, deleted_at: true } }),
       prisma.application_submissions.findFirst({ where: { applicant_id: applicantId }, orderBy: { submitted_at: 'desc' } }),
     ]);
-    if (!isCurrentExaminationApplicant(applicant, activePeriod.school_year, STALE_DEFAULT_SCHOOL_YEAR) || !isExaminationApplicationEligible(application)) {
+    if (!isCurrentExaminationApplicant(applicant, activePeriod.school_year) || !isExaminationApplicationEligible(application)) {
       return res.status(403).json({ message: 'Your application is not available for examination. Contact CAO.' });
     }
     const exam = await prisma.exams.findFirst({
@@ -1513,7 +1558,10 @@ const getOnlineExamQuestions = async (req, res) => {
       return res.status(403).json({ message: 'The secured question view is unavailable until Online Examination is active and CAO marks your attendance as Present.' });
     }
     res.set('Cache-Control', 'no-store, private');
-    const { slot: attempt, configuration } = await getOrStartAttempt(prisma, examSlot);
+    const { slot: attempt, configuration } = await prisma.$transaction(async (tx) => {
+      await lockIntakePeriod(tx, activePeriod.id, activePeriod.school_year);
+      return getOrStartAttempt(tx, examSlot);
+    });
     return res.json({
       examination: { id: exam.id, title: exam.title, academicYear: exam.academic_year },
       ...publicConfiguration(configuration),
@@ -1521,7 +1569,7 @@ const getOnlineExamQuestions = async (req, res) => {
       examTicket: createExamTicket({ applicantId, examId: exam.id, configurationId: configuration.id, deadlineAt: attempt.online_deadline_at }),
     });
   } catch (error) {
-    if (error instanceof AttemptError) return res.status(error.status).json({ message: error.message });
+    if (error instanceof AttemptError || error.statusCode) return res.status(error.statusCode || error.status).json({ message: error.message });
     console.error(error);
     return res.status(500).json({ message: 'Server error loading examination questions.' });
   }
@@ -1532,7 +1580,7 @@ const submitOnlineExam = async (req, res) => {
   try {
     const applicantId = req.user.id;
     const [activePeriod, examinationSettings] = await Promise.all([
-      getActiveAcademicPeriodRecord(),
+      getIntakePeriodRecord(),
       getExaminationSettings(prisma),
     ]);
     if (!examinationSettings.isEnabled || examinationSettings.deliveryMode !== 'online') {
@@ -1542,7 +1590,7 @@ const submitOnlineExam = async (req, res) => {
       where: { id: applicantId },
       select: { email: true, first_name: true, municipality: true, school_year: true, deleted_at: true },
     });
-    if (!isCurrentExaminationApplicant(applicant, activePeriod.school_year, STALE_DEFAULT_SCHOOL_YEAR)) return res.status(403).json({ message: 'Your application is not available for this academic year.' });
+    if (!isCurrentExaminationApplicant(applicant, activePeriod.school_year)) return res.status(403).json({ message: 'Your application is not available for this intake academic year.' });
     const exam = await prisma.exams.findFirst({
       where: {
         is_active: true,
@@ -1579,6 +1627,7 @@ const submitOnlineExam = async (req, res) => {
     const passingScore = configuration.passingScore;
     const data = { score, passing_score: passingScore, passed: score >= passingScore, online_configuration_id: configurationId, delivery_mode: 'online', updated_at: new Date() };
     const result = await prisma.$transaction(async (tx) => {
+      await lockIntakePeriod(tx, activePeriod.id, activePeriod.school_year);
       const application = await tx.application_submissions.findFirst({ where: { applicant_id: applicantId }, orderBy: { submitted_at: 'desc' } });
       if (!isExaminationApplicationEligible(application)) throw new AttemptError('Your application is no longer available for examination submission. Contact CAO.');
       const recorded = await tx.results.create({ data: { exam_slot_id: slot.id, applicant_id: applicantId, exam_id: exam.id, ...data } });
@@ -1608,10 +1657,108 @@ const submitOnlineExam = async (req, res) => {
       notification: { examReceiptEmailSent: emailDelivery.sent },
     });
   } catch (error) {
-    if (error instanceof AttemptError) return res.status(error.status).json({ message: error.message });
+    if (error instanceof AttemptError || error.statusCode) return res.status(error.statusCode || error.status).json({ message: error.message });
     if (error?.code === 'P2002') return res.status(409).json({ message: 'This examination has already been submitted.' });
     console.error(error); return res.status(500).json({ message: 'Server error submitting examination.' });
   }
+};
+
+const getApplicantPortalRecord = async ({ application, applicant, processingPeriod }) => {
+  const applicantId = applicant?.id || application.applicant_id;
+  const intakePeriod = await findIntakePeriod(prisma);
+  const schoolYear = applicant?.school_year || null;
+  const originalPeriodId = Number(application.initial_docs?.initialRequirementPeriodId);
+  let originalPeriod = Number.isSafeInteger(originalPeriodId) && originalPeriodId > 0
+    ? await prisma.academic_periods.findUnique({ where: { id: originalPeriodId } }) : null;
+  if (originalPeriod?.school_year !== schoolYear) originalPeriod = null;
+  if (!originalPeriod && schoolYear) originalPeriod = await prisma.academic_periods.findFirst({
+    where: { school_year: schoolYear }, orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
+  });
+  if (originalPeriod?.school_year !== schoolYear) originalPeriod = null;
+  const isCurrentIntake = Boolean(intakePeriod && schoolYear === intakePeriod.school_year);
+  const periodId = isCurrentIntake ? intakePeriod.id : originalPeriod?.id || null;
+  const [scheduledExam, examinationSettings, schoolCatalog, schoolHistory, scholarRequirement, activePayrollBatches] = await Promise.all([
+    schoolYear && applicant?.municipality ? prisma.exams.findFirst({
+      where: { municipality: { equals: applicant.municipality.trim(), mode: 'insensitive' }, academic_year: schoolYear },
+      orderBy: { updated_at: 'desc' },
+      select: { id: true, title: true, exam_date: true, exam_end_date: true, venue: true, municipality: true, academic_year: true, is_active: true },
+    }) : null,
+    getExaminationSettings(prisma),
+    prisma.schools.findMany({ select: { id: true, name: true, school_type: true } }),
+    loadSchoolHistory(prisma, applicantId ? [applicantId] : []),
+    prisma.scholar_requirements.findFirst({ where: { applicant_id: applicantId, billing_period_id: processingPeriod.id } }),
+    prisma.payroll_batches.findMany({ where: { billing_period_id: processingPeriod.id, NOT: [
+      { status: 'billed' }, { batch_number: { startsWith: 'BILL-' } },
+    ] }, select: { id: true } }),
+  ]);
+  const [result, examSlot] = scheduledExam ? await Promise.all([
+    prisma.results.findFirst({ where: { applicant_id: applicantId, exam_id: scheduledExam.id } }),
+    prisma.exam_slots.findUnique({ where: { applicant_id_exam_id: { applicant_id: applicantId, exam_id: scheduledExam.id } } }),
+  ]) : [null, null];
+  const selectedSchool = resolveScholarSchool({ applicant, application, requirement: scholarRequirement,
+    schoolById: new Map(schoolCatalog.map(school => [school.id, school])),
+    schoolByName: new Map(schoolCatalog.map(school => [normalizeSchoolName(school.name), school])),
+    schoolHistory: schoolHistory.get(applicantId) });
+  const payrollClaim = await prisma.payroll_claims.findFirst({ where: { applicant_id: applicantId,
+    payroll_batch_id: { in: activePayrollBatches.map(batch => batch.id) } }, orderBy: { updated_at: 'desc' } });
+  const payrollBatch = payrollClaim ? await prisma.payroll_batches.findUnique({ where: { id: payrollClaim.payroll_batch_id } }) : null;
+  const certificationDate = await latestCertificationCreatedAt(prisma, applicantId, selectedSchool?.school_type);
+  const postedPasser = periodId && result?.passed && result?.published_at
+    ? await getPostedPasser(prisma, applicantId, periodId, result, application.id) : null;
+  const initialVerification = postedPasser ? {
+    listId: postedPasser.list_id,
+    verified: initialApproved(application.initial_docs, periodId, selectedSchool?.school_type, periodId, application.school_plan?.incomingYearLevel),
+    documents: initialChecklist(application.initial_docs, periodId, selectedSchool?.school_type, periodId, application.id, application.school_plan?.incomingYearLevel),
+    readOnly: !isCurrentIntake,
+  } : null;
+  const guidance = buildApplicantGuidance({ application, result, scholar: null, scheduledExam,
+    examinationSettings, examSlot, scholarRequirement, payrollClaim, payrollBatch,
+    schoolType: schoolClassification(selectedSchool?.school_type), initialVerification });
+  if (!isCurrentIntake) {
+    guidance.headline = 'Historical application record';
+    guidance.description = 'Your saved application and examination records remain available under their original intake year. This intake is no longer current.';
+    guidance.actions = [];
+  }
+  return {
+    application: publicApplication(application), applicant,
+    intakePeriod: serializeIntakePeriod(intakePeriod),
+    intakeScope: { schoolYear, isCurrentIntake, archived: !isCurrentIntake },
+    activePeriod: isCurrentIntake ? serializeIntakePeriod(intakePeriod)
+      : originalPeriod ? { ...serializeAcademicPeriod(originalPeriod), isCurrentIntake: false } : null,
+    initialVerification,
+    requirementWave: { entryYearLevel: application.school_plan?.incomingYearLevel || null,
+      academicPeriodId: periodId, periodLabel: schoolYear ? `${schoolYear}${originalPeriod?.semester ? ` · ${originalPeriod.semester}` : ''}` : 'Intake year not specified',
+      schoolType: schoolClassification(selectedSchool?.school_type), continuingOpen: false,
+      initial: getInitialRequirements(application.initial_docs, periodId, originalPeriod?.id || periodId).requirements,
+      continuing: {}, submission: { visible: false, isOpen: false, state: 'waiting_initial' } },
+    continuingPeriods: [],
+    school: selectedSchool ? { name: selectedSchool.name, schoolType: schoolClassification(selectedSchool.school_type) } : null,
+    guidance, certificationCreatedAt: certificationDate, eligibilityAssessment: null, scholar: null,
+    processingRoute: payrollBatch ? (String(payrollBatch.batch_number || '').startsWith('BILL-') || payrollBatch.status === 'billed' ? 'billing' : 'payroll')
+      : resolveProcessingRoute({ schoolType: selectedSchool?.school_type, requirement: scholarRequirement, docs: application.initial_docs,
+        period: processingPeriod, schedule: await loadContinuingSchedule(prisma, processingPeriod.id), applicantId, legacyPeriodId: processingPeriod.id }),
+    payrollList: serializePayrollListMembership(payrollClaim, payrollBatch),
+    examination: {
+      ...resolveExaminationProgress({ result, scholar: null, examSlot, fallbackStatus: application.status, applicantFacing: true, scheduledExam }),
+      deliveryMode: result?.delivery_mode || examinationSettings.deliveryMode,
+      publishedAt: result?.published_at || null,
+      score: result?.published_at ? Number(result.score) : null,
+      passingScore: result?.published_at ? Number(result.passing_score ?? 14) : null,
+      submittedAt: result?.created_at || null,
+      examTitle: scheduledExam?.title || 'PGCEAP Qualifying Examination',
+      examDate: scheduledExam?.exam_date || null, academicYear: schoolYear, isScholar: false,
+      access: { allowed: isCurrentIntake && canAccessOnlineExamination({ completed: Boolean(result),
+        applicationEligible: isExaminationApplicationEligible(application) && isCurrentExaminationApplicant(applicant, intakePeriod.school_year),
+        settings: examinationSettings, exam: scheduledExam, examSlot }), isEnabled: examinationSettings.isEnabled,
+        deliveryMode: examinationSettings.deliveryMode },
+      attendance: { status: examSlot?.appeared ? 'Present' : examSlot?.forfeited_at ? 'Absent' : 'Pending',
+        appearedAt: examSlot?.appeared_at || null, forfeitedAt: examSlot?.forfeited_at || null },
+      schedule: scheduledExam ? { id: scheduledExam.id, title: scheduledExam.title,
+        municipality: scheduledExam.municipality, venue: scheduledExam.venue, date: scheduledExam.exam_date,
+        endDate: scheduledExam.exam_end_date || scheduledExam.exam_date, academicYear: schoolYear,
+        isActive: Boolean(scheduledExam.is_active) && isCurrentIntake } : null,
+    },
+  };
 };
 
 const getMyApplication = async (req, res) => {
@@ -1631,6 +1778,8 @@ const getMyApplication = async (req, res) => {
       ? await prisma.applicants.findUnique({ where: { id: application.applicant_id } })
       : await prisma.applicants.findFirst({ where: { email: application.email } });
     const applicantId = applicant?.id || application.applicant_id;
+    const activeScholar = applicantId ? await prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }) : null;
+    if (!activeScholar) return res.json(await getApplicantPortalRecord({ application, applicant, processingPeriod: activePeriod }));
     const activePayrollBatches = await prisma.payroll_batches.findMany({
       where: {
         billing_period_id: activePeriod.id,
@@ -1683,7 +1832,9 @@ const getMyApplication = async (req, res) => {
       : await prisma.scholar_requirements.findFirst({ where: { applicant_id: applicantId, billing_period_id: requirementPeriod.id } });
     const requirementSchool = resolveScholarSchool({ applicant, requirement: requirementPeriodRecord, application,
       schoolById: new Map(schoolCatalog.map((school) => [school.id, school])), schoolByName: new Map(schoolCatalog.map((school) => [normalizeSchoolName(school.name), school])), schoolHistory: schoolHistory.get(applicantId) });
-    const continuingAccess = evaluateContinuingSchedule({ schedule: await loadContinuingSchedule(prisma, requirementPeriod.id), period: requirementPeriod, docs: application.initial_docs, applicantId, schoolType: requirementSchool?.school_type, legacyPeriodId: activePeriod.id, entryYearLevel: application?.school_plan?.incomingYearLevel });
+    const processingEligibility = scholarProcessingEligibility(applicant, activePeriod);
+    const requirementEligibility = scholarProcessingEligibility(applicant, requirementPeriod);
+    const continuingAccess = evaluateScholarContinuingSchedule({ applicant, schedule: await loadContinuingSchedule(prisma, requirementPeriod.id), period: requirementPeriod, docs: application.initial_docs, applicantId, schoolType: requirementSchool?.school_type, legacyPeriodId: activePeriod.id, entryYearLevel: application?.school_plan?.incomingYearLevel });
     const requirementDocs = projectContinuingAccess(application.initial_docs, requirementPeriod.id, continuingAccess);
     const payrollBatch = payrollClaim
       ? await prisma.payroll_batches.findUnique({ where: { id: payrollClaim.payroll_batch_id } })
@@ -1706,15 +1857,25 @@ const getMyApplication = async (req, res) => {
       requirementSubmission: continuingAccess,
       initialVerification,
     });
+    if (!requirementEligibility.eligible) {
+      guidance.state = 'waiting';
+      guidance.headline = `Waiting for ${applicant.school_year}`;
+      guidance.description = `Your Scholar acceptance and initial documents are recorded. Continuing requirements and processing begin in ${applicant.school_year} or a later academic period.`;
+      guidance.actions = [];
+      guidance.timeline = guidance.timeline.map((item) => ['requirements', 'payroll_list'].includes(item.id)
+        ? { ...item, status: 'upcoming', detail: `This stage begins in ${applicant.school_year} or a later academic period.`, completedAt: null } : item);
+    }
     return res.json({
       initialVerification,
+      processingEligibility,
       application: publicApplication(application),
       requirementWave: {
+        processingEligibility: requirementEligibility,
         entryYearLevel: application.school_plan?.incomingYearLevel || null, academicPeriodId: requirementPeriod.id, periodLabel: `${requirementPeriod.school_year} · ${requirementPeriod.semester}`, schoolType: schoolClassification(requirementSchool?.school_type), continuingOpen: continuingAccess.visible, submission: continuingAccess,
         initial: getInitialRequirements(application.initial_docs, requirementPeriod.id, activePeriod.id).requirements,
         continuing: getWaveSet(application.initial_docs, requirementPeriod.id, 'continuing', activePeriod.id).requirements,
       },
-      continuingPeriods: scholar ? (await prisma.academic_periods.findMany({ where: { is_active: true }, orderBy: [{ school_year: 'desc' }, { id: 'desc' }] })).map(serializeAcademicPeriod) : [],
+      continuingPeriods: scholar ? (await prisma.academic_periods.findMany({ where: { is_active: true }, orderBy: [{ school_year: 'desc' }, { id: 'desc' }] })).filter((period) => isScholarPeriodEligible(applicant, period)).map(serializeAcademicPeriod) : [],
       applicant,
       school: selectedSchool ? {
         name: selectedSchool.name,
@@ -1773,6 +1934,7 @@ const getMyApplication = async (req, res) => {
       activePeriod: serializeAcademicPeriod(activePeriod),
     });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.error(error);
     return res.status(500).json({ message: 'Server error fetching your application.' });
   }
@@ -1804,7 +1966,8 @@ const uploadMyRequirement = async (req, res) => {
       prisma.applicants.findUnique({ where: { id: req.user.id } }),
       prisma.scholar_requirements.findUnique({ where: { applicant_id_billing_period_id: { applicant_id: req.user.id, billing_period_id: activePeriod.id } } }),
     ]);
-    if (!scholar || !application) return res.status(404).json({ message: 'Active scholar application not found.' });
+    if (!scholar || !application || !applicant) return res.status(404).json({ message: 'Active scholar application not found.' });
+    assertScholarPeriodEligible(applicant, activePeriod);
     const school = await loadResolvedScholarSchool(prisma, { applicantId: req.user.id, applicant, requirement: requirementRecord, application });
     const requirementSubmission = evaluateContinuingSchedule({ schedule: await loadContinuingSchedule(prisma, activePeriod.id), period: activePeriod, docs: application.initial_docs, applicantId: req.user.id, schoolType: school?.school_type, legacyPeriodId: primaryPeriod.id, entryYearLevel: application?.school_plan?.incomingYearLevel });
     if (!requirementSubmission.isOpen) return res.status(403).json({ message: 'Continuing uploads are unavailable. Initial documents must be approved and continuing uploads must be open for this academic period.', requirementSubmission });
@@ -1814,6 +1977,8 @@ const uploadMyRequirement = async (req, res) => {
     uploadedFile = await storeRequirementUpload({ applicantId: req.user.id, periodId: activePeriod.id, wave: 'continuing', key, fileName, fileData, parsed });
     const saved = await mutateRequirementWaves(prisma, application.id, primaryPeriod.id, async (docs, tx, latestApplication) => {
       const latestPeriod = await tx.academic_periods.findFirst({ where: { id: activePeriod.id } });
+      if (!latestPeriod || latestPeriod.is_active === false) throw Object.assign(new Error('The selected processing period is no longer active. Refresh before submitting.'), { statusCode: 403 });
+      await assertSelectedScholarsPeriodEligible(tx, [req.user.id], latestPeriod);
       const access = evaluateContinuingSchedule({ schedule: await loadContinuingSchedule(tx, activePeriod.id), period: latestPeriod || activePeriod, docs, applicantId: req.user.id, schoolType: school?.school_type, legacyPeriodId: primaryPeriod.id, entryYearLevel: latestApplication?.school_plan?.incomingYearLevel });
       if (latestPeriod?.is_active === false || !access.isOpen) throw Object.assign(new Error('The upload window closed or initial approval changed. Refresh before submitting.'), { statusCode: 403 });
       if (access.scheduled) docs.requirementWaves[activePeriod.id] = { ...docs.requirementWaves[activePeriod.id], continuingOpenedAt: docs.requirementWaves[activePeriod.id]?.continuingOpenedAt || new Date().toISOString(), openingSource: 'period_access' };
@@ -1841,15 +2006,18 @@ const uploadScholarRequirementByAdmin = async (req, res) => {
     if (!Number.isInteger(Number(req.body.academicPeriodId)) || Number(req.body.academicPeriodId) <= 0) return res.status(400).json({ message: 'Refresh and select an active academic period for this submission.' });
     const parsed = await validateDocumentUpload(fileName, fileData);
     const primaryPeriod = await getActiveAcademicPeriodRecord();
-    const activePeriod = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
-    if (!activePeriod) return res.status(400).json({ message: 'Select an active academic period.' });
-    const [scholar, application, requirementRecord, applicant] = await Promise.all([
-      prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }),
+    const scholar = await prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } });
+    const intakePeriod = scholar ? null : await getIntakePeriodRecord();
+    const activePeriod = scholar ? await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId)
+      : await requireIntakePeriod(prisma, Number(req.body.academicPeriodId), intakePeriod.school_year);
+    if (!activePeriod) return res.status(400).json({ message: 'Select an active processing period.' });
+    const [application, requirementRecord, applicant] = await Promise.all([
       prisma.application_submissions.findFirst({ where: { applicant_id: applicantId, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' } }),
       prisma.scholar_requirements.findUnique({ where: { applicant_id_billing_period_id: { applicant_id: applicantId, billing_period_id: activePeriod.id } } }),
       prisma.applicants.findUnique({ where: { id: applicantId } }),
     ]);
     if (!application || (!scholar && !await canRecordInitial(prisma, applicantId, activePeriod.id, application))) return res.status(409).json({ message: 'Post the current passing result in a locked Passer List before initial intake.' });
+    if (scholar) assertScholarPeriodEligible(applicant, activePeriod);
     if (key === 'report_card' && !isFirstYearEntry(application.school_plan?.incomingYearLevel)) return res.status(400).json({ message: 'A Grade 12 report card is an initial COG alternative only for incoming or first-year college applicants.' });
     if (key === 'tuition_receipt') {
       const school = await loadResolvedScholarSchool(prisma, { applicantId, applicant, requirement: requirementRecord, application });
@@ -1857,6 +2025,12 @@ const uploadScholarRequirementByAdmin = async (req, res) => {
     }
     uploadedFile = await storeRequirementUpload({ applicantId, periodId: activePeriod.id, wave: 'initial', key, fileName, fileData, parsed });
     const saved = await mutateRequirementWaves(prisma, application.id, primaryPeriod.id, async (docs, tx, latestApplication) => {
+      if (scholar) {
+        const latestPeriod = await tx.academic_periods.findFirst({ where: { id: activePeriod.id, is_active: true } });
+        if (!latestPeriod) throw Object.assign(new Error('The selected processing period is no longer active. Refresh before uploading.'), { statusCode: 409 });
+        await assertSelectedScholarsPeriodEligible(tx, [applicantId], latestPeriod);
+      }
+      if (!scholar) await lockIntakePeriod(tx, activePeriod.id, activePeriod.school_year);
       if (!scholar && !await canRecordInitial(tx, applicantId, activePeriod.id, latestApplication)) throw Object.assign(new Error('The posted passer or result changed. Reload before uploading.'), { statusCode: 409 });
       if (key === 'report_card' && !isFirstYearEntry(latestApplication.school_plan?.incomingYearLevel)) throw Object.assign(new Error('The initial entry year changed. Refresh before uploading a report card.'), { statusCode: 409 });
       return { document: saveWaveDocument(docs, { periodId: activePeriod.id, wave: 'initial', key, file: uploadedFile, actorId: req.user.id, actorRole: req.user.role }) };
@@ -1884,12 +2058,17 @@ const openContinuingRequirements = async (req, res) => {
     const primaryPeriod = await getActiveAcademicPeriodRecord();
     const period = await getSelectedActiveAcademicPeriodRecord(req.body.academicPeriodId);
     if (!period) return res.status(400).json({ message: 'Select an active academic period.' });
-    const [scholar, application] = await Promise.all([
+    const [scholar, application, applicant] = await Promise.all([
       prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }),
       prisma.application_submissions.findFirst({ where: { applicant_id: applicantId, status: { not: 'Withdrawn' } }, orderBy: { submitted_at: 'desc' } }),
+      prisma.applicants.findUnique({ where: { id: applicantId } }),
     ]);
-    if (!scholar || !application) return res.status(404).json({ message: 'Active scholar application not found.' });
-    await mutateRequirementWaves(prisma, application.id, primaryPeriod.id, (docs) => {
+    if (!scholar || !application || !applicant) return res.status(404).json({ message: 'Active scholar application not found.' });
+    assertScholarPeriodEligible(applicant, period);
+    await mutateRequirementWaves(prisma, application.id, primaryPeriod.id, async (docs, tx) => {
+      const latestPeriod = await tx.academic_periods.findFirst({ where: { id: period.id, is_active: true } });
+      if (!latestPeriod) throw Object.assign(new Error('The selected processing period is no longer active. Refresh before opening continuing submissions.'), { statusCode: 409 });
+      await assertSelectedScholarsPeriodEligible(tx, [applicantId], latestPeriod);
       docs.requirementWaves[period.id] ||= { continuingOpenedAt: new Date().toISOString(), openedBy: req.user.id };
       return {};
     });
@@ -1982,10 +2161,15 @@ const updateSchoolClassification = async (req, res) => {
 
 const getApplicantManagement = async (req, res) => {
   try {
-    const activePeriod = await getActiveAcademicPeriodRecord();
-    const applicants = await prisma.applicants.findMany({ where: { deleted_at: null }, orderBy: { created_at: 'desc' }, select: { id: true, first_name: true, middle_name: true, last_name: true, name_ext: true, email: true, phone: true, street: true, municipality: true, barangay: true, school_year: true, status: true, gender: true, date_of_birth: true, birthplace: true, civil_status: true, family_income: true, gwa: true, siblings_boys: true, siblings_girls: true, created_at: true } });
+    const [activePeriod, periods] = await Promise.all([
+      findIntakePeriod(prisma), prisma.academic_periods.findMany({ orderBy: [{ school_year: 'desc' }, { id: 'asc' }] }),
+    ]);
+    const allApplicants = await prisma.applicants.findMany({ where: { deleted_at: null }, orderBy: { created_at: 'desc' }, select: { id: true, first_name: true, middle_name: true, last_name: true, name_ext: true, email: true, phone: true, street: true, municipality: true, barangay: true, school_year: true, status: true, gender: true, date_of_birth: true, birthplace: true, civil_status: true, family_income: true, gwa: true, siblings_boys: true, siblings_girls: true, created_at: true } });
+    const schoolYears = [...new Set([...periods.map(period => period.school_year), ...allApplicants.map(applicant => applicant.school_year), activePeriod?.school_year].filter(Boolean))].sort().reverse();
+    const scope = intakeViewScope(req.query?.schoolYear, activePeriod, schoolYears);
+    const applicants = allApplicants.filter(applicant => scope.schoolYear === 'all' || scope.schoolYear && applicant.school_year === scope.schoolYear);
     const applicantIds = applicants.map(({ id }) => id);
-    const [accounts, slots, results, exams, scholarAccounts, applications] = await Promise.all([
+    const [accounts, slots, allResults, exams, scholarAccounts, applications] = await Promise.all([
       prisma.control_accounts.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, control_number: true, username: true, last_login_at: true } }),
       prisma.exam_slots.findMany({ where: { applicant_id: { in: applicantIds } }, select: { applicant_id: true, exam_id: true, appeared: true, appeared_at: true, forfeited_at: true, online_started_at: true, online_deadline_at: true } }),
       prisma.results.findMany({ where: { applicant_id: { in: applicantIds } }, orderBy: { created_at: 'desc' }, select: { id: true, applicant_id: true, exam_id: true, score: true, passing_score: true, passed: true, remarks: true, delivery_mode: true, published_at: true, published_by: true, recorded_by: true, created_at: true, updated_at: true } }),
@@ -1997,29 +2181,29 @@ const getApplicantManagement = async (req, res) => {
       prisma.application_submissions.findMany({ where: { applicant_id: { in: applicantIds } }, orderBy: { submitted_at: 'desc' }, select: { id: true, applicant_id: true, status: true, identity: true, address: true, school_plan: true, family: true, eligibility: true, submitted_at: true } }),
     ]);
     const accountByApplicant = new Map(accounts.map((account) => [account.applicant_id, account]));
+    const examById = new Map(exams.map((exam) => [exam.id, exam]));
+    const results = allResults.filter(result => scope.schoolYear === 'all' || examById.get(result.exam_id)?.academic_year === scope.schoolYear);
     const slotByAssignment = new Map(slots.map((slot) => [`${slot.applicant_id}:${slot.exam_id}`, slot]));
     const resultByAssignment = new Map(results.map((result) => [`${result.applicant_id}:${result.exam_id}`, result]));
     const resultById = new Map(results.map((result) => [result.id, result]));
     const applicationByApplicant = new Map();
     applications.forEach((application) => { if (!applicationByApplicant.has(application.applicant_id)) applicationByApplicant.set(application.applicant_id, application); });
-    const examById = new Map(exams.map((exam) => [exam.id, exam]));
-    const scheduledExamByMunicipality = indexExamsByMunicipality(exams, activePeriod.school_year);
-    const scheduledApplicantCount = countScheduledApplicants({
-      applicants,
-      exams,
-      slots,
-      academicYear: activePeriod.school_year,
-      legacySchoolYear: STALE_DEFAULT_SCHOOL_YEAR,
-    });
+    const viewYears = scope.schoolYear === 'all' ? schoolYears : scope.schoolYear ? [scope.schoolYear] : [];
+    const schedulesByYear = new Map(viewYears.map(year => [year, indexExamsByMunicipality(exams, year)]));
+    const scheduledIds = [...new Set(viewYears.flatMap(academicYear => getScheduledApplicantIds({ applicants, exams, slots, academicYear })))];
+    const scheduledApplicantCount = scheduledIds.length;
     const scholarByApplicant = new Map(scholarAccounts.map((scholar) => [scholar.applicant_id, scholar]));
     const metricPersonById = new Map(applicants.map(applicant => [applicant.id, {
       name: [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' ').toUpperCase(),
       controlNo: accountByApplicant.get(applicant.id)?.control_number || 'Not assigned', municipality: applicant.municipality || 'Not specified',
     }]));
-    const scheduledIds = getScheduledApplicantIds({ applicants, exams, slots, academicYear: activePeriod.school_year, legacySchoolYear: STALE_DEFAULT_SCHOOL_YEAR });
     const resultMetricRecords = results.map(result => ({ id: `result-${result.id}`, ...metricPersonById.get(result.applicant_id), status: result.passed ? 'Passed' : 'Failed', examination: examById.get(result.exam_id)?.title || `Examination #${result.exam_id}` }));
 
     return res.json({
+      intakePeriod: serializeIntakePeriod(activePeriod),
+      activePeriod: serializeIntakePeriod(activePeriod),
+      scope,
+      schoolYears,
       stats: { total: applicants.length, scheduled: scheduledApplicantCount, completed: results.length, passed: results.filter(({ passed }) => passed).length },
       metricRecords: {
         scheduled: scheduledIds.map(id => ({ id, ...metricPersonById.get(id), status: 'Scheduled' })),
@@ -2029,8 +2213,9 @@ const getApplicantManagement = async (req, res) => {
       applicants: applicants.map((applicant) => {
         const account = accountByApplicant.get(applicant.id);
         const scholar = scholarByApplicant.get(applicant.id);
-        const scheduledExam = scheduledExamByMunicipality.get(normalizeMunicipality(applicant.municipality));
-        const result = scholar?.is_active ? resultById.get(scholar.result_id) : resultByAssignment.get(`${applicant.id}:${scheduledExam?.id}`);
+        const scheduledExam = schedulesByYear.get(applicant.school_year)?.get(normalizeMunicipality(applicant.municipality));
+        const acceptedResult = scholar?.is_active ? resultById.get(scholar.result_id) : null;
+        const result = acceptedResult || resultByAssignment.get(`${applicant.id}:${scheduledExam?.id}`);
         const resultExam = examById.get(result?.exam_id);
         const exam = resultExam || scheduledExam;
         const slot = exam ? slotByAssignment.get(`${applicant.id}:${exam.id}`) : null;
@@ -2074,15 +2259,14 @@ const getApplicantManagement = async (req, res) => {
           brothersCount: family.brothersCount ?? applicant.siblings_boys ?? 0,
           sistersCount: family.sistersCount ?? applicant.siblings_girls ?? 0,
           eligibility: application?.eligibility || {},
-          schoolYear: !applicant.school_year || applicant.school_year === STALE_DEFAULT_SCHOOL_YEAR
-            ? activePeriod.school_year
-            : applicant.school_year,
+          schoolYear: applicant.school_year || null,
           registered: applicant.created_at,
           lastLogin: account?.last_login_at || null,
           ...resolveExaminationProgress({ result, scholar, examSlot: slot, fallbackStatus: applicant.status, applicationStatus: application?.status }),
           appearedAt: slot?.appeared_at || null,
           applicationId: application?.id || null,
-          academicPeriodId: activePeriod.id,
+          academicPeriodId: scope.isCurrentIntake ? activePeriod.id : periods.find(period => period.school_year === applicant.school_year)?.id || null,
+          readOnly: !scope.isCurrentIntake,
           resultId: result?.id || null,
           resultUpdatedAt: result?.updated_at || null,
           resultPublishedAt: result?.published_at || null,
@@ -2097,7 +2281,7 @@ const getApplicantManagement = async (req, res) => {
           examTitle: exam?.title || 'PGCEAP Qualifying Examination',
           examVenue: exam?.venue || null,
           examMunicipality: exam?.municipality || applicant.municipality || null,
-          academicYear: exam?.academic_year || activePeriod.school_year,
+          academicYear: exam?.academic_year || applicant.school_year || null,
           isScholar: Boolean(scholar?.is_active),
           scholarId: scholar?.scholar_id || null,
           eligibilityRecommendation,
@@ -2105,6 +2289,7 @@ const getApplicantManagement = async (req, res) => {
       }),
     });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.error(error);
     return res.status(500).json({ message: 'Server error fetching applicants.' });
   }
@@ -2122,7 +2307,7 @@ const updateExaminationAttendance = async (req, res) => {
       return res.status(400).json({ message: 'Attendance status must be Pending or Present.' });
     }
 
-    const activePeriod = await getActiveAcademicPeriodRecord();
+    const activePeriod = await getIntakePeriodRecord();
     const [exam, slot, result] = await Promise.all([
       prisma.exams.findFirst({ where: { id: examId, academic_year: activePeriod.school_year }, select: { id: true } }),
       prisma.exam_slots.findUnique({ where: { applicant_id_exam_id: { applicant_id: applicantId, exam_id: examId } } }),
@@ -2135,11 +2320,14 @@ const updateExaminationAttendance = async (req, res) => {
     }
 
     const recordedAt = new Date();
-    const updated = await prisma.exam_slots.update({
-      where: { id: slot.id },
-      data: status === 'present'
-        ? { appeared: true, appeared_at: slot.appeared_at || recordedAt, forfeited_at: null }
-        : { appeared: false, appeared_at: null, forfeited_at: null },
+    const updated = await prisma.$transaction(async (tx) => {
+      await lockIntakePeriod(tx, activePeriod.id, activePeriod.school_year);
+      return tx.exam_slots.update({
+        where: { id: slot.id },
+        data: status === 'present'
+          ? { appeared: true, appeared_at: slot.appeared_at || recordedAt, forfeited_at: null }
+          : { appeared: false, appeared_at: null, forfeited_at: null },
+      });
     });
     res.locals.auditTargetId = updated.id;
     res.locals.auditDescription = `Updated examination attendance to ${status}.`;
@@ -2152,6 +2340,7 @@ const updateExaminationAttendance = async (req, res) => {
       },
     });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.error(error);
     return res.status(500).json({ message: 'Server error updating examination attendance.' });
   }
@@ -2171,12 +2360,18 @@ const serializeExaminationSchedule = (exam) => ({
 
 const getExaminationManagement = async (req, res) => {
   try {
-    const activePeriod = await findPrimaryActivePeriod(prisma);
-    if (!activePeriod) return res.json({ examinations: [], activePeriod: null });
-    const examinations = await prisma.exams.findMany({
-      where: { academic_year: activePeriod.school_year },
+    const activePeriod = await findIntakePeriod(prisma);
+    const [periods, recordedYears] = await Promise.all([
+      prisma.academic_periods.findMany({ select: { school_year: true } }),
+      prisma.exams.findMany({ select: { academic_year: true }, distinct: ['academic_year'] }),
+    ]);
+    const schoolYears = [...new Set([...periods.map(period => period.school_year), ...recordedYears.map(exam => exam.academic_year), activePeriod?.school_year].filter(Boolean))].sort().reverse();
+    const scope = intakeViewScope(req.query?.schoolYear, activePeriod, schoolYears);
+    if (scope.schoolYear === 'all') return res.status(400).json({ message: 'Select one school year to view examination schedules.' });
+    const examinations = scope.schoolYear ? await prisma.exams.findMany({
+      where: { academic_year: scope.schoolYear },
       orderBy: [{ municipality: 'asc' }, { updated_at: 'desc' }],
-    });
+    }) : [];
     const uniqueByMunicipality = new Map();
     examinations.forEach((exam) => {
       const key = String(exam.municipality || '').trim().toLowerCase();
@@ -2184,20 +2379,16 @@ const getExaminationManagement = async (req, res) => {
     });
     return res.json({
       examinations: [...uniqueByMunicipality.values()].map(serializeExaminationSchedule),
-      activePeriod: serializeAcademicPeriod(activePeriod),
+      activePeriod: serializeIntakePeriod(activePeriod),
+      intakePeriod: serializeIntakePeriod(activePeriod),
+      scope,
+      schoolYears,
     });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.error(error);
     return res.status(500).json({ message: 'Server error fetching examination schedules.' });
   }
-};
-
-const requireExaminationSchedulePeriod = async (client, academicPeriodId, academicYear) => {
-  const period = await findPrimaryActivePeriod(client);
-  if (!period || period.id !== academicPeriodId || period.school_year !== academicYear) {
-    throw Object.assign(new Error('The primary academic period changed or is unavailable. Reload the examination schedules before saving.'), { statusCode: 409 });
-  }
-  return period;
 };
 
 const saveExaminationManagement = async (req, res) => {
@@ -2209,7 +2400,7 @@ const saveExaminationManagement = async (req, res) => {
       || !yearMatch || Number(yearMatch[2]) !== Number(yearMatch[1]) + 1) {
       return res.status(400).json({ message: 'Load the academic year and period before saving examination schedules.' });
     }
-    await requireExaminationSchedulePeriod(prisma, academicPeriodId, academicYear);
+    await requireIntakePeriod(prisma, academicPeriodId, academicYear);
     const schedules = Array.isArray(req.body?.examinations) ? req.body.examinations : null;
     if (!schedules || !schedules.length) return res.status(400).json({ message: 'At least one examination schedule is required.' });
     if (schedules.length > 30) return res.status(400).json({ message: 'No more than 30 examination schedules can be saved at once.' });
@@ -2237,9 +2428,7 @@ const saveExaminationManagement = async (req, res) => {
     }
 
     const saved = await prisma.$transaction(async (transaction) => {
-      // Primary-period changes update this row and must wait until the save completes.
-      await transaction.$queryRaw`SELECT id FROM academic_periods WHERE id = ${academicPeriodId} FOR SHARE`;
-      const activePeriod = await requireExaminationSchedulePeriod(transaction, academicPeriodId, academicYear);
+      const activePeriod = await lockIntakePeriod(transaction, academicPeriodId, academicYear);
       const records = [];
       for (const schedule of normalizedSchedules) {
         const existing = await transaction.exams.findFirst({
@@ -2267,7 +2456,6 @@ const saveExaminationManagement = async (req, res) => {
       const assignments = await assignApplicantsToMunicipalityExams(transaction, {
         exams: records,
         academicYear: activePeriod.school_year,
-        legacySchoolYear: STALE_DEFAULT_SCHOOL_YEAR,
       });
       return { records, assignments, activePeriod };
     }, { maxWait: 10_000, timeout: 30_000 });
@@ -2275,7 +2463,8 @@ const saveExaminationManagement = async (req, res) => {
     return res.json({
       message: `Examination schedules saved successfully. ${saved.assignments.created} new applicant assignment${saved.assignments.created === 1 ? '' : 's'} created.`,
       examinations: saved.records.map(serializeExaminationSchedule),
-      activePeriod: serializeAcademicPeriod(saved.activePeriod),
+      activePeriod: serializeIntakePeriod(saved.activePeriod),
+      intakePeriod: serializeIntakePeriod(saved.activePeriod),
     });
   } catch (error) {
     if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message });

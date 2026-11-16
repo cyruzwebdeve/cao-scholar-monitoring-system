@@ -1,6 +1,6 @@
 const prisma = require('../config/prisma');
-const { findPrimaryActivePeriod } = require('../services/academicPeriod');
-const { isExaminationApplicationEligible } = require('../services/examinationEligibility');
+const { findIntakePeriod, lockIntakePeriod } = require('../services/intakePeriod');
+const { isExaminationApplicationEligible, isCurrentExaminationApplicant } = require('../services/examinationEligibility');
 
 const fault = (status, message) => Object.assign(new Error(message), { status });
 const serializeResult = (result) => ({
@@ -36,16 +36,19 @@ const createExaminationResultController = (client = prisma) => {
       if (operation !== 'record' && (!Number.isSafeInteger(body.resultId) || typeof body.updatedAt !== 'string' || Number.isNaN(new Date(body.updatedAt).getTime()))) throw fault(400, 'Reload the result before changing or publishing it.');
       let timestamp = new Date();
       const result = await client.$transaction(async (tx) => {
-        const [period, exam, applicant, slot, scholar, application] = await Promise.all([
-          findPrimaryActivePeriod(tx),
+        const period = await findIntakePeriod(tx);
+        if (!period) throw fault(409, 'Select an application and examination intake period before changing results.');
+        await lockIntakePeriod(tx, period.id, period.school_year);
+        const [exam, applicant, slot, scholar, application] = await Promise.all([
           tx.exams.findUnique({ where: { id: examId } }),
           tx.applicants.findUnique({ where: { id: applicantId } }),
           tx.exam_slots.findUnique({ where: { applicant_id_exam_id: { applicant_id: applicantId, exam_id: examId } } }),
           tx.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }),
           tx.application_submissions.findFirst({ where: { applicant_id: applicantId }, orderBy: { submitted_at: 'desc' } }),
         ]);
-        if (!period || !exam || exam.academic_year !== period.school_year) throw fault(409, 'Select an examination in the active academic year.');
+        if (!exam || exam.academic_year !== period.school_year) throw fault(409, 'Select an examination in the current intake year.');
         if (!applicant || applicant.deleted_at || !slot || slot.exam_id !== examId || slot.applicant_id !== applicantId) throw fault(404, 'The applicant is not assigned to this examination.');
+        if (!isCurrentExaminationApplicant(applicant, period.school_year)) throw fault(409, 'The applicant belongs to another intake year or has no recorded intake year.');
         if (!isExaminationApplicationEligible(application)) throw fault(409, 'This application is unavailable for examination result changes.');
         if (scholar) throw fault(409, 'Results are locked after scholarship acceptance.');
         const existing = await tx.results.findFirst({ where: { applicant_id: applicantId, exam_id: examId } });
@@ -86,7 +89,7 @@ const createExaminationResultController = (client = prisma) => {
         result: serializeResult(result),
       });
     } catch (error) {
-      if (error.status) return res.status(error.status).json({ message: error.message });
+      if (error.status || error.statusCode) return res.status(error.status || error.statusCode).json({ message: error.message });
       if (['P2002', 'P2034'].includes(error.code)) return res.status(409).json({ message: 'The record changed concurrently. Reload and try again.' });
       console.error('Examination result operation failed:', error.message);
       return res.status(500).json({ message: 'Unable to save the examination result.' });

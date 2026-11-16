@@ -1,11 +1,11 @@
 const prisma = require('../config/prisma');
-const { findPrimaryActivePeriod } = require('../services/academicPeriod');
+const { findIntakePeriod, lockIntakePeriod } = require('../services/intakePeriod');
 const { loadSchoolHistory } = require('../services/scholarSchool');
 const { buildPotentialScholars } = require('../services/potentialScholars');
 const index = async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
   try {
-    const period = await findPrimaryActivePeriod(prisma);
+    const period = await findIntakePeriod(prisma);
     if (!period) return res.json({ period: null, applicants: [] });
     const stagedApplications = await prisma.application_submissions.findMany({ where: { initial_docs: { path: ['potentialScholarReviews', String(period.id), 'status'], equals: 'potential' } }, orderBy: [{ submitted_at: 'desc' }, { id: 'desc' }], select: { id: true, applicant_id: true, initial_docs: true } });
     const ids = [...new Set(stagedApplications.map(application => application.applicant_id).filter(Boolean))];
@@ -24,6 +24,7 @@ const index = async (req, res) => {
     ]);
     return res.json({ period: { id: period.id, schoolYear: period.school_year, semester: period.semester }, applicants: buildPotentialScholars({ period, members, applicants, applications, results, exams, slots, scholars, accounts, schools, schoolHistory, stagedApplications }) });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.error('Potential scholar queue unavailable:', error.code || error.name);
     return res.status(500).json({ message: 'Unable to load applicants with complete requirements. Please retry.' });
   }
@@ -35,6 +36,7 @@ const { AttemptError } = require('../services/onlineExamAttempt');
 const { sendScholarApprovedEmail } = require('../services/mailer');
 const writeError = (res, error) => {
   if (error instanceof AttemptError) return res.status(error.status).json({ message: error.message });
+  if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
   if (['P2002', 'P2034'].includes(error.code)) return res.status(409).json({ message: 'Records changed during this request. Refresh and review before retrying. No batch was accepted.' });
   console.error('Potential scholar operation failed:', error.code || error.name);
   return res.status(500).json({ message: 'Unable to save this decision. Refresh before retrying.' });
@@ -65,8 +67,9 @@ const acceptBatch = async (req, res) => {
   if (!Array.isArray(selected) || selected.length < 1 || selected.length > 50 || new Set(selected.map(row => row?.applicantId)).size !== selected.length || selected.some(row => !Number.isSafeInteger(row?.applicantId) || row.applicantId <= 0 || typeof row.reviewId !== 'string' || !/^[0-9a-f-]{36}$/i.test(row.reviewId))) return res.status(400).json({ message: 'Select between 1 and 50 distinct potential scholars with current reviews.' });
   try {
     const decisions = await prisma.$transaction(async tx => {
-      const period = await findPrimaryActivePeriod(tx);
-      if (!period || req.body.academicPeriodId !== period.id) throw new AttemptError('The academic period changed. Reload Potential Scholars.', 409);
+      const period = await findIntakePeriod(tx);
+      if (!period || req.body.academicPeriodId !== period.id) throw new AttemptError('The intake period changed. Reload Potential Scholars.', 409);
+      await lockIntakePeriod(tx, period.id, period.school_year);
       const decisions = [];
       // A deterministic order and one serializable transaction prevent partial batches.
       for (const selection of [...selected].sort((a, b) => a.applicantId - b.applicantId)) {

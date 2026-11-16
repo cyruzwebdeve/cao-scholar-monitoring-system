@@ -44,9 +44,9 @@ const fixture = (options = {}) => {
   const editor = createExaminationScheduleEditor({
     templates,
     ...timers,
-    loadSchedules: async signal => {
-      loads.push({ signal });
-      return options.load ? options.load(signal, loads.length) : currentPayload;
+    loadSchedules: async (signal, schoolYear) => {
+      loads.push({ signal, schoolYear });
+      return options.load ? options.load(signal, loads.length, schoolYear) : currentPayload;
     },
     saveSchedules: async (payload, signal) => {
       saves.push({ payload, signal });
@@ -216,7 +216,7 @@ test('no active period disables schedule, activation, and photo edits without wr
   assert.deepEqual(editor.getState().activeExamMunicipalities, []);
   assert.equal(saves.length, 0);
   assert.equal(photoWrites.length, 0);
-  assert.throws(() => examinationSchedulePayload(editor.getState()), /active academic year/);
+  assert.throws(() => examinationSchedulePayload(editor.getState()), /intake year/);
 });
 
 test('debounced edits coalesce before sending a single save', async () => {
@@ -387,4 +387,124 @@ test('a successful same-period reload restores editing after a failed refresh wi
   assert.equal(editor.getState().ready, true);
   assert.equal(editor.getState().examinations[0].venue, 'Preserved draft');
   assert.equal(editor.getState().error, '');
+});
+
+test('the current intake remains editable when its Scholar-processing period is inactive', async () => {
+  const intakePeriod = { ...periodB, isActive: false, isCurrentIntake: true };
+  const { editor, saves, photoWrites } = fixture({ payload: {
+    intakePeriod, activePeriod: periodA,
+    scope: { schoolYear: periodB.schoolYear, isCurrentIntake: true },
+    schoolYears: [periodB.schoolYear, periodA.schoolYear],
+    examinations: [{ ...northSchedule, date: '2027-07-12T12:00:00.000Z', isActive: false }],
+  } });
+  await editor.load();
+  assert.equal(editor.getState().ready, true);
+  assert.equal(editor.getState().readOnly, false);
+  assert.equal(editor.getState().activePeriod.id, periodB.id);
+  assert.equal(editor.getState().activePeriod.isActive, false);
+  editNorthVenue(editor, 'Upcoming intake venue');
+  editor.updateActivation(() => ['North']);
+  editor.updateExaminations(exams => exams.map(exam => ({ ...exam, thumbnail: 'upcoming-photo' })), { photoOnly: true });
+  await editor.flushSave();
+  assert.equal(saves.length, 1);
+  assert.equal(saves[0].payload.academicPeriodId, periodB.id);
+  assert.equal(saves[0].payload.academicYear, periodB.schoolYear);
+  assert.equal(saves[0].payload.examinations[0].venue, 'Upcoming intake venue');
+  assert.equal(saves[0].payload.examinations[0].isActive, true);
+  assert.equal(photoWrites[0].schoolYear, periodB.schoolYear);
+});
+
+test('historical dates and photos stay view-only despite editable current-intake metadata', async () => {
+  const intakePeriod = { ...periodB, isActive: false, isCurrentIntake: true };
+  const { editor, loads, saves, timers, photoReads, photoWrites } = fixture({
+    payload: { intakePeriod, scope: { schoolYear: periodA.schoolYear, isCurrentIntake: false },
+      schoolYears: [periodB.schoolYear, periodA.schoolYear], examinations: [northSchedule] },
+    photos: [[periodA.schoolYear, { North: 'historical-photo' }], [periodB.schoolYear, { North: 'current-photo' }]],
+  });
+  await editor.selectYear(periodA.schoolYear);
+  const snapshot = editor.getState();
+  assert.equal(loads[0].schoolYear, periodA.schoolYear);
+  assert.equal(snapshot.ready, true);
+  assert.equal(snapshot.readOnly, true);
+  assert.equal(snapshot.schoolYear, periodA.schoolYear);
+  assert.equal(snapshot.activePeriod.schoolYear, periodB.schoolYear);
+  assert.equal(snapshot.examinations[0].id, northSchedule.id);
+  assert.equal(snapshot.examinations[0].date, 'July 12, 2026');
+  assert.equal(snapshot.examinations[0].thumbnail, 'historical-photo');
+  assert.deepEqual(photoReads, [periodA.schoolYear]);
+  editNorthVenue(editor, 'Forbidden historical venue');
+  editor.updateActivation(() => []);
+  editor.updateExaminations(exams => exams.map(exam => ({ ...exam, thumbnail: 'Forbidden historical photo' })), { photoOnly: true });
+  await timers.run();
+  await editor.flushSave();
+  assert.deepEqual(editor.getState(), snapshot);
+  assert.equal(saves.length, 0);
+  assert.equal(photoWrites.length, 0);
+  assert.throws(() => examinationSchedulePayload(snapshot), /view-only/);
+});
+
+test('changing the intake-history view ignores an older GET even without transport cancellation', async () => {
+  const oldResponse = deferred(), newResponse = deferred();
+  const intakePeriod = { ...periodB, isCurrentIntake: true };
+  const { editor, loads, photoReads } = fixture({ load: (signal, call) => call === 1 ? oldResponse.promise : newResponse.promise });
+  const historicalLoad = editor.selectYear(periodA.schoolYear);
+  const currentLoad = editor.selectYear('');
+  assert.equal(loads[0].schoolYear, periodA.schoolYear);
+  assert.equal(loads[1].schoolYear, '');
+  assert.equal(loads[0].signal.aborted, true);
+  newResponse.resolve({ intakePeriod, scope: { schoolYear: periodB.schoolYear, isCurrentIntake: true }, examinations: [] });
+  await currentLoad;
+  oldResponse.resolve({ intakePeriod, scope: { schoolYear: periodA.schoolYear, isCurrentIntake: false }, examinations: [northSchedule] });
+  await historicalLoad;
+  assert.equal(editor.getState().selectedYear, '');
+  assert.equal(editor.getState().schoolYear, periodB.schoolYear);
+  assert.equal(editor.getState().readOnly, false);
+  assert.ok(editor.getState().examinations.every(exam => !exam.date && !exam.id));
+  assert.deepEqual(photoReads, [periodB.schoolYear]);
+});
+
+test('switching to history rejects late current-intake PUT responses and notifications', async () => {
+  const delayedSave = deferred();
+  const intakePeriod = { ...periodB, isCurrentIntake: true };
+  const currentExam = { ...northSchedule, id: 20, date: '2027-07-12T12:00:00.000Z' };
+  const { editor, saves, setPayload, notifications } = fixture({
+    payload: { intakePeriod, scope: { schoolYear: periodB.schoolYear, isCurrentIntake: true }, examinations: [currentExam] },
+    save: () => delayedSave.promise,
+  });
+  await editor.load();
+  editNorthVenue(editor, 'Current intake draft');
+  const pending = editor.flushSave();
+  setPayload({ intakePeriod, scope: { schoolYear: periodA.schoolYear, isCurrentIntake: false }, examinations: [northSchedule] });
+  await editor.selectYear(periodA.schoolYear);
+  assert.equal(saves[0].signal.aborted, true);
+  delayedSave.resolve({ activePeriod: intakePeriod, examinations: [{ ...currentExam, venue: 'Late current save', id: 999 }] });
+  await pending;
+  assert.equal(editor.getState().schoolYear, periodA.schoolYear);
+  assert.equal(editor.getState().readOnly, true);
+  assert.equal(editor.getState().examinations[0].id, northSchedule.id);
+  assert.equal(editor.getState().examinations[0].venue, northSchedule.venue);
+  assert.equal(editor.getState().saveVersion, 0);
+  assert.deepEqual(notifications, []);
+});
+
+test('saved historical schedules remain readable when no current intake is configured', async () => {
+  const { editor, saves, photoReads, photoWrites } = fixture({ payload: {
+    intakePeriod: null, activePeriod: null,
+    scope: { schoolYear: periodA.schoolYear, isCurrentIntake: false },
+    schoolYears: [periodA.schoolYear], examinations: [northSchedule],
+  }, photos: [[periodA.schoolYear, { North: 'retained-history-photo' }]] });
+  await editor.selectYear(periodA.schoolYear);
+  assert.equal(editor.getState().ready, true);
+  assert.equal(editor.getState().activePeriod, null);
+  assert.equal(editor.getState().readOnly, true);
+  assert.equal(editor.getState().error, '');
+  assert.equal(editor.getState().examinations[0].thumbnail, 'retained-history-photo');
+  assert.deepEqual(photoReads, [periodA.schoolYear]);
+  editNorthVenue(editor, 'Unavailable intake edit');
+  editor.updateActivation(() => []);
+  editor.updateExaminations(exams => exams.map(exam => ({ ...exam, thumbnail: 'Unavailable intake photo' })), { photoOnly: true });
+  await editor.flushSave();
+  assert.equal(editor.getState().examinations[0].venue, northSchedule.venue);
+  assert.equal(saves.length, 0);
+  assert.equal(photoWrites.length, 0);
 });

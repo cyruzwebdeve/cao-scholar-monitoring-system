@@ -21,7 +21,9 @@ const setup = () => {
     state.applications.push({ id: 10+id, applicant_id: id, status: 'Applied', family: {}, eligibility: {}, school_plan: { incomingYearLevel: '2nd Year' }, initial_docs: { retainedMetadata: 'preserve', requirements: Object.fromEntries(['tax_exemption','valid_id','grades','registration_form'].map(key => [key, { fileName: 'synthetic.pdf', status: 'Approved' }])) } });
     state.results.push({ id: 20+id, applicant_id: id, exam_id: 40, exam_slot_id: 50+id, score: 16, passing_score: 14, passed: true, published_at: '2026-10-19T00:00:00Z', updated_at: '2026-10-19T00:00:00Z' });
   }
-  prisma.academic_periods = { findFirst: async () => period };
+  prisma.intake_settings = { findUnique: async () => ({ id: 1, academic_period_id: period.id, revision: 1 }) };
+  prisma.academic_periods = { findFirst: async () => ({ id: 99, school_year: '2026-2027', is_primary: true, is_active: true }), findUnique: async ({ where }) => where.id === period.id ? period : null };
+  prisma.$queryRaw = async () => [{ id: 1 }];
   prisma.applicants = { findFirst: async ({ where }) => state.applicants.find(row => row.id === where.id), findUnique: async ({ where }) => state.applicants.find(row => row.id === where.id) };
   prisma.application_submissions = {
     findFirst: async ({ where }) => state.applications.find(row => row.applicant_id === where.applicant_id),
@@ -63,7 +65,17 @@ test('add rejects unchecked/missing/stale input or requirements changed after th
 test('batch accepts only specifically selected checked candidates, consumes reviews and emails after commit',async()=>{
   setup();for(const id of [1,2,3])await addOne(id);mail.length=0;const res=await accept(selection([1,3]));
   assert.equal(res.statusCode,201);assert.deepEqual(res.body.acceptedIds,[1,3]);assert.deepEqual(state.scholars.map(row=>row.applicant_id),[1,3]);assert.equal(state.assessments.length,2);assert.equal(mail.length,2);
+  assert.ok(state.scholars.every(row=>row.scholar_id.startsWith('PGCEAP-2027-')));
+  assert.ok(state.requirements.every(row=>row.billing_period_id===period.id));
   assert.equal(state.applications[0].initial_docs.potentialScholarReviews[10].status,'accepted');assert.equal(state.applications[1].initial_docs.potentialScholarReviews[10].status,'potential');
+});
+
+test('an intake change during add blocks the old review without Scholar or document writes',async()=>{
+  setup();const body={...review(1),reviewToken:reviewFingerprint(await loadScholarReview(prisma,1,review(1)))};
+  const find=prisma.academic_periods.findUnique;
+  prisma.academic_periods.findUnique=async(payload)=>payload.where.id===11?{id:11,school_year:'2028-2029'}:find(payload);
+  prisma.$queryRaw=async()=>{prisma.intake_settings.findUnique=async()=>({id:1,academic_period_id:11});return[{id:1}];};
+  const res=await addOne(1,body);assert.equal(res.statusCode,409);assert.equal(writes.length,0);assert.equal(state.scholars.length,0);assert.equal(mail.length,0);
 });
 test('one changed selected review rolls back the entire batch with no activation, assessments or emails',async()=>{
   setup();await addOne(1);await addOne(3);const body=selection([1,3]),before=writes.length;
