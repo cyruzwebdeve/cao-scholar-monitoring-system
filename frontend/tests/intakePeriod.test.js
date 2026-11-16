@@ -30,11 +30,11 @@ test('invalid or missing intake identity cannot be submitted or replaced with a 
 });
 
 test('intake labels distinguish current work from historical data', () => {
-  assert.equal(intakeScopeLabel({ schoolYear: '2027-2028', isCurrentIntake: true }), '2027-2028 · Current intake');
-  assert.equal(intakeScopeLabel({ isCurrentIntake: true }, { schoolYear: '2026-2027' }), '2026-2027 · Current intake');
-  assert.equal(intakeScopeLabel({ schoolYear: '2025-2026', isCurrentIntake: false }), '2025-2026 · Historical intake');
-  assert.equal(intakeScopeLabel({ schoolYear: 'all', isCurrentIntake: false }), 'All intake years · History');
-  assert.equal(intakeScopeLabel(null), 'Intake year unavailable');
+  assert.equal(intakeScopeLabel({ schoolYear: '2027-2028', isCurrentIntake: true }), '2027-2028 · Current academic year');
+  assert.equal(intakeScopeLabel({ isCurrentIntake: true }, { schoolYear: '2026-2027' }), '2026-2027 · Current academic year');
+  assert.equal(intakeScopeLabel({ schoolYear: '2025-2026', isCurrentIntake: false }), '2025-2026 · Historical academic year');
+  assert.equal(intakeScopeLabel({ schoolYear: 'all', isCurrentIntake: false }), 'All academic years · History');
+  assert.equal(intakeScopeLabel(null), 'Academic year unavailable');
 });
 
 test('current intake request publishes its successful data and loading completion', async () => {

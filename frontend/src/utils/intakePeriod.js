@@ -9,9 +9,9 @@ export const applicationIntakeScope = period => {
 };
 
 export const intakeScopeLabel = (scope, period) => scope?.isCurrentIntake
-  ? `${scope.schoolYear || period?.schoolYear} · Current intake`
-  : scope?.schoolYear === 'all' ? 'All intake years · History'
-    : scope?.schoolYear ? `${scope.schoolYear} · Historical intake` : 'Intake year unavailable';
+  ? `${scope.schoolYear || period?.schoolYear} · Current academic year`
+  : scope?.schoolYear === 'all' ? 'All academic years · History'
+    : scope?.schoolYear ? `${scope.schoolYear} · Historical academic year` : 'Academic year unavailable';
 
 export const createIntakeRequestGuard = () => {
   let revision = 0, controller;

@@ -347,11 +347,11 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
   return <>
     <div className="results-management">
       <header className="rm-heading">
-        <div><span className="rm-eyebrow">EXAMINATION OUTCOMES</span><h2>Results Management</h2><p>{loading ? 'Loading intake records...' : intakeScopeLabel(scope, intakePeriod)}</p></div>
+        <div><span className="rm-eyebrow">EXAMINATION OUTCOMES</span><h2>Results Management</h2><p>{loading ? 'Loading academic year records...' : intakeScopeLabel(scope, intakePeriod)}</p></div>
         <div className="rm-heading-actions"><span className="rm-live"><i />Refreshes automatically</span><button type="button" className="rm-export" onClick={() => setExportOpen(true)} disabled={loading || Boolean(loadError) || !sorted.length}><Download size={15} />Export CSV</button></div>
       </header>
 
-      <label className="intake-year-filter">Intake school year<select aria-label="Results intake school year" value={schoolYear} onChange={event => selectIntakeYear(event.target.value)}><option value="">{intakePeriod?.schoolYear || 'Current'} · Current intake</option><option value="all">All intake years · History</option>{schoolYears.map(year => <option key={year} value={year}>{year}</option>)}</select></label>
+      <label className="intake-year-filter">Academic Year<select aria-label="Results academic year" value={schoolYear} onChange={event => selectIntakeYear(event.target.value)}><option value="">{intakePeriod?.schoolYear || 'Current'} · Current academic year</option><option value="all">All academic years · History</option>{schoolYears.map(year => <option key={year} value={year}>{year}</option>)}</select></label>
       <nav className="examination-workspace-tabs" aria-label="Results sections"><button type="button" className={view === 'results' ? 'active' : ''} aria-pressed={view === 'results'} onClick={() => setView('results')}>Examination results</button><button type="button" className={view === 'passers' ? 'active' : ''} aria-pressed={view === 'passers'} onClick={() => setView('passers')}>Passer Lists</button></nav>
       {view === 'passers' && <PasserLists key={`${scope?.schoolYear}:${intakePeriod?.id}`} academicPeriodId={intakePeriod?.id} schoolYear={schoolYear} readOnly={!canEditIntake} applicants={applicants} token={token} onPosted={async () => { setSelected(null); await loadResults(); }} />}
       {view === 'results' && <>

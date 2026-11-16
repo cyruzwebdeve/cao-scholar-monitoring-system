@@ -5,6 +5,30 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-17 - Use Academic Year Labels in Applicant and Examination Views
+
+**TL;DR**
+
+- Applicants, Examination and Results year dropdowns now display Academic Year with matching current/history options and headings.
+- Authorized staff keep the same selected years, defaults, historical views and editing rules. This is a wording change with no saved-data or workflow impact.
+- Nine existing year-scope/request-guard tests passed; all four changed source/test modules parsed and Git whitespace checks passed. Browser/build/lint checks remain unverified with missing frontend dependencies.
+
+**Objective and reason:** Replace the screenshot's Intake school year terminology with the user's preferred Academic Year wording consistently across the related staff views.
+
+**Previous and new behavior:** The three selectors previously displayed Intake school year and Current intake, with All intake years in Applicants/Results history. They now display Academic Year, Current academic year and All academic years. Matching scope headings use Historical academic year or Academic year unavailable, and nearby loading/empty text follows the same wording.
+
+**Affected users and workflows:** Staff viewing Applicants, Examination schedules or Results/Passer Lists see the new labels. The underlying Application/Examination year remains independently configured from Scholar processing; this change does not merge those scopes or change default-year selection.
+
+**Implementation and data flow:** Only display strings, contextual selector accessibility labels and the existing scope-label test expectations changed. Selector values, on-change handlers, request guards, API queries, period IDs, permissions and history/editability checks are retained. The shared intakeScopeLabel helper returns the renamed text from the same conditions.
+
+**Files or system areas changed:** `frontend/src/Dashboard.jsx`, `frontend/src/ResultsManagement.jsx`, `frontend/src/utils/intakePeriod.js`, `frontend/tests/intakePeriod.test.js` and both change logs. Internal intake identifiers, Settings controls and document/camera intake terminology remain.
+
+**Impact assessment:** API, database/schema, configuration values, stored data, security permissions and privacy: no changes or migration. Accessibility: contextual Examination/Results selector names now say academic year; label relationships and keyboard behavior are unchanged. Deployment: a frontend release is sufficient; no deployment-configuration changes or deployment occurred. Payroll-list amounts, legacy payment behavior, attendance and Scholar acknowledgement are unaffected.
+
+**Validation performed and results:** All nine existing intake-period helper tests passed with Node's same-process test runner, covering current/historical/all-year scope, valid submission identity and stale-request protection. Cached Babel parsed the four changed source/test modules successfully. Diff review confirmed display-only changes, the old selector/option labels are absent from these views and Git whitespace checks passed. React/Vite/ESLint remain unavailable, so browser rendering, build, lint and React-dependent checks were not run.
+
+**Known limitations, rollback considerations, and recommended next work:** Browser appearance and accessibility announcements remain unverified. Check the three year dropdowns when frontend tooling is restored, including current and historical views. Reverting the display strings and matching test expectations restores the previous wording without a data rollback.
+
 ## 2026-11-16 - Improve Layouts Within Every Settings Section
 
 **TL;DR**
