@@ -14,7 +14,7 @@ before(async () => {
 });
 after(async () => { await server?.close(); });
 
-test('Passer Lists separates list preparation, applicant rows and retained history without altering candidate eligibility', () => {
+test('Passer Lists keeps preparation disabled until posted membership has been verified', () => {
   const applicants = [
     { id: 1, name: 'Synthetic passer', control: 'TEST-001', municipality: 'Test municipality', status: 'Passed', resultId: 1, score: 18 },
     { id: 2, name: 'Excluded failure', status: 'Failed', resultId: 2 },
@@ -22,10 +22,10 @@ test('Passer Lists separates list preparation, applicant rows and retained histo
     { id: 4, name: 'Excluded unrecorded result', status: 'Passed' },
   ];
   const html = renderToStaticMarkup(createElement(Passers, { applicants, token: 'synthetic' }));
-  for (const label of ['Prepare a list', 'Select passers', 'Retained lists', 'Save draft', 'Post &amp; lock list', 'Synthetic passer', 'TEST-001', 'Score']) assert.ok(html.includes(label), label);
-  assert.equal((html.match(/type="checkbox"/g) || []).length, 1);
-  assert.match(html, /aria-label="Select Synthetic passer"/);
-  assert.doesNotMatch(html, /Excluded failure|Excluded scholar|Excluded unrecorded result/);
+  for (const label of ['Prepare a list', 'Select passers', 'Retained lists', 'Save draft', 'Post &amp; lock list', 'Checking available passers', 'Loading available passers']) assert.ok(html.includes(label), label);
+  assert.equal((html.match(/type="checkbox"/g) || []).length, 0);
+  assert.match(html, /<fieldset class="passer-prepare-panel" disabled=""/);
+  assert.doesNotMatch(html, /Synthetic passer|TEST-001|Excluded failure|Excluded scholar|Excluded unrecorded result/);
 });
 
 test('retained lists render readable draft/posted badges, member details and escaped titles', () => {
@@ -51,12 +51,12 @@ test('saved draft posting forwards the original list identifier only', () => {
 test('empty and loading states stay distinct', () => {
   assert.match(renderToStaticMarkup(createElement(Retained, { lists: [], ready: false })), /Loading saved lists/);
   assert.match(renderToStaticMarkup(createElement(Retained, { lists: [], ready: true })), /No saved lists yet/);
-  assert.match(renderToStaticMarkup(createElement(Passers, { applicants: [] })), /No unaccepted applicants with recorded passing scores/);
+  assert.match(renderToStaticMarkup(createElement(Passers, { applicants: [] })), /Loading available passers/);
 });
 
 test('layout preserves posting validation, idempotency and original request payloads', async () => {
   const source = await readFile(new URL('../src/PasserLists.jsx', import.meta.url), 'utf8');
-  for (const guard of ['crypto.randomUUID()', 'requestKey: requestKey.current', 'selected.length > 500', 'previous && !reason.trim()', 'candidates.slice(0, 500)', 'applicantId: item.id', 'applicationId: item.applicationId', 'examId: item.examId', 'resultId: item.resultId', 'updatedAt: item.resultUpdatedAt', "save('draft')", "save('posted')", '/passer-lists/${id}/post', 'maxLength={160}', 'maxLength={2000}']) assert.ok(source.includes(guard), guard);
+  for (const guard of ['crypto.randomUUID()', 'requestKey: requestKey.current', 'selectedCandidates.length > 500', 'previous && (!revisionList || !reason.trim())', 'candidates.slice(0, 500)', 'applicantId: item.id', 'applicationId: item.applicationId', 'examId: item.examId', 'resultId: item.resultId', 'updatedAt: item.resultUpdatedAt', "save('draft')", "save('posted')", '/passer-lists/${id}/post', 'maxLength={160}', 'maxLength={2000}']) assert.ok(source.includes(guard), guard);
   const css = await readFile(new URL('../src/styles/passer-lists.css', import.meta.url), 'utf8');
   for (const rule of ['minmax(0, 1.4fr)', 'overflow-wrap: anywhere', '@media (max-width: 1050px)', '@media (max-width: 560px)', 'min-height: 44px', ':focus-visible']) assert.ok(css.includes(rule), rule);
 });

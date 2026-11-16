@@ -27,15 +27,32 @@ const validateMember = async (tx, member, period) => {
   return { result, applicant };
 };
 const snapshotOf = (result, applicant) => ({ name: [applicant.first_name, applicant.middle_name, applicant.last_name].filter(Boolean).join(' '), score: Number(result.score), passingScore: Number(result.passing_score ?? 14), resultUpdatedAt: new Date(result.updated_at).toISOString(), publishedAt: result.published_at ? new Date(result.published_at).toISOString() : null });
+const activePostedMemberships = (client, academicPeriodId, applicantIds) => client.passer_list_members.findMany({
+  where: {
+    academic_period_id: academicPeriodId,
+    ...(applicantIds ? { applicant_id: { in: applicantIds } } : {}),
+    list: { status: 'posted', revisions: { none: { status: 'posted' } } },
+  },
+  select: { list_id: true, applicant_id: true },
+});
+const assertRevisionSource = async (client, listId, academicPeriodId) => {
+  if (!listId) return;
+  const previous = await client.passer_lists.findUnique({ where: { id: listId }, include: { revisions: true } });
+  if (!previous || previous.status !== 'posted' || previous.academic_period_id !== academicPeriodId || previous.revisions.some((revision) => revision.status === 'posted')) throw fail('The previous list has already been revised or is unavailable.');
+};
+const assertAvailableMembers = async (client, academicPeriodId, members, supersedesId) => {
+  // Both callers run serializable transactions. Reading the same active-membership
+  // predicate before posting prevents two concurrent lists from owning one passer.
+  const memberships = await activePostedMemberships(client, academicPeriodId, members.map((member) => member.applicant_id));
+  if (memberships.some((member) => member.list_id !== supersedesId)) throw fail('A selected applicant already belongs to another posted Passer List. Refresh lists or choose the relevant list under Revision of.');
+};
 const postDraft = async (tx, list, actorId) => {
   if (list.status === 'posted') return list;
   const period = await findIntakePeriod(tx);
   if (!period || period.id !== list.academic_period_id) throw fail('The intake period changed. Create a list in the current intake.');
   await lockIntakePeriod(tx, period.id, period.school_year);
-  if (list.supersedes_id) {
-    const previous = await tx.passer_lists.findUnique({ where: { id: list.supersedes_id }, include: { revisions: true } });
-    if (!previous || previous.status !== 'posted' || previous.academic_period_id !== period.id || previous.revisions.some((revision) => revision.status === 'posted')) throw fail('The previous list has already been revised or is unavailable.');
-  }
+  await assertRevisionSource(tx, list.supersedes_id, period.id);
+  await assertAvailableMembers(tx, period.id, list.members, list.supersedes_id);
   const now = new Date();
   for (const member of list.members) {
     const { result, applicant } = await validateMember(tx, member, period);
@@ -65,7 +82,15 @@ const index = safe(async (req, res) => {
     });
     periodIds = periods.map(({ id }) => id);
   }
-  return res.json({ lists: periodIds.length ? await prisma.passer_lists.findMany({ where: { academic_period_id: { in: periodIds } }, include: { members: true }, orderBy: { id: 'desc' }, take: 100 }) : [] });
+  const [lists, postedMemberships] = await Promise.all([
+    periodIds.length ? prisma.passer_lists.findMany({ where: { academic_period_id: { in: periodIds } }, include: { members: true }, orderBy: { id: 'desc' }, take: 100 }) : [],
+    period ? activePostedMemberships(prisma, period.id) : [],
+  ]);
+  return res.json({
+    lists,
+    postingScope: { academicPeriodId: period?.id || null },
+    postedMemberships: postedMemberships.map((member) => ({ listId: member.list_id, applicantId: member.applicant_id })),
+  });
 });
 const create = safe(async (req, res) => {
   const body = req.body || {};
@@ -83,6 +108,8 @@ const create = safe(async (req, res) => {
     if (!period || period.id !== body.academicPeriodId) throw fail('The intake period changed. Reload Results before creating a Passer List.');
     await lockIntakePeriod(tx, period.id, period.school_year);
     const members = body.members.map((member) => ({ academic_period_id: period.id, applicant_id: member.applicantId, application_id: member.applicationId, exam_id: member.examId, result_id: member.resultId, snapshot: { resultUpdatedAt: member.updatedAt } }));
+    await assertRevisionSource(tx, body.supersedesId, period.id);
+    await assertAvailableMembers(tx, period.id, members, body.supersedesId);
     for (const member of members) {
       const { result, applicant } = await validateMember(tx, member, period);
       member.snapshot = snapshotOf(result, applicant);
