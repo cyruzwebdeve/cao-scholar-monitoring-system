@@ -3,6 +3,7 @@ import AssignedApplicantsModal from './components/AssignedApplicantsModal';
 import MetricDetailsCard from './components/MetricDetailsCard';
 import ApplicantEligibilityFilter from './components/ApplicantEligibilityFilter';
 import { matchesApplicantEligibility } from './utils/applicantEligibilityFilter';
+import { useExaminationSchedules } from './services/useExaminationSchedules';
 import './styles/applicant-eligibility-filter.css';
 import Notification from './components/Notification';
 import { canAccessBillingWorkspace } from './utils/staffAccess';
@@ -951,12 +952,6 @@ const examVenueDefaults = {
 
 const formatExamScheduleDate = (date) => date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-const formatStoredExamDate = (value, fallback = '') => {
-  if (!value) return fallback;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? fallback || String(value) : formatExamScheduleDate(date);
-};
-
 const formatExamDateRange = (startValue, endValue) => {
   if (!startValue) return 'Schedule not set';
   const start = new Date(startValue);
@@ -972,30 +967,18 @@ const formatExamDateRange = (startValue, endValue) => {
   return `${formatExamScheduleDate(start)} – ${formatExamScheduleDate(end)}`;
 };
 
-const examList = municipalitiesData.map((municipality, index) => ({
+const examList = municipalitiesData.map((municipality) => ({
   municipality: municipality.name,
   venue: examVenueDefaults[municipality.name] || `${municipality.name} Municipal Hall`,
-  date: `July ${12 + index}, 2026`,
-  endDate: `July ${12 + index}, 2026`,
+  date: '',
+  endDate: '',
 }));
 
 function ExaminationManagement({ token }) {
-  const [examinations, setExaminations] = useState(() => {
-    try {
-      const savedExaminations = JSON.parse(localStorage.getItem('examVenueData') || 'null');
-      const savedThumbnails = JSON.parse(localStorage.getItem('examVenueThumbnails') || '{}');
-      if (Array.isArray(savedExaminations)) {
-        return examList.map((exam, index) => {
-          const saved = savedExaminations[index] || {};
-          const date = saved.date || exam.date;
-          return { ...exam, ...saved, date, endDate: saved.endDate || date, thumbnail: saved.thumbnail || savedThumbnails[exam.municipality] || '' };
-        });
-      }
-      return examList.map((exam) => ({ ...exam, thumbnail: savedThumbnails[exam.municipality] || '' }));
-    } catch {
-      return examList;
-    }
-  });
+  const { examinations, activeExamMunicipalities, activePeriod, ready: scheduleReady,
+    loading: scheduleLoading, saving: scheduleSaving, error: scheduleSaveError, scopeVersion, saveVersion, editor } = useExaminationSchedules(token, examList);
+  const setExaminations = (updater, options = {}) => editor.updateExaminations(updater, { scopeVersion, ...options });
+  const academicPeriodId = activePeriod?.id;
   const [applicants, setApplicants] = useState([]);
   const [applicantsLoadError, setApplicantsLoadError] = useState('');
   const [editing, setEditing] = useState(null);
@@ -1004,80 +987,9 @@ function ExaminationManagement({ token }) {
   const [examQuery, setExamQuery] = useState('');
   const [examStatusFilter, setExamStatusFilter] = useState('all');
   const [showDeactivateAllDialog, setShowDeactivateAllDialog] = useState(false);
-  const [scheduleReady, setScheduleReady] = useState(false);
-  const [scheduleSaveError, setScheduleSaveError] = useState('');
   const [attendanceSaveError, setAttendanceSaveError] = useState('');
   const [attendanceSavingId, setAttendanceSavingId] = useState(null);
   const [attendanceDownloading, setAttendanceDownloading] = useState(false);
-  const [activeExamMunicipalities, setActiveExamMunicipalities] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('activeExamMunicipalities') || '[]'); } catch { return []; }
-  });
-
-  useEffect(() => {
-    let active = true;
-    fetch(`${API_BASE}/examinations/management`, { headers: authHeaders(token), cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error('Unable to load the saved examination schedules.');
-        return response.json();
-      })
-      .then((payload) => {
-        if (!active) return;
-        const savedSchedules = Array.isArray(payload?.examinations) ? payload.examinations : [];
-        if (savedSchedules.length) {
-          const scheduleByMunicipality = new Map(savedSchedules.map((exam) => [exam.municipality, exam]));
-          setExaminations((current) => examList.map((defaultExam) => {
-            const localExam = current.find((exam) => exam.municipality === defaultExam.municipality) || defaultExam;
-            const savedExam = scheduleByMunicipality.get(defaultExam.municipality);
-            if (!savedExam) return localExam;
-            const date = formatStoredExamDate(savedExam.date, localExam.date);
-            return {
-              ...localExam,
-              id: savedExam.id,
-              venue: savedExam.venue || localExam.venue,
-              date,
-              endDate: formatStoredExamDate(savedExam.endDate, date),
-            };
-          }));
-          setActiveExamMunicipalities(savedSchedules.filter((exam) => exam.isActive).map((exam) => exam.municipality));
-        }
-        setScheduleSaveError('');
-        setScheduleReady(true);
-      })
-      .catch((error) => {
-        if (active) setScheduleSaveError(`${error.message || 'Unable to load examination schedules'} Local schedule data remains available.`);
-      });
-    return () => { active = false; };
-  }, [token]);
-
-  useEffect(() => {
-    if (!scheduleReady) return undefined;
-    const saveTimer = window.setTimeout(() => {
-      fetch(`${API_BASE}/examinations/management`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
-        body: JSON.stringify({
-          examinations: examinations.map((exam) => ({
-            municipality: exam.municipality,
-            venue: exam.venue,
-            date: exam.date,
-            endDate: exam.endDate || exam.date,
-            isActive: activeExamMunicipalities.includes(exam.municipality),
-          })),
-        }),
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            const body = await response.json();
-            throw new Error(body.message || 'Unable to save examination schedules.');
-          }
-          setScheduleSaveError('');
-          localStorage.setItem('examinationScheduleRevision', String(Date.now()));
-          window.dispatchEvent(new Event('exam-schedule-persisted'));
-        })
-        .catch((error) => setScheduleSaveError(error.message || 'Unable to save examination schedules.'));
-    }, 450);
-    return () => window.clearTimeout(saveTimer);
-  }, [activeExamMunicipalities, examinations, scheduleReady, token]);
 
   useEffect(() => {
     if (!showDeactivateAllDialog) return undefined;
@@ -1089,35 +1001,20 @@ function ExaminationManagement({ token }) {
   }, [showDeactivateAllDialog]);
 
   const toggleExamActivation = (municipality) => {
-    setActiveExamMunicipalities((current) => {
-      const next = current.includes(municipality)
+    editor.updateActivation((current) => current.includes(municipality)
         ? current.filter((item) => item !== municipality)
-        : [...current, municipality];
-      localStorage.setItem('activeExamMunicipalities', JSON.stringify(next));
-      const exam = examinations.find((item) => item.municipality === municipality);
-      if (exam && !current.includes(municipality)) localStorage.setItem('activeExamDetails', JSON.stringify({ municipality: exam.municipality, venue: exam.venue, date: exam.date, endDate: exam.endDate || exam.date }));
-      if (current.includes(municipality)) localStorage.removeItem('activeExamDetails');
-      window.dispatchEvent(new Event('exam-activation-changed'));
-      return next;
-    });
+        : [...current, municipality], { scopeVersion });
   };
 
-  const allExaminationsActive = examinations.length > 0
-    && examinations.every((exam) => activeExamMunicipalities.includes(exam.municipality));
+  const scheduledExaminations = examinations.filter((exam) => exam.date);
+  const allExaminationsActive = scheduledExaminations.length > 0
+    && scheduledExaminations.every((exam) => activeExamMunicipalities.includes(exam.municipality));
 
   const applyAllExamActivation = (activate) => {
     const next = activate
-      ? [...new Set(examinations.map((exam) => exam.municipality))]
+      ? [...new Set(examinations.filter((exam) => exam.date).map((exam) => exam.municipality))]
       : [];
-    setActiveExamMunicipalities(next);
-    localStorage.setItem('activeExamMunicipalities', JSON.stringify(next));
-    if (activate && examinations[0]) {
-      const firstExam = examinations[0];
-      localStorage.setItem('activeExamDetails', JSON.stringify({ municipality: firstExam.municipality, venue: firstExam.venue, date: firstExam.date, endDate: firstExam.endDate || firstExam.date }));
-    } else {
-      localStorage.removeItem('activeExamDetails');
-    }
-    window.dispatchEvent(new Event('exam-activation-changed'));
+    editor.updateActivation(() => next, { scopeVersion });
   };
 
   const setAllExamActivation = (activate) => {
@@ -1128,60 +1025,59 @@ function ExaminationManagement({ token }) {
     applyAllExamActivation(activate);
   };
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('examVenueData', JSON.stringify(examinations));
-      window.dispatchEvent(new Event('exam-schedule-changed'));
-    } catch {
-      // Large base64 thumbnails can exceed browser storage limits. Preserve text data.
-      try {
-        const textOnlyExaminations = examinations.map((exam) => {
-          const textOnlyExam = { ...exam };
-          delete textOnlyExam.thumbnail;
-          return textOnlyExam;
-        });
-        localStorage.removeItem('examVenueData');
-        localStorage.setItem('examVenueData', JSON.stringify(textOnlyExaminations));
-      } catch {
-        // Storage is optional; the current React state remains usable.
-      }
-    }
-  }, [examinations]);
-
   const updateThumbnail = (index, file) => {
-    if (!file) return;
+    if (!file || !scheduleReady) return;
+    const photoScope = scopeVersion;
     const reader = new FileReader();
     reader.onload = () => {
       setExaminations((current) => current.map((exam, examIndex) => (
         examIndex === index ? { ...exam, thumbnail: reader.result } : exam
-      )));
-      try {
-        const savedThumbnails = JSON.parse(localStorage.getItem('examVenueThumbnails') || '{}');
-        savedThumbnails[examinations[index].municipality] = reader.result;
-        localStorage.setItem('examVenueThumbnails', JSON.stringify(savedThumbnails));
-      } catch {
-        // Keep the preview available for the current session if storage is unavailable.
-      }
+      )), { photoOnly: true, scopeVersion: photoScope });
     };
     reader.readAsDataURL(file);
   };
 
   useEffect(() => {
+    const resetTimer = window.setTimeout(() => {
+      setApplicants([]);
+      setEditing(null);
+      setSelectedExam(null);
+      setShowDeactivateAllDialog(false);
+      setAttendanceSaveError('');
+      setAttendanceSavingId(null);
+      setAttendanceDownloading(false);
+      setApplicantsLoadError('');
+    }, 0);
+    return () => window.clearTimeout(resetTimer);
+  }, [scheduleReady, scopeVersion]);
+
+  useEffect(() => {
     let active = true;
-    fetch(`${API_BASE}/applicants/management`, { headers: authHeaders(token) })
+    const loadTimer = window.setTimeout(() => {
+      if (!scheduleReady) return;
+      fetch(`${API_BASE}/applicants/management`, { headers: authHeaders(token), cache: 'no-store' })
       .then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.message || 'Unable to load assigned applicants.'); return body; })
-      .then((data) => { if (active) { setApplicants(data?.applicants || []); setApplicantsLoadError(''); } })
+      .then((data) => { if (active) {
+        if (editor.getState().scopeVersion !== scopeVersion) return;
+        if ((data.applicants || []).some((applicant) => applicant.academicPeriodId !== academicPeriodId)) {
+          void editor.load({ force: true });
+          throw new Error('The academic period changed. Reload schedules to view assigned applicants.');
+        }
+        setApplicants(data?.applicants || []); setApplicantsLoadError('');
+      } })
       .catch((error) => { if (active) setApplicantsLoadError(error.message || 'Unable to load assigned applicants. Refresh this page to retry.'); });
-    return () => { active = false; };
-  }, [token]);
+    }, 0);
+    return () => { active = false; window.clearTimeout(loadTimer); };
+  }, [token, academicPeriodId, scheduleReady, scopeVersion, saveVersion, editor]);
 
   const beginEdit = (index, field) => {
-    setEditing({ index, field });
+    if (!scheduleReady) return;
+    setEditing({ index, field, scopeVersion });
     setDraft(examinations[index][field]);
   };
 
   const saveEdit = () => {
-    if (!editing) return;
+    if (!editing || editing.scopeVersion !== scopeVersion || !scheduleReady) return;
     const value = draft.trim();
     if (value) {
       setExaminations((current) => current.map((exam, index) => (
@@ -1192,7 +1088,7 @@ function ExaminationManagement({ token }) {
   };
 
   const renderEditable = (index, field, className = '') => {
-    const isEditing = editing?.index === index && editing?.field === field;
+    const isEditing = scheduleReady && editing?.scopeVersion === scopeVersion && editing?.index === index && editing?.field === field;
     if (isEditing) {
       if (field === 'date') {
         const startDate = new Date(examinations[index].date);
@@ -1201,7 +1097,7 @@ function ExaminationManagement({ token }) {
       }
       return <input className={`exam-inline-input ${className}`} value={draft} autoFocus onChange={(event) => setDraft(event.target.value)} onBlur={saveEdit} onKeyDown={(event) => { if (event.key === 'Enter') saveEdit(); if (event.key === 'Escape') setEditing(null); }} />;
     }
-    return <button type="button" className={`exam-editable ${className}`} onClick={() => beginEdit(index, field)}><span>{field === 'date' ? formatExamDateRange(examinations[index].date, examinations[index].endDate) : examinations[index][field]}</span><FilePenLine size={13} aria-hidden="true" /></button>;
+    return <button type="button" className={`exam-editable ${className}`} disabled={!scheduleReady} onClick={() => beginEdit(index, field)}><span>{field === 'date' ? formatExamDateRange(examinations[index].date, examinations[index].endDate) : examinations[index][field]}</span><FilePenLine size={13} aria-hidden="true" /></button>;
   };
 
   const normalizedExamQuery = examQuery.trim().toLowerCase();
@@ -1218,25 +1114,30 @@ function ExaminationManagement({ token }) {
       return matchesStatus && matchesQuery;
     });
 
-  const assignedApplicants = applicants.filter((applicant) => (
-    examinations.some((exam) => exam.municipality === applicant.municipality)
-  )).length;
+  const rosterApplicants = applicants.filter((applicant) => applicant.academicPeriodId === academicPeriodId
+    && examinations.some((exam) => exam.id && exam.id === applicant.examId));
+  const assignedApplicants = rosterApplicants.length;
+  const rosterExam = selectedExam && examinations.find((exam) => exam.municipality === selectedExam.municipality);
 
   const downloadAttendanceList = async (exam) => {
-    if (attendanceDownloading || applicantsLoadError) return;
+    if (attendanceDownloading || applicantsLoadError || !scheduleReady) return;
+    const downloadScope = scopeVersion;
     setAttendanceDownloading(true);
     setAttendanceSaveError('');
     try {
       const { downloadAttendanceDocument } = await import('./utils/attendanceDocument');
-      await downloadAttendanceDocument({ exam, applicants, dateLabel: formatExamDateRange(exam.date, exam.endDate) });
+      if (editor.getState().scopeVersion !== downloadScope) return;
+      await downloadAttendanceDocument({ exam, applicants: rosterApplicants, dateLabel: formatExamDateRange(exam.date, exam.endDate) });
     } catch (error) {
-      setAttendanceSaveError(error.message || 'Unable to prepare the attendance Word document. Please try again.');
-    } finally { setAttendanceDownloading(false); }
+      if (editor.getState().scopeVersion === downloadScope) setAttendanceSaveError(error.message || 'Unable to prepare the attendance Word document. Please try again.');
+    } finally { if (editor.getState().scopeVersion === downloadScope) setAttendanceDownloading(false); }
   };
 
   const updateAttendance = async (applicant, status) => {
-    const examId = applicant.examId || selectedExam?.id;
-    if (!examId) {
+    const examId = applicant.examId;
+    const attendanceScope = scopeVersion;
+    const currentScope = () => editor.getState().scopeVersion === attendanceScope;
+    if (!scheduleReady || !examId || !examinations.some((exam) => exam.id === examId)) {
       setAttendanceSaveError('Save the examination schedule before recording attendance.');
       return;
     }
@@ -1249,6 +1150,7 @@ function ExaminationManagement({ token }) {
         body: JSON.stringify({ status }),
       });
       const body = await response.json();
+      if (!currentScope()) return;
       if (!response.ok) throw new Error(body.message || 'Unable to update attendance.');
       setApplicants((current) => current.map((record) => record.id === applicant.id ? {
         ...record,
@@ -1258,13 +1160,18 @@ function ExaminationManagement({ token }) {
       const refreshed = await fetch(`${API_BASE}/applicants/management`, { headers: authHeaders(token), cache: 'no-store' });
       if (!refreshed.ok) throw new Error('Attendance saved, but review statuses could not refresh. Reopen this view to reload them.');
       const records = await refreshed.json();
+      if (!currentScope()) return;
+      if ((records.applicants || []).some((record) => record.academicPeriodId !== academicPeriodId)) {
+        void editor.load({ force: true });
+        return;
+      }
       setApplicants(records.applicants || []);
       try { localStorage.setItem('examinationAttendanceRevision', String(Number(localStorage.getItem('examinationAttendanceRevision') || 0) + 1)); } catch { /* Polling remains available. */ }
       window.dispatchEvent(new Event('exam-attendance-persisted'));
     } catch (error) {
-      setAttendanceSaveError(error.message || 'Unable to update attendance.');
+      if (currentScope()) setAttendanceSaveError(error.message || 'Unable to update attendance.');
     } finally {
-      setAttendanceSavingId(null);
+      if (currentScope()) setAttendanceSavingId(null);
     }
   };
 
@@ -1274,22 +1181,23 @@ function ExaminationManagement({ token }) {
         <div>
           <span className="exam-page-eyebrow">EXAMINATION OPERATIONS</span>
           <h2>Examination Management</h2>
-          <p>Manage venue schedules, assigned applicants, and examination access in one place.</p>
+          <p>{scheduleLoading && !scheduleReady ? 'Loading academic year...' : activePeriod ? `Academic year ${activePeriod.schoolYear}. Examination schedules are shared across both semesters.` : 'Choose an active academic year in Settings to manage schedules.'}</p>
         </div>
         <div className="exam-heading-summary"><span>{activeExamMunicipalities.length} of {examinations.length}</span><small>examinations active</small></div>
       </header>
-      {scheduleSaveError && <div className="dashboard-overview-alert" role="status"><TriangleAlert size={17} /><span>{scheduleSaveError}</span></div>}
+      {scheduleSaveError && <div className="dashboard-overview-alert" role="status"><TriangleAlert size={17} /><span>{scheduleSaveError}</span><button type="button" onClick={() => { void editor.load({ force: true }); }}>Reload schedules</button>{scheduleReady && <button type="button" onClick={() => { void editor.flushSave(); }}>Retry saving</button>}</div>}
+      {scheduleSaving && <p role="status">Saving examination schedules...</p>}
       <div className="exam-status-grid">
         <article className="total"><div className="exam-stat-icon"><ClipboardList size={20} /></div><div><span>Total Venues</span><strong>{examinations.length}</strong><small>Configured examination locations</small></div></article>
         <article className="active"><div className="exam-stat-icon"><Power size={20} /></div><div><span>Active Examinations</span><strong>{activeExamMunicipalities.length}</strong><small>Currently accessible to applicants</small></div></article>
         <article className="assigned"><div className="exam-stat-icon"><UsersRound size={20} /></div><div><span>Assigned Applicants</span><strong>{assignedApplicants}</strong><small>Matched to an examination venue</small></div></article>
       </div>
       <div className="exam-list-heading">
-        <div><h3>Examination venues</h3><p>{filteredExaminations.length} {filteredExaminations.length === 1 ? 'venue' : 'venues'} shown</p></div>
+        <div><h3>Examination venues</h3><p>{filteredExaminations.length} {filteredExaminations.length === 1 ? 'venue' : 'venues'} shown. Set a date to save each venue’s schedule.</p></div>
         <div className="exam-master-control" role="group" aria-label="Control all examinations">
-          <div><span>Global examination access</span><small>{allExaminationsActive ? 'All venues are active' : activeExamMunicipalities.length ? `${activeExamMunicipalities.length} of ${examinations.length} venues active` : 'All venues are inactive'}</small></div>
-          <button type="button" className="activate" onClick={() => setAllExamActivation(true)} disabled={allExaminationsActive}><Power size={14} />Activate all</button>
-          <button type="button" className="deactivate" onClick={() => setAllExamActivation(false)} disabled={!activeExamMunicipalities.length}><Power size={14} />Deactivate all</button>
+          <div><span>Examination access for this year</span><small>{allExaminationsActive ? 'All scheduled venues are active' : activeExamMunicipalities.length ? `${activeExamMunicipalities.length} of ${examinations.length} venues active` : 'All venues are inactive'}</small></div>
+          <button type="button" className="activate" onClick={() => setAllExamActivation(true)} disabled={!scheduleReady || !scheduledExaminations.length || allExaminationsActive}><Power size={14} />Activate scheduled</button>
+          <button type="button" className="deactivate" onClick={() => setAllExamActivation(false)} disabled={!scheduleReady || !activeExamMunicipalities.length}><Power size={14} />Deactivate all</button>
         </div>
       </div>
       <section className="exam-list-panel">
@@ -1300,27 +1208,27 @@ function ExaminationManagement({ token }) {
         <div className="exam-card-grid">
           {filteredExaminations.map(({ exam, index }) => {
             const isActive = activeExamMunicipalities.includes(exam.municipality);
-            const venueApplicantCount = applicants.filter((applicant) => applicant.municipality === exam.municipality).length;
+            const venueApplicantCount = rosterApplicants.filter((applicant) => applicant.examId === exam.id).length;
             return (
             <article className={`exam-card ${isActive ? 'is-active' : ''}`} key={`${exam.municipality}-${index}`}>
               <div className="exam-thumbnail">
                 {exam.thumbnail ? <img src={exam.thumbnail} alt={`${exam.municipality} venue`} /> : <div className="exam-thumbnail-placeholder"><School size={24} /><span>Venue photo</span></div>}
                 <span className={`exam-status-badge ${isActive ? 'active' : ''}`}><i aria-hidden="true" />{isActive ? 'Active' : 'Not active'}</span>
                 <label className="exam-thumbnail-upload" htmlFor={`exam-thumbnail-${index}`} aria-label={`Upload thumbnail for ${exam.municipality}`}><FilePenLine size={14} /><span>{exam.thumbnail ? 'Change' : 'Add photo'}</span></label>
-                <input id={`exam-thumbnail-${index}`} type="file" accept="image/*" onChange={(event) => updateThumbnail(index, event.target.files?.[0])} />
+                <input id={`exam-thumbnail-${index}`} type="file" accept="image/*" disabled={!scheduleReady} onChange={(event) => updateThumbnail(index, event.target.files?.[0])} />
               </div>
               <div className="exam-card-content">
                 <div className="exam-card-title"><h4>{renderEditable(index, 'municipality')}</h4><span>{venueApplicantCount} {venueApplicantCount === 1 ? 'applicant' : 'applicants'}</span></div>
                 <div className="exam-detail-row"><MapPin size={16} aria-hidden="true" /><div><small>Venue</small>{renderEditable(index, 'venue')}</div></div>
                 <div className="exam-detail-row"><CalendarDays size={16} aria-hidden="true" /><div><small>Examination date range</small>{renderEditable(index, 'date')}</div></div>
-                <div className="exam-card-actions"><button type="button" className={`exam-toggle-button ${isActive ? 'active' : ''}`} onClick={() => toggleExamActivation(exam.municipality)}><Power size={14} />{isActive ? 'Deactivate' : 'Activate'}</button><button type="button" className="exam-view-button" onClick={() => setSelectedExam(exam)}><Eye size={15} />View applicants</button></div>
+                <div className="exam-card-actions"><button type="button" className={`exam-toggle-button ${isActive ? 'active' : ''}`} disabled={!scheduleReady || !exam.date} title={!exam.date ? 'Set an examination date before activation' : undefined} onClick={() => toggleExamActivation(exam.municipality)}><Power size={14} />{isActive ? 'Deactivate' : 'Activate'}</button><button type="button" className="exam-view-button" disabled={!scheduleReady || !exam.id} onClick={() => setSelectedExam(exam)}><Eye size={15} />View applicants</button></div>
               </div>
             </article>
           );})}
           {!filteredExaminations.length && <div className="exam-no-results"><Search size={24} /><strong>No examination venues found</strong><span>Try another search term or status filter.</span><button type="button" onClick={() => { setExamQuery(''); setExamStatusFilter('all'); }}>Clear filters</button></div>}
         </div>
       </section>
-      {selectedExam && <AssignedApplicantsModal key={selectedExam.municipality} exam={selectedExam} dateLabel={formatExamDateRange(selectedExam.date, selectedExam.endDate)} applicants={applicants.filter(applicant => applicant.municipality === selectedExam.municipality)} active={activeExamMunicipalities.includes(selectedExam.municipality)} applicantsLoadError={applicantsLoadError} attendanceSaveError={attendanceSaveError} attendanceSavingId={attendanceSavingId} attendanceDownloading={attendanceDownloading} onDownload={() => downloadAttendanceList(selectedExam)} onToggleActivation={() => toggleExamActivation(selectedExam.municipality)} onAttendanceChange={updateAttendance} onClose={() => setSelectedExam(null)} />}
+      {scheduleReady && rosterExam && <AssignedApplicantsModal key={`${scopeVersion}:${rosterExam.municipality}`} exam={rosterExam} dateLabel={formatExamDateRange(rosterExam.date, rosterExam.endDate)} applicants={rosterApplicants.filter(applicant => applicant.examId === rosterExam.id)} active={activeExamMunicipalities.includes(rosterExam.municipality)} applicantsLoadError={applicantsLoadError} attendanceSaveError={attendanceSaveError} attendanceSavingId={attendanceSavingId} attendanceDownloading={attendanceDownloading} onDownload={() => downloadAttendanceList(rosterExam)} onToggleActivation={() => toggleExamActivation(rosterExam.municipality)} onAttendanceChange={updateAttendance} onClose={() => setSelectedExam(null)} />}
       {showDeactivateAllDialog && (
         <div className="admin-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowDeactivateAllDialog(false); }}>
           <section className="admin-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="deactivate-all-title" aria-describedby="deactivate-all-description">

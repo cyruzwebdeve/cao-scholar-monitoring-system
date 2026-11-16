@@ -74,8 +74,9 @@ test('roster filters combine case-insensitive name/email/control search with att
 });
 test('integration preserves existing attendance/download/publication/acceptance handlers and locks', async () => {
   const dashboard = await readFile(new URL('../src/Dashboard.jsx', import.meta.url), 'utf8');
-  for (const marker of ['<AssignedApplicantsModal', 'onAttendanceChange={updateAttendance}', 'onDownload={() => downloadAttendanceList(selectedExam)}', 'onToggleActivation={() => toggleExamActivation(selectedExam.municipality)}', 'applicants.filter(applicant => applicant.municipality === selectedExam.municipality)']) assert.ok(dashboard.includes(marker), marker);
+  for (const marker of ['<AssignedApplicantsModal', 'onAttendanceChange={updateAttendance}', 'onDownload={() => downloadAttendanceList(rosterExam)}', 'onToggleActivation={() => toggleExamActivation(rosterExam.municipality)}', 'rosterApplicants.filter(applicant => applicant.examId === rosterExam.id)']) assert.ok(dashboard.includes(marker), marker);
   const results = await readFile(new URL('../src/ResultsManagement.jsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(results, /examVenueData|localScheduleByMunicipality/);
   assert.ok(results.includes("disabled={selected.status !== 'Passed' || selected.isScholar || !selected.resultPublishedAt || publishing || acceptingScholar || !intake?.initialVerified || !intake?.reviewToken || !requirementsChecked || intake?.potentialReview?.current}"));
   for (const marker of ['onClick={addToPotential}', '<PublishResultModal', '<ResultReviewNotice', 'I have individually checked the current initial requirements.', 'Add to Potential Scholars']) assert.ok(results.includes(marker), marker);
   assert.doesNotMatch(results, /Latest exam result is not passing/);

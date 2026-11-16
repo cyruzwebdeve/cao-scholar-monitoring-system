@@ -94,20 +94,11 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
       if (!settingsResponse.ok) throw new Error('Unable to verify examination delivery mode.');
       const settingsBody = await settingsResponse.json();
       setDeliveryMode(settingsBody.examination?.deliveryMode || '');
-      let localScheduleByMunicipality = new Map();
-      try {
-        const storedSchedules = JSON.parse(localStorage.getItem('examVenueData') || '[]');
-        if (Array.isArray(storedSchedules)) {
-          localScheduleByMunicipality = new Map(storedSchedules.map((exam) => [exam.municipality, exam]));
-        }
-      } catch {
-        localScheduleByMunicipality = new Map();
-      }
       const nextApplicants = (payload.applicants || []).map((applicant) => ({
         ...applicant,
         control: applicant.controlNo,
-        date: applicant.examDate || localScheduleByMunicipality.get(applicant.municipality)?.date || null,
-        examEndDate: applicant.examEndDate || localScheduleByMunicipality.get(applicant.municipality)?.endDate || null,
+        date: applicant.examDate || null,
+        examEndDate: applicant.examEndDate || null,
         status: applicant.resultStatus || (applicant.status === 'Exam Completed' ? 'For review' : applicant.status),
         score: applicant.examScore,
         passingScore: applicant.passingScore,

@@ -2171,7 +2171,8 @@ const serializeExaminationSchedule = (exam) => ({
 
 const getExaminationManagement = async (req, res) => {
   try {
-    const activePeriod = await getActiveAcademicPeriodRecord();
+    const activePeriod = await findPrimaryActivePeriod(prisma);
+    if (!activePeriod) return res.json({ examinations: [], activePeriod: null });
     const examinations = await prisma.exams.findMany({
       where: { academic_year: activePeriod.school_year },
       orderBy: [{ municipality: 'asc' }, { updated_at: 'desc' }],
@@ -2191,16 +2192,32 @@ const getExaminationManagement = async (req, res) => {
   }
 };
 
+const requireExaminationSchedulePeriod = async (client, academicPeriodId, academicYear) => {
+  const period = await findPrimaryActivePeriod(client);
+  if (!period || period.id !== academicPeriodId || period.school_year !== academicYear) {
+    throw Object.assign(new Error('The primary academic period changed or is unavailable. Reload the examination schedules before saving.'), { statusCode: 409 });
+  }
+  return period;
+};
+
 const saveExaminationManagement = async (req, res) => {
   try {
-    const activePeriod = await getActiveAcademicPeriodRecord();
-    const schedules = Array.isArray(req.body.examinations) ? req.body.examinations : null;
+    const academicPeriodId = Number(req.body?.academicPeriodId);
+    const academicYear = String(req.body?.academicYear || '').trim();
+    const yearMatch = /^(\d{4})-(\d{4})$/.exec(academicYear);
+    if (!Number.isSafeInteger(academicPeriodId) || academicPeriodId <= 0
+      || !yearMatch || Number(yearMatch[2]) !== Number(yearMatch[1]) + 1) {
+      return res.status(400).json({ message: 'Load the academic year and period before saving examination schedules.' });
+    }
+    await requireExaminationSchedulePeriod(prisma, academicPeriodId, academicYear);
+    const schedules = Array.isArray(req.body?.examinations) ? req.body.examinations : null;
     if (!schedules || !schedules.length) return res.status(400).json({ message: 'At least one examination schedule is required.' });
     if (schedules.length > 30) return res.status(400).json({ message: 'No more than 30 examination schedules can be saved at once.' });
 
     const normalizedSchedules = [];
     const municipalities = new Set();
     for (const schedule of schedules) {
+      if (!schedule || typeof schedule !== 'object') return res.status(400).json({ message: 'Every examination schedule must include a municipality, venue and valid dates.' });
       const municipality = String(schedule.municipality || '').trim();
       const venue = String(schedule.venue || '').trim();
       const examDate = new Date(schedule.date);
@@ -2210,7 +2227,8 @@ const saveExaminationManagement = async (req, res) => {
         return res.status(400).json({ message: 'Every examination schedule must use a unique, valid municipality.' });
       }
       if (!venue || venue.length > 255) return res.status(400).json({ message: `A valid venue is required for ${municipality}.` });
-      if (Number.isNaN(examDate.getTime()) || Number.isNaN(examEndDate.getTime())) {
+      if (typeof schedule.date !== 'string' || !schedule.date.trim()
+        || Number.isNaN(examDate.getTime()) || Number.isNaN(examEndDate.getTime())) {
         return res.status(400).json({ message: `A valid examination date is required for ${municipality}.` });
       }
       if (examEndDate < examDate) return res.status(400).json({ message: `The end date for ${municipality} cannot be before its start date.` });
@@ -2219,6 +2237,9 @@ const saveExaminationManagement = async (req, res) => {
     }
 
     const saved = await prisma.$transaction(async (transaction) => {
+      // Primary-period changes update this row and must wait until the save completes.
+      await transaction.$queryRaw`SELECT id FROM academic_periods WHERE id = ${academicPeriodId} FOR SHARE`;
+      const activePeriod = await requireExaminationSchedulePeriod(transaction, academicPeriodId, academicYear);
       const records = [];
       for (const schedule of normalizedSchedules) {
         const existing = await transaction.exams.findFirst({
@@ -2248,15 +2269,17 @@ const saveExaminationManagement = async (req, res) => {
         academicYear: activePeriod.school_year,
         legacySchoolYear: STALE_DEFAULT_SCHOOL_YEAR,
       });
-      return { records, assignments };
+      return { records, assignments, activePeriod };
     }, { maxWait: 10_000, timeout: 30_000 });
 
     return res.json({
       message: `Examination schedules saved successfully. ${saved.assignments.created} new applicant assignment${saved.assignments.created === 1 ? '' : 's'} created.`,
       examinations: saved.records.map(serializeExaminationSchedule),
-      activePeriod: serializeAcademicPeriod(activePeriod),
+      activePeriod: serializeAcademicPeriod(saved.activePeriod),
     });
   } catch (error) {
+    if (error?.statusCode) return res.status(error.statusCode).json({ message: error.message });
+    if (error?.code === 'P2034') return res.status(409).json({ message: 'The examination schedules changed during saving. Reload them before trying again.' });
     console.error('Error saving examination schedules:', error);
     return res.status(500).json({ message: 'Server error saving examination schedules.' });
   }
