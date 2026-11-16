@@ -1,4 +1,5 @@
 import ReportScholarSearch from './components/ReportScholarSearch';
+import ReportsTabs from './components/ReportsTabs';
 import { filterScholarReportRows, scholarReportColumns, summarizePayrollReport } from './utils/reportScholarSearch';
 import { ALL_SCHOOL_YEARS, academicYearDefaultLabel, academicYearScopeLabel, academicYearStageSummaries, createAcademicYearReportLoader, uniqueReportScholars } from './utils/academicYearReport';
 import MetricDetailsCard from './components/MetricDetailsCard';
@@ -75,6 +76,7 @@ export default function ReportsManagement({ token }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [hasLoadedReport, setHasLoadedReport] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
   const [query, setQuery] = useState('');
   const [scholarQuery, setScholarQuery] = useState('');
   const [scholarPage, setScholarPage] = useState(1);
@@ -327,6 +329,9 @@ export default function ReportsManagement({ token }) {
       {loading && <Notification tone="progress" title="Loading academic-year report">Please wait while the selected year's records are loaded.</Notification>}
       {reportReady && !lifecycleReport?.scope.schoolYear && <Notification tone="info" title="No academic year configured">Create an academic period in Settings to start a school-year report.</Notification>}
       {reportReady && lifecycleReport?.scope.schoolYear && <>
+      <ReportsTabs activeTab={activeTab} onChange={setActiveTab} />
+      <p className="reports-tab-scope">{scopeLabel}</p>
+      <div className="reports-tab-panel" role="tabpanel" id="reports-panel-overview" aria-labelledby="reports-tab-overview" hidden={activeTab !== 'overview'} tabIndex={0}>
       <div className="report-coverage-heading"><h2>Coverage and program overview</h2><p>{scopeLabel}. Scholars with recorded activity are counted once. Names, locations and account status are current; historical active status is not recorded. Record search and list-status filters do not change coverage totals.</p></div>
       <section className="reports-metrics" aria-label="Report summary">
         <MetricDetailsCard title='Scholars with records' rows={recordedScholars.map(scholar => ({ ...scholar, yearLevel: scholar.yearLevel || 'Not recorded' }))} columns={[{ key: 'name', label: 'Current Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Current Municipality' }, { key: 'status', label: 'Current account status' }, { key: 'yearLevel', label: 'Latest recorded year level' }]} description={coverageDescription} className="green"><div><span>Scholars with records</span><strong>{recordedScholars.length}</strong><small>Recorded activity in this report</small></div><i><UsersRound size={22} /></i></MetricDetailsCard>
@@ -334,12 +339,6 @@ export default function ReportsManagement({ token }) {
         <MetricDetailsCard title='Barangays with Low / None' rows={[...barangayCoverageByMunicipality.entries()].flatMap(([municipality, rows]) => rows.filter(row => row.count <= 2).map(row => ({ location: row.name, municipality: municipalitiesData.find(item => normalizeLocation(item.name) === municipality)?.name || municipality, count: row.count })))} description={coverageDescription} columns={[{ key: 'location', label: 'Current Location' }, { key: 'municipality', label: 'Current Municipality' }, { key: 'count', label: 'Scholars with records' }]} className="orange"><div><span>Barangays with Low / None</span><strong>{barangayAttentionCount}</strong><small>Two recorded-year scholars or fewer</small></div><i><ChartColumn size={22} /></i></MetricDetailsCard>
         <MetricDetailsCard title='Fourth-year records' rows={fourthYearScholars} columns={[{ key: 'name', label: 'Current Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Current Municipality' }, { key: 'yearLevel', label: 'Latest recorded year level' }]} description={`${coverageDescription} The latest saved year level in the selected years is a planning indicator, not verified graduation.`} className="blue"><div><span>Fourth-year records</span><strong>{fourthYearScholars.length}</strong><small>Latest saved year level in scope</small></div><i><GraduationCap size={22} /></i></MetricDetailsCard>
       </section>
-
-
-
-
-      <AcademicYearStages report={lifecycleReport} />
-
       <section className="reports-analytics-grid" aria-label="Scholar analytics">
         <article className="reports-surface reports-chart-card reports-municipality-chart">
           <header><div><h2>Scholar distribution</h2><p>Current locations of Scholars with records in the selected years.</p></div><span>Municipality</span></header>
@@ -392,8 +391,13 @@ export default function ReportsManagement({ token }) {
           </div>
         </article>
       </section>
+      </div>
 
-      <section className="reports-content-grid">
+      <div className="reports-tab-panel" role="tabpanel" id="reports-panel-lifecycle" aria-labelledby="reports-tab-lifecycle" hidden={activeTab !== 'lifecycle'} tabIndex={0}>
+        <AcademicYearStages report={lifecycleReport} />
+      </div>
+
+      <div className="reports-tab-panel" role="tabpanel" id="reports-panel-coverage" aria-labelledby="reports-tab-coverage" hidden={activeTab !== 'coverage'} tabIndex={0}>
         <article className="reports-surface reports-coverage-panel">
           <header><div><h2>Priority locations</h2><p>Barangays and municipalities needing scholarship outreach.</p></div><span>{filteredCoverage.length} locations</span></header>
           <ReportLocationFilters municipalities={municipalitiesData} barangays={barangayOptions} municipality={municipalityFilter} barangay={barangayFilter}
@@ -454,7 +458,9 @@ export default function ReportsManagement({ token }) {
             {loading && <div className="reports-empty"><RefreshCw className="reports-spin" size={24} /><strong>Loading coverage report</strong></div>}
           </div>
         </article>
+      </div>
 
+      <div className="reports-tab-panel" role="tabpanel" id="reports-panel-fourth-year" aria-labelledby="reports-tab-fourth-year" hidden={activeTab !== 'fourth-year'} tabIndex={0}>
         <article className="reports-surface reports-graduating-panel">
           <header><div><h2>Fourth-year records</h2><p>Latest saved year level in the selected years. This planning indicator does not verify graduation.</p></div><span>{fourthYearScholars.length}</span></header>
           <div className="reports-graduate-list">
@@ -468,8 +474,11 @@ export default function ReportsManagement({ token }) {
             {!fourthYearScholars.length && <div className="reports-empty compact"><GraduationCap size={24} /><strong>No fourth-year records found</strong><span>No latest recorded fourth-year level matches the selected years.</span></div>}
           </div>
         </article>
-      </section>
-      <ReportScholarSearch rows={filteredScholarRows} total={filterScholarReportRows(scholarReportRows, '', effectiveSchoolYear, reportListType).length} query={scholarQuery} listType={reportListType} onListType={value => { setReportListType(value); setScholarPage(1); }} onQuery={value => { setScholarQuery(value); setScholarPage(1); }} page={scholarPage} onPage={setScholarPage} onExport={() => exportReport(scholarReportColumns)} disabled={exporting} />
+      </div>
+
+      <div className="reports-tab-panel" role="tabpanel" id="reports-panel-scholars" aria-labelledby="reports-tab-scholars" hidden={activeTab !== 'scholars'} tabIndex={0}>
+        <ReportScholarSearch rows={filteredScholarRows} total={filterScholarReportRows(scholarReportRows, '', effectiveSchoolYear, reportListType).length} query={scholarQuery} listType={reportListType} onListType={value => { setReportListType(value); setScholarPage(1); }} onQuery={value => { setScholarQuery(value); setScholarPage(1); }} page={scholarPage} onPage={setScholarPage} onExport={() => exportReport(scholarReportColumns)} disabled={exporting} />
+      </div>
       </>}
       {exportOpen && reportReady && <CsvExportModal formatLabel="EXCEL EXPORT" exportLabel="Export XLSX" title="Export reports and insights" description="Choose columns from scholar records, priority locations and fourth-year records. Every section uses the selected academic years; scholar records also follow search and list-status filters. All matching pages are exported." columns={reportExportColumns} rowCount={filteredScholarRows.length + filteredCoverage.length + fourthYearScholars.length} getRowCount={(columns) => (columns.some(({ group }) => group === 'Scholar records') ? filteredScholarRows.length : 0) + (columns.some(({ group }) => group === 'Priority locations') ? filteredCoverage.length : 0) + (columns.some(({ group }) => group === 'Fourth-year records') ? fourthYearScholars.length : 0)} onClose={() => setExportOpen(false)} onExport={exportReport} />}
     </div>

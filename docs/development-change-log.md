@@ -5,6 +5,31 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-16 - Tabbed Reports Navigation
+
+**TL;DR**
+
+- Authorized Reports users can navigate five tabs: Overview, Intake & processing, Priority locations, Fourth-year records, and Scholar records.
+- The school-year selector, scope label and XLSX export remain shared; switching tabs preserves search, location filters, list-status filters and pagination.
+- Reporting calculations, saved payroll-list amount semantics, API access and stored records are unchanged. No backend change or migration is required.
+- Thirteen existing dependency-free reporting tests passed and source/whitespace review passed. React-dependent component checks, lint, build and browser validation remain unavailable because frontend dependencies are missing.
+
+**Objective and reason:** Make Reports easier to navigate by separating its long sequence of summaries, analytics and record tables into focused sections.
+
+**Previous and new behavior:** Reports previously displayed every section on one scrolling page, with priority locations and fourth-year records sharing a two-column area. It now opens on Overview with coverage cards and analytics; intake/processing summaries and each record area have their own tabs. Priority locations and fourth-year records use the available panel width. The school-year selector and global export button stay above the tabs, and the selected scope appears beneath navigation. Global export continues to include any chosen sections regardless of the visible tab; Scholar export continues to use matching records across all pages.
+
+**Affected users and workflows:** Existing staff roles with Reports access gain faster navigation without changes to applicant intake, Scholar processing, academic-period administration, account activation or official payroll-list generation.
+
+**Implementation and data flow:** A local React tab state controls five linked tab panels. Inactive panels use the hidden attribute and stay mounted during tab changes. Existing parent-owned filters, pagination, report loading, annual data projections and export callbacks are reused without modification. Tab selection makes no API request and does not change the selected school year. Navigation supports mouse/touch selection, wrapping Left/Right arrow keys, Home/End keys and a single tabbable selected tab. Each panel has an accessible name and focus target; narrow screens scroll the tab bar horizontally.
+
+**Files or system areas changed:** `frontend/src/ReportsManagement.jsx`, new `frontend/src/components/ReportsTabs.jsx`, new `frontend/src/styles/reports-tabs.css`, `change_log.txt`, and this detailed record.
+
+**Impact assessment:** API: no impact. Database/schema: no impact and no record writes. Configuration/dependencies: no impact; existing React and Lucide dependencies are reused. Security/permissions: no impact; existing Reports access checks remain. Privacy: no impact and no new collection or persistence. Accessibility: added tablist/tab/tabpanel relationships, selected-tab keyboard navigation, visible focus indicators, explicit hidden-panel styling and 44px tab controls. Deployment: frontend rebuild/deployment required; no backend release or migration. Payroll values remain saved generated-list amounts; no payment release, official receipt verification, reconciliation or monetary audit is added, and legacy payment code is untouched.
+
+**Validation performed and results:** Nine existing academic-year report tests and four payroll-detail tests passed. Two additional test files could not load because React is missing, so their assertions did not run. Frontend build and lint were attempted but could not start because Vite and ESLint are absent. Independent source review confirmed matching tab/panel identifiers, preserved parent state, unchanged report data/export logic and scoped responsive styles. Git whitespace checks passed. Runtime JSX/component rendering and browser layout remain unverified.
+
+**Known limitations, rollback considerations, and recommended next work:** Tab choice is local to the mounted Reports page and resets to Overview when that page is reopened. Navigation appears after a configured academic-year report loads, following the existing report readiness gate. Restore frontend dependencies and verify keyboard, desktop/mobile layout, year changes, filters and exports before deployment. Reverting the frontend changes restores the previous single-page layout; no data rollback is needed.
+
 ## 2026-11-16 - Consistent Academic-Year Reports
 
 **TL;DR**
