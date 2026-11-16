@@ -546,12 +546,15 @@ test('scholar list history retains inclusion without payment confirmations', asy
 });
 
 test('lifecycle reporting ends with separate certification/payroll lists and retains operational activity', async () => {
-  const period = { id: 1, school_year: '2026-2027', semester: 'First Semester', is_active: true };
+  const period = { id: 1, school_year: '2026-2027', semester: '1st Semester', is_active: true, is_primary: true };
   prisma.academic_periods.findMany = async () => [period];
-  const batches = [{ id: 10, batch_number: 'BILL-TEST', status: 'billed' }, { id: 11, batch_number: 'PAYROLL-TEST', status: 'generated' }, { id: 12, batch_number: 'PAYROLL-LEGACY', status: 'released' }];
-  const claims = [{ applicant_id: 7, payroll_batch_id: 10 }, { applicant_id: 8, payroll_batch_id: 11 }, { applicant_id: 9, payroll_batch_id: 12, claim_status: 'paid', claim_amount: 3000, claimed_date: new Date() }];
+  prisma.academic_periods.findFirst = async () => period;
+  prisma.applicants.findMany = async () => [7, 8, 9].map(id => ({ id, first_name: 'SYNTHETIC', last_name: String(id), school_year: period.school_year, school_id: 1 }));
+  prisma.scholar_accounts.findMany = async () => [7, 8, 9].map(applicant_id => ({ applicant_id, is_active: true }));
+  const batches = [{ id: 10, billing_period_id: 1, batch_number: 'BILL-TEST', status: 'billed' }, { id: 11, billing_period_id: 1, batch_number: 'PAYROLL-TEST', status: 'generated' }, { id: 12, billing_period_id: 1, batch_number: 'PAYROLL-LEGACY', status: 'released' }];
+  const claims = [{ applicant_id: 7, payroll_batch_id: 10 }, { applicant_id: 8, payroll_batch_id: 11, claim_amount: 5000 }, { applicant_id: 9, payroll_batch_id: 12, claim_status: 'paid', claim_amount: 3000, claimed_date: new Date() }];
   prisma.payroll_batches.findMany = async () => batches;
-  prisma.payroll_claims = { findMany: async ({ select }) => { assert.deepEqual(select, { applicant_id: true, payroll_batch_id: true }); return claims; } };
+  prisma.payroll_claims = { findMany: async ({ select }) => { assert.deepEqual(select, { id: true, applicant_id: true, payroll_batch_id: true, claim_amount: true, tuition_fee_assistance: true, allowance: true }); return claims; } };
   prisma.activity_logs.groupBy = async () => [{ action: 'PAYROLL_LIST_GENERATED', _count: { action: 2 } }];
   prisma.activity_logs.findMany = async () => [{ id: 5, action: 'PAYROLL_LIST_GENERATED', description: 'Generated list' }];
   const { getLifecycleReport } = require('../controllers/lifecycleReportController');
@@ -562,9 +565,15 @@ test('lifecycle reporting ends with separate certification/payroll lists and ret
   assert.equal(res.body.funnel.payrollListed, 2);
   assert.equal(res.body.funnel.paid, undefined);
   assert.equal(res.body.finance, undefined);
+  assert.equal(res.body.scope.schoolYear, period.school_year);
+  assert.equal(res.body.scope.defaultSource, 'primary');
+  assert.equal(res.body.records.reduce((sum, row) => sum + (row.payrollAmount || 0), 0), 8000);
+  assert.doesNotMatch(JSON.stringify(res.body), /claim_status|claimed_date|"paid"|"released"/);
   assert.deepEqual(res.body.lists, { certificationLists: 1, payrollLists: 2, certificationEntries: 1, payrollEntries: 2 });
   assert.equal(res.body.audit.actionCounts[0].action, 'PAYROLL_LIST_GENERATED');
   assert.equal(res.body.audit.recent[0].id, '5');
+  assert.equal(res.headers['Cache-Control'], 'private, no-store');
+  assert.equal(writes.length, 0);
 });
 
 const reviewedDecision = () => ({ applicationId: 1, academicPeriodId: 1, examId: 3, resultId: result?.id || 2, updatedAt: result?.updated_at?.toISOString() || new Date().toISOString(), reviewReason: 'Synthetic eligibility review' });

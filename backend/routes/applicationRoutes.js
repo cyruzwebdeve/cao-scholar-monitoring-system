@@ -119,7 +119,7 @@ router.get('/dashboard/summary', authenticate, checkRole(['SuperAdmin', 'Regular
 router.get('/dashboard/metrics/:metric', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('dashboard'), privateResponse, getDashboardDetails);
 router.get('/schools/catalog', authenticate, checkRole(['SuperAdmin']), getSchoolCatalog);
 router.get('/activity-logs', authenticate, checkRole(['SuperAdmin']), getActivityLogs);
-router.get('/reports/lifecycle', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('reports'), getLifecycleReport);
+router.get('/reports/lifecycle', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('reports'), privateResponse, getLifecycleReport);
 router.get('/staff/management', authenticate, checkRole(['SuperAdmin']), getStaffManagement);
 router.post('/staff', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin']), validateStaffCreate, createStaffAccount);
 router.put('/staff/:id', authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin']), validateStaffUpdate, updateStaffAccount);
