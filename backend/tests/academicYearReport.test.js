@@ -66,6 +66,96 @@ const fixture = () => ({
   actionGroups: [{ action: 'LOGIN', _count: { action: 1 } }], recentActivity: [{ id: 1n, action: 'LOGIN', description: 'Synthetic access' }],
 });
 const report = (data = fixture(), requestedYear) => buildAcademicYearReport({ ...data, scope: resolveReportScope(data.periods, data.primaryPeriod, requestedYear) });
+const currentPlanningFixture = () => {
+  const data = fixture();
+  data.periods.forEach(period => { period.is_primary = false; });
+  data.primaryPeriod = { id: 31, school_year: '2028-2029', semester: '1st Semester', is_active: true, is_primary: true };
+  data.periods.push(data.primaryPeriod);
+  data.applications[2].school_plan.incomingYearLevel = '3rd Year';
+  for (let offset = 0; offset < 8; offset += 1) {
+    const applicantId = 10 + offset;
+    data.applicants.push({ id: applicantId, first_name: 'Synthetic', last_name: `Fourth ${offset}`, school_year: '2025-2026', school_id: 2 });
+    data.scholarAccounts.push({ applicant_id: applicantId, is_active: offset !== 7 });
+    data.applications.push({ applicant_id: applicantId, school_plan: { incomingYearLevel: '4th Year', course: 'Application course' }, initial_docs: {} });
+  }
+  return data;
+};
+
+test('current fourth-year planning includes eight directory Scholars without annual activity or saved requirements', () => {
+  const data = currentPlanningFixture(), result = report(data);
+  assert.equal(result.fourthYearPlanning.mode, 'current-directory');
+  assert.deepEqual(result.fourthYearPlanning.period, { id: 31, schoolYear: '2028-2029', semester: '1st Semester' });
+  assert.deepEqual(result.fourthYearPlanning.scholars.map(scholar => scholar.applicantId), [10, 11, 12, 13, 14, 15, 16, 17]);
+  assert.equal(result.fourthYearPlanning.scholars.find(scholar => scholar.applicantId === 17).status, 'Inactive');
+  assert.equal(result.fourthYearPlanning.scholars.every(scholar => scholar.yearLevelPeriodId === null), true);
+  assert.equal(result.processing.scholars, 0);
+  assert.deepEqual(result.scholars, []); assert.deepEqual(result.records, []);
+  assert.equal(result.processing.payrollEntries, 0); assert.equal(result.processing.certificationEntries, 0);
+  assert.deepEqual(result.intake, { applied: 0, scheduled: 0, examined: 0, passed: 0 });
+  assert.deepEqual(report(data, '2028-2029').fourthYearPlanning, result.fourthYearPlanning);
+});
+
+test('current fourth-year planning uses only the directory semester override and its school/course', () => {
+  const data = currentPlanningFixture();
+  data.periods.push({ id: 32, school_year: '2028-2029', semester: '2nd Semester', is_active: false, is_primary: false });
+  data.applications.find(application => application.applicant_id === 11).school_plan.incomingYearLevel = '3rd Year';
+  data.requirements.push(
+    { id: 100, applicant_id: 10, billing_period_id: 31, year_level: '3rd Year' },
+    { id: 101, applicant_id: 11, billing_period_id: 31, year_level: ' Fourth Year ', school_id: 1, course: 'Saved course' },
+    { id: 102, applicant_id: 12, billing_period_id: 31, year_level: null },
+    { id: 103, applicant_id: 13, billing_period_id: 21, year_level: 'Graduate' },
+    { id: 104, applicant_id: 14, billing_period_id: 31, year_level: '3rd Year' },
+    { id: 105, applicant_id: 14, billing_period_id: 32, year_level: '4th Year' },
+  );
+  const result = report(data), planning = result.fourthYearPlanning.scholars;
+  assert.equal(planning.some(scholar => scholar.applicantId === 10 || scholar.applicantId === 14), false);
+  assert.equal(planning.some(scholar => scholar.applicantId === 12), true); // Empty value falls back to application.
+  assert.equal(planning.some(scholar => scholar.applicantId === 13), true); // Older semester is not the current directory override.
+  const saved = planning.find(scholar => scholar.applicantId === 11);
+  assert.equal(saved.yearLevelPeriodId, 31); assert.equal(saved.school, 'Recorded Public School'); assert.equal(saved.course, 'Saved course');
+  assert.equal(result.scholars.find(scholar => scholar.applicantId === 14).yearLevel, '4th Year'); // Annual record ordering stays unchanged.
+  assert.equal(result.scope.periodIds.includes(32), true); // Archived semester still belongs to the annual report.
+});
+
+test('current fourth-year planning preserves directory truthiness, excludes unknown levels and deduplicates existing people', () => {
+  const data = currentPlanningFixture();
+  data.scholarAccounts.push({ ...data.scholarAccounts.find(scholar => scholar.applicant_id === 10) });
+  data.requirements.push({ id: 100, applicant_id: 11, billing_period_id: 31, year_level: ' ' });
+  data.applications.find(application => application.applicant_id === 12).school_plan.incomingYearLevel = null;
+  data.applicants.find(applicant => applicant.id === 13).deleted_at = new Date('2028-01-01');
+  data.applications.find(application => application.applicant_id === 14).school_plan.incomingYearLevel = 'Not fourth year';
+  const planning = report(data).fourthYearPlanning.scholars;
+  assert.equal(planning.filter(scholar => scholar.applicantId === 10).length, 1);
+  assert.equal(planning.some(scholar => [11, 12, 13, 14].includes(scholar.applicantId)), false);
+  for (const scholar of planning) for (const field of ['initial_docs', 'fileUrl', 'email', 'claim_amount', 'claimed_date', 'claim_status']) assert.equal(field in scholar, false, field);
+});
+
+test('current directory planning does not populate historical or all-year reports from application fallbacks', () => {
+  const data = currentPlanningFixture();
+  const historical = report(data, '2026-2027');
+  assert.deepEqual(historical.fourthYearPlanning, { mode: 'recorded-years', period: null, scholars: historical.scholars.filter(scholar => scholar.yearLevel === '4th Year') });
+  assert.equal(historical.fourthYearPlanning.scholars.some(scholar => scholar.applicantId >= 10), false);
+  const all = report(data, 'all');
+  assert.equal(all.fourthYearPlanning.mode, 'recorded-years'); assert.equal(all.fourthYearPlanning.period, null);
+  assert.equal(all.fourthYearPlanning.scholars.some(scholar => scholar.applicantId >= 10), false);
+  const baseline = fixture(); baseline.primaryPeriod = data.primaryPeriod; baseline.periods = data.periods;
+  const before = report(baseline, '2026-2027');
+  assert.deepEqual(historical.processing, before.processing);
+  assert.deepEqual(historical.intake, before.intake);
+  assert.deepEqual(historical.records, before.records);
+});
+
+test('fourth-year planning falls back to saved-year records when no active directory period exists', () => {
+  const data = currentPlanningFixture();
+  data.primaryPeriod.is_active = false;
+  const inactive = report(data, '2028-2029');
+  assert.deepEqual(inactive.fourthYearPlanning, { mode: 'recorded-years', period: null, scholars: [] });
+  data.primaryPeriod = null;
+  assert.deepEqual(report(data).fourthYearPlanning, inactive.fourthYearPlanning);
+  const activeFallback = currentPlanningFixture(); activeFallback.primaryPeriod.is_primary = false;
+  assert.equal(report(activeFallback).fourthYearPlanning.scholars.length, 8);
+  assert.equal(report(activeFallback).fourthYearPlanning.mode, 'current-directory');
+});
 
 test('default report uses primary school year with all semesters, including archived semesters', () => {
   const result = report();
@@ -196,6 +286,16 @@ const facade = data => {
   };
   return { client, calls };
 };
+
+test('current planning loader includes directory application levels without broadening annual requirements or writing records', async () => {
+  const { client, calls } = facade(currentPlanningFixture());
+  const result = await loadAcademicYearReport(client, '2028-2029');
+  assert.equal(result.fourthYearPlanning.scholars.length, 8);
+  assert.deepEqual(calls.find(call => call.name === 'scholar_requirements').query.where.billing_period_id.in, [31]);
+  assert.equal(calls.filter(call => call.name === 'scholar_requirements').length, 1);
+  assert.equal(result.processing.scholars, 0); assert.deepEqual(result.records, []);
+  assert.equal(calls.find(call => call.name === 'applicants').query.select.email, undefined);
+});
 
 test('loader reads all selected semester IDs, keeps prior intake participants and queries only supported membership fields', async () => {
   const { client, calls } = facade(fixture());

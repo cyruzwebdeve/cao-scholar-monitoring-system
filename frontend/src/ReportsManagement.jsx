@@ -1,7 +1,7 @@
 import ReportScholarSearch from './components/ReportScholarSearch';
 import ReportsTabs from './components/ReportsTabs';
 import { filterScholarReportRows, scholarReportColumns, summarizePayrollReport } from './utils/reportScholarSearch';
-import { ALL_SCHOOL_YEARS, academicYearDefaultLabel, academicYearScopeLabel, academicYearStageSummaries, createAcademicYearReportLoader, uniqueReportScholars } from './utils/academicYearReport';
+import { ALL_SCHOOL_YEARS, academicYearDefaultLabel, academicYearScopeLabel, academicYearStageSummaries, createAcademicYearReportLoader, fourthYearPlanningView, uniqueReportScholars } from './utils/academicYearReport';
 import MetricDetailsCard from './components/MetricDetailsCard';
 import ReportLocationFilters from './components/ReportLocationFilters';
 import { getReportBarangayOptions, matchesReportLocation, getReportLocationLevel } from './utils/reportLocationFilters';
@@ -31,8 +31,6 @@ const municipalityByCode = new Map(
   municipalitiesData.map((municipality) => [municipality.code, municipality.name]),
 );
 
-const isFourthYear = (yearLevel) => /(?:4th\s*year|fourth\s*year)/i.test(String(yearLevel || ''));
-
 const reportExportColumns = [
   ...scholarReportColumns,
   { key: 'coverageLocation', label: 'Location', group: 'Priority locations', value: (record) => record.location },
@@ -44,7 +42,7 @@ const reportExportColumns = [
   { key: 'graduateName', label: 'Current Name', group: 'Fourth-year records', value: (record) => record.name },
   { key: 'graduateSchool', label: 'Current School', group: 'Fourth-year records', value: (record) => record.school },
   { key: 'graduateCourse', label: 'Current Course', group: 'Fourth-year records', value: (record) => record.course },
-  { key: 'graduateYearLevel', label: 'Latest recorded year level', group: 'Fourth-year records', value: (record) => record.yearLevel || 'Not recorded' },
+  { key: 'graduateYearLevel', label: 'Year level', group: 'Fourth-year records', value: (record) => record.yearLevel || 'Not recorded' },
   { key: 'graduateMunicipality', label: 'Current Municipality', group: 'Fourth-year records', value: (record) => record.municipality },
 ];
 
@@ -211,9 +209,8 @@ export default function ReportsManagement({ token }) {
     })
     .sort((left, right) => left.count - right.count || left.location.localeCompare(right.location)), [barangayCoverageByMunicipality, coverageFilter, coverageRows, locationLevel, query, municipalityFilter, barangayFilter]);
 
-  const fourthYearScholars = useMemo(() => recordedScholars
-    .filter((scholar) => isFourthYear(scholar.yearLevel))
-    .sort((left, right) => left.name.localeCompare(right.name)), [recordedScholars]);
+  const fourthYearView = useMemo(() => fourthYearPlanningView(reportIsCurrent ? lifecycleReport : null), [lifecycleReport, reportIsCurrent]);
+  const fourthYearScholars = fourthYearView.scholars;
 
   const municipalityCounts = useMemo(() => {
     const counts = new Map();
@@ -276,7 +273,7 @@ export default function ReportsManagement({ token }) {
       const graduateColumns = selectedColumns.filter(({ group }) => group === 'Fourth-year records');
       const rows = [['Scholar Academic Year Report'], ['School Year', effectiveSchoolYear], ['Period Scope', scopeLabel],
         ['Coverage Scope', 'Scholars with recorded activity in the selected years; each person counted once.'],
-        ['Profile Scope', 'Names, school, course, account status and locations are current. Year levels are the latest saved in the selected years.']];
+        ['Profile Scope', 'Names, school, course, account status and locations are current.']];
       const headerRows = [];
       const addTable = (columns, records) => {
         headerRows.push(rows.length + 1);
@@ -296,7 +293,7 @@ export default function ReportsManagement({ token }) {
         addTable(coverageColumns, filteredCoverage);
       }
       if (graduateColumns.length) {
-        rows.push([], ['Fourth-year Records'], ['Year-level Scope', 'Latest recorded year level in the selected years; a planning indicator, not verified graduation.']);
+        rows.push([], [fourthYearView.title], ['Fourth-year Scope', fourthYearView.description]);
         addTable(graduateColumns, fourthYearScholars);
       }
       await downloadReportWorkbook({ filename: `${scholarColumns.length && !coverageColumns.length && !graduateColumns.length ? 'pgceap-scholar-records' : 'pgceap-priority-report'}-${effectiveSchoolYear.replace(/\s+/g, '-').toLowerCase()}.xlsx`, rows, headerRows });
@@ -332,12 +329,12 @@ export default function ReportsManagement({ token }) {
       <ReportsTabs activeTab={activeTab} onChange={setActiveTab} />
       <p className="reports-tab-scope">{scopeLabel}</p>
       <div className="reports-tab-panel" role="tabpanel" id="reports-panel-overview" aria-labelledby="reports-tab-overview" hidden={activeTab !== 'overview'} tabIndex={0}>
-      <div className="report-coverage-heading"><h2>Coverage and program overview</h2><p>{scopeLabel}. Scholars with recorded activity are counted once. Names, locations and account status are current; historical active status is not recorded. Record search and list-status filters do not change coverage totals.</p></div>
+      <div className="report-coverage-heading"><h2>Coverage and program overview</h2><p>{scopeLabel}. Coverage counts Scholars with recorded activity once. The fourth-year planning card uses its separately labeled year-level scope. Names, locations and account status are current; historical active status is not recorded. Record search and list-status filters do not change coverage totals.</p></div>
       <section className="reports-metrics" aria-label="Report summary">
         <MetricDetailsCard title='Scholars with records' rows={recordedScholars.map(scholar => ({ ...scholar, yearLevel: scholar.yearLevel || 'Not recorded' }))} columns={[{ key: 'name', label: 'Current Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Current Municipality' }, { key: 'status', label: 'Current account status' }, { key: 'yearLevel', label: 'Latest recorded year level' }]} description={coverageDescription} className="green"><div><span>Scholars with records</span><strong>{recordedScholars.length}</strong><small>Recorded activity in this report</small></div><i><UsersRound size={22} /></i></MetricDetailsCard>
         <MetricDetailsCard title='Municipalities with None' rows={municipalityDistribution.filter(row => row.count === 0).map(row => ({ location: row.name, count: row.count }))} description={coverageDescription} columns={[{ key: 'location', label: 'Current Location' }, { key: 'count', label: 'Scholars with records' }]} className="red"><div><span>Municipalities with None</span><strong>{municipalityCounts.filter((count) => count === 0).length}</strong><small>No recorded-year scholars</small></div><i><MapPin size={22} /></i></MetricDetailsCard>
         <MetricDetailsCard title='Barangays with Low / None' rows={[...barangayCoverageByMunicipality.entries()].flatMap(([municipality, rows]) => rows.filter(row => row.count <= 2).map(row => ({ location: row.name, municipality: municipalitiesData.find(item => normalizeLocation(item.name) === municipality)?.name || municipality, count: row.count })))} description={coverageDescription} columns={[{ key: 'location', label: 'Current Location' }, { key: 'municipality', label: 'Current Municipality' }, { key: 'count', label: 'Scholars with records' }]} className="orange"><div><span>Barangays with Low / None</span><strong>{barangayAttentionCount}</strong><small>Two recorded-year scholars or fewer</small></div><i><ChartColumn size={22} /></i></MetricDetailsCard>
-        <MetricDetailsCard title='Fourth-year records' rows={fourthYearScholars} columns={[{ key: 'name', label: 'Current Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Current Municipality' }, { key: 'yearLevel', label: 'Latest recorded year level' }]} description={`${coverageDescription} The latest saved year level in the selected years is a planning indicator, not verified graduation.`} className="blue"><div><span>Fourth-year records</span><strong>{fourthYearScholars.length}</strong><small>Latest saved year level in scope</small></div><i><GraduationCap size={22} /></i></MetricDetailsCard>
+        <MetricDetailsCard title={fourthYearView.title} rows={fourthYearScholars} columns={[{ key: 'name', label: 'Current Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Current Municipality' }, { key: 'yearLevel', label: fourthYearView.yearLevelLabel }]} description={fourthYearView.description} className="blue"><div><span>{fourthYearView.title}</span><strong>{fourthYearScholars.length}</strong><small>{fourthYearView.metricMeta}</small></div><i><GraduationCap size={22} /></i></MetricDetailsCard>
       </section>
       <section className="reports-analytics-grid" aria-label="Scholar analytics">
         <article className="reports-surface reports-chart-card reports-municipality-chart">
@@ -462,7 +459,7 @@ export default function ReportsManagement({ token }) {
 
       <div className="reports-tab-panel" role="tabpanel" id="reports-panel-fourth-year" aria-labelledby="reports-tab-fourth-year" hidden={activeTab !== 'fourth-year'} tabIndex={0}>
         <article className="reports-surface reports-graduating-panel">
-          <header><div><h2>Fourth-year records</h2><p>Latest saved year level in the selected years. This planning indicator does not verify graduation.</p></div><span>{fourthYearScholars.length}</span></header>
+          <header><div><h2>{fourthYearView.title}</h2><p>{fourthYearView.description}</p></div><span>{fourthYearScholars.length}</span></header>
           <div className="reports-graduate-list">
             {fourthYearScholars.map((scholar) => (
               <div className="reports-graduate-row" key={scholar.applicantId}>
@@ -471,7 +468,7 @@ export default function ReportsManagement({ token }) {
                 <em>{scholar.yearLevel}</em>
               </div>
             ))}
-            {!fourthYearScholars.length && <div className="reports-empty compact"><GraduationCap size={24} /><strong>No fourth-year records found</strong><span>No latest recorded fourth-year level matches the selected years.</span></div>}
+            {!fourthYearScholars.length && <div className="reports-empty compact"><GraduationCap size={24} /><strong>No fourth-year {fourthYearView.currentDirectory ? 'scholars' : 'records'} found</strong><span>{fourthYearView.emptyDescription}</span></div>}
           </div>
         </article>
       </div>
@@ -480,7 +477,7 @@ export default function ReportsManagement({ token }) {
         <ReportScholarSearch rows={filteredScholarRows} total={filterScholarReportRows(scholarReportRows, '', effectiveSchoolYear, reportListType).length} query={scholarQuery} listType={reportListType} onListType={value => { setReportListType(value); setScholarPage(1); }} onQuery={value => { setScholarQuery(value); setScholarPage(1); }} page={scholarPage} onPage={setScholarPage} onExport={() => exportReport(scholarReportColumns)} disabled={exporting} />
       </div>
       </>}
-      {exportOpen && reportReady && <CsvExportModal formatLabel="EXCEL EXPORT" exportLabel="Export XLSX" title="Export reports and insights" description="Choose columns from scholar records, priority locations and fourth-year records. Every section uses the selected academic years; scholar records also follow search and list-status filters. All matching pages are exported." columns={reportExportColumns} rowCount={filteredScholarRows.length + filteredCoverage.length + fourthYearScholars.length} getRowCount={(columns) => (columns.some(({ group }) => group === 'Scholar records') ? filteredScholarRows.length : 0) + (columns.some(({ group }) => group === 'Priority locations') ? filteredCoverage.length : 0) + (columns.some(({ group }) => group === 'Fourth-year records') ? fourthYearScholars.length : 0)} onClose={() => setExportOpen(false)} onExport={exportReport} />}
+      {exportOpen && reportReady && <CsvExportModal formatLabel="EXCEL EXPORT" exportLabel="Export XLSX" title="Export reports and insights" description={`Choose columns from scholar records, priority locations and fourth-year planning. Scholar records and coverage use the selected academic years; scholar records also follow search and list-status filters. ${fourthYearView.currentDirectory ? 'Fourth-year planning matches the current Scholar directory, including application year levels when no semester value is saved.' : 'Fourth-year planning uses the latest saved year levels in the selected years.'} All matching pages are exported.`} columns={reportExportColumns} rowCount={filteredScholarRows.length + filteredCoverage.length + fourthYearScholars.length} getRowCount={(columns) => (columns.some(({ group }) => group === 'Scholar records') ? filteredScholarRows.length : 0) + (columns.some(({ group }) => group === 'Priority locations') ? filteredCoverage.length : 0) + (columns.some(({ group }) => group === 'Fourth-year records') ? fourthYearScholars.length : 0)} onClose={() => setExportOpen(false)} onExport={exportReport} />}
     </div>
   );
 }

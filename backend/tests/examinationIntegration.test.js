@@ -567,12 +567,49 @@ test('lifecycle reporting ends with separate certification/payroll lists and ret
   assert.equal(res.body.finance, undefined);
   assert.equal(res.body.scope.schoolYear, period.school_year);
   assert.equal(res.body.scope.defaultSource, 'primary');
+  assert.equal(res.body.fourthYearPlanning.mode, 'current-directory');
+  assert.deepEqual(res.body.fourthYearPlanning.period, { id: period.id, schoolYear: period.school_year, semester: period.semester });
   assert.equal(res.body.records.reduce((sum, row) => sum + (row.payrollAmount || 0), 0), 8000);
   assert.doesNotMatch(JSON.stringify(res.body), /claim_status|claimed_date|"paid"|"released"/);
   assert.deepEqual(res.body.lists, { certificationLists: 1, payrollLists: 2, certificationEntries: 1, payrollEntries: 2 });
   assert.equal(res.body.audit.actionCounts[0].action, 'PAYROLL_LIST_GENERATED');
   assert.equal(res.body.audit.recent[0].id, '5');
   assert.equal(res.headers['Cache-Control'], 'private, no-store');
+  assert.equal(writes.length, 0);
+});
+
+test('current-year fourth-year report matches the Scholars directory before semester activity is saved', async () => {
+  const period = { id: 31, school_year: '2028-2029', semester: '1st Semester', is_active: true, is_primary: true };
+  const people = Array.from({ length: 9 }, (_, index) => ({ id: 100 + index, first_name: 'SYNTHETIC', last_name: String(index),
+    email: `synthetic-${index}@example.test`, school_year: '2025-2026', school_id: 1, municipality: 'Synthetic municipality', barangay: 'Synthetic barangay' }));
+  prisma.academic_periods.findFirst = async () => period;
+  prisma.academic_periods.findMany = async () => [period];
+  prisma.applicants.findMany = async () => people;
+  prisma.scholar_accounts.findMany = async () => people.map((person, index) => ({ id: index + 1, applicant_id: person.id, is_active: index !== 0 }));
+  prisma.application_submissions.findMany = async () => people.map((person, index) => ({ id: index + 1, applicant_id: person.id,
+    school_plan: { incomingYearLevel: index < 8 ? '4th Year' : '3rd Year', school: 'TEST SCHOOL', course: 'Synthetic course' }, initial_docs: {} }));
+  prisma.control_accounts.findMany = async () => people.map(person => ({ applicant_id: person.id, control_number: `SYNTHETIC-${person.id}` }));
+  prisma.payroll_claims.findMany = async () => [];
+  prisma.activity_logs.groupBy = async () => [];
+  prisma.activity_logs.findMany = async () => [];
+
+  const directory = response();
+  await getScholarManagement({ query: {}, user: { role: 'SuperAdmin' } }, directory);
+  assert.equal(directory.statusCode, 200);
+  const directoryFourthYears = directory.body.scholars.filter(person => person.yearLevel === '4th Year');
+  assert.equal(directoryFourthYears.length, 8);
+  const { getLifecycleReport } = require('../controllers/lifecycleReportController');
+  const report = response();
+  await getLifecycleReport({ query: { schoolYear: period.school_year } }, report);
+  assert.equal(report.statusCode, 200);
+  assert.deepEqual(report.body.fourthYearPlanning.scholars.map(person => person.applicantId).sort((left, right) => left - right),
+    directoryFourthYears.map(person => person.applicantId).sort((left, right) => left - right));
+  assert.equal(report.body.fourthYearPlanning.scholars.find(person => person.applicantId === 100).status, 'Inactive');
+  assert.equal(report.body.processing.scholars, 0);
+  assert.deepEqual(report.body.scholars, []);
+  assert.deepEqual(report.body.records, []);
+  assert.equal(report.headers['Cache-Control'], 'private, no-store');
+  assert.doesNotMatch(JSON.stringify(report.body.fourthYearPlanning), /example\.test|initial_docs|fileName|claim_status|claimed_date/);
   assert.equal(writes.length, 0);
 });
 

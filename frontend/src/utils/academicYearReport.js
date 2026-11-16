@@ -20,6 +20,28 @@ export const uniqueReportScholars = (scholars = []) => [...new Map(
   scholars.map(scholar => [scholar.applicantId, scholar]),
 ).values()];
 
+export const fourthYearPlanningView = (report) => {
+  const planning = report?.fourthYearPlanning;
+  const currentDirectory = planning?.mode === 'current-directory';
+  const scopeLabel = currentDirectory
+    ? `Current Scholar directory · ${planning.period.schoolYear} · ${planning.period.semester}`
+    : academicYearScopeLabel(report?.scope);
+  return {
+    scholars: uniqueReportScholars(planning?.scholars || []).sort((left, right) => left.name.localeCompare(right.name)),
+    currentDirectory,
+    scopeLabel,
+    title: currentDirectory ? 'Fourth-year scholars' : 'Fourth-year records',
+    yearLevelLabel: currentDirectory ? 'Current year level' : 'Latest recorded year level',
+    metricMeta: currentDirectory ? 'Current Scholar directory' : 'Latest saved year level in scope',
+    description: currentDirectory
+      ? `${scopeLabel}. Uses saved semester year levels or application year levels when no semester value is saved, including Scholars without recorded activity this year. Names, school, course, locations and account status are current. This planning list does not verify graduation.`
+      : `${scopeLabel}. Uses the latest saved year level in the selected years. Names, school, course, locations and account status are current. This planning list does not verify graduation.`,
+    emptyDescription: currentDirectory
+      ? 'No Scholar in the current directory has a fourth-year level for this semester.'
+      : 'No latest recorded fourth-year level matches the selected years.',
+  };
+};
+
 export const academicYearStageSummaries = (report) => [
   { title: 'Applicant intake', description: 'Applicants from the selected intake years; each person is counted once per stage.', stages: [
     ['Applied', report.intake.applied], ['Scheduled', report.intake.scheduled],
@@ -40,6 +62,15 @@ export const validateAcademicYearReport = (body, schoolYear = '') => {
   if (!body?.scope || !Array.isArray(body.records) || !Array.isArray(body.scholars)
     || !Array.isArray(body.periods) || !body.intake || !body.processing) {
     throw new Error('The academic-year report is unavailable. Please refresh after the report update.');
+  }
+  const planning = body.fourthYearPlanning;
+  if (!planning || !['current-directory', 'recorded-years'].includes(planning.mode) || !Array.isArray(planning.scholars)
+    || (planning.mode === 'recorded-years' && planning.period !== null)
+    || (planning.mode === 'current-directory' && (body.scope.allYears
+      || !Number.isInteger(planning.period?.id) || planning.period.id <= 0
+      || planning.period.schoolYear !== body.scope.schoolYear || !planning.period.semester
+      || !body.scope.periodIds?.includes(planning.period.id)))) {
+    throw new Error('The fourth-year report is unavailable. Please refresh after the report update.');
   }
   if (schoolYear && body.scope.schoolYear !== schoolYear) {
     throw new Error('The report does not match the selected school year. Please retry.');

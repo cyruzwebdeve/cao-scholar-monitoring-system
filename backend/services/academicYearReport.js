@@ -11,6 +11,7 @@ const fault = (message, statusCode = 400) => Object.assign(new Error(message), {
 const periodOrder = (left, right) => String(right.school_year).localeCompare(String(left.school_year))
   || (semesterOrder[right.semester] || 0) - (semesterOrder[left.semester] || 0)
   || Number(right.id) - Number(left.id);
+const isFourthYear = value => /^(?:4th|fourth)\s*year$/i.test(String(value || '').trim());
 
 const resolveReportScope = (availablePeriods, primaryPeriod, requestedYear) => {
   if (requestedYear != null && typeof requestedYear !== 'string') throw fault('Select a valid report school year.');
@@ -180,6 +181,33 @@ const buildAcademicYearReport = ({ scope, periods, primaryPeriod, applicants, ap
       yearLevelPeriodId: yearLevelRecord?.billing_period_id || null,
       academicPeriodId: latestPeriod?.id || null, schoolYear: latestPeriod?.school_year || 'Legacy period', semester: latestPeriod?.semester || 'Not specified' };
   }).sort((left, right) => left.name.localeCompare(right.name) || left.applicantId - right.applicantId);
+  // Current fourth-year planning follows the Scholar directory even before a
+  // new semester has recorded activity. Keep this separate from annual counts.
+  const currentDirectory = Boolean(primaryPeriod?.is_active && !scope.allYears
+    && scope.schoolYear === primaryPeriod.school_year && selectedPeriods.has(primaryPeriod.id));
+  let planningScholars = reportScholars;
+  if (currentDirectory) {
+    const currentRequirements = new Map();
+    selectedRequirements.filter(requirement => requirement.billing_period_id === primaryPeriod.id)
+      .sort((left, right) => new Date(right.updated_at || 0) - new Date(left.updated_at || 0) || right.id - left.id)
+      .forEach(requirement => { if (!currentRequirements.has(requirement.applicant_id)) currentRequirements.set(requirement.applicant_id, requirement); });
+    planningScholars = [...scholarById.keys()].map(applicantId => {
+      const requirement = currentRequirements.get(applicantId), application = applicationById.get(applicantId);
+      const school = resolveScholarSchool({ applicant: applicantById.get(applicantId), requirement, application, schoolById, schoolByName });
+      return { ...currentProfile(applicantId),
+        school: school?.name || application?.school_plan?.school || 'Not specified',
+        course: requirement?.course || application?.school_plan?.course || '',
+        yearLevel: requirement?.year_level || application?.school_plan?.incomingYearLevel || null,
+        yearLevelPeriodId: requirement?.year_level ? primaryPeriod.id : null,
+        academicPeriodId: primaryPeriod.id, schoolYear: primaryPeriod.school_year, semester: primaryPeriod.semester };
+    });
+  }
+  const fourthYearPlanning = {
+    mode: currentDirectory ? 'current-directory' : 'recorded-years',
+    period: currentDirectory ? { id: primaryPeriod.id, schoolYear: primaryPeriod.school_year, semester: primaryPeriod.semester } : null,
+    scholars: planningScholars.filter(scholar => isFourthYear(scholar.yearLevel))
+      .sort((left, right) => left.name.localeCompare(right.name) || left.applicantId - right.applicantId),
+  };
   records.sort((left, right) => left.name.localeCompare(right.name) || right.schoolYear.localeCompare(left.schoolYear)
     || (semesterOrder[right.semester] || 0) - (semesterOrder[left.semester] || 0) || left.id.localeCompare(right.id));
   const processing = { scholars: reportScholars.length, requirementSets: setsByKey.size, requirementsClearedSets,
@@ -187,7 +215,7 @@ const buildAcademicYearReport = ({ scope, periods, primaryPeriod, applicants, ap
   const listsWithRecords = selectedBatches.filter(batch => listedBatchIds.has(batch.id));
   const certificationLists = listsWithRecords.filter(isCertificationBatch).length;
   return { scope, periods: periods.map(period => ({ id: period.id, schoolYear: period.school_year, semester: period.semester,
-    isActive: period.is_active, isPrimary: Boolean(period.is_primary) })), intake, processing, scholars: reportScholars, records,
+    isActive: period.is_active, isPrimary: Boolean(period.is_primary) })), intake, processing, scholars: reportScholars, records, fourthYearPlanning,
     // Compatibility fields now describe an annual scope. New consumers use
     // intake/processing rather than treating them as one continuous funnel.
     period: { id: null, schoolYear: scope.schoolYear, semester: 'All semesters', isActive: scope.periodIds.some(id => periodById.get(id)?.is_active) },

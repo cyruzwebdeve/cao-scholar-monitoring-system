@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ALL_SCHOOL_YEARS, academicYearDefaultLabel, academicYearReportQuery, academicYearScopeLabel, academicYearStageSummaries,
-  createAcademicYearReportLoader, uniqueReportScholars, validateAcademicYearReport,
+  createAcademicYearReportLoader, fourthYearPlanningView, uniqueReportScholars, validateAcademicYearReport,
 } from '../src/utils/academicYearReport.js';
 import { filterScholarReportRows, scholarReportColumns, summarizePayrollReport } from '../src/utils/reportScholarSearch.js';
 
@@ -10,6 +10,7 @@ const report = (schoolYear = '2027-2028') => ({
   scope: { schoolYear, primarySchoolYear: '2027-2028', defaultSchoolYear: '2027-2028', defaultSource: 'primary', allYears: schoolYear === ALL_SCHOOL_YEARS, periodIds: [10, 11], includesArchived: true },
   periods: [{ id: 10, schoolYear: '2027-2028', semester: '1st Semester', isActive: false }, { id: 11, schoolYear: '2027-2028', semester: '2nd Semester', isActive: true }],
   scholars: [], records: [],
+  fourthYearPlanning: { mode: 'recorded-years', period: null, scholars: [] },
   intake: { applied: 3, scheduled: 2, examined: 1, passed: 1 },
   processing: { scholars: 5, requirementSets: 8, requirementsClearedSets: 6, certificationListed: 2, payrollListed: 4, certificationEntries: 3, payrollEntries: 7 },
 });
@@ -54,6 +55,72 @@ test('coverage deduplicates participants across semesters without dropping curre
   assert.equal(unique.length, 2);
   assert.equal(unique.find(row => row.applicantId === 1).status, 'Inactive');
   assert.equal(source.length, 3);
+});
+
+test('current fourth-year planning shows all eight directory Scholars without adding annual activity or amounts', () => {
+  const body = report();
+  body.processing.scholars = 0;
+  body.fourthYearPlanning = {
+    mode: 'current-directory', period: { id: 11, schoolYear: '2027-2028', semester: '2nd Semester' },
+    scholars: Array.from({ length: 8 }, (_, index) => ({ applicantId: index + 1, name: `Synthetic ${index + 1}`, yearLevel: '4th Year', status: index ? 'Active' : 'Inactive' })),
+  };
+  body.fourthYearPlanning.scholars.push({ ...body.fourthYearPlanning.scholars[0] });
+  const original = structuredClone(body);
+  const view = fourthYearPlanningView(validateAcademicYearReport(body));
+  assert.equal(view.scholars.length, 8);
+  assert.equal(view.scholars.find(row => row.applicantId === 1).status, 'Inactive');
+  assert.equal(view.title, 'Fourth-year scholars');
+  assert.equal(view.metricMeta, 'Current Scholar directory');
+  assert.equal(view.yearLevelLabel, 'Current year level');
+  assert.match(view.scopeLabel, /2027-2028 · 2nd Semester/);
+  assert.match(view.description, /application year levels when no semester value is saved/);
+  assert.match(view.description, /without recorded activity this year/);
+  assert.match(view.description, /does not verify graduation/);
+  assert.equal(body.processing.scholars, 0);
+  assert.deepEqual(body.scholars, []);
+  assert.deepEqual(body.records, []);
+  assert.equal(summarizePayrollReport(body.records).payrollAmount, 0);
+  assert.deepEqual(body, original);
+});
+
+test('historical and all-years fourth-year views use their saved projection and shared detail/export rows', () => {
+  for (const schoolYear of ['2026-2027', ALL_SCHOOL_YEARS]) {
+    const body = report(schoolYear);
+    body.scholars = [{ applicantId: 9, name: 'Current profile only', yearLevel: '4th Year' }];
+    body.fourthYearPlanning.scholars = [{ applicantId: 2, name: 'Saved fourth-year Scholar', yearLevel: 'Fourth Year' }];
+    const view = fourthYearPlanningView(validateAcademicYearReport(body, schoolYear));
+    assert.deepEqual(view.scholars.map(row => row.applicantId), [2]);
+    assert.equal(view.title, 'Fourth-year records');
+    assert.equal(view.currentDirectory, false);
+    assert.equal(view.yearLevelLabel, 'Latest recorded year level');
+    assert.match(view.description, /latest saved year level in the selected years/);
+    assert.doesNotMatch(view.description, /application year levels/);
+    // Metric details, the list and export consume this same row projection.
+    assert.deepEqual(view.scholars.map(row => row.yearLevel), ['Fourth Year']);
+  }
+  const empty = fourthYearPlanningView(null);
+  assert.deepEqual(empty.scholars, []);
+  assert.equal(empty.scopeLabel, 'No school year configured');
+});
+
+test('missing or mismatched fourth-year planning contracts cannot silently display an empty list', () => {
+  const missing = report(); delete missing.fourthYearPlanning;
+  assert.throws(() => validateAcademicYearReport(missing), /fourth-year report is unavailable/);
+  for (const planning of [
+    { mode: 'unknown', period: null, scholars: [] },
+    { mode: 'recorded-years', scholars: [] },
+    { mode: 'recorded-years', period: null, scholars: null },
+    { mode: 'current-directory', period: null, scholars: [] },
+    { mode: 'current-directory', period: { id: 9, schoolYear: '2027-2028', semester: '1st Semester' }, scholars: [] },
+    { mode: 'current-directory', period: { id: 11, schoolYear: '2026-2027', semester: '2nd Semester' }, scholars: [] },
+    { mode: 'current-directory', period: { id: 11, schoolYear: '2027-2028', semester: '' }, scholars: [] },
+  ]) {
+    const body = report(); body.fourthYearPlanning = planning;
+    assert.throws(() => validateAcademicYearReport(body), /fourth-year report is unavailable/);
+  }
+  const all = report(ALL_SCHOOL_YEARS);
+  all.fourthYearPlanning = { mode: 'current-directory', period: { id: 11, schoolYear: ALL_SCHOOL_YEARS, semester: '2nd Semester' }, scholars: [] };
+  assert.throws(() => validateAcademicYearReport(all), /fourth-year report is unavailable/);
 });
 
 test('annual payroll cards, detail memberships and export rows preserve both semester amounts for one Scholar', () => {
