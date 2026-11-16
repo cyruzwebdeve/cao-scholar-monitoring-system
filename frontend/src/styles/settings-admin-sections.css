@@ -1,0 +1,382 @@
+.settings-management .school-catalog-embedded,
+.settings-management .system-health-panel {
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 24px;
+  border: 1px solid #dfe8e2;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(27, 68, 43, .035);
+}
+
+.settings-management .school-catalog-heading,
+.settings-management .system-health-panel > .dashboard-surface-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 0 0 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #edf2ee;
+}
+
+.settings-management .school-catalog-heading h2,
+.settings-management .system-health-panel > .dashboard-surface-header h3 {
+  margin: 6px 0;
+  color: #26382c;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.settings-management .school-catalog-heading p,
+.settings-management .system-health-panel > .dashboard-surface-header p {
+  max-width: 64ch;
+  margin: 0;
+  color: #65756b;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: normal;
+}
+
+.settings-management .school-catalog-refresh {
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.settings-management .school-catalog-refresh button,
+.settings-management .system-health-refresh {
+  min-height: 36px;
+  padding-inline: 14px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+.settings-management .school-catalog-refresh small {
+  color: #65756b;
+  font-size: 10px;
+}
+
+.settings-management .school-catalog-stats {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.settings-management .school-catalog-stats article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px 16px;
+  min-width: 0;
+  padding: 16px;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.settings-management .school-catalog-stats article > span {
+  color: #65756b;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.settings-management .school-catalog-stats strong {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  margin: 0;
+  font-size: 26px;
+  font-weight: 500;
+}
+
+.settings-management .school-catalog-stats small {
+  grid-column: 1;
+  color: #65756b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.settings-management .school-catalog-directory {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.settings-management .school-catalog-directory .dashboard-surface-header,
+.settings-management .system-health-panel > .dashboard-surface-header > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.settings-management .school-catalog-directory .dashboard-surface-header {
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.settings-management .school-catalog-directory .dashboard-surface-header > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.settings-management .school-catalog-directory h3 {
+  margin: 0;
+  color: #26382c;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-management .school-catalog-directory .dashboard-surface-header p {
+  margin: 4px 0 0;
+  color: #65756b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.settings-management .school-catalog-directory .dashboard-record-count {
+  flex: 0 0 auto;
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: #f3f7f4;
+  color: #65756b;
+  font-size: 11px;
+}
+
+.settings-management .school-catalog-toolbar {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+}
+
+.settings-management .school-catalog-toolbar label,
+.settings-management .school-catalog-toolbar select {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 40px;
+  border-radius: 8px;
+}
+
+.settings-management .school-catalog-toolbar input,
+.settings-management .school-catalog-toolbar select {
+  min-width: 0;
+  font-size: 12px;
+}
+
+.settings-management .school-catalog-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 10px;
+  max-height: none;
+  padding-right: 0;
+}
+
+.settings-management .school-catalog-grid > button {
+  min-height: 68px;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.settings-management .school-catalog-grid strong {
+  overflow: visible;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.settings-management .school-catalog-grid small {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.settings-management .school-catalog-notice,
+.settings-management .school-catalog-empty {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settings-management .school-catalog-empty button {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 11px;
+}
+
+.settings-management .system-health-panel {
+  gap: 20px;
+}
+
+.settings-management .system-health-panel > .dashboard-surface-header {
+  margin-bottom: 0;
+}
+
+.settings-management .system-health-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+  gap: 16px;
+}
+
+.settings-management .system-health-card {
+  padding: 18px;
+  border-radius: 10px;
+  background: #f8fbf9;
+}
+
+.settings-management .system-health-card h4 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-management .system-health-card header p {
+  overflow: visible;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: normal;
+}
+
+.settings-management .system-health-state {
+  padding: 5px 8px;
+  font-size: 10px;
+}
+
+.settings-management .system-health-reading {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 18px 0 12px;
+}
+
+.settings-management .system-health-card:first-child .system-health-reading {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-management .system-health-reading > div {
+  padding: 12px;
+}
+
+.settings-management .system-health-reading strong {
+  font-size: 24px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.settings-management .system-health-reading span,
+.settings-management .system-health-card > footer {
+  color: #65756b;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.settings-management .system-health-card > footer {
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 12px;
+}
+
+.settings-management .system-health-chart {
+  height: 140px;
+}
+
+.settings-management .system-health-axis {
+  font-size: 9px;
+}
+
+.settings-management .system-health-chart-empty {
+  font-size: 11px;
+}
+
+.settings-management .system-health-warning {
+  align-items: flex-start;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settings-management .system-health-warning > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.settings-management .system-health-note {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f3f7f4;
+  color: #65756b;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.settings-management .school-catalog-toolbar label:focus-within,
+.settings-management .school-catalog-toolbar select:focus-visible,
+.settings-management .school-catalog-refresh button:focus-visible,
+.settings-management .system-health-refresh:focus-visible {
+  outline: 3px solid #008b47;
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .settings-management .school-catalog-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .settings-management .school-catalog-refresh {
+    align-items: flex-start;
+  }
+
+}
+
+@media (max-width: 640px) {
+  .settings-management .school-catalog-embedded,
+  .settings-management .system-health-panel {
+    padding: 18px;
+  }
+
+  .settings-management .school-catalog-stats,
+  .settings-management .school-catalog-toolbar,
+  .settings-management .school-catalog-grid,
+  .settings-management .system-health-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-management .school-catalog-toolbar input,
+  .settings-management .school-catalog-toolbar select {
+    font-size: 16px;
+  }
+
+  .settings-management .school-catalog-directory .dashboard-surface-header,
+  .settings-management .system-health-panel > .dashboard-surface-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .settings-management .system-health-card > header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .settings-management .system-health-state {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 400px) {
+  .settings-management .system-health-card {
+    padding: 14px;
+  }
+
+  .settings-management .system-health-reading > div {
+    padding: 8px;
+  }
+
+  .settings-management .system-health-reading strong {
+    font-size: 21px;
+  }
+}

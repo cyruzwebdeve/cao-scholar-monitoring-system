@@ -20,6 +20,8 @@ import SettingsTabs from './components/SettingsTabs';
 import OnlineQuestionsSettings from './OnlineQuestionsSettings';
 import IntakePeriodSettings from './components/IntakePeriodSettings';
 import { canManageStaffSection } from './utils/staffAccess';
+import './styles/settings-sections.css';
+import './styles/settings-admin-sections.css';
 
 const emptyPeriodForm = { schoolYear: '', semester: '1st Semester', startDate: '', endDate: '' };
 const emptyAvailability = { isEnabled: true, opensAt: '', closesAt: '', state: 'open', isOpen: true };

@@ -1,0 +1,521 @@
+.settings-management .settings-tab-panel {
+  min-width: 0;
+}
+
+.settings-management .settings-card {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 24px;
+  border-color: #dfe8e2;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(27, 68, 43, .035);
+}
+
+.settings-management .settings-card + .settings-card {
+  margin-top: 20px;
+}
+
+.settings-management .settings-card-heading,
+.settings-management .settings-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #edf2ee;
+  color: #168c51;
+}
+
+.settings-management .settings-card-heading > div,
+.settings-management .settings-card-header > div {
+  min-width: 0;
+}
+
+.settings-management .settings-card-heading > svg,
+.settings-management .settings-card-header > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.settings-management .settings-eyebrow {
+  display: block;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.settings-management .settings-card h3 {
+  margin: 7px 0;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.settings-management .settings-card-heading p,
+.settings-management .settings-card-header p {
+  max-width: 76ch;
+  margin: 0;
+  color: #65756b;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.settings-management .settings-availability-form,
+.settings-management .settings-requirements-deadline-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.settings-management .settings-availability-status,
+.settings-management .settings-active-period {
+  min-width: 0;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 10px;
+}
+
+.settings-management .settings-availability-form > .settings-availability-status,
+.settings-management .settings-requirements-deadline-form > .settings-availability-status {
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-content: center;
+}
+
+.settings-management .settings-availability-form .settings-availability-switch {
+  grid-column: 2;
+  justify-self: start;
+  margin-top: 6px;
+}
+
+.settings-management .settings-availability-status small,
+.settings-management .settings-active-period > div > span {
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.settings-management .settings-availability-status strong,
+.settings-management .settings-active-period strong {
+  margin-top: 5px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.settings-management .settings-availability-status > div > span,
+.settings-management .settings-active-period small {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.settings-management .settings-availability-status.open > div > span,
+.settings-management .settings-active-period small {
+  color: #65756b;
+}
+
+.settings-management .settings-availability-switch b {
+  font-size: 11px;
+}
+
+.settings-management .settings-availability-window {
+  min-width: 0;
+  margin: 0;
+  padding: 18px;
+  background: #f8faf9;
+}
+
+.settings-management .settings-availability-window-heading strong {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.settings-management .settings-availability-window-heading small,
+.settings-management .settings-availability-summary {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.settings-management .settings-availability-fields,
+.settings-management .settings-period-form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 14px;
+}
+
+.settings-management .settings-availability-fields label,
+.settings-management .settings-period-form-grid label,
+.settings-management .intake-year-filter {
+  min-width: 0;
+}
+
+.settings-management .settings-availability-fields label > span,
+.settings-management .settings-period-form-grid label > span,
+.settings-management .intake-year-filter > span {
+  color: #52675a;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.settings-management .settings-card input:not([type="checkbox"]),
+.settings-management .settings-card select,
+.settings-management .settings-card textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settings-management .settings-availability-actions,
+.settings-management .settings-availability-readonly {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid #edf2ee;
+}
+
+.settings-management .settings-availability-actions,
+.settings-management .settings-period-form-actions {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.settings-management .settings-availability-readonly {
+  color: #65756b;
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.settings-management .settings-save,
+.settings-management .settings-availability-actions button,
+.settings-management .settings-period-toolbar > button,
+.settings-management .settings-period-actions button,
+.settings-management .settings-period-form-actions button,
+.settings-management .settings-deadline-list article > button,
+.settings-management .intake-period-confirmation button {
+  justify-content: center;
+  min-height: 38px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.settings-management .intake-period-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px 20px;
+  margin-top: 20px;
+}
+
+.settings-management .intake-period-form > button {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+}
+
+.settings-management .intake-period-form > p,
+.settings-management .intake-period-confirmation {
+  grid-column: 1 / -1;
+}
+
+.settings-management .intake-period-form > p {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f3f7f4;
+  font-size: 11px;
+}
+
+.settings-management .intake-period-confirmation {
+  padding: 16px;
+}
+
+.settings-management .settings-period-toolbar,
+.settings-management .settings-deadline-directory-heading {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.settings-management .settings-period-toolbar strong,
+.settings-management .settings-deadline-directory-heading strong,
+.settings-management .settings-period-form-heading strong {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.settings-management .settings-period-toolbar span,
+.settings-management .settings-deadline-directory-heading span,
+.settings-management .settings-period-form-heading span {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.settings-management .settings-period-form {
+  margin-top: 16px;
+  padding: 18px;
+}
+
+.settings-management .settings-period-form-heading > button {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+}
+
+.settings-management .settings-period-list article,
+.settings-management .settings-deadline-list article {
+  gap: 14px;
+  padding: 14px 16px;
+}
+
+.settings-management .settings-period-list {
+  container: settings-period-directory / inline-size;
+}
+
+.settings-management .settings-deadline-list {
+  container: settings-deadline-directory / inline-size;
+}
+
+.settings-management .settings-period-list article {
+  grid-template-columns: minmax(0, .7fr) minmax(0, 1fr) auto;
+}
+
+.settings-management .settings-deadline-list article {
+  grid-template-columns: minmax(0, .7fr) minmax(0, 1fr) auto auto;
+}
+
+.settings-management .settings-period-list article > div,
+.settings-management .settings-deadline-list article > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-management .settings-period-list article strong,
+.settings-management .settings-deadline-list article div > strong {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settings-management .settings-period-list article span,
+.settings-management .settings-deadline-list article div > span {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.settings-management .settings-period-list article small,
+.settings-management .settings-deadline-list article div > small,
+.settings-management .settings-period-actions em,
+.settings-management .settings-active-period > em,
+.settings-management .settings-deadline-state,
+.settings-management .settings-deadline-directory-heading em {
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.settings-management .settings-deadline-directory {
+  margin-top: 24px;
+}
+
+.settings-management .settings-deadline-directory-heading {
+  padding: 16px;
+}
+
+.settings-management .settings-period-empty,
+.settings-management .settings-deadline-empty {
+  padding: 24px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.settings-management .settings-mode-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+
+.settings-management .settings-mode-grid button {
+  min-width: 0;
+  padding: 20px 42px 20px 18px;
+}
+
+.settings-management .settings-mode-grid button > svg {
+  flex: 0 0 auto;
+}
+
+.settings-management .settings-mode-grid b {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.settings-management .settings-mode-grid small,
+.settings-management .settings-examination-actions > span {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.settings-management .settings-examination-actions {
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding-top: 16px;
+}
+
+.settings-management .settings-examination-actions > span {
+  flex: 1 1 260px;
+}
+
+.settings-management .online-questions-warning {
+  margin: 20px 0 16px;
+  padding: 14px 16px;
+  border-radius: 0 8px 8px 0;
+  font-size: 12px;
+}
+
+.settings-management .online-question-fields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 0 16px;
+}
+
+.settings-management .online-questions-settings label {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.settings-management .online-questions-settings legend {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.settings-management .online-questions-settings .online-question-card {
+  margin: 16px 0;
+  padding: 18px;
+  border-radius: 10px;
+}
+
+.settings-management .online-question-remove {
+  min-height: 36px;
+  font-size: 11px;
+}
+
+.settings-management .online-question-actions {
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #edf2ee;
+}
+
+.settings-management .online-question-actions > strong {
+  font-size: 12px;
+}
+
+.settings-management .settings-card input:not([type="checkbox"]):focus-visible,
+.settings-management .settings-card select:focus-visible,
+.settings-management .settings-card textarea:focus-visible,
+.settings-management .settings-card button:focus-visible {
+  outline: 3px solid #008b47;
+  outline-offset: 2px;
+}
+
+@container settings-period-directory (max-width: 650px) {
+  .settings-management .settings-period-list article {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .settings-management .settings-period-list article > div:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .settings-management .settings-period-actions {
+    max-width: 220px;
+  }
+}
+
+@container settings-period-directory (max-width: 420px) {
+  .settings-management .settings-period-list article {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-management .settings-period-actions {
+    grid-column: 1;
+    grid-row: 3;
+    justify-content: flex-start;
+    max-width: none;
+  }
+}
+
+@container settings-deadline-directory (max-width: 650px) {
+  .settings-management .settings-deadline-list article {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .settings-management .settings-deadline-list article > div:first-child {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .settings-management .settings-deadline-list article > div:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .settings-management .settings-deadline-state {
+    grid-column: 1;
+    grid-row: 3;
+    justify-self: start;
+  }
+
+  .settings-management .settings-deadline-list article > button {
+    grid-column: 2;
+    grid-row: 3;
+  }
+}
+
+@media (max-width: 700px) {
+  .settings-management .settings-card {
+    padding: 18px;
+  }
+
+  .settings-management .settings-card input:not([type="checkbox"]),
+  .settings-management .settings-card select,
+  .settings-management .settings-card textarea {
+    font-size: 16px;
+  }
+
+  .settings-management .settings-availability-fields,
+  .settings-management .settings-period-form-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  }
+
+  .settings-management .intake-period-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-management .intake-period-form > button {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .settings-management .settings-examination-card .settings-availability-switch {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 480px) {
+  .settings-management .settings-availability-actions,
+  .settings-management .settings-period-form-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .settings-management .settings-examination-actions .settings-save {
+    width: 100%;
+  }
+
+  .settings-management .settings-period-list article,
+  .settings-management .settings-deadline-list article {
+    padding: 14px;
+  }
+
+}

@@ -5,6 +5,31 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-16 - Improve Layouts Within Every Settings Section
+
+**TL;DR**
+
+- All six Settings sections now use consistent card spacing, readable labels/controls and clearer grouping while retaining the Applicants-style navigation.
+- Applications and Requirements use balanced status/configuration groups; Academic Year, Examination, School Catalog and System Health receive clearer forms, directories, summaries and actions.
+- Content-based grids and directory container queries accommodate the staff sidebar and small screens. Controls, permissions, mounted drafts, settings values and processing/data flows are unchanged.
+- Settings JSX parsed successfully, and AST comparison confirmed that only two stylesheet imports changed. Scoped CSS structure, cascade, responsive-source and whitespace checks passed. Browser/build/lint verification remains unavailable; the local screenshot renderer was not executed because automatic approval review failed.
+
+**Objective and reason:** Improve the layout within each Settings tab after matching its navigation to Applicants. The previous presentation used wide stacked status/control blocks, inconsistent embedded-section headings and very small directory/helper text, making related settings harder to scan.
+
+**Previous and new behavior:** Applications and Requirements now place their status summary alongside the scheduling/deadline controls when space permits, with a separate shared action row. Academic Year receives a consistent intake heading, an inline selector/change action, a distinct current-intake summary and more readable processing-period forms/rows. Examination has balanced delivery choices, consistent save actions and clearer question-editor spacing. School Catalog groups summaries, search/classification controls and wrapping school names within a flatter directory. System Health receives a properly grouped surface/header, readable readings and a grid that stacks before metric cards become cramped. Card headings, muted descriptions, borders, gaps, focus outlines and button sizes are consistent; native form text grows to 16px on small screens.
+
+**Affected users and workflows:** Staff authorized to view Settings see the updated Applications, Academic Year, Requirements and Examination layouts. SuperAdmin retains School Catalog and System Health. Existing edit permissions, read-only presentation and online-question access remain. Selecting tabs preserves mounted drafts and still uses the established navigation.
+
+**Implementation and data flow:** Settings Management imports two scoped stylesheets. Existing JSX, state, labels, selected/disabled controls, handlers, confirmation dialogs, API calls and save behavior are retained. Forms, catalog summaries/search/directory and health cards use CSS Grid auto-fit sizing based on available space. Only the period/deadline list containers receive named inline-size containment, so row reflow responds to actual directory width without changing the surrounding confirmation/modal layers. Narrow deadline rows place their status and Configure action together below the record; period actions wrap and move beneath the record on the smallest list widths. Styling introduces no reads, writes, refreshes or persistence operations.
+
+**Files or system areas changed:** `frontend/src/SettingsManagement.jsx`, new `frontend/src/styles/settings-sections.css`, new `frontend/src/styles/settings-admin-sections.css` and both change logs. Intake, question-editor, School Catalog and System Health components, standalone Catalog/dashboard presentation, existing tab styles and backend files are not edited.
+
+**Impact assessment:** API, database/schema, stored data, configuration values, security permissions and privacy: no changes, new fields or migration. Accessibility: existing labels, keyboard/ARIA tab relationships, native controls, disabled states and mounted hidden panels remain; visible focus outlines and mobile input readability improve. Deployment: a frontend release is sufficient; deployment configuration is unchanged and no deployment was performed. Application intake, Scholar processing, generated Payroll-list monetary semantics, legacy payment behavior, attendance and Scholar receipt acknowledgement are unaffected.
+
+**Validation performed and results:** Cached Babel parsed Settings Management. AST comparison against HEAD, excluding the two new CSS imports, confirmed unchanged JSX, state, controls, permissions, request/save handlers, dialogs, panel mounting and navigation. Both stylesheets passed scoped-selector, balanced-structure and whitespace checks and introduce no control hiding, fixed layers, remote imports or important declarations. Source/cascade review covered existing Settings/Online Questions/Intake/Catalog/Health rules, native date fields, selected status colors and concrete sidebar compression near the 960px viewport breakpoint. Git whitespace checks passed. Synthetic all-section HTML fixtures were prepared only in temporary storage and were not rendered; they are not runtime acceptance evidence. React/Vite/ESLint remain missing. Browser access was unavailable, and Brave rendering hit sandbox IPC restrictions; the local renderer escalation did not execute because automatic approval review failed with a service error, not an unsafe-action determination.
+
+**Known limitations, rollback considerations, and recommended next work:** Actual browser rendering, keyboard interaction, cross-browser behavior and authenticated acceptance remain unverified. Check all ordinary/SuperAdmin tabs, pending forms, long directory names, health warnings/readings and unsaved-draft retention at desktop, sidebar-transition and mobile widths when browser/dependency access is restored. Layout uses modern CSS Grid and container queries. Rollback by removing the two imports and reverting the new stylesheets; no database or settings-value rollback is needed.
+
 ## 2026-11-16 - Match Settings and Reports Tabs to Applicants
 
 **TL;DR**
