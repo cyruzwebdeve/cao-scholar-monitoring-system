@@ -5,6 +5,31 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-16 - Match Settings and Reports Tabs to Applicants
+
+**TL;DR**
+
+- Settings and Reports use the Applicants tabs' compact white container, small bold labels and solid green selected state, with tabs above each page heading.
+- Authorized staff keep the same sections, permissions, keyboard navigation and mounted panels. Settings drafts and Reports filters, pagination, academic-year scope and exports retain their existing behavior.
+- Reports tab icons and full-width styling were removed; both tab groups use natural button widths and wrap within smaller screens. This is a frontend presentation change with no saved-data impact.
+- Four relevant JSX modules parsed successfully. AST comparisons confirmed unchanged state/handlers, panels and tab bindings; CSS cascade and whitespace review passed. Browser/render/build/lint verification remains unavailable because frontend dependencies are missing.
+
+**Objective and reason:** Match the user's Applicants reference so Settings and Reports navigation has the same placement, spacing, typography and selected appearance across the staff workspace.
+
+**Previous and new behavior:** Settings had larger buttons below its heading and stretched mobile buttons. Reports had a full-width pale-green row with icons, a white selected button and horizontal scrolling below its heading. Both now place label-only tabs above the heading and inherit Applicants' shared tab visuals: 36px minimum button height, 10px bold text, 4px container padding/gap, a white bordered rounded container and green selected buttons with white text. Natural-width buttons wrap within the available width. Existing section names and initial selection remain.
+
+**Affected users and workflows:** Staff authorized to open Settings or Reports see the consistent navigation. Settings retains its four ordinary sections and two SuperAdmin-only maintenance sections. Application, examination, Scholar and Payroll processing are unaffected.
+
+**Implementation and data flow:** Reports now uses the shared `examination-workspace-tabs` class and the existing selected-state `active` class. Scoped Settings/Reports styles retain wrapping, width constraints, focus feedback and hidden-panel behavior while removing conflicting visual overrides. Settings navigation moves before its heading; Reports navigation moves before its heading under the same report-ready/school-year condition. Selection still changes the same state and panel visibility; no new requests or persistence operations are introduced.
+
+**Files or system areas changed:** `frontend/src/SettingsManagement.jsx`, `frontend/src/ReportsManagement.jsx`, `frontend/src/components/ReportsTabs.jsx`, `frontend/src/styles/settings-tabs.css`, `frontend/src/styles/reports-tabs.css` and both change logs. The Applicants reference and shared `admin.css` rules are retained without edits.
+
+**Impact assessment:** API, database/schema, configuration values, security permissions and privacy: no changes, new fields or migration. Accessibility: existing tab/panel IDs, ARIA selection, roving focus and Arrow Left/Right/Home/End behavior remain; visible focus outlines are retained and Reports receives a labeled navigation element. Deployment: only a frontend release is needed; deployment configuration is unchanged and no release was performed. Monetary scope: generated Payroll-list amounts, legacy payment behavior, attendance and Scholar receipt acknowledgement are unaffected.
+
+**Validation performed and results:** Cached Babel parsed Settings Management, Settings Tabs, Reports Management and Reports Tabs successfully. AST comparisons against HEAD confirmed unchanged management state/handlers, complete tab-panel contents, tab bindings, Reports keyboard/click/ARIA behavior and tab IDs/labels. Settings Tabs and Applicants navigation source remain unchanged. Source/CSS review confirmed above-heading placement, shared visual inheritance and scoped width/wrapping rules, including the existing Online Questions stylesheet cascade. Git whitespace checks passed. Runtime rendering, responsive browser interaction, build, lint and React-dependent tests were not executed because React/Vite/ESLint are unavailable locally.
+
+**Known limitations, rollback considerations, and recommended next work:** Actual browser appearance and interaction remain unverified. Check Applicants, ordinary/SuperAdmin Settings and Reports at desktop/mobile widths once dependencies are available, including keyboard movement, draft retention and existing report controls. Reverting these frontend changes restores the previous presentation without a database rollback.
+
 ## 2026-11-16 - Remove Posted Passers from New-List Selection
 
 **TL;DR**

@@ -307,6 +307,7 @@ export default function ReportsManagement({ token }) {
 
   return (
     <div className="reports-management">
+      {reportReady && lifecycleReport?.scope.schoolYear && <ReportsTabs activeTab={activeTab} onChange={setActiveTab} />}
       <header className="reports-heading">
         <div>
           <p className="reports-eyebrow">DECISION SUPPORT</p>
@@ -327,7 +328,6 @@ export default function ReportsManagement({ token }) {
       {loading && <Notification tone="progress" title="Loading academic-year report">Please wait while the selected year's records are loaded.</Notification>}
       {reportReady && !lifecycleReport?.scope.schoolYear && <Notification tone="info" title="No academic year configured">Create an academic period in Settings to start a school-year report.</Notification>}
       {reportReady && lifecycleReport?.scope.schoolYear && <>
-      <ReportsTabs activeTab={activeTab} onChange={setActiveTab} />
       <p className="reports-tab-scope">{scopeLabel}</p>
       <div className="reports-tab-panel" role="tabpanel" id="reports-panel-overview" aria-labelledby="reports-tab-overview" hidden={activeTab !== 'overview'} tabIndex={0}>
       <div className="report-coverage-heading"><h2>Coverage and program overview</h2><p>{overviewView.description} Directory, location and list-status filters do not change overview totals.</p></div>

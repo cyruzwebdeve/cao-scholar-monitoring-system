@@ -374,11 +374,11 @@ export default function SettingsManagement({ token, user }) {
 
   return (
     <div className="settings-management">
+      <SettingsTabs activeTab={selectedTab} onChange={setActiveTab} showAdminTabs={showAdminTabs} />
       <div className="settings-heading">
         <div><span className="settings-page-eyebrow">SYSTEM CONFIGURATION</span><h2>Settings</h2><p>Manage applications, academic years, Scholar deadlines and examination settings.</p></div>
       </div>
 
-      <SettingsTabs activeTab={selectedTab} onChange={setActiveTab} showAdminTabs={showAdminTabs} />
       <div className="settings-tab-panel" id="settings-panel-applications" role="tabpanel" aria-labelledby="settings-tab-applications" tabIndex={0} hidden={selectedTab !== 'applications'}>
       <section className="settings-card settings-application-card">
         <div className="settings-card-heading">

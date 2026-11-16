@@ -1,15 +1,12 @@
 .settings-management .examination-workspace-tabs.settings-tabs {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: 4px;
+  box-sizing: border-box;
   width: fit-content;
   max-width: 100%;
 }
 
 .settings-management .settings-tabs button {
-  min-height: 40px;
-  padding: 0 14px;
-  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -26,14 +23,4 @@
   outline: 3px solid #008b47;
   outline-offset: 4px;
   border-radius: 10px;
-}
-
-@media (max-width: 640px) {
-  .settings-management .examination-workspace-tabs.settings-tabs {
-    width: 100%;
-  }
-
-  .settings-management .settings-tabs button {
-    flex: 1 1 auto;
-  }
 }

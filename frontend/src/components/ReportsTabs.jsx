@@ -1,12 +1,11 @@
-import { ChartColumn, ClipboardCheck, GraduationCap, MapPin, UsersRound } from 'lucide-react';
 import '../styles/reports-tabs.css';
 
 const tabs = [
-  { id: 'overview', label: 'Overview', Icon: ChartColumn },
-  { id: 'lifecycle', label: 'Intake & processing', Icon: ClipboardCheck },
-  { id: 'coverage', label: 'Priority locations', Icon: MapPin },
-  { id: 'fourth-year', label: 'Fourth-year records', Icon: GraduationCap },
-  { id: 'scholars', label: 'Scholar records', Icon: UsersRound },
+  { id: 'overview', label: 'Overview' },
+  { id: 'lifecycle', label: 'Intake & processing' },
+  { id: 'coverage', label: 'Priority locations' },
+  { id: 'fourth-year', label: 'Fourth-year records' },
+  { id: 'scholars', label: 'Scholar records' },
 ];
 
 export default function ReportsTabs({ activeTab, onChange }) {
@@ -24,8 +23,8 @@ export default function ReportsTabs({ activeTab, onChange }) {
   };
 
   return (
-    <div className="reports-workspace-tabs" role="tablist" aria-label="Report sections" onKeyDown={navigate}>
-      {tabs.map(({ id, label, Icon }) => (
+    <nav className="examination-workspace-tabs reports-workspace-tabs" role="tablist" aria-label="Report sections" onKeyDown={navigate}>
+      {tabs.map(({ id, label }) => (
         <button
           key={id}
           type="button"
@@ -34,12 +33,12 @@ export default function ReportsTabs({ activeTab, onChange }) {
           aria-controls={`reports-panel-${id}`}
           aria-selected={activeTab === id}
           tabIndex={activeTab === id ? 0 : -1}
+          className={activeTab === id ? 'active' : ''}
           onClick={() => onChange(id)}
         >
-          <Icon size={16} aria-hidden="true" />
-          <span>{label}</span>
+          {label}
         </button>
       ))}
-    </div>
+    </nav>
   );
 }
