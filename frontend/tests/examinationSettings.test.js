@@ -20,14 +20,25 @@ before(async () => {
 });
 after(async () => { await server?.close(); });
 
-test('Settings exposes exactly General and Examination tabs with accessible panel relationships', () => {
+test('Settings groups controls into accessible tabs with administrator-only maintenance sections', () => {
   const html = renderToStaticMarkup(createElement(SettingsTabs, { activeTab: 'examination', onChange: () => {} }));
-  assert.match(html, />General<\/button>/);
-  assert.match(html, />Examination<\/button>/);
-  assert.equal((html.match(/role="tab"/g) || []).length, 2);
-  assert.doesNotMatch(html, /Online Questions|settings-tab-online|settings-tab-questions/);
+  for (const label of ['Applications', 'Academic Year', 'Requirements', 'Examination']) assert.ok(html.includes(`>${label}</button>`), label);
+  assert.equal((html.match(/role="tab"/g) || []).length, 4);
+  assert.doesNotMatch(html, /General|School Catalog|System Health|Online Questions|settings-tab-online|settings-tab-questions/);
   assert.match(html, /id="settings-tab-examination" aria-controls="settings-panel-examination" aria-selected="true" tabindex="0"/);
   assert.equal((html.match(/aria-selected="true"/g) || []).length, 1);
+  const admin = renderToStaticMarkup(createElement(SettingsTabs, { activeTab: 'schools', showAdminTabs: true, onChange: () => {} }));
+  assert.equal((admin.match(/role="tab"/g) || []).length, 6);
+  for (const [id, label] of [['schools', 'School Catalog'], ['system', 'System Health']]) {
+    assert.match(admin, new RegExp(`id="settings-tab-${id}" aria-controls="settings-panel-${id}"`));
+    assert.ok(admin.includes(`>${label}</button>`), label);
+  }
+  assert.match(admin, /id="settings-tab-schools" aria-controls="settings-panel-schools" aria-selected="true" tabindex="0"/);
+  const adminSettings = renderToStaticMarkup(createElement(SettingsManagement, { token: '', user: { role: 'SuperAdmin' } }));
+  assert.equal((adminSettings.match(/role="tab"/g) || []).length, 6);
+  assert.equal((adminSettings.match(/role="tabpanel"/g) || []).length, 6);
+  assert.equal((adminSettings.match(/role="tabpanel"[^>]*hidden=""/g) || []).length, 5);
+  for (const id of ['schools', 'system']) assert.match(adminSettings, new RegExp(`id="settings-panel-${id}" role="tabpanel" aria-labelledby="settings-tab-${id}"`));
 });
 
 test('Examination panel contains delivery controls followed by the authorized question editor', () => {
@@ -35,15 +46,31 @@ test('Examination panel contains delivery controls followed by the authorized qu
   const panelStart = html.indexOf('id="settings-panel-examination"');
   assert.ok(panelStart >= 0);
   const panel = html.slice(panelStart);
-  assert.match(panel, /aria-labelledby="settings-tab-examination" hidden=""/);
+  assert.match(panel, /aria-labelledby="settings-tab-examination" tabindex="0" hidden=""/);
   assert.ok(panel.indexOf('Online Examination</h3>') < panel.indexOf('Online Questions</h3>'));
   assert.match(panel, /online-questions-settings/);
   assert.doesNotMatch(html.slice(0, panelStart), /Online Questions<\/h3>|Online Examination<\/h3>/);
+  for (const id of ['applications', 'academic-year', 'requirements', 'examination']) {
+    assert.match(html, new RegExp(`id="settings-tab-${id}" aria-controls="settings-panel-${id}"`));
+    assert.match(html, new RegExp(`id="settings-panel-${id}" role="tabpanel" aria-labelledby="settings-tab-${id}"`));
+  }
+  assert.equal((html.match(/role="tabpanel"/g) || []).length, 4);
+  assert.equal((html.match(/role="tabpanel"[^>]*hidden=""/g) || []).length, 3);
+  const applicationStart = html.indexOf('id="settings-panel-applications"');
+  const academicStart = html.indexOf('id="settings-panel-academic-year"');
+  const requirementsStart = html.indexOf('id="settings-panel-requirements"');
+  assert.ok(applicationStart >= 0 && applicationStart < academicStart && academicStart < requirementsStart && requirementsStart < panelStart);
+  const academic = html.slice(academicStart, requirementsStart);
+  assert.match(academic, /Intake school year and semester/);
+  assert.match(academic, /School year and semester/);
+  assert.doesNotMatch(html.slice(applicationStart, academicStart), /Intake school year and semester/);
 });
 
 test('Billing can manage visible Settings controls while question editor and hidden panels stay hidden', () => {
   const html = renderToStaticMarkup(createElement(SettingsManagement, { token: '', user: { role: 'BillingPayrollAdmin' } }));
-  assert.equal((html.match(/role="tab"/g) || []).length, 2);
+  assert.equal((html.match(/role="tab"/g) || []).length, 4);
+  assert.equal((html.match(/role="tabpanel"/g) || []).length, 4);
+  assert.equal((html.match(/role="tabpanel"[^>]*hidden=""/g) || []).length, 3);
   assert.doesNotMatch(html, /online-questions-settings|Online Questions<\/h3>/);
   assert.match(html, /Save application/);
   assert.match(html, /Save examination setting/);
@@ -51,12 +78,25 @@ test('Billing can manage visible Settings controls while question editor and hid
 });
 
 test('tab keyboard navigation supports arrows, Home and End with focus movement', () => {
-  for (const [key, expected] of [['ArrowRight', 'examination'], ['ArrowLeft', 'examination'], ['Home', 'general'], ['End', 'examination']]) {
+  for (const [activeTab, showAdminTabs, key, expected] of [
+    ['applications', false, 'ArrowRight', 'academic-year'],
+    ['applications', false, 'ArrowLeft', 'examination'],
+    ['academic-year', false, 'ArrowRight', 'requirements'],
+    ['requirements', false, 'ArrowLeft', 'academic-year'],
+    ['examination', false, 'ArrowRight', 'applications'],
+    ['examination', false, 'Home', 'applications'],
+    ['applications', false, 'End', 'examination'],
+    ['applications', true, 'ArrowLeft', 'system'],
+    ['system', true, 'ArrowRight', 'applications'],
+    ['schools', true, 'Home', 'applications'],
+    ['applications', true, 'End', 'system'],
+  ]) {
     let selected;
     let focused;
     let prevented = false;
-    const node = SettingsTabs({ activeTab: 'general', onChange: (id) => { selected = id; } });
-    node.props.onKeyDown({ key, preventDefault: () => { prevented = true; }, currentTarget: { querySelectorAll: () => ['general', 'examination'].map((id) => ({ focus: () => { focused = id; } })) } });
+    const tabs = ['applications', 'academic-year', 'requirements', 'examination', ...(showAdminTabs ? ['schools', 'system'] : [])];
+    const node = SettingsTabs({ activeTab, showAdminTabs, onChange: (id) => { selected = id; } });
+    node.props.onKeyDown({ key, preventDefault: () => { prevented = true; }, currentTarget: { querySelectorAll: () => tabs.map((id) => ({ focus: () => { focused = id; } })) } });
     assert.equal(selected, expected);
     assert.equal(focused, expected);
     assert.equal(prevented, true);

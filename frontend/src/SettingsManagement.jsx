@@ -60,7 +60,7 @@ const getNextSchoolYear = (schoolYear) => {
 };
 
 export default function SettingsManagement({ token, user }) {
-  const [activeTab, setActiveTab] = useState('general');
+  const [activeTab, setActiveTab] = useState('applications');
   const [mode, setMode] = useState('paper');
   const [examinationEnabled, setExaminationEnabled] = useState(false);
   const [examinationLoading, setExaminationLoading] = useState(true);
@@ -90,6 +90,8 @@ export default function SettingsManagement({ token, user }) {
   const [requirementsDeadlineNotice, setRequirementsDeadlineNotice] = useState('');
   const canManagePeriods = canManageStaffSection(user, 'settings');
   const canManageApplications = canManageStaffSection(user, 'settings');
+  const showAdminTabs = user?.role === 'SuperAdmin';
+  const selectedTab = !showAdminTabs && ['schools', 'system'].includes(activeTab) ? 'applications' : activeTab;
   const canEditQuestions = ['SuperAdmin', 'RegularAdmin'].includes(user?.role) && canManageApplications;
   const activePeriod = periods.find((period) => period.isPrimary)
     || periods.find((period) => period.isActive)
@@ -373,11 +375,11 @@ export default function SettingsManagement({ token, user }) {
   return (
     <div className="settings-management">
       <div className="settings-heading">
-        <div><span className="settings-page-eyebrow">SYSTEM CONFIGURATION</span><h2>Settings</h2><p>Configure academic periods, examinations, and scholarship portal preferences.</p></div>
+        <div><span className="settings-page-eyebrow">SYSTEM CONFIGURATION</span><h2>Settings</h2><p>Manage applications, academic years, Scholar deadlines and examination settings.</p></div>
       </div>
 
-      <SettingsTabs activeTab={activeTab} onChange={setActiveTab} />
-      <div className="settings-tab-panel" id="settings-panel-general" role="tabpanel" aria-labelledby="settings-tab-general" hidden={activeTab !== 'general'}>
+      <SettingsTabs activeTab={selectedTab} onChange={setActiveTab} showAdminTabs={showAdminTabs} />
+      <div className="settings-tab-panel" id="settings-panel-applications" role="tabpanel" aria-labelledby="settings-tab-applications" tabIndex={0} hidden={selectedTab !== 'applications'}>
       <section className="settings-card settings-application-card">
         <div className="settings-card-heading">
           <div><span className="settings-eyebrow">APPLICATION AVAILABILITY</span><h3>Application form access</h3><p>Open or close new submissions immediately, or limit them to a scheduled window.</p></div>
@@ -419,7 +421,9 @@ export default function SettingsManagement({ token, user }) {
           ) : <p className="settings-availability-readonly">Only Provincial Admins and Administrators can change application availability.</p>}
         </form>
       </section>
+      </div>
 
+      <div className="settings-tab-panel" id="settings-panel-academic-year" role="tabpanel" aria-labelledby="settings-tab-academic-year" tabIndex={0} hidden={selectedTab !== 'academic-year'}>
       <IntakePeriodSettings token={token} periods={periods} canEdit={canManagePeriods} />
       <section className="settings-card settings-period-card">
         <div className="settings-card-heading">
@@ -466,7 +470,9 @@ export default function SettingsManagement({ token, user }) {
           {!periodsLoading && !periods.length && <div className="settings-period-empty">No academic periods have been created.</div>}
         </div>
       </section>
+      </div>
 
+      <div className="settings-tab-panel" id="settings-panel-requirements" role="tabpanel" aria-labelledby="settings-tab-requirements" tabIndex={0} hidden={selectedTab !== 'requirements'}>
       <section className="settings-card settings-requirements-card">
         <div className="settings-card-heading">
           <div><span className="settings-eyebrow">SEMESTER REQUIREMENTS</span><h3>Scholar submission deadline</h3><p>Choose the final date and time when scholars may upload semester requirements for each academic period.</p></div>
@@ -514,11 +520,9 @@ export default function SettingsManagement({ token, user }) {
         </div>
       </section>
 
-      {user?.role === 'SuperAdmin' && <SchoolCatalogManagement token={token} embedded />}
-      {user?.role === 'SuperAdmin' && <SystemHealthPanel />}
       </div>
 
-      <div className="settings-tab-panel" id="settings-panel-examination" role="tabpanel" aria-labelledby="settings-tab-examination" hidden={activeTab !== 'examination'}>
+      <div className="settings-tab-panel" id="settings-panel-examination" role="tabpanel" aria-labelledby="settings-tab-examination" tabIndex={0} hidden={selectedTab !== 'examination'}>
       <section className="settings-card settings-examination-card">
         <div className="settings-card-heading"><div><span className="settings-eyebrow">OPTIONAL ONLINE DELIVERY</span><h3>Online Examination</h3><p>Paper and Pen remains primary. Select Online only when CAO intends applicants to answer through the portal. Access also requires an active municipality schedule, its permitted dates, and Present attendance.</p></div><Monitor size={24} /></div>
         {examinationError && <Notification tone="error" title="Examination settings needs attention" action={<button type="button" onClick={loadExaminationSettings}>Retry</button>}>{examinationError}</Notification>}
@@ -533,8 +537,17 @@ export default function SettingsManagement({ token, user }) {
           <button className="settings-save" disabled={!canManageApplications || examinationLoading || examinationSaving} onClick={saveExamMode}><Save size={15} />{examinationSaving ? ' Saving…' : ' Save examination setting'}</button>
         </div>
       </section>
-      {canEditQuestions && <OnlineQuestionsSettings token={token} active={activeTab === 'examination'} />}
+      {canEditQuestions && <OnlineQuestionsSettings token={token} active={selectedTab === 'examination'} />}
       </div>
+
+      {showAdminTabs && <>
+        <div className="settings-tab-panel" id="settings-panel-schools" role="tabpanel" aria-labelledby="settings-tab-schools" tabIndex={0} hidden={selectedTab !== 'schools'}>
+          <SchoolCatalogManagement token={token} embedded />
+        </div>
+        <div className="settings-tab-panel" id="settings-panel-system" role="tabpanel" aria-labelledby="settings-tab-system" tabIndex={0} hidden={selectedTab !== 'system'}>
+          <SystemHealthPanel />
+        </div>
+      </>}
 
       {examinationSaveNotice && (
         <div className="admin-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExaminationSaveNotice(null); }}>

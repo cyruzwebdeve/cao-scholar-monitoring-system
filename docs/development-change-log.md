@@ -5,6 +5,55 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-16 - Settings Section Navigation Tabs
+
+**TL;DR**
+
+- Split the long Settings General page into Applications, Academic Year, Requirements and Examination tabs; SuperAdmin also has School Catalog and System Health tabs.
+- Staff can move directly to the relevant controls. Mounted panels preserve unsaved drafts while switching tabs, and existing role/edit permissions remain in force.
+- Navigation adds labeled tab/panel relationships, keyboard focus movement and responsive wrapping. Intake is now under Settings > Academic Year; the testing documents use the updated location.
+- Frontend-only change with no API, schema, configuration-value or stored-record changes. Three source/test modules parsed successfully; 11 keyboard scenarios, role fallback, panel mapping and unchanged-handler checks passed. Rendering/build/lint remain unverified because frontend dependencies are missing.
+
+**Objective and reason:** Make Settings easier to navigate as application availability, intake, processing periods, requirement deadlines and administrative tools have grown into one long General page.
+
+**Previous and new behavior:** Settings previously exposed General and Examination. General combined application access, intake/processing periods, Scholar deadlines, School Catalog and System Health. Applications now contains application availability; Academic Year contains intake selection and the academic-period directory; Requirements contains Scholar submission deadlines; Examination retains delivery settings and authorized online questions. School Catalog and System Health each receive a SuperAdmin-only tab. Applications is the initial tab.
+
+**Affected users and workflows:** Staff with Settings access receive four workflow tabs. SuperAdmin receives two additional administrative tabs. Existing read-only controls and online-question editor permissions are retained. The intake test plan/checklist points to the new Academic Year tab.
+
+**Implementation and data flow:** Tab selection changes only the visible panel through native `hidden` state. Panels stay mounted to preserve drafts and existing save/confirmation handlers; selecting a tab never submits settings. Tabs use matching IDs/labels, roving focus and Arrow Left/Right, Home and End navigation. A role change that removes an administrative tab falls back to Applications. Existing settings reads/writes and their validation remain unchanged.
+
+**Files or system areas changed:** `frontend/src/SettingsManagement.jsx`, `frontend/src/components/SettingsTabs.jsx`, scoped Settings tab styles, existing `frontend/tests/examinationSettings.test.js`, the academic intake test plan/checklist and both change logs.
+
+**Impact assessment:** API, database/schema, configuration values and deployment configuration: no changes or migration. Matching frontend deployment makes the navigation available. Security: existing SuperAdmin-only tools and Settings/edit/question permissions remain; no backend permission changes. Privacy: no new data collection or personal fields. Accessibility: visible tabs link to labeled panels, support keyboard navigation and wrap at narrow widths. Operational/payment scope: unchanged; no payroll-list, attendance, receipt or monetary-release behavior is edited. No live settings, accounts, records, messages, commits or deployments were changed during implementation.
+
+**Validation performed and results:** Cached Babel parsed Settings Management, Settings Tabs and the updated existing examination-settings test module successfully. The actual pre-JSX navigation handler was extracted and checked against 11 Arrow Left/Right/Home/End scenarios and unavailable-role-tab fallback; all passed. AST review verified six unique labeled/focusable panels, their content/visibility mappings and matching tab identifiers. The Settings load/save-handler section matches the committed baseline. Independent review confirmed four ordinary/six SuperAdmin tabs, mounted draft state, fallback and retained permission guards. Scoped navigation CSS outranks the existing online-question tab styles so narrow-screen wrapping does not depend on import order. Whole-workspace Git whitespace checks passed. The existing eight-test rendering/accessibility suite was updated but cannot load because React is missing (`ERR_MODULE_NOT_FOUND`); React, Vite and ESLint dependencies are absent, so browser/render/build/lint checks remain unverified. No package changes or dependency-install attempts are part of this change.
+
+**Known limitations, rollback considerations, and recommended next work:** Tab switching preserves drafts; leaving or reloading Settings still follows existing draft behavior. Hidden administrative components retain their existing background read behavior because panels stay mounted. Complete focused rendering, keyboard/draft interaction and narrow-screen checks once dependencies are available. Revert the frontend tab/layout changes to restore General/Examination; no data rollback is required.
+
+## 2026-11-16 - Academic Intake Acceptance Test Document
+
+**TL;DR**
+
+- Added 32 detailed test cases and a simple 12-check list with steps and expected outputs for separate academic intake years, historical access, Applicant accounts and Scholar processing safeguards.
+- Staff/testers can record actual results separately; all new acceptance cases are marked Not run, and earlier automated results retain their original verification limits.
+- Documentation only: no application code, configuration, schema, account or production data changes. Reviewed expectations against current controllers, UI and regression assertions; Markdown structure and links checked.
+
+**Objective and reason:** Provide the requested Markdown test cases and expected outputs for the separate Application/Examination intake feature, including effects on existing Applicants and continuing Scholars.
+
+**Previous and new behavior:** The feature change log described staging checks, but no dedicated case-by-case document existed. The new `docs/qa/2026-11-16/academic-intake-test-cases.md` contains synthetic fixtures, 32 uniquely identified cases, response examples, an execution-record template and acceptance criteria. The companion `academic-intake-simple-checklist.md` provides the user-requested short list of 12 checks with plain expected results and a link to the detailed cases. Runtime behavior is unchanged.
+
+**Affected users and workflows:** Administrators and testers can verify Settings rollover, Application/Examination history, admission, account access, continuing requirements, Billing/Payroll boundaries, permissions and recovery. Expected outcomes are distinct from actual execution results.
+
+**Implementation and data flow:** Documentation derives expected statuses and state from the current intake/application controllers, route permissions, UI controls and regression tests. Cases distinguish inactive processing periods from selected intake, missing configuration from missing schema, annual schedules from exact-semester Passer Lists, and generated-list amounts from attendance/receipt acknowledgement. Existing transaction and metadata-preflight limits are stated.
+
+**Files or system areas changed:** Added the two dated QA Markdown files and updated this detailed development log. The concise change log is unchanged for these documentation-only additions.
+
+**Impact assessment:** API, database, configuration, security controls, privacy fields, application accessibility and deployment: no changes. The document uses synthetic fixtures and sanitized evidence guidance. No migration, deployment, live account/record action or message delivery was performed. Monetary workflow scope remains unchanged.
+
+**Validation performed and results:** Reviewed expected status codes and year/period behavior against source and existing tests; checked all 32 detailed case IDs, 12 unchecked simple-list items, Markdown structure, JSON excerpts, relative links and Git whitespace. The manual/API cases were not executed during document creation; prior automated counts are labeled historical. No additional application test run is required for this documentation-only change.
+
+**Known limitations, rollback considerations, and recommended next work:** Browser rendering, dependency-dependent checks and live database locking retain the implementation's existing unverified status. The one-eligible-non-primary continuing-period selector path needs separate UI review. Execute applicable cases in an isolated test environment and fill in actual evidence. Reverting this documentation entry/file has no runtime or data effect.
+
 ## 2026-11-16 - Separate Application and Examination Intake from Scholar Processing
 
 **TL;DR**

@@ -1,0 +1,39 @@
+.settings-management .examination-workspace-tabs.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.settings-management .settings-tabs button {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.settings-management .settings-tabs button:focus-visible {
+  outline: 3px solid #008b47;
+  outline-offset: 2px;
+}
+
+.settings-management .settings-tab-panel[hidden] {
+  display: none;
+}
+
+.settings-management .settings-tab-panel:focus-visible {
+  outline: 3px solid #008b47;
+  outline-offset: 4px;
+  border-radius: 10px;
+}
+
+@media (max-width: 640px) {
+  .settings-management .examination-workspace-tabs.settings-tabs {
+    width: 100%;
+  }
+
+  .settings-management .settings-tabs button {
+    flex: 1 1 auto;
+  }
+}
