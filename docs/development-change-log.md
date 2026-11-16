@@ -5,6 +5,31 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-16 - Scholars Year-Level Filter
+
+**TL;DR**
+
+- Staff with Scholars access can filter the directory by year level alongside the existing search, location, school and document filters.
+- Options include All Year Levels, 1st through 4th Year, Graduate, additional loaded year-level values, and Not specified. Counts, pagination and CSV export follow the combined filters.
+- The filter uses the existing displayed Scholar year level; Reports academic-year rules, summary cards, stored data and permissions are unchanged.
+- Synthetic filtering/export checks and independent source/whitespace review passed. Build and lint could not start because Vite and ESLint are missing; browser rendering remains unverified.
+
+**Objective and reason:** Let staff find fourth-year Scholars and other year-level groups directly in the Scholars directory without opening each detail panel.
+
+**Previous and new behavior:** The directory previously supported search, municipality, school, barangay and document-status filters. A labeled Year level dropdown now adds another combined condition, defaults to All Year Levels, resets pagination when changed, and resets with Clear filters. Blank or absent values match Not specified. Standard choices remain available even if no loaded Scholars currently match, and additional stored values appear as separate choices. The existing global summary cards still describe all loaded Scholars; the directory count, rows and CSV export describe matching Scholars.
+
+**Affected users and workflows:** Staff with existing Scholars access gain a directory navigation control. Scholar detail review, continuing requirements, graduation recognition, account activation, academic-period administration and billing/payroll-list preparation workflows are unchanged.
+
+**Implementation and data flow:** Local React state and a memoized option list reuse the existing authenticated Scholars management response. Matching trims the returned year-level text and treats null/blank values as Not specified. The condition is applied to the shared filtered collection before pagination and export. The returned value remains the selected semester's saved year level with the existing application year-level fallback; no annual history is inferred or rewritten. The desktop filter grid now accommodates six controls and changes to three columns at 1300px, retaining the existing two- and one-column mobile layouts.
+
+**Files or system areas changed:** `frontend/src/ScholarsManagement.jsx`, the Scholars filter rules in `frontend/src/styles/admin.css`, `change_log.txt`, and this detailed record.
+
+**Impact assessment:** API: no change and no additional requests. Database/schema: no change, migration or record write. Configuration/dependencies: no change. Security/permissions: no change; existing Scholars access remains authoritative. Privacy: no new data collection or persistence. Accessibility: native labeled select reuses the existing keyboard/focus styles and responsive controls. Deployment: frontend rebuild/deployment required; no backend release or migration. Existing billing/payroll preparation and legacy payment-related code are retained unchanged; no payment release, official disbursement verification, reconciliation or monetary audit is added.
+
+**Validation performed and results:** A dependency-free synthetic check executed the actual normalization, option-generation and filter expressions from the component with eight synthetic Scholars. It verified All Year Levels, fourth-year matches, combined search/location/document filters, blank values, an additional fifth-year value, whitespace normalization, retention of inactive accounts, and CSV rows matching the selected filter. Independent source review verified memo dependencies, page reset, clear-filter state, shared export collection and responsive cascade; Git whitespace checks passed. Build and lint were attempted but could not start because Vite and ESLint are absent. No new persistent tests were added for this small reversible UI change. Full JSX/component and browser validation remain unverified.
+
+**Known limitations, rollback considerations, and recommended next work:** The dropdown filters the currently loaded Scholars directory projection, which may differ from the year-specific Reports records described in the prior academic-year change. Additional nonstandard year-level labels remain separate choices rather than being silently reclassified. Restore frontend dependencies and verify the dropdown, combined filters, clear/reset behavior, CSV export and mobile layout before deployment. Revert the frontend changes to remove the filter; no data rollback is required.
+
 ## 2026-11-16 - Tabbed Reports Navigation
 
 **TL;DR**

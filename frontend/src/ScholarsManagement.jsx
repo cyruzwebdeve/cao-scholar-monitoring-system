@@ -82,6 +82,8 @@ const scholarExportColumns = [
   { key: 'documentStatus', label: 'Documents', group: 'Record status' },
 ];
 
+const standardYearLevels = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduate'];
+const normalizeScholarYearLevel = (value) => String(value || '').trim() || 'Not specified';
 
 function ScholarBadge({ value, type }) {
   return <span className={`scholar-admin-badge ${type} ${value.toLowerCase().replace(/\s+/g, '-')}`}>{type === 'status' ? <BadgeCheck size={13} /> : <FileCheck2 size={13} />}{value}</span>;
@@ -95,6 +97,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const [municipality, setMunicipality] = useState('All Municipalities');
   const [school, setSchool] = useState('All Schools');
   const [barangay, setBarangay] = useState('All Barangays');
+  const [yearLevel, setYearLevel] = useState('All Year Levels');
   const [documentStatus, setDocumentStatus] = useState('All Documents');
   const [selected, setSelected] = useState(null);
   const [sectionTab, setSectionTab] = useState('directory');
@@ -276,14 +279,22 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     .map((item) => item.barangay)
     .filter(Boolean))].sort(), [scholars, municipality, school]);
 
+  const yearLevels = useMemo(() => [
+    ...standardYearLevels,
+    ...[...new Set(scholars.map((item) => normalizeScholarYearLevel(item.yearLevel)))]
+      .filter((level) => level !== 'Not specified' && !standardYearLevels.includes(level)).sort(),
+    'Not specified',
+  ], [scholars]);
+
   const filtered = useMemo(() => scholars.filter((item) => {
     const searchValue = `${item.name} ${item.controlNumber || ''} ${item.email || ''}`.toLowerCase();
     return searchValue.includes(query.trim().toLowerCase())
       && (municipality === 'All Municipalities' || item.municipality === municipality)
       && (school === 'All Schools' || item.school === school)
       && (barangay === 'All Barangays' || item.barangay === barangay)
+      && (yearLevel === 'All Year Levels' || normalizeScholarYearLevel(item.yearLevel) === yearLevel)
       && (documentStatus === 'All Documents' || item.documentStatus === documentStatus);
-  }), [scholars, query, municipality, school, barangay, documentStatus]);
+  }), [scholars, query, municipality, school, barangay, yearLevel, documentStatus]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -291,7 +302,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const activeCount = scholars.filter(({ status }) => status === 'Active').length;
   const completeCount = scholars.filter(({ documentStatus: value }) => value === 'Complete').length;
   const reviewCount = scholars.filter(({ documentStatus: value }) => value === 'Review').length;
-  const hasFilters = query || municipality !== 'All Municipalities' || school !== 'All Schools' || barangay !== 'All Barangays' || documentStatus !== 'All Documents';
+  const hasFilters = query || municipality !== 'All Municipalities' || school !== 'All Schools' || barangay !== 'All Barangays' || yearLevel !== 'All Year Levels' || documentStatus !== 'All Documents';
   const certificationHistory = (selected?.financialHistory || [])
     .filter((record) => record.processRoute === 'billing')
     .sort((left, right) => new Date(right.dateProcessed || 0) - new Date(left.dateProcessed || 0));
@@ -301,6 +312,7 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     setMunicipality('All Municipalities');
     setSchool('All Schools');
     setBarangay('All Barangays');
+    setYearLevel('All Year Levels');
     setDocumentStatus('All Documents');
     setPage(1);
   };
@@ -495,12 +507,13 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
       {loadError && <div className="scholars-admin-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadScholars({ showLoader: true })}>Retry</button></div>}
 
       <section className="scholars-filter-panel">
-        <div className="scholars-panel-heading"><div><span className="scholars-filter-icon"><Filter size={15} /></span><div><h3>Filter Scholars</h3><p>Refine the scholar directory by location, school, or document status.</p></div></div>{hasFilters && <button type="button" onClick={clearFilters}><X size={13} />Clear filters</button>}</div>
+        <div className="scholars-panel-heading"><div><span className="scholars-filter-icon"><Filter size={15} /></span><div><h3>Filter Scholars</h3><p>Refine the scholar directory by year level, location, school, or document status.</p></div></div>{hasFilters && <button type="button" onClick={clearFilters}><X size={13} />Clear filters</button>}</div>
         <div className="scholars-filters">
           <label className="scholars-filter scholars-search"><span>Search scholars</span><div><Search size={15} /><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Name, email, or control number" /></div></label>
           <label className="scholars-filter"><span>Municipality</span><select value={municipality} onChange={(event) => { setMunicipality(event.target.value); setSchool('All Schools'); setBarangay('All Barangays'); setPage(1); }}><option>All Municipalities</option>{municipalities.map((option) => <option key={option}>{option}</option>)}</select></label>
           <label className="scholars-filter"><span>School</span><select value={school} onChange={(event) => { setSchool(event.target.value); setBarangay('All Barangays'); setPage(1); }}><option>All Schools</option>{schools.map((option) => <option key={option}>{option}</option>)}</select></label>
           <label className="scholars-filter"><span>Barangay</span><select value={barangay} onChange={(event) => { setBarangay(event.target.value); setPage(1); }}><option>All Barangays</option>{barangays.map((option) => <option key={option}>{option}</option>)}</select></label>
+          <label className="scholars-filter"><span>Year level</span><select value={yearLevel} onChange={(event) => { setYearLevel(event.target.value); setPage(1); }}><option>All Year Levels</option>{yearLevels.map((option) => <option key={option}>{option}</option>)}</select></label>
           <label className="scholars-filter"><span>Documents</span><select value={documentStatus} onChange={(event) => { setDocumentStatus(event.target.value); setPage(1); }}><option>All Documents</option><option>Complete</option><option>Review</option></select></label>
         </div>
       </section>
