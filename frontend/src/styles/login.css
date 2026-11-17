@@ -268,6 +268,7 @@
   font-weight: 800;
 }
 .input-with-icon {
+  --auth-input-background: #fbfdfb;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -275,13 +276,13 @@
   padding: 0 15px;
   border: 1px solid #dce6dc;
   border-radius: 12px;
-  background: #fbfdfb;
+  background: var(--auth-input-background);
   color: #8b9b8f;
   transition: 0.2s ease;
 }
 .input-with-icon:focus-within {
+  --auth-input-background: #fff;
   border-color: #31a35a;
-  background: #fff;
   box-shadow: 0 0 0 4px rgba(49, 163, 90, 0.11);
 }
 .input-with-icon input {
@@ -296,6 +297,10 @@
 }
 .input-with-icon input:focus {
   box-shadow: none;
+}
+.input-with-icon input:is(:autofill, :-webkit-autofill) {
+  box-shadow: 0 0 0 1000px var(--auth-input-background) inset;
+  -webkit-text-fill-color: currentColor;
 }
 .password-toggle {
   display: grid;

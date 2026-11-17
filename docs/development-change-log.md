@@ -5,6 +5,30 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-17 - Match Authentication Autofill Backgrounds
+
+**TL;DR**
+
+- Autofilled sign-in, recovery and reset inputs now use the surrounding field's background instead of the browser's blue fill.
+- Autofill, input values, authentication and the previous text-clipping fix remain intact; this changes presentation only.
+- CSS cascade and whitespace checks passed. Browser appearance, build and lint remain unverified with unavailable frontend tooling.
+
+**Objective and reason:** Remove the blue background shown inside an autofilled sign-in identifier field.
+
+**Previous and new behavior:** The browser's autofill paint overrode the inner input's transparent background. An inset shadow now covers that paint using the existing pale field background, switching to white when the wrapper has focus. Text fill follows the input's current text color.
+
+**Affected users and workflows:** Applicants, Scholars and staff using saved credentials or autofill in sign-in and password recovery/reset. Form submission, validation, password visibility and autofill functionality are unchanged.
+
+**Implementation and data flow:** A wrapper-level CSS custom property provides the background to both the visible field and a late input autofill rule. The forgiving :is(:autofill, :-webkit-autofill) selector accommodates standard and vendor autofill support. Its placement after the existing input focus rule preserves the inset fill on focus. No component state, requests, handlers or data flow changed.
+
+**Files or system areas changed:** frontend/src/styles/login.css and both change logs.
+
+**Impact assessment:** API, database/schema, stored data, configuration, security controls and privacy: no changes. Accessibility: text uses currentColor, while labels, keyboard access and the outer focus ring remain unchanged. Deployment: frontend release only; no migration or deployment-configuration changes, and no deployment occurred. Application, examination, Scholar processing and payroll workflows are unaffected.
+
+**Validation performed and results:** CSS/source review verified matching normal/focused background values, autofill rule specificity/order, shared login/recovery/reset usage and unchanged input geometry. Git whitespace checks passed. Vite and ESLint dependencies remain missing; browser rendering and actual autofill appearance were not verified. No authentication or live-record actions were performed.
+
+**Known limitations, rollback considerations, and recommended next work:** Confirm saved-credential autofill before and after focus, text selection and forced-color display in supported browsers when rendering tools are available. Browsers without either autofill selector retain their native presentation. Revert the custom-property and autofill-rule changes to roll back; no data rollback is required.
+
 ## 2026-11-17 - Prevent Text Clipping in Authentication Inputs
 
 **TL;DR**
