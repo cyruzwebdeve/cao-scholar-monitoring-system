@@ -8,7 +8,7 @@ import { canManageStaffSection } from './utils/staffAccess';
 import PrivateGrantEditor from './PrivateGrantEditor';
 import InitialRequirementCapture from './InitialRequirementCapture';
 import ContinuingRequirementsSettings from './ContinuingRequirementsSettings';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   BadgeCheck,
   BookOpenCheck,
@@ -34,7 +34,7 @@ import { buildRecordRows, downloadCsv } from './utils/csvExport';
 import { saveProcessingHandoff } from './utils/processingHandoff';
 import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 import certificateHeader from './assets/certificate-header.png';
-import { certificateReferenceFor } from './utils/certificateReference';
+import { buildIndividualScholarCertificationPdf } from './utils/individualScholarCertification';
 import './styles/document-reviews.css';
 import './styles/scholars-management.css';
 
@@ -45,12 +45,6 @@ const formatScholarDate = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
-
-const formatCertificateDate = (value = new Date()) => value.toLocaleDateString('en-US', {
-  month: 'long',
-  day: 'numeric',
-  year: 'numeric',
-});
 
 const formatScholarAmount = (value) => new Intl.NumberFormat('en-PH', {
   style: 'currency',
@@ -124,6 +118,10 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const [openingRequirement, setOpeningRequirement] = useState('');
   const [certificateDownloading, setCertificateDownloading] = useState(false);
   const [certificateNotice, setCertificateNotice] = useState(null);
+  const [individualHistory, setIndividualHistory] = useState({ applicantId: null, records: [], loading: false, error: '' });
+  const certificateScopeRef = useRef(null);
+  const certificateActionRef = useRef(null);
+  const historyRequestRef = useRef(0);
   const pageSize = 10;
   const canEditBilling = user?.role === 'SuperAdmin'
     || !Array.isArray(user?.sectionAccess)
@@ -135,6 +133,54 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const canOpenSettings = user?.role === 'SuperAdmin'
     || !Array.isArray(user?.sectionAccess)
     || user.sectionAccess.includes('settings');
+
+  useLayoutEffect(() => {
+    certificateScopeRef.current = { applicantId: selected?.applicantId, academicPeriodId: selected?.academicPeriodId, token };
+    return () => { certificateScopeRef.current = null; };
+  }, [selected?.applicantId, selected?.academicPeriodId, token, billingPeriodLoading]);
+
+  const loadIndividualCertifications = useCallback(async ({ signal } = {}) => {
+    const applicantId = selected?.applicantId;
+    if (!applicantId) return;
+    const requestId = ++historyRequestRef.current;
+    setIndividualHistory((current) => ({ applicantId, records: current.applicantId === applicantId ? current.records : [], loading: true, error: '' }));
+    try {
+      const response = await fetch(`${API_BASE}/scholars/${applicantId}/certifications`, { headers: authHeaders(token), cache: 'no-store', signal });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to load individual certifications.');
+      if (!signal?.aborted && requestId === historyRequestRef.current) {
+        const records = body.certifications || [];
+        setIndividualHistory((current) => ({
+          applicantId,
+          records: [...records, ...(current.applicantId === applicantId ? current.records : []).filter((record) => !records.some((saved) => saved.id === record.id))],
+          loading: false,
+          error: '',
+        }));
+      }
+    } catch (error) {
+      if (!signal?.aborted && requestId === historyRequestRef.current) {
+        setIndividualHistory((current) => ({ applicantId, records: current.applicantId === applicantId ? current.records : [], loading: false, error: error.message || 'Unable to load individual certifications.' }));
+      }
+    }
+  }, [selected?.applicantId, token]);
+
+  useEffect(() => {
+    if (!selected?.applicantId) return undefined;
+    const controller = new AbortController();
+    loadIndividualCertifications({ signal: controller.signal });
+    return () => { controller.abort(); historyRequestRef.current += 1; };
+  }, [loadIndividualCertifications, selected?.applicantId]);
+
+  const mergeIndividualCertification = (certification, applicantId) => {
+    // A history read started before this save must not overwrite the new record.
+    historyRequestRef.current += 1;
+    setIndividualHistory((current) => ({
+      applicantId,
+      records: [certification, ...(current.applicantId === applicantId ? current.records : []).filter((record) => record.id !== certification.id)],
+      loading: false,
+      error: '',
+    }));
+  };
 
   const openNewCycleSetup = () => {
     setSelected(null);
@@ -303,9 +349,11 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const completeCount = scholars.filter(({ documentStatus: value }) => value === 'Complete').length;
   const reviewCount = scholars.filter(({ documentStatus: value }) => value === 'Review').length;
   const hasFilters = query || municipality !== 'All Municipalities' || school !== 'All Schools' || barangay !== 'All Barangays' || yearLevel !== 'All Year Levels' || documentStatus !== 'All Documents';
-  const certificationHistory = (selected?.financialHistory || [])
-    .filter((record) => record.processRoute === 'billing')
-    .sort((left, right) => new Date(right.dateProcessed || 0) - new Date(left.dateProcessed || 0));
+  const currentIndividualHistory = individualHistory.applicantId === selected?.applicantId ? individualHistory : null;
+  const certificationHistory = [
+    ...(currentIndividualHistory?.records || []).map((record) => ({ ...record, type: 'individual' })),
+    ...(selected?.financialHistory || []).filter((record) => record.processRoute === 'billing').map((record) => ({ ...record, type: 'billing' })),
+  ].sort((left, right) => new Date(right.generatedAt || right.dateProcessed || 0) - new Date(left.generatedAt || left.dateProcessed || 0));
 
   const clearFilters = () => {
     setQuery('');
@@ -400,81 +448,102 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     }
   };
 
+  const downloadSavedCertification = async (certification, scope) => {
+    const response = await fetch(`${API_BASE}/scholars/${scope.applicantId}/certifications/${certification.id}/file`, { headers: authHeaders(scope.token), cache: 'no-store' });
+    if (!response.ok) {
+      const body = await response.json();
+      throw new Error(body.message || 'Unable to open the saved PDF.');
+    }
+    const blob = await response.blob();
+    if (certificateScopeRef.current !== scope) return false;
+    if (!blob.size) throw new Error('The saved PDF is empty. Please retry.');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    try {
+      link.href = url;
+      link.download = certification.fileName || `${certification.reference}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+    } finally {
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    return true;
+  };
+
   const downloadPrivateCertificate = async () => {
-    if (!selected || String(selected.schoolType || '').toLowerCase() !== 'private' || certificateDownloading) return;
+    if (!selected || !canUploadScholarRequirements || String(selected.schoolType || '').toLowerCase() !== 'private'
+      || billingPeriodLoading || certificateActionRef.current) return;
+    const scope = certificateScopeRef.current;
+    if (!scope?.applicantId || !scope.academicPeriodId) return;
+    const action = {};
+    certificateActionRef.current = action;
+    const scholarId = selected.id;
+    const isCurrent = () => certificateScopeRef.current === scope;
+    let savedCertification = null;
     setCertificateDownloading(true);
     setCertificateNotice(null);
     try {
-      const [{ jsPDF }, headerDataUrl] = await Promise.all([
-        import('jspdf'),
-        imageUrlToDataUrl(certificateHeader),
-      ]);
-      const document = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [215.9, 330.2] });
-      const pageWidth = document.internal.pageSize.getWidth();
-      const margin = 25;
-      const contentWidth = pageWidth - (margin * 2);
-      const reference = certificateReferenceFor(selected);
-      const scholarName = String(selected.name || 'Scholar').toUpperCase();
-      const course = selected.course || 'the declared program';
-      const yearLevel = selected.yearLevel || 'enrolled';
-      const school = selected.school || 'the declared private school';
-      const semester = selected.semester || 'current semester';
-      const schoolYear = selected.schoolYear || 'current school year';
-
-      document.addImage(headerDataUrl, 'PNG', 32, 12, pageWidth - 64, 29);
-      document.setDrawColor(35, 35, 35);
-      document.setLineWidth(0.35);
-      document.line(margin, 45, pageWidth - margin, 45);
-
-      document.setTextColor(31, 78, 121);
-      document.setFont('times', 'bold');
-      document.setFontSize(13);
-      document.text('PROVINCIAL GOVERNMENT COLLEGE', pageWidth / 2, 55, { align: 'center' });
-      document.text('EDUCATION ASSISTANCE PROGRAM (PGCEAP)', pageWidth / 2, 62, { align: 'center' });
-
-      document.setTextColor(20, 20, 20);
-      document.setFontSize(16);
-      document.text('CERTIFICATION', pageWidth / 2, 82, { align: 'center' });
-      document.setLineWidth(0.3);
-      document.line((pageWidth / 2) - 26, 84, (pageWidth / 2) + 26, 84);
-
-      document.setFont('times', 'normal');
-      document.setFontSize(10);
-      document.text(`Certification No.: ${reference}`, pageWidth - margin, 96, { align: 'right' });
-
-      document.setFont('times', 'bold');
-      document.setFontSize(12);
-      document.text('TO WHOM IT MAY CONCERN:', margin, 116);
-
-      document.setFont('times', 'normal');
-      document.setFontSize(12);
-      const firstParagraph = `This is to certify that ${scholarName}, a ${yearLevel} ${course} student of ${school}, is a SCHOLARSHIP GRANTEE under the Provincial Government College Education Assistance Program (PGCEAP) for the ${semester}, School Year ${schoolYear}.`;
-      const secondParagraph = 'As such, the Provincial Government assumes payment of the scholar\'s tuition and school fees in an amount not exceeding FIVE THOUSAND PESOS (PHP 5,000.00), subject to the applicable program requirements.';
-      const thirdParagraph = `Issued this ${formatCertificateDate()} for enrollment purposes.`;
-      const firstLines = document.splitTextToSize(firstParagraph, contentWidth);
-      document.text(firstLines, margin, 132, { align: 'justify', maxWidth: contentWidth, lineHeightFactor: 1.6 });
-      const secondY = 132 + (firstLines.length * 7.2) + 8;
-      const secondLines = document.splitTextToSize(secondParagraph, contentWidth);
-      document.text(secondLines, margin, secondY, { align: 'justify', maxWidth: contentWidth, lineHeightFactor: 1.6 });
-      const thirdY = secondY + (secondLines.length * 7.2) + 8;
-      document.text(document.splitTextToSize(thirdParagraph, contentWidth), margin, thirdY, { lineHeightFactor: 1.6 });
-
-      const signatureY = Math.max(thirdY + 45, 225);
-      document.setFont('times', 'bold');
-      document.text('CHRISTABELL ANGELICA R. ABAÑO, RN, MPA', pageWidth / 2, signatureY, { align: 'center' });
-      document.setFont('times', 'normal');
-      document.text('Community Affairs Officer IV', pageWidth / 2, signatureY + 7, { align: 'center' });
-
-      document.setFontSize(8);
-      document.setTextColor(90, 90, 90);
-      document.text(`Control No.: ${selected.controlNumber || selected.scholarId || 'Not available'}`, margin, 310);
-      document.text('Official PGCEAP private-scholar certification', pageWidth - margin, 310, { align: 'right' });
-      document.save(`${reference}.pdf`);
-      setCertificateNotice({ scholarId: selected.id, tone: 'success', title: 'Certificate downloaded', message: 'Print the PDF for CAO issuance to the scholar.' });
+      const response = await fetch(`${API_BASE}/scholars/${scope.applicantId}/certifications/prepare`, {
+        method: 'POST', headers: { ...authHeaders(scope.token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ academicPeriodId: scope.academicPeriodId }),
+      });
+      const prepared = await response.json();
+      if (!isCurrent()) return;
+      if (!response.ok) throw new Error(prepared.message || 'Unable to prepare the certification.');
+      savedCertification = prepared.existingCertification || null;
+      if (!savedCertification) {
+        const headerDataUrl = await imageUrlToDataUrl(certificateHeader);
+        if (!isCurrent()) return;
+        const { fileData } = await buildIndividualScholarCertificationPdf({ snapshot: prepared.snapshot, generatedAt: prepared.generatedAt, headerDataUrl });
+        if (!isCurrent()) return;
+        const savedResponse = await fetch(`${API_BASE}/scholars/${scope.applicantId}/certifications`, {
+          method: 'POST', headers: { ...authHeaders(scope.token), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ academicPeriodId: scope.academicPeriodId, generationToken: prepared.generationToken, fileData }),
+        });
+        const saved = await savedResponse.json();
+        if (!isCurrent()) return;
+        if (!savedResponse.ok || !saved.certification) throw new Error(saved.message || 'Unable to save the certification.');
+        savedCertification = saved.certification;
+      }
+      mergeIndividualCertification(savedCertification, scope.applicantId);
+      // Reload all versions after invalidating any read that started before saving.
+      loadIndividualCertifications();
+      if (!await downloadSavedCertification(savedCertification, scope) || !isCurrent()) return;
+      setCertificateNotice({ scholarId, academicPeriodId: scope.academicPeriodId, tone: 'success', title: 'Certification saved; download started', message: 'The saved PDF is available in Certification History for re-download.' });
     } catch (error) {
-      setCertificateNotice({ scholarId: selected.id, tone: 'error', title: 'Unable to download certificate', message: error.message || 'Please try downloading the certificate again.' });
+      if (isCurrent()) setCertificateNotice({
+        scholarId, academicPeriodId: scope.academicPeriodId, tone: 'error',
+        title: savedCertification ? 'Certification saved; download failed' : 'Unable to save certification',
+        message: savedCertification ? 'The record remains in Certification History. Use Download PDF to try again.' : error.message || 'Please try again.',
+      });
     } finally {
-      setCertificateDownloading(false);
+      if (certificateActionRef.current === action) {
+        certificateActionRef.current = null;
+        if (certificateScopeRef.current) setCertificateDownloading(false);
+      }
+    }
+  };
+
+  const downloadHistoryCertification = async (certification) => {
+    if (!selected || certificateActionRef.current) return;
+    const scope = certificateScopeRef.current;
+    if (!scope?.applicantId) return;
+    const action = {};
+    certificateActionRef.current = action;
+    const scholarId = selected.id;
+    setCertificateDownloading(true);
+    setCertificateNotice(null);
+    try {
+      if (!await downloadSavedCertification(certification, scope) || certificateScopeRef.current !== scope) return;
+      setCertificateNotice({ scholarId, academicPeriodId: scope.academicPeriodId, tone: 'success', title: 'Saved PDF download started', message: 'Downloaded the original saved certification without creating another history entry.' });
+    } catch (error) {
+      if (certificateScopeRef.current === scope) setCertificateNotice({ scholarId, academicPeriodId: scope.academicPeriodId, tone: 'error', title: 'Unable to download saved certification', message: error.message || 'Please try again.' });
+    } finally {
+      if (certificateActionRef.current === action) {
+        certificateActionRef.current = null;
+        if (certificateScopeRef.current) setCertificateDownloading(false);
+      }
     }
   };
 
@@ -546,8 +615,8 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
         <aside className="scholars-drawer" role="dialog" aria-modal="true" aria-labelledby="scholar-detail-title">
           <button type="button" className="scholars-drawer-close" onClick={() => setSelected(null)} aria-label="Close scholar details"><X size={19} /></button>
           <div className="scholars-drawer-profile"><span className="scholars-drawer-avatar">{selected.initials}</span><div><span className="scholars-admin-eyebrow">SCHOLAR RECORD</span><h3 id="scholar-detail-title">{selected.name}</h3><p>{selected.scholarId}</p></div></div>
-          <div className="scholars-drawer-badges"><ScholarBadge value={selected.status} type="status" /><ScholarBadge value={selected.documentStatus} type="documents" />{String(selected.schoolType || '').toLowerCase() === 'private' && <button type="button" className="scholars-certification-download" onClick={downloadPrivateCertificate} disabled={certificateDownloading} title="Download individual certification"><Download size={15} />{certificateDownloading ? 'Preparing PDF…' : 'Download Certification'}</button>}</div>
-          {certificateNotice?.scholarId === selected.id && <div className={`scholars-certificate-notice ${certificateNotice.tone}`} role={certificateNotice.tone === 'error' ? 'alert' : 'status'} aria-atomic="true">
+          <div className="scholars-drawer-badges"><ScholarBadge value={selected.status} type="status" /><ScholarBadge value={selected.documentStatus} type="documents" />{canUploadScholarRequirements && String(selected.schoolType || '').toLowerCase() === 'private' && <button type="button" className="scholars-certification-download" onClick={downloadPrivateCertificate} disabled={certificateDownloading || billingPeriodLoading} title="Save and download individual certification"><Download size={15} />{certificateDownloading ? 'Preparing PDF…' : 'Download Certification'}</button>}</div>
+          {certificateNotice?.scholarId === selected.id && certificateNotice.academicPeriodId === selected.academicPeriodId && <div className={`scholars-certificate-notice ${certificateNotice.tone}`} role={certificateNotice.tone === 'error' ? 'alert' : 'status'} aria-atomic="true">
             <span className="scholars-certificate-notice-icon" aria-hidden="true">{certificateNotice.tone === 'error' ? <TriangleAlert size={18} /> : <BadgeCheck size={18} />}</span>
             <div className="scholars-certificate-notice-copy"><strong>{certificateNotice.title}</strong><p>{certificateNotice.message}</p></div>
             <button type="button" className="scholars-certificate-notice-dismiss" aria-label="Dismiss certificate notification" onClick={() => setCertificateNotice(null)}><X size={16} aria-hidden="true" /></button>
@@ -626,24 +695,24 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
             <div className="scholars-drawer-tab-panel scholars-certification-history-panel" role="tabpanel">
               <header className="scholars-certification-history-heading">
                 <i><History size={18} /></i>
-                <div><span>PRIVATE-SCHOOL RECORDS</span><h4>Certification History</h4><p>Generated tuition-certification list records associated with this scholar.</p></div>
+                <div><span>CERTIFICATION RECORDS</span><h4>Certification History</h4><p>Saved individual PDFs and generated Billing certification lists across academic periods.</p></div>
               </header>
-              {String(selected.schoolType || '').toLowerCase() !== 'private' ? (
-                <div className="scholars-certification-history-empty"><CircleDollarSign size={24} /><strong>No certification workflow</strong><p>Public-school scholars are recorded in the official Payroll list rather than a Private tuition-certification list.</p></div>
-              ) : certificationHistory.length ? (
+              {(!currentIndividualHistory || currentIndividualHistory.loading) && <p className="scholars-certification-history-status" role="status">Loading saved certifications…</p>}
+              {currentIndividualHistory?.error && <div className="scholars-certification-history-status error" role="alert"><p>{currentIndividualHistory.error}</p><button type="button" onClick={() => loadIndividualCertifications()}>Retry history</button></div>}
+              {certificationHistory.length ? (
                 <div className="scholars-certification-history-list">
-                  {certificationHistory.map((record, index) => <article key={`${record.billingReference || record.academicPeriodId || 'certification'}-${record.dateProcessed || index}`}>
-                    <header><div><span>{record.schoolYear} · {record.semester}</span><strong>{record.billingStatus || 'Certification listed'}</strong></div>{record.isActivePeriod && <em>Current period</em>}</header>
+                  {certificationHistory.map((record, index) => <article key={record.type === 'individual' ? `individual-${record.id}` : `billing-${record.billingReference || record.academicPeriodId}-${record.dateProcessed || index}`}>
+                    <header><div><span>{record.schoolYear} · {record.semester}</span><strong>{record.type === 'individual' ? 'Individual certification PDF' : 'Billing certification list'}</strong></div>{record.academicPeriodId === selected.academicPeriodId && <em>Selected period</em>}</header>
                     <dl>
-                      <div><dt>Reference number</dt><dd>{record.billingReference || 'Not recorded'}</dd></div>
-                      <div><dt>Amount</dt><dd>{formatScholarAmount(record.claimAmount)}</dd></div>
-                      <div><dt>Processed</dt><dd>{record.dateProcessed ? formatScholarDate(record.dateProcessed) : 'Not recorded'}</dd></div>
+                      <div><dt>Reference number</dt><dd>{record.type === 'individual' ? record.reference : record.billingReference || 'Not recorded'}</dd></div>
+                      {record.type === 'individual' ? <div><dt>School at generation</dt><dd>{record.snapshot?.school || 'Not recorded'}</dd></div> : <div><dt>List amount</dt><dd>{formatScholarAmount(record.claimAmount)}</dd></div>}
+                      {record.type === 'individual' ? <div><dt>Course / year level</dt><dd>{record.snapshot?.course || 'Not recorded'} · {record.snapshot?.yearLevel || 'Not recorded'}</dd></div> : <div><dt>Billing status</dt><dd>{record.billingStatus || 'Certification listed'}</dd></div>}
+                      <div><dt>{record.type === 'individual' ? 'Generated' : 'Processed'}</dt><dd>{record.generatedAt || record.dateProcessed ? formatScholarDate(record.generatedAt || record.dateProcessed) : 'Not recorded'}</dd></div>
                     </dl>
+                    {record.type === 'individual' && <div className="scholars-certification-history-actions"><button type="button" onClick={() => downloadHistoryCertification(record)} disabled={certificateDownloading} aria-label={`Download saved certification ${record.reference} for ${record.schoolYear}, ${record.semester}`}><Download size={14} />Download PDF</button></div>}
                   </article>)}
                 </div>
-              ) : (
-                <div className="scholars-certification-history-empty"><History size={24} /><strong>No certification records yet</strong><p>This Private scholar will appear here after inclusion in a generated Billing certification list.</p></div>
-              )}
+              ) : currentIndividualHistory && !currentIndividualHistory.loading && !currentIndividualHistory.error && <div className="scholars-certification-history-empty"><History size={24} /><strong>No certification records yet</strong><p>{String(selected.schoolType || '').toLowerCase() === 'private' ? 'Use Download Certification to save an individual PDF here. Generated Billing certification lists also appear here.' : 'Saved Private-school certifications remain here after school changes. Current Public-school scholars use the official Payroll list.'}</p></div>}
             </div>
           )}
         </aside>

@@ -200,3 +200,62 @@ test('failed mutations are not added to the audit trail', async () => {
 
   assert.equal(calls, 0);
 });
+
+test('saved scholar certifications record safe operational metadata without the PDF or generation ticket', async () => {
+  let recorded;
+  const middleware = createActivityAudit({
+    recorder: async (_client, details) => { recorded = details; },
+  });
+  const req = {
+    method: 'POST',
+    params: { applicantId: '14' },
+    route: { path: '/scholars/:applicantId/certifications' },
+    user: { id: 2, role: 'RegularAdmin' },
+    ip: '127.0.0.1',
+    body: {
+      academicPeriodId: 9,
+      generationToken: 'test-ticket-do-not-log',
+      fileData: 'test-pdf-do-not-log',
+    },
+  };
+  const res = new EventEmitter();
+  res.statusCode = 201;
+  res.locals = { auditTargetId: 31 };
+
+  middleware(req, res, () => res.emit('finish'));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(recorded, {
+    user: req.user,
+    action: 'SCHOLAR_CERTIFICATION_GENERATED',
+    description: 'Generated and saved an individual scholar enrollment certification.',
+    targetTable: 'scholar_certifications',
+    targetId: 31,
+    ipAddress: '127.0.0.1',
+  });
+  assert.equal(JSON.stringify(recorded).includes('do-not-log'), false);
+});
+
+test('certification preparation and reused saved certifications create no generation event', async () => {
+  let calls = 0;
+  const middleware = createActivityAudit({ recorder: async () => { calls += 1; } });
+  for (const [routePath, locals] of [
+    ['/scholars/:applicantId/certifications/prepare', {}],
+    ['/scholars/:applicantId/certifications', { auditSkip: true }],
+  ]) {
+    const req = {
+      method: 'POST',
+      params: { applicantId: '14' },
+      route: { path: routePath },
+      user: { id: 2, role: 'RegularAdmin' },
+    };
+    const res = new EventEmitter();
+    res.statusCode = 200;
+    res.locals = locals;
+    middleware(req, res, () => res.emit('finish'));
+  }
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(ACTIONS['POST /scholars/:applicantId/certifications/prepare'], undefined);
+  assert.equal(calls, 0);
+});

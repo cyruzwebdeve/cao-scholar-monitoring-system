@@ -10,6 +10,7 @@ datasource db {
 }
 
 model academic_periods {
+  scholar_certifications scholar_certifications[]
   intake_settings intake_settings[]
   id          Int       @id @default(autoincrement())
   school_year String    @db.VarChar(20)
@@ -101,6 +102,7 @@ model announcement_email_deliveries {
 }
 
 model admins {
+  scholar_certifications scholar_certifications[]
   payout_attendance payout_schedule_attendance[]
   id             Int       @id @default(autoincrement())
   full_name      String    @db.VarChar(150)
@@ -117,6 +119,7 @@ model admins {
 }
 
 model applicants {
+  scholar_certifications scholar_certifications[]
   payout_attendance payout_schedule_attendance[]
   announcement_deliveries announcement_email_deliveries[]
   schedule_email_deliveries payout_schedule_email_deliveries[]
@@ -307,6 +310,7 @@ model eligibility_assessments {
 }
 
 model scholar_accounts {
+  certifications scholar_certifications[]
   graduation scholar_graduations?
   id           Int      @id @default(autoincrement())
   applicant_id Int      @unique
@@ -320,6 +324,36 @@ model scholar_accounts {
   updated_at   DateTime @updatedAt @db.Timestamp(6)
 
   @@index([is_active])
+}
+
+// Immutable copies of generated individual PDFs; not a record of physical issuance.
+model scholar_certifications {
+  id                  Int      @id @default(autoincrement())
+  applicant_id        Int
+  scholar_account_id  Int
+  academic_period_id  Int
+  reference_number    String   @db.VarChar(50)
+  snapshot_hash       String   @db.Char(64)
+  template_version    String   @db.VarChar(50)
+  snapshot            Json     @db.JsonB
+  generated_at        DateTime @db.Timestamp(6)
+  generated_by        Int
+  generated_by_role   String   @db.VarChar(30)
+  file_name           String   @db.VarChar(255)
+  file_type           String   @db.VarChar(30)
+  file_data           String?  @db.Text
+  file_url            String?  @db.Text
+  file_pathname       String?  @db.Text
+  storage             String   @db.VarChar(30)
+  created_at          DateTime @default(now()) @db.Timestamp(6)
+  applicant           applicants @relation(fields: [applicant_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  scholar             scholar_accounts @relation(fields: [scholar_account_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  academic_period     academic_periods @relation(fields: [academic_period_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  generator           admins @relation(fields: [generated_by], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([scholar_account_id, academic_period_id, snapshot_hash], map: "scholar_certifications_snapshot_key")
+  @@index([applicant_id, generated_at])
+  @@index([academic_period_id])
 }
 
 model scholar_requirements {

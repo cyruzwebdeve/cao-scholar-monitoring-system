@@ -106,3 +106,18 @@
 .scholars-grant-breakdown dl > div { display:flex; justify-content:space-between; gap:12px; font-size:11px; }
 .scholars-grant-breakdown dd { margin:0; font-weight:700; }
 .scholars-processing-actions { display:flex; margin-top:10px; }
+
+.scholars-certification-history-actions { display:flex; justify-content:flex-end; margin-top:12px; }
+.scholars-certification-history-status { margin:12px 0; color:#617368; font-size:11px; line-height:1.5; }
+.scholars-certification-history-status p { margin:0 0 8px; }
+.scholars-certification-history-status.error { color:#a33229; }
+.scholars-certification-history-panel button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:36px; padding:8px 12px; border:1px solid #c6ddce; border-radius:7px; background:#fff; color:#176c3b; font:inherit; font-size:10px; font-weight:700; cursor:pointer; }
+.scholars-certification-history-panel button:hover:not(:disabled) { background:#edf8f1; }
+.scholars-certification-history-panel button:disabled { opacity:.55; cursor:default; }
+.scholars-certification-history-panel button:focus-visible { outline:2px solid #19854d; outline-offset:2px; }
+@media(max-width:420px) {
+  .scholars-certification-history-actions button { width:100%; }
+  .scholars-certification-history-list article > header { flex-wrap:wrap; }
+  .scholars-certification-history-list dl > div { grid-template-columns:minmax(0,1fr); gap:4px; }
+  .scholars-certification-history-list dd { text-align:left; }
+}

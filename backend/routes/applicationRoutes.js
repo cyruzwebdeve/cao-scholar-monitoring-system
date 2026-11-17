@@ -1,5 +1,6 @@
 const payoutParticipation = require('../controllers/payoutParticipationController').createPayoutParticipationController({ prisma: require('../config/prisma') });
 const graduations = require('../controllers/scholarGraduationController').createGraduationController({ prisma: require('../config/prisma'), validateDocumentUpload: require('../services/documentFilePolicy').validateDocumentUpload });
+const certifications = require('../controllers/scholarCertificationController').createScholarCertificationController({ prisma: require('../config/prisma') });
 const potentialScholars = require('../controllers/potentialScholarController');
 const { getDashboardDetails } = require('../controllers/dashboardDetailsController');
 const payoutSchedules = require('../controllers/payoutScheduleController');
@@ -195,6 +196,11 @@ router.get('/scholar-graduations/:applicantId/proof', privateResponse, authentic
 router.put('/scholar-graduations/:applicantId/review', privateResponse, authenticate, staffWriteRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), graduations.review);
 
 router.get('/scholars/management', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars', 'billing', 'payroll'), getScholarManagement);
+const certificationAccess = [privateResponse, authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars')];
+router.get('/scholars/:applicantId/certifications', ...certificationAccess, certifications.index);
+router.post('/scholars/:applicantId/certifications/prepare', ...certificationAccess, staffWriteRateLimiter, certifications.prepare);
+router.post('/scholars/:applicantId/certifications', ...certificationAccess, documentUploadRateLimiter, certifications.save);
+router.get('/scholars/:applicantId/certifications/:certificationId/file', ...certificationAccess, certifications.file);
 router.put('/scholars/:applicantId/continuing-requirements/open', authenticate, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), openContinuingRequirements);
 router.put('/scholars/:applicantId/requirements/:requirementKey', authenticate, documentUploadRateLimiter, checkRole(['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin']), checkSectionAccess('scholars'), uploadScholarRequirementByAdmin);
 router.put('/scholars/:applicantId/amount', authenticate, billingWriteRateLimiter, checkRole(['SuperAdmin','RegularAdmin','BillingPayrollAdmin']), checkSectionAccess('billing','payroll'), scholarAmount.save);
