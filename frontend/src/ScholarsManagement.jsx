@@ -47,12 +47,6 @@ const formatScholarDate = (value) => {
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const formatScholarAmount = (value) => new Intl.NumberFormat('en-PH', {
-  style: 'currency',
-  currency: 'PHP',
-  minimumFractionDigits: 2,
-}).format(Number(value || 0));
-
 const imageUrlToDataUrl = async (url) => {
   const response = await fetch(url);
   if (!response.ok) throw new Error('Unable to load the official certificate header.');
@@ -351,10 +345,8 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const reviewCount = scholars.filter(({ documentStatus: value }) => value === 'Review').length;
   const hasFilters = query || municipality !== 'All Municipalities' || school !== 'All Schools' || barangay !== 'All Barangays' || yearLevel !== 'All Year Levels' || documentStatus !== 'All Documents';
   const currentIndividualHistory = individualHistory.applicantId === selected?.applicantId ? individualHistory : null;
-  const certificationHistory = [
-    ...(currentIndividualHistory?.records || []).map((record) => ({ ...record, type: 'individual' })),
-    ...(selected?.financialHistory || []).filter((record) => record.processRoute === 'billing').map((record) => ({ ...record, type: 'billing' })),
-  ].sort((left, right) => new Date(right.generatedAt || right.dateProcessed || 0) - new Date(left.generatedAt || left.dateProcessed || 0));
+  const certificationHistory = [...(currentIndividualHistory?.records || [])]
+    .sort((left, right) => new Date(right.generatedAt || 0) - new Date(left.generatedAt || 0));
 
   const clearFilters = () => {
     setQuery('');
@@ -696,27 +688,27 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
             <div className="scholars-drawer-tab-panel scholars-certification-history-panel" role="tabpanel">
               <header className="scholars-certification-history-heading">
                 <i><History size={18} /></i>
-                <div><span>CERTIFICATION RECORDS</span><h4>Certification History</h4><p>Saved individual PDFs and generated Billing certification lists across academic periods.</p></div>
+                <div><span>CERTIFICATION RECORDS</span><h4>Certification History</h4><p>Saved individual certification PDFs across academic periods.</p></div>
               </header>
               {(!currentIndividualHistory || currentIndividualHistory.loading) && <p className="scholars-certification-history-status" role="status">Loading saved certifications…</p>}
               {currentIndividualHistory?.error && <div className="scholars-certification-history-status error" role="alert"><p>{currentIndividualHistory.error}</p><button type="button" onClick={() => loadIndividualCertifications()}>Retry history</button></div>}
               {certificationHistory.length ? (
                 <div className="scholars-certification-history-list">
-                  {certificationHistory.map((record, index) => <article key={record.type === 'individual' ? `individual-${record.id}` : `billing-${record.billingReference || record.academicPeriodId}-${record.dateProcessed || index}`}>
-                    <header><div><span>{record.schoolYear} · {record.semester}</span><strong>{record.type === 'individual' ? 'Individual certification PDF' : 'Billing certification list'}</strong></div>{record.academicPeriodId === selected.academicPeriodId && <em>Selected period</em>}</header>
+                  {certificationHistory.map((record) => <article key={`individual-${record.id}`}>
+                    <header><div><span>{record.schoolYear} · {record.semester}</span><strong>Individual certification PDF</strong></div>{record.academicPeriodId === selected.academicPeriodId && <em>Selected period</em>}</header>
                     <dl>
-                      <div><dt>Reference number</dt><dd>{record.type === 'individual' ? record.reference : record.billingReference || 'Not recorded'}</dd></div>
-                      {record.type === 'individual' ? <div><dt>School at generation</dt><dd>{record.snapshot?.school || 'Not recorded'}</dd></div> : <div><dt>List amount</dt><dd>{formatScholarAmount(record.claimAmount)}</dd></div>}
-                      {record.type === 'individual' ? <div><dt>Course / year level</dt><dd>{record.snapshot?.course || 'Not recorded'} · {record.snapshot?.yearLevel || 'Not recorded'}</dd></div> : <div><dt>Billing status</dt><dd>{record.billingStatus || 'Certification listed'}</dd></div>}
-                      <div><dt>{record.type === 'individual' ? 'Generated' : 'Processed'}</dt><dd>{record.generatedAt || record.dateProcessed ? formatScholarDate(record.generatedAt || record.dateProcessed) : 'Not recorded'}</dd></div>
+                      <div><dt>Reference number</dt><dd>{record.reference}</dd></div>
+                      <div><dt>School at generation</dt><dd>{record.snapshot?.school || 'Not recorded'}</dd></div>
+                      <div><dt>Course / year level</dt><dd>{record.snapshot?.course || 'Not recorded'} · {record.snapshot?.yearLevel || 'Not recorded'}</dd></div>
+                      <div><dt>Generated</dt><dd>{record.generatedAt ? formatScholarDate(record.generatedAt) : 'Not recorded'}</dd></div>
                     </dl>
-                    {record.type === 'individual' && <div className="scholars-certification-history-actions">
+                    <div className="scholars-certification-history-actions">
                       <DocumentViewButton key={`${selected.applicantId}:${selected.academicPeriodId}:${record.id}`} token={token} endpoint={`/scholars/${selected.applicantId}/certifications/${record.id}/file`} label={`Certification ${record.reference} · ${record.schoolYear} · ${record.semester}`} buttonLabel="Preview" disabled={certificateDownloading || billingPeriodLoading} />
                       <button type="button" onClick={() => downloadHistoryCertification(record)} disabled={certificateDownloading} aria-label={`Download saved certification ${record.reference} for ${record.schoolYear}, ${record.semester}`}><Download size={14} />Download PDF</button>
-                    </div>}
+                    </div>
                   </article>)}
                 </div>
-              ) : currentIndividualHistory && !currentIndividualHistory.loading && !currentIndividualHistory.error && <div className="scholars-certification-history-empty"><History size={24} /><strong>No certification records yet</strong><p>{String(selected.schoolType || '').toLowerCase() === 'private' ? 'Use Download Certification to save an individual PDF here. Generated Billing certification lists also appear here.' : 'Saved Private-school certifications remain here after school changes. Current Public-school scholars use the official Payroll list.'}</p></div>}
+              ) : currentIndividualHistory && !currentIndividualHistory.loading && !currentIndividualHistory.error && <div className="scholars-certification-history-empty"><History size={24} /><strong>No certification records yet</strong><p>{String(selected.schoolType || '').toLowerCase() === 'private' ? 'Use Download Certification to save an individual PDF here.' : 'Saved individual certifications remain here after school changes.'}</p></div>}
             </div>
           )}
         </aside>

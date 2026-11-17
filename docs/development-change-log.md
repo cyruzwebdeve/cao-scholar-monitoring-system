@@ -5,6 +5,31 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-18 - Keep Scholar Certification History Limited to Individual PDFs
+
+**TL;DR**
+
+- Scholar Certification History now shows only saved individual certification PDFs, with their original details, Preview and Download PDF actions across academic periods.
+- Billing-list entries, amounts and processing status are removed from this tab. A Scholar with only Billing records sees the normal empty certification-history state.
+- Existing Billing/Payroll records, finance views, generated-list amounts and saved PDFs are retained; this frontend display change deletes no data and requires no additional migration.
+- All 20 certification workflow tests, JSX parsing and source/whitespace review passed. Real browser acceptance remains unverified with unavailable frontend tooling.
+
+**Objective and reason:** Follow the requested distinction between an individual Scholar certificate and membership in a generated Billing certification list. The Scholar's certificate archive should display only its saved individual artifacts.
+
+**Previous and new behavior:** The history combined saved individual PDFs with Billing-list rows from financialHistory. It now reads only the selected Scholar's saved individual records, sorts by generation time, and displays reference, school, course/year level and generation date. Each row retains Preview and Download PDF. The heading and empty-state text describe only saved individual certifications. A Billing-only Scholar has no certificate entry until an individual PDF is generated and saved through the existing action. Historical individual records still appear after academic-period or school-classification changes.
+
+**Affected users and workflows:** Authorized staff viewing the Scholar detail drawer's Certification History. Existing Billing & Payroll views and previous-period financial history, Applicant/Scholar dashboards, certificate generation/reuse/storage and private preview/download workflows are unchanged.
+
+**Implementation and data flow:** certificationHistory is now derived solely from currentIndividualHistory.records, already scoped to the selected Applicant. The financialHistory merge and Billing-specific row branches are removed, together with their unused amount formatter. The list copies before sorting so saved state is not mutated. The component continues to use the existing all-period individual-history and saved-file APIs, request locks and stale-selection guards. Financial data remains available to its existing finance-tab consumers.
+
+**Files or system areas changed:** frontend/src/ScholarsManagement.jsx; updated docs/qa/2026-11-17/scholar-certification-history-checklist.md and both change logs.
+
+**Impact assessment:** API/database/schema/storage: no changes, writes, deletion or new migration; stored Billing/Payroll membership and individual certification records remain. Configuration/security/privacy: no changes; existing staff/section/file access controls, authenticated private reads and URL cleanup remain. Accessibility: existing row labels, loading/error roles, empty-state message, keyboard preview controls and action labels remain; the description now matches the visible content. Deployment: frontend-only release; no dependency/configuration changes or deployment performed. Reports monetary totals continue to represent generated payroll-list amounts. Legacy payment-oriented processing and the individual PDF's existing tuition/enrollment wording are retained without modification; no physical-issuance/payment-verification, attendance or receipt behavior changes.
+
+**Validation performed and results:** All 20 existing actual-component certification workflow tests passed, covering persistence/reuse, saved-file downloads, failed saves/downloads, request locks, stale selection/period responses and history refresh preservation. Cached Babel parsed ScholarsManagement.jsx and scoped git diff --check passed. Scoped source review confirmed the history derives only from saved individual records, both saved-file actions retain their original endpoints/handlers, and financialHistory remains in the unchanged finance view. Only the Scholar component and change/QA documentation were edited. No browser/build/lint, live-data operations, migration, commit or deployment were performed.
+
+**Known limitations, rollback and recommended next work:** Scholars with Billing records but no saved individual PDF now have an empty Certification History, as requested. Prior browser-only downloads remain unavailable until a new artifact is saved; this change does not reconstruct old PDFs. Run the revised manual checklist with Billing-only and mixed-history Scholars, including individual Preview/Download and the existing Billing/Payroll views. Reverting this frontend change restores the combined history presentation without data restoration.
+
 ## 2026-11-17 - Preview Saved Scholar Certifications
 
 **TL;DR**
