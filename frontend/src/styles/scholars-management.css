@@ -107,7 +107,7 @@
 .scholars-grant-breakdown dd { margin:0; font-weight:700; }
 .scholars-processing-actions { display:flex; margin-top:10px; }
 
-.scholars-certification-history-actions { display:flex; justify-content:flex-end; margin-top:12px; }
+.scholars-certification-history-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; margin-top:12px; }
 .scholars-certification-history-status { margin:12px 0; color:#617368; font-size:11px; line-height:1.5; }
 .scholars-certification-history-status p { margin:0 0 8px; }
 .scholars-certification-history-status.error { color:#a33229; }

@@ -3,6 +3,7 @@ import GraduationRecognition from './components/GraduationRecognition';
 import MetricDetailsCard from './components/MetricDetailsCard';
 import { scholarMetricRows } from './utils/metricDetails';
 import DocumentVersionHistory from './components/DocumentVersionHistory';
+import DocumentViewButton from './components/DocumentViewButton';
 import Notification from './components/Notification';
 import { canManageStaffSection } from './utils/staffAccess';
 import PrivateGrantEditor from './PrivateGrantEditor';
@@ -709,7 +710,10 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
                       {record.type === 'individual' ? <div><dt>Course / year level</dt><dd>{record.snapshot?.course || 'Not recorded'} · {record.snapshot?.yearLevel || 'Not recorded'}</dd></div> : <div><dt>Billing status</dt><dd>{record.billingStatus || 'Certification listed'}</dd></div>}
                       <div><dt>{record.type === 'individual' ? 'Generated' : 'Processed'}</dt><dd>{record.generatedAt || record.dateProcessed ? formatScholarDate(record.generatedAt || record.dateProcessed) : 'Not recorded'}</dd></div>
                     </dl>
-                    {record.type === 'individual' && <div className="scholars-certification-history-actions"><button type="button" onClick={() => downloadHistoryCertification(record)} disabled={certificateDownloading} aria-label={`Download saved certification ${record.reference} for ${record.schoolYear}, ${record.semester}`}><Download size={14} />Download PDF</button></div>}
+                    {record.type === 'individual' && <div className="scholars-certification-history-actions">
+                      <DocumentViewButton key={`${selected.applicantId}:${selected.academicPeriodId}:${record.id}`} token={token} endpoint={`/scholars/${selected.applicantId}/certifications/${record.id}/file`} label={`Certification ${record.reference} · ${record.schoolYear} · ${record.semester}`} buttonLabel="Preview" disabled={certificateDownloading || billingPeriodLoading} />
+                      <button type="button" onClick={() => downloadHistoryCertification(record)} disabled={certificateDownloading} aria-label={`Download saved certification ${record.reference} for ${record.schoolYear}, ${record.semester}`}><Download size={14} />Download PDF</button>
+                    </div>}
                   </article>)}
                 </div>
               ) : currentIndividualHistory && !currentIndividualHistory.loading && !currentIndividualHistory.error && <div className="scholars-certification-history-empty"><History size={24} /><strong>No certification records yet</strong><p>{String(selected.schoolType || '').toLowerCase() === 'private' ? 'Use Download Certification to save an individual PDF here. Generated Billing certification lists also appear here.' : 'Saved Private-school certifications remain here after school changes. Current Public-school scholars use the official Payroll list.'}</p></div>}

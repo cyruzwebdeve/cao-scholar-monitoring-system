@@ -5,6 +5,31 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-17 - Preview Saved Scholar Certifications
+
+**TL;DR**
+
+- Authorized staff can click Preview beside Download PDF on individual Certification History entries to inspect the original saved PDF in the shared document modal.
+- Preview reads the existing private file endpoint and creates no certificate, history version, generation event or list membership. Historical PDFs remain previewable after a school or academic-year change.
+- Shared viewer results are scoped to their file endpoint and authentication, preventing a previous file/error from remaining visible during a changed request. Default View controls in other workflows remain.
+- All 23 related frontend certification tests and 12 actual-viewer/integration smoke checks passed, plus JSX parsing and whitespace review. Real browser/PDF rendering remains unverified with unavailable frontend tooling.
+
+**Objective and reason:** Allow staff to double-check an archived individual certification from the Scholar drawer without first downloading it. Reuse the established document viewer for consistent controls and private access.
+
+**Previous and new behavior:** Individual Certification History rows previously offered only Download PDF. They now also offer Preview, opening the saved PDF in a modal titled with the certificate reference, academic year and semester. The viewer shows loading/error feedback, an embedded PDF, an open-in-new-tab link, and close/Escape controls. Preview is disabled during certificate download/generation or period switching. Changing the selected Scholar/period, leaving history or closing the drawer unmounts that preview. The shared viewer now displays only preview/error results belonging to the current file endpoint and authentication; a new result clears the prior error. Other existing callers keep the default View label and enabled behavior.
+
+**Affected users and workflows:** Staff with Scholars access viewing saved individual Private-school certifications, including historical records for Scholars now attending Public schools. Shared document preview on Applicant/Scholar requirements and staff initial-document screens also benefits from correct loading/error scoping. Billing-list entries, certificate generation/save/reuse, history-only download, and all requirement upload/review decisions retain their existing workflows.
+
+**Implementation and data flow:** ScholarsManagement renders DocumentViewButton only for individual saved rows, supplies the existing scoped GET /scholars/:applicantId/certifications/:certificationId/file endpoint, and keys the viewer to Scholar/selected-period/certification identity. The shared component gains optional buttonLabel and disabled props. Its authenticated no-store fetch uses an AbortController, validates supported MIME types and constructs a temporary object URL. Preview/error state captures endpoint/authentication scope and is displayed only when it matches the current request. Existing effect cleanup cancels/ignores late requests, revokes the URL and restores trigger focus. The history action group wraps with spacing on narrow screens. Preview does not prepare, render, upload or save another certification.
+
+**Files or system areas changed:** frontend/src/ScholarsManagement.jsx, frontend/src/components/DocumentViewButton.jsx and frontend/src/styles/scholars-management.css. Extended docs/qa/2026-11-17/scholar-certification-history-checklist.md and both change logs.
+
+**Impact assessment:** API/database/schema/stored data: no new endpoints, table changes, writes or migration for preview; it requires the existing saved-certification feature and its already-documented migration. Configuration/deployment: frontend-only release, no environment/dependency/configuration changes and no deployment. Security/privacy: existing staff/section/Scholar-file authorization and private backend response headers remain; authentication and private file URLs are not rendered or logged. Temporary preview URLs are revoked on cleanup and stale results are suppressed. Accessibility: descriptive Preview/dialog/iframe labels, loading/error roles, existing modal focus/Tab/Escape handling, focus return, disabled controls and responsive action wrapping. Payroll-list scope, generated monetary totals, attendance and self-reported receipt acknowledgement are unchanged. Existing legacy certificate tuition wording/layout are retained; preview does not verify payment or physical issuance. No older payment-oriented code is changed, enabled or removed.
+
+**Validation performed and results:** All 20 actual-component certification workflow tests and three PDF-builder tests passed. Both changed JSX modules passed cached Babel parsing, and scoped whitespace checks passed. Twelve independent cached-Babel/VM smoke checks executed actual viewer code with mocked React/fetch/browser behavior: default View/enabled props, saved-file GET/auth/no-store, preview-only URL creation, cleanup/abort/revoke/focus, close-while-pending suppression, endpoint/token result scoping, stale error/failed-response handling, successful recovery, MIME rejection, Escape/Tab controls and individual-history Preview/key/disabled wiring. Final source review found no remaining practical blocker. No dependencies were installed and no browser/build/lint, live records, database operations, migration, commit or deployment were performed.
+
+**Known limitations, rollback and recommended next work:** Embedded PDF display depends on browser support; the existing open-in-new-tab option provides another way to view the saved file. Preview applies to saved individual PDFs; Billing-list rows do not store an individual artifact through this endpoint. Run the extended manual QA checklist on desktop/mobile, including PDF rendering, keyboard/focus, private access and close/context-change cleanup. Reverting this frontend change restores download-only history without affecting saved PDFs or records.
+
 ## 2026-11-17 - Save Individual PDFs in Each Scholar's Certification History
 
 **TL;DR**
