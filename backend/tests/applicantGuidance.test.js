@@ -178,3 +178,29 @@ test('inclusion in a generated payroll list completes the in-scope lifecycle', (
   assert.ok(guidance.timeline.every(({ status }) => status === 'completed'));
   assert.doesNotMatch(JSON.stringify(guidance), /allowance release|marked as paid|claimed/i);
 });
+
+test('first-year initial guidance follows required report-card approval instead of COG readiness', () => {
+  for (const initialApproved of [false, true]) {
+    const documents = approvedDocuments();
+    if (initialApproved) {
+      delete documents.grades;
+      documents.report_card = { fileName: 'synthetic-report-card.pdf', status: 'Approved' };
+    }
+    const record = { ...application(documents), school_plan: { incomingYearLevel: '1st Year' } };
+    const guidance = buildApplicantGuidance({
+      application: record,
+      result: { created_at: new Date('2026-11-17T00:00:00Z') },
+      scholar: { is_active: true },
+      schoolType: 'Public', continuingOpen: false,
+      requirementSubmission: { initialApproved, isOpen: initialApproved },
+    });
+    assert.equal(guidance.state, 'waiting');
+    assert.equal(guidance.headline, initialApproved ? 'Your initial requirements are recorded' : 'CAO is recording your initial requirements');
+    assert.equal(guidance.actions[0].id, 'wait-initial-requirements');
+    const stage = guidance.timeline.find(({ id }) => id === 'requirements');
+    assert.equal(stage.label, 'Initial requirement verification');
+    assert.equal(stage.status, initialApproved ? 'completed' : 'current');
+    assert.match(stage.detail, initialApproved ? /Required initial documents.*CAO/ : /3 of 4 required initial documents.*CAO/);
+    assert.doesNotMatch(stage.detail, /scholar-uploaded/);
+  }
+});

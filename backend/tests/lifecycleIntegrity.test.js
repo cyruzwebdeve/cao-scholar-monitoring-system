@@ -36,6 +36,30 @@ const approvedDocuments = () => ({
   requirements: Object.fromEntries(ONLINE_REQUIREMENTS.map(({ key }) => [key, { fileName: `${key}.pdf`, status: 'Approved' }])),
 });
 
+test('first-year initial readiness requires report card while continuing readiness still requires COG', () => {
+  const documents = approvedDocuments();
+  const options = { isActive: true, schoolType: 'Public', initialDocs: documents, entryYearLevel: '1st Year', submissionWave: 'initial' };
+  let result = evaluateListEligibility(options);
+  assert.equal(result.eligible, true);
+  assert.equal(result.snapshot.online.find(item => item.key === 'grades').optional, true);
+  assert.equal(result.snapshot.online.find(item => item.key === 'report_card').optional, false);
+  assert.ok(result.warnings.some(item => item.requirement === 'report_card' && item.code === 'REQUIREMENT_MISSING'));
+  documents.requirements.report_card = { fileName: 'report.pdf', status: 'Rejected' };
+  result = evaluateListEligibility(options);
+  assert.ok(result.warnings.some(item => item.requirement === 'report_card' && item.code === 'REQUIREMENT_NOT_APPROVED'));
+  documents.requirements.report_card.status = 'Approved';
+  documents.requirements.grades.status = 'Pending';
+  result = evaluateListEligibility(options);
+  assert.equal(result.snapshot.onlineApproved, result.snapshot.onlineTotal);
+  assert.deepEqual(result.warnings, []);
+  const continuing = evaluateListEligibility({ ...options, submissionWave: 'continuing' });
+  assert.equal(continuing.snapshot.online.find(item => item.key === 'grades').optional, false);
+  assert.ok(continuing.warnings.some(item => item.requirement === 'grades'));
+  const upperYear = getRequirementSnapshot({ ...options, entryYearLevel: '2nd Year' });
+  assert.equal(upperYear.online.find(item => item.key === 'grades').optional, false);
+  assert.equal(upperYear.online.some(item => item.key === 'report_card'), false);
+});
+
 test('[SUCCESS] an active scholar with all applicable online files is billable', () => {
   const result = evaluateBillingEligibility({
     isActive: true,

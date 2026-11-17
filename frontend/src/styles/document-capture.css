@@ -10,6 +10,22 @@
 .document-capture .capture-checklist button { display:flex; flex-direction:column; align-items:flex-start; text-align:left; font-size:11px; }
 .capture-checklist button[aria-pressed=true] { border-color:#198b4f; background:#edf8f1; }
 .capture-checklist small { color:#6a7e70; font-size:10px; font-weight:500; }
+.capture-document-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin:16px 0 10px; }
+.document-capture .capture-document-toolbar h5,.document-capture .capture-assignment h5 { margin:0; font-size:12px; color:#315d41; }
+.capture-document-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr)); gap:7px; margin:10px 0; }
+.document-capture .capture-document-list button { min-width:0; flex-direction:column; align-items:flex-start; text-align:left; overflow-wrap:anywhere; }
+.capture-document-list button[aria-pressed=true] { border-color:#198b4f; background:#edf8f1; }
+.capture-document-list small { color:#61736a; font-size:10px; font-weight:500; }
+.capture-assignment { margin:14px 0; padding:12px; border:1px solid #d7e3db; border-radius:8px; background:#fff; }
+.capture-assignment label { display:flex; flex-direction:column; gap:8px; margin-top:12px; font-size:12px; color:#315d41; }
+.capture-assignment select { box-sizing:border-box; width:100%; max-width:100%; min-width:0; padding:10px; border:1px solid #d1e1d6; border-radius:7px; background:#fff; color:#315d41; font:inherit; line-height:1.5; }
+.capture-assignment select:focus-visible { outline:2px solid #198b4f; outline-offset:2px; }
+.capture-assignment select:disabled { opacity:.55; }
+.capture-document-status { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:10px; border:1px solid #d7e3db; border-radius:7px; background:#fff; font-size:11px; overflow-wrap:anywhere; }
+.capture-document-status > span { flex:1 1 160px; color:#315d41; }
+.capture-document-status small { display:block; margin-top:4px; }
+.capture-document-status > strong { display:inline-flex; align-items:center; flex-wrap:wrap; gap:5px; max-width:100%; color:#52695a; font-size:11px; }
+.document-capture > .capture-file-policy { font-size:11px; color:#64766b; line-height:1.7; }
 .document-capture fieldset { min-width:0; border:1px solid #d7e3db; border-radius:8px; margin:14px 0; padding:12px; background:white; }
 .document-capture legend { font-size:12px; font-weight:700; padding:0 5px; }
 .capture-actions { display:flex; flex-wrap:wrap; gap:7px; margin:10px 0; }

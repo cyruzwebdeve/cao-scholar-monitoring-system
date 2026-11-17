@@ -319,7 +319,7 @@ const acceptFutureScholar = (schoolType = 'public') => {
     ...(schoolType === 'private' ? { tuition_fee_assistance: 3500, grant_prepared_at: new Date(), grant_prepared_by: 99 } : {}) }];
   state.applications[0].initial_docs = { initialRequirementPeriodId: 2, requirementSets: {
     '2:initial': { academicPeriodId: 2, wave: 'initial', requirements: Object.fromEntries(
-      ['tax_exemption', 'valid_id', 'grades', 'registration_form', ...(schoolType === 'private' ? ['tuition_receipt'] : [])]
+      ['tax_exemption', 'valid_id', 'grades', 'report_card', 'registration_form', ...(schoolType === 'private' ? ['tuition_receipt'] : [])]
         .map(key => [key, { fileName: `${key}.pdf`, status: 'Approved' }])) },
   } };
 };
@@ -354,7 +354,7 @@ test('posted passer uploads record the independent intake as the initial source'
 
 test('initial intake uploads remain inherited for later Scholar reads and continuing submissions', async () => {
   postCurrentPasser();
-  for (const key of ['tax_exemption', 'valid_id', 'grades', 'registration_form']) {
+  for (const key of ['tax_exemption', 'valid_id', 'grades', 'report_card', 'registration_form']) {
     const req = adminRequest(2);
     req.params.requirementKey = key;
     req.body.fileName = `synthetic-${key}.pdf`;
@@ -452,6 +452,37 @@ test('historical Applicant portal uses the recorded initial source semester with
   assert.equal(res.body.examination.access.allowed, false);
   assert.deepEqual(state.applications[0].initial_docs, originalDocs);
   assert.equal(writes.length, 0);
+});
+
+test('first-year admin and portal projections require an approved report card and keep continuing COG required', async () => {
+  acceptFutureScholar();
+  state.periods.find(row => row.id === 2).is_active = true;
+  for (const status of [null, 'Pending', 'Rejected']) {
+    const initial = state.applications[0].initial_docs.requirementSets['2:initial'].requirements;
+    if (status) initial.report_card = { fileName: 'synthetic-report.pdf', status };
+    else delete initial.report_card;
+    const read = response();
+    await getScholarManagement({ query: { academicPeriodId: 2 } }, read);
+    assert.equal(read.statusCode, 200);
+    const record = read.body.scholars[0];
+    assert.equal(record.continuingSubmission.initialApproved, false);
+    assert.equal(record.continuingSubmission.isOpen, false);
+    assert.equal(record.initialDocuments.find(item => item.requirementKey === 'report_card').optional, false);
+    assert.equal(record.initialDocuments.find(item => item.requirementKey === 'grades').optional, true);
+    assert.equal(record.initialDocuments.find(item => item.requirementKey === 'report_card').alternativeGroup, null);
+    if (status) assert.equal(record.documents.find(item => item.requirementKey === 'report_card').status, status);
+  }
+  const request = adminRequest(2);
+  request.params.requirementKey = 'report_card';
+  request.body.fileName = 'synthetic-report.pdf';
+  const saved = response();
+  await uploadScholarRequirementByAdmin(request, saved);
+  assert.equal(saved.statusCode, 200);
+  const read = response();
+  await getScholarManagement({ query: { academicPeriodId: 2 } }, read);
+  assert.equal(read.body.scholars[0].continuingSubmission.initialApproved, true);
+  assert.equal(read.body.scholars[0].continuingSubmission.isOpen, true);
+  assert.equal(read.body.scholars[0].continuingDocuments.find(item => item.requirementKey === 'grades').optional, false);
 });
 
 test('a future-entry Scholar remains in the directory with processing and continuing access closed', async () => {

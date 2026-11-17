@@ -107,7 +107,7 @@ const review = async (key, document, decision = 'approved', extra = {}) => {
   const res = response(); await reviewDocument({ params: { applicationId: '1', requirementKey: key }, body: { academicPeriodId: 10, submissionWave: 'continuing', versionId: document.versionId, revision: document.revision, decision, notes: decision === 'rejected' ? 'Please provide a readable scan.' : '', ...extra }, user: { id: 11 } }, res); return res;
 };
 
-test('first-year report card can replace initial COG but cannot replace continuing college grades', async () => {
+test('first-year required report card satisfies initial academic evidence but cannot replace continuing college grades', async () => {
   setup({ schoolType: 'public' }); application.school_plan = { incomingYearLevel: '1st Year' };
   for (const key of ['tax_exemption', 'valid_id', 'report_card', 'registration_form']) assert.equal((await adminUpload(key)).statusCode, 200);
   assert.equal((await ownDocument('report_card')).statusCode, 200);
@@ -117,6 +117,17 @@ test('first-year report card can replace initial COG but cannot replace continui
   assert.equal((await scholarUpload('grades')).statusCode, 200);
   assert.deepEqual(getWaveSet(application.initial_docs, 10, 'initial'), initial);
   assert.equal(getWaveSet(application.initial_docs, 10, 'continuing').requirements.report_card, undefined);
+  assert.equal(getWaveSet(application.initial_docs, 10, 'continuing').requirements.grades.status, 'Pending');
+});
+
+test('approved initial COG alone cannot open first-year continuing uploads until report card is approved', async () => {
+  setup({ schoolType: 'public' }); application.school_plan = { incomingYearLevel: '1st Year' };
+  for (const key of ['tax_exemption', 'valid_id', 'grades', 'registration_form']) assert.equal((await adminUpload(key)).statusCode, 200);
+  const before = clone(application.initial_docs);
+  assert.equal((await scholarUpload('grades')).statusCode, 403);
+  assert.deepEqual(application.initial_docs, before);
+  assert.equal((await adminUpload('report_card')).statusCode, 200);
+  assert.equal((await scholarUpload('grades')).statusCode, 200);
   assert.equal(getWaveSet(application.initial_docs, 10, 'continuing').requirements.grades.status, 'Pending');
 });
 

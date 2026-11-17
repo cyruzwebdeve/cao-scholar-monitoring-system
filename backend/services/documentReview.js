@@ -9,7 +9,7 @@ const REQUIREMENT_DEFINITIONS = Object.freeze({
   indigency: Object.freeze({ label: 'Barangay Indigency', statusField: 'barangay_indigency_review_status' }),
   valid_id: Object.freeze({ label: 'Photocopy of ID (any valid ID)', statusField: 'valid_id_photocopy_review_status' }),
   grades: Object.freeze({ label: 'Certificate of Grades (previous semester attended)', statusField: 'grade_report_review_status' }),
-  report_card: Object.freeze({ label: 'Grade 12 Report Card (optional alternative to initial COG for incoming/1st-year college)', statusField: null }),
+  report_card: Object.freeze({ label: 'Grade 12 Report Card (initial requirement for incoming/1st-year college)', statusField: null }),
   registration_form: Object.freeze({ label: 'Registration Form (currently enrolled semester)', statusField: 'registration_form_review_status' }),
   tuition_receipt: Object.freeze({ label: 'Official Receipt of Tuition Fee', statusField: 'tuition_fee_receipt_review_status' }),
   ...PRIORITY_PROOFS,

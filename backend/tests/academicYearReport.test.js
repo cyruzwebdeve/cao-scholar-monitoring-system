@@ -270,6 +270,21 @@ test('readiness counts real recorded waves independently of current status, open
   assert.equal(report(incomplete).processing.requirementsClearedSets, 0); // Missing recorded classification is unknown.
 });
 
+test('first-year initial readiness requires report card while continuing readiness still requires college grades', () => {
+  const data = fixture();
+  const initial = data.applications[0].initial_docs.requirementSets['11:initial'].requirements;
+  initial.grades = { fileName: 'cog.pdf', status: 'Approved' };
+  delete initial.report_card;
+  assert.equal(report(data).processing.requirementsClearedSets, 2);
+  initial.report_card = { fileName: 'report-card.pdf', status: 'Pending' };
+  assert.equal(report(data).processing.requirementsClearedSets, 2);
+  initial.report_card.status = 'Approved';
+  assert.equal(report(data).processing.requirementsClearedSets, 3);
+  const continuing = data.applications[0].initial_docs.requirementSets['12:continuing'].requirements;
+  delete continuing.grades; continuing.report_card = { fileName: 'another-report-card.pdf', status: 'Approved' };
+  assert.equal(report(data).processing.requirementsClearedSets, 2);
+});
+
 test('year level comes from latest chronological saved semester, never original application or another year', () => {
   const result = report();
   assert.equal(result.scholars.find(scholar => scholar.applicantId === 1).yearLevel, '2nd Year');

@@ -35,7 +35,7 @@ test('changed files flag an existing potential review and block batch readiness'
   const missing = fixture(); delete missing.applications[0].initial_docs.requirements.grades;
   assert.equal(buildPotentialScholars(missing).some(row => row.canAccept), false);
 });
-test('school rules preserve private tuition, first-year alternatives, optional indigency and unknown-school blocking', () => {
+test('school rules preserve private tuition, first-year report cards, optional indigency and unknown-school blocking', () => {
   const privateInput = fixture(); privateInput.schools[0].school_type = 'Private';
   assert.equal(buildPotentialScholars(privateInput).some(row => row.canAccept), false);
   privateInput.applications[0].initial_docs.requirements.tuition_receipt = { fileName: 'receipt.pdf', status: 'Approved' };
@@ -47,6 +47,18 @@ test('school rules preserve private tuition, first-year alternatives, optional i
   }
   assert.equal(initialSubmissionComplete([], 'Unclassified'), false);
   const unknown = fixture(); unknown.schools[0].school_type = null; assert.equal(buildPotentialScholars(unknown).some(row => row.canAccept), false);
+});
+
+test('first-year potential acceptance requires report card even if initial college grades are approved', () => {
+  const input = fixture(); input.applications[0].school_plan.incomingYearLevel = '1st Year';
+  const context = () => ({ activePeriod: input.period, applicant: input.applicants[0], latestResult: input.results[0], application: input.applications[0], intakeSchool: input.schools[0] });
+  input.applications[0].initial_docs.potentialScholarReviews[10] = makePotentialReview(context(), 1);
+  assert.equal(buildPotentialScholars(input)[0].initialVerified, false);
+  assert.equal(buildPotentialScholars(input)[0].canAccept, false);
+  input.applications[0].initial_docs.requirements.report_card = { fileName: 'report-card.pdf', status: 'Approved' };
+  input.applications[0].initial_docs.potentialScholarReviews[10] = makePotentialReview(context(), 1);
+  assert.equal(buildPotentialScholars(input)[0].initialVerified, true);
+  assert.equal(buildPotentialScholars(input)[0].canAccept, true);
 });
 test('accepted, withdrawn, stale, foreign-year and changed-assignment records never enter the queue', () => {
   const mutations = [

@@ -1,7 +1,7 @@
 const { findPrimaryActivePeriod } = require('./academicPeriod');
 const { isCertificationBatch } = require('./payrollListScope');
 const { INITIAL_KEYS, CONTINUING_KEYS, getInitialRequirements } = require('./requirementWaves');
-const { isFirstYearEntry } = require('./initialAcademicEvidence');
+const { initialAcademicRequirementKey } = require('./initialAcademicEvidence');
 const { ONLINE_REQUIREMENTS } = require('./lifecycleIntegrity');
 const { normalizeSchoolName, resolveScholarSchool } = require('./scholarSchool');
 
@@ -57,7 +57,7 @@ const setCleared = (set, docs, schoolType, entryYearLevel) => {
   const files = getInitialRequirements(docs, set.academicPeriodId, originalPeriodId).requirements;
   return INITIAL_KEYS.filter(key => !['indigency', 'grades', 'report_card'].includes(key)
     && (type === 'private' || key !== 'tuition_receipt')).every(key => approved(files[key]))
-    && (approved(files.grades) || isFirstYearEntry(entryYearLevel) && approved(files.report_card));
+    && approved(files[initialAcademicRequirementKey(entryYearLevel)]);
 };
 const legacyRequirementSet = requirement => {
   const files = Object.fromEntries(ONLINE_REQUIREMENTS.filter(definition => requirement[definition.fileField])

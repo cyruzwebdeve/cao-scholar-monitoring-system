@@ -41,10 +41,10 @@ Use a test environment with the intake update and migration installed. Prepare a
 - [ ] **12. Try changing years during an online exam.** Start a valid online attempt in the current intake, leave it unfinished before its deadline, then try selecting a different year.  
   **Expected:** The year change is blocked until the attempt finishes or expires. The current intake and examination activation remain unchanged after the blocked attempt.
 
-- [ ] **13. Post & lock a Passer List.** Select an unlisted passing Applicant and post the list, then refresh.
+- [ ] **13. Post & lock a Passer List.** Select an unlisted passing Applicant and post the list, then refresh.  
   **Expected:** That Applicant disappears from new-list selection and stays visible in Retained lists and Results for initial verification. They are not automatically accepted as a Scholar.
 
-- [ ] **14. Revise a posted list.** Choose it under Revision of, select its eligible members and enter a revision reason. Also try posting an older draft containing someone posted in another list.
+- [ ] **14. Revise a posted list.** Choose it under Revision of, select its eligible members and enter a revision reason. Also try posting an older draft containing someone posted in another list.  
   **Expected:** The revision can reuse its own unaccepted members. Members of another active posted list remain unavailable; the conflicting saved draft is rejected.
 
 Application opening dates, examination settings and the question bank need separate staff review; selecting an intake does not reset or open them.

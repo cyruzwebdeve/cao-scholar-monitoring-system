@@ -5,15 +5,19 @@ const academic = [{ key: 'grades', label: 'COG' }, { key: 'registration_form', l
 const status = file => file?.status === 'Approved' ? 'approved' : 'missing';
 const complete = { tax_exemption: { status: 'Approved' }, valid_id: { status: 'Approved' }, registration_form: { status: 'Approved' } };
 
-test('first-year report card is optional and either academic document counts once toward required progress', () => {
+test('first-year initial progress requires report card approval and does not substitute COG', () => {
   const items = initialRequirementItemsFor(academic, '1st Year');
   assert.equal(items.length, 6);
-  assert.equal(items.find(item => item.key === 'report_card').optional, true);
+  assert.equal(items.find(item => item.key === 'report_card').optional, false);
   assert.equal(items.find(item => item.key === 'grades').optional, true);
-  for (const academicFiles of [{ grades: { status: 'Approved' } }, { report_card: { status: 'Approved' } }, { grades: { status: 'Approved' }, report_card: { status: 'Approved' } }]) {
+  for (const academicFiles of [{ report_card: { status: 'Approved' } }, { grades: { status: 'Approved' }, report_card: { status: 'Approved' } }]) {
     assert.deepEqual(initialRequirementProgress(items, { ...complete, ...academicFiles }, '1st Year', status), { total: 4, approved: 4 });
   }
   assert.deepEqual(initialRequirementProgress(items, complete, '1st Year', status), { total: 4, approved: 3 });
+  assert.deepEqual(initialRequirementProgress(items, { ...complete, grades: { status: 'Approved' } }, '1st Year', status), { total: 4, approved: 3 });
+  for (const reviewStatus of ['Pending', 'Rejected']) {
+    assert.deepEqual(initialRequirementProgress(items, { ...complete, grades: { status: 'Approved' }, report_card: { status: reviewStatus } }, '1st Year', status), { total: 4, approved: 3 });
+  }
 });
 test('higher-year requirements preserve COG and only retain report-card rows when a file already exists', () => {
   const items = initialRequirementItemsFor(academic, '2nd Year');
@@ -26,4 +30,5 @@ test('higher-year requirements preserve COG and only retain report-card rows whe
 test('private first-year progress still includes tuition receipt', () => {
   const items = initialRequirementItemsFor([...academic, { key: 'tuition_receipt', label: 'Receipt' }], '1st Year');
   assert.deepEqual(initialRequirementProgress(items, { ...complete, report_card: { status: 'Approved' } }, '1st Year', status), { total: 5, approved: 4 });
+  assert.deepEqual(initialRequirementProgress(items, { ...complete, report_card: { status: 'Approved' }, tuition_receipt: { status: 'Approved' } }, '1st Year', status), { total: 5, approved: 5 });
 });

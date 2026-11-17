@@ -72,6 +72,8 @@ const buildApplicantGuidance = ({
     initialDocs: application.initial_docs,
     requirement: scholarRequirement,
     schoolType,
+    entryYearLevel: application.school_plan?.incomingYearLevel,
+    submissionWave: continuingOpen === false ? 'initial' : 'continuing',
   });
   const scholarRequirements = requirementSnapshot.online.filter(({ key }) => SCHOLAR_SEMESTER_REQUIREMENT_KEYS.includes(key));
   const administratorRequirements = requirementSnapshot.online.filter(({ key, optional }) => !optional && ['tax_exemption', 'valid_id'].includes(key));
@@ -84,6 +86,11 @@ const buildApplicantGuidance = ({
   const scholarRequirementsComplete = scholarApproved === scholarRequirements.length;
   const administratorRequirementsComplete = administratorRequirements.every(({ approved }) => approved);
   const requirementsComplete = requirementSnapshot.onlineApproved === requirementSnapshot.onlineTotal;
+  const initialPhase = continuingOpen === false;
+  const initialRequirements = requirementSnapshot.online.filter(({ optional }) => !optional);
+  const initialApprovedCount = initialRequirements.filter(({ approved }) => approved).length;
+  const initialRequirementsComplete = requirementSubmission?.initialApproved ?? requirementsComplete;
+  const requirementPhaseComplete = initialPhase ? initialRequirementsComplete : scholarRequirementsComplete;
   const includedInPayrollList = Boolean(payrollClaim);
 
   const timeline = [
@@ -124,14 +131,18 @@ const buildApplicantGuidance = ({
     }),
     makeTimelineItem({
       id: 'requirements',
-      label: 'Scholar requirements',
-      status: scholarRequirementsComplete ? 'completed' : isScholar ? 'current' : 'upcoming',
-      detail: scholarRequirementsComplete
+      label: initialPhase ? 'Initial requirement verification' : 'Scholar requirements',
+      status: requirementPhaseComplete ? 'completed' : isScholar ? 'current' : 'upcoming',
+      detail: initialPhase
+        ? initialRequirementsComplete ? 'Required initial documents are approved and recorded by CAO.'
+          : isScholar ? `${initialApprovedCount} of ${initialRequirements.length} required initial documents are approved by CAO.`
+            : 'CAO checks initial documents before Scholar acceptance.'
+        : scholarRequirementsComplete
         ? 'All scholar-uploaded semester requirements are approved and recorded.'
         : isScholar
           ? `${scholarApproved} of ${scholarRequirements.length} scholar-uploaded semester requirements are approved.`
           : 'Requirements become available after scholar acceptance.',
-      completedAt: scholarRequirementsComplete ? scholarRequirement?.updated_at || null : null,
+      completedAt: requirementPhaseComplete ? scholarRequirement?.updated_at || null : null,
     }),
     makeTimelineItem({
       id: 'payroll_list',
@@ -234,7 +245,7 @@ const buildApplicantGuidance = ({
   }
 
   if (continuingOpen === false) {
-    return { state: 'waiting', headline: requirementsComplete ? 'Your initial requirements are recorded' : 'CAO is recording your initial requirements',
+    return { state: 'waiting', headline: initialRequirementsComplete ? 'Your initial requirements are recorded' : 'CAO is recording your initial requirements',
       description: 'CAO uploads the complete initial set. You will upload continuing documents after CAO opens the second submission wave.',
       actions: [makeAction({ id: 'wait-initial-requirements', type: 'waiting', title: 'No Scholar upload is required yet', description: 'Check the initial checklist and wait for CAO to open continuing submission.' })], timeline };
   }

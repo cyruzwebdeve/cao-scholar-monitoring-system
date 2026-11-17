@@ -1,3 +1,4 @@
+const { isFirstYearEntry } = require('./initialAcademicEvidence');
 const ONLINE_REQUIREMENTS = [
   { key: 'tax_exemption', label: 'Certificate of Tax Exemption', fileField: 'cert_tax_exemption_file', statusField: 'cert_tax_exemption_review_status' },
   { key: 'indigency', optional: true, label: 'Barangay Indigency (optional)', fileField: 'barangay_indigency_file', statusField: 'barangay_indigency_review_status' },
@@ -14,11 +15,16 @@ const getSchoolProcessRoute = (schoolType) => (
   normalizeStatus(schoolType) === 'private' ? 'billing' : 'payroll'
 );
 
-const getRequirementSnapshot = ({ initialDocs, requirement, schoolType = 'public' } = {}) => {
+const getRequirementSnapshot = ({ initialDocs, requirement, schoolType = 'public', entryYearLevel, submissionWave } = {}) => {
   const uploadedRequirements = initialDocs?.requirements || {};
-  const applicableRequirements = getSchoolProcessRoute(schoolType) === 'billing'
+  let applicableRequirements = getSchoolProcessRoute(schoolType) === 'billing'
     ? ONLINE_REQUIREMENTS
     : ONLINE_REQUIREMENTS.filter(({ key }) => key !== 'tuition_receipt');
+  if (submissionWave === 'initial' && isFirstYearEntry(entryYearLevel)) {
+    applicableRequirements = applicableRequirements.flatMap(definition => definition.key === 'grades'
+      ? [{ ...definition, optional: true }, { key: 'report_card', label: 'Grade 12 Report Card', fileField: null, statusField: null }]
+      : [definition]);
+  }
   const online = applicableRequirements.map((definition) => {
     const uploaded = uploadedRequirements[definition.key];
     const submitted = Boolean(uploaded?.fileName || requirement?.[definition.fileField]);
@@ -40,8 +46,8 @@ const getRequirementSnapshot = ({ initialDocs, requirement, schoolType = 'public
   };
 };
 
-const evaluateBillingEligibility = ({ isActive, alreadyBilled, alreadyProcessedForPeriod = false, initialDocs, requirement, schoolType, requireSchoolClassification = false } = {}) => {
-  const snapshot = getRequirementSnapshot({ initialDocs, requirement, schoolType });
+const evaluateBillingEligibility = ({ isActive, alreadyBilled, alreadyProcessedForPeriod = false, initialDocs, requirement, schoolType, entryYearLevel, submissionWave, requireSchoolClassification = false } = {}) => {
+  const snapshot = getRequirementSnapshot({ initialDocs, requirement, schoolType, entryYearLevel, submissionWave });
   const reasons = [];
 
   if (requireSchoolClassification && !['public', 'private'].includes(normalizeStatus(schoolType))) {

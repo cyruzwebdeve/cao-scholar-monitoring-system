@@ -862,7 +862,7 @@ const getScholarManagement = async (req, res) => {
       ['Barangay Indigency', 'barangay_indigency_file', 'barangay_indigency_review_status', 'indigency'],
       ['Photocopy of ID (any valid ID)', 'valid_id_photocopy_file', 'valid_id_photocopy_review_status', 'valid_id'],
       ['Certificate of Grades (previous semester attended)', 'grade_report_file', 'grade_report_review_status', 'grades'],
-      ['Grade 12 Report Card (optional, incoming/1st-year college)', null, null, 'report_card'],
+      ['Grade 12 Report Card (incoming/1st-year college)', null, null, 'report_card'],
       ['Registration Form (currently enrolled semester)', 'registration_form_file', 'registration_form_review_status', 'registration_form'],
       ['Official Receipt of Tuition Fee (private school scholars)', 'tuition_fee_receipt_file', 'tuition_fee_receipt_review_status', 'tuition_receipt'],
     ];
@@ -923,7 +923,11 @@ const getScholarManagement = async (req, res) => {
           isActivePeriod: batch?.billing_period_id === activePeriod.id,
         };
       });
-      const applicableRequirementFields = requirementFields.filter(([, , , key]) => (schoolType === 'Private' || key !== 'tuition_receipt') && (key !== 'report_card' || isFirstYearEntry(application?.school_plan?.incomingYearLevel) || getInitialRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id).requirements.report_card?.fileName));
+      const firstYearEntry = isFirstYearEntry(applicationPlan.incomingYearLevel);
+      const optionalRequirement = (key, wave) => key === 'indigency'
+        || (key === 'report_card' && (wave !== 'initial' || !firstYearEntry))
+        || (key === 'grades' && wave === 'initial' && firstYearEntry);
+      const applicableRequirementFields = requirementFields.filter(([, , , key]) => (schoolType === 'Private' || key !== 'tuition_receipt') && (key !== 'report_card' || firstYearEntry || getInitialRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id).requirements.report_card?.fileName));
       const mapDocuments = (wave) => {
         const inherited = wave === 'initial' ? getInitialRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id) : null;
         const set = getWaveSet(application?.initial_docs, activePeriod.id, wave, primaryPeriod.id);
@@ -933,7 +937,7 @@ const getScholarManagement = async (req, res) => {
           const sourcePeriodId = wave === 'initial' && !set.requirements[requirementKey] ? inherited.originalPeriodId : activePeriod.id;
           const sourcePeriod = academicPeriodById.get(sourcePeriodId) || activePeriod;
           return {
-            label: requirementKey === 'indigency' ? 'Barangay Indigency (optional)' : label, optional: ['indigency', 'report_card'].includes(requirementKey) || (wave === 'initial' && requirementKey === 'grades' && isFirstYearEntry(application?.school_plan?.incomingYearLevel)), alternativeGroup: wave === 'initial' && isFirstYearEntry(application?.school_plan?.incomingYearLevel) && ['grades', 'report_card'].includes(requirementKey) ? 'initial_grades' : null, requirementKey, submitted: Boolean(file?.fileName), applicationId: application?.id || null,
+            label: requirementKey === 'indigency' ? 'Barangay Indigency (optional)' : label, optional: optionalRequirement(requirementKey, wave), alternativeGroup: null, requirementKey, submitted: Boolean(file?.fileName), applicationId: application?.id || null,
             academicPeriodId: sourcePeriodId, submissionWave: wave, periodLabel: `${sourcePeriod.school_year} · ${sourcePeriod.semester}`, legacy: Boolean((set.requirements[requirementKey] ? set.legacy : inherited?.original.legacy) && !file?.uploadedByRole), versionId: file?.versionId || null, revision: file?.revision || 0, reviewHistory: file?.reviewHistory || [],
             fileName: file?.fileName || null, fileType: file?.fileType || 'application/octet-stream',
             uploadedAt: file?.uploadedAt || null, reviewedAt: file?.reviewedAt || null,
@@ -955,7 +959,7 @@ const getScholarManagement = async (req, res) => {
         const submitted = Boolean(uploadedDocument?.fileName || (!application?.initial_docs?.requirementSets && !continuingIsOpen(application?.initial_docs, activePeriod.id) && requirement?.[fileField]));
         return {
           label: uploadKey === 'indigency' ? 'Barangay Indigency (optional)' : label,
-          optional: uploadKey === 'indigency',
+          optional: optionalRequirement(uploadKey, continuingAccess.visible ? 'continuing' : 'initial'),
           submitted,
           applicationId: application?.id || null,
           requirementKey: uploadKey,
@@ -964,9 +968,9 @@ const getScholarManagement = async (req, res) => {
           uploadedAt: uploadedDocument?.uploadedAt || null,
           reviewedAt: uploadedDocument?.reviewedAt || null,
           reviewNotes: uploadedDocument?.reviewNotes || '',
-          status: statusField
-            ? uploadedDocument?.status || (!application?.initial_docs?.requirementSets && !continuingIsOpen(application?.initial_docs, activePeriod.id) ? requirement?.[statusField] : null) || 'pending'
-            : submitted ? 'approved' : 'pending',
+          status: uploadedDocument?.status
+            || (statusField && !application?.initial_docs?.requirementSets && !continuingIsOpen(application?.initial_docs, activePeriod.id) ? requirement?.[statusField] : null)
+            || (submitted && !statusField ? 'approved' : 'pending'),
         };
       });
       const requiredDocuments = documents.filter(({ optional }) => !optional);
@@ -982,6 +986,8 @@ const getScholarManagement = async (req, res) => {
         initialDocs: getEffectiveRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id),
         requirement: application?.initial_docs?.requirementSets ? undefined : requirement,
         schoolType: school?.school_type,
+        entryYearLevel: applicationPlan.incomingYearLevel,
+        submissionWave: continuingAccess.visible ? 'continuing' : 'initial',
         requireSchoolClassification: true,
       });
       const grantBlocker = preparationBlocker(schoolType, requirement, Boolean(payrollClaim));
@@ -1285,6 +1291,8 @@ const processBillingSelection = async (req, res) => {
         initialDocs: getEffectiveRequirements(projectContinuingAccess(application?.initial_docs, activePeriod.id, access), activePeriod.id, primaryPeriod.id),
         requirement: application?.initial_docs?.requirementSets || access.visible && continuingSchedule ? undefined : requirement,
         schoolType: school?.school_type,
+        entryYearLevel: application?.school_plan?.incomingYearLevel,
+        submissionWave: access.visible ? 'continuing' : 'initial',
         requireSchoolClassification: true,
       });
       const grantBlocker = preparationBlocker(school?.school_type, requirement, billedIds.has(applicantId));
@@ -1446,6 +1454,8 @@ const processPayrollSelection = async (req, res) => {
         initialDocs: getEffectiveRequirements(projectContinuingAccess(application?.initial_docs, activePeriod.id, access), activePeriod.id, primaryPeriod.id),
         requirement: application?.initial_docs?.requirementSets || access.visible && continuingSchedule ? undefined : requirement,
         schoolType: school?.school_type,
+        entryYearLevel: application?.school_plan?.incomingYearLevel,
+        submissionWave: access.visible ? 'continuing' : 'initial',
         requireSchoolClassification: true,
       });
       const reasons = [...readiness.reasons];
@@ -2029,7 +2039,7 @@ const uploadScholarRequirementByAdmin = async (req, res) => {
     ]);
     if (!application || (!scholar && !await canRecordInitial(prisma, applicantId, activePeriod.id, application))) return res.status(409).json({ message: 'Post the current passing result in a locked Passer List before initial intake.' });
     if (scholar) assertScholarPeriodEligible(applicant, activePeriod);
-    if (key === 'report_card' && !isFirstYearEntry(application.school_plan?.incomingYearLevel)) return res.status(400).json({ message: 'A Grade 12 report card is an initial COG alternative only for incoming or first-year college applicants.' });
+    if (key === 'report_card' && !isFirstYearEntry(application.school_plan?.incomingYearLevel)) return res.status(400).json({ message: 'Grade 12 report cards apply to initial requirements for incoming or first-year college applicants.' });
     if (key === 'tuition_receipt') {
       const school = await loadResolvedScholarSchool(prisma, { applicantId, applicant, requirement: requirementRecord, application });
       if (schoolClassification(school?.school_type) !== 'Private') return res.status(400).json({ message: 'A tuition receipt applies only to private-school scholars.' });
