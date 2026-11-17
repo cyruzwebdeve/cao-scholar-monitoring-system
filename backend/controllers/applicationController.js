@@ -46,7 +46,7 @@ const { resolveBillingAmount } = require('../services/billingGrant');
 const { snapshotListAmounts, totalListAmount } = require('../services/scholarAmount');
 const { getOrStartAttempt, assertAttemptOpen, AttemptError } = require('../services/onlineExamAttempt');
 const { assertAutomaticGrading, loadConfiguration, publicConfiguration, scoreConfiguredAnswers, createExamTicket, verifyExamTicket } = require('../services/onlineExamConfiguration');
-const { INITIAL_KEYS, CONTINUING_KEYS, getWaveSet, getInitialRequirements, getEffectiveRequirements, continuingIsOpen, saveWaveDocument, mutateRequirementWaves } = require('../services/requirementWaves');
+const { INITIAL_KEYS, CONTINUING_KEYS, getWaveSet, getInitialRequirements, getEffectiveRequirements, resolveInitialRequirementPeriodId, continuingIsOpen, saveWaveDocument, mutateRequirementWaves } = require('../services/requirementWaves');
 const { resolveRequirementSubmission } = require('../services/requirementSubmission');
 const { serializePayrollListMembership } = require('../services/payrollListScope');
 const { latestCertificationCreatedAt } = require('../services/certificationDate');
@@ -308,7 +308,7 @@ const createApplication = async (req, res) => {
           school_plan: personalInfo.schoolPlan,
           family: storedFamily,
           eligibility: personalInfo.eligibility,
-          initial_docs: storedPriorityProof.initialDocs,
+          initial_docs: { ...storedPriorityProof.initialDocs, initialRequirementPeriodId: activePeriod.id },
           status: APPLICATION_STATUSES.APPLIED,
         },
       });
@@ -1667,7 +1667,7 @@ const getApplicantPortalRecord = async ({ application, applicant, processingPeri
   const applicantId = applicant?.id || application.applicant_id;
   const intakePeriod = await findIntakePeriod(prisma);
   const schoolYear = applicant?.school_year || null;
-  const originalPeriodId = Number(application.initial_docs?.initialRequirementPeriodId);
+  const originalPeriodId = Number(resolveInitialRequirementPeriodId(application.initial_docs));
   let originalPeriod = Number.isSafeInteger(originalPeriodId) && originalPeriodId > 0
     ? await prisma.academic_periods.findUnique({ where: { id: originalPeriodId } }) : null;
   if (originalPeriod?.school_year !== schoolYear) originalPeriod = null;
@@ -2035,7 +2035,8 @@ const uploadScholarRequirementByAdmin = async (req, res) => {
       if (schoolClassification(school?.school_type) !== 'Private') return res.status(400).json({ message: 'A tuition receipt applies only to private-school scholars.' });
     }
     uploadedFile = await storeRequirementUpload({ applicantId, periodId: activePeriod.id, wave: 'initial', key, fileName, fileData, parsed });
-    const saved = await mutateRequirementWaves(prisma, application.id, primaryPeriod.id, async (docs, tx, latestApplication) => {
+    const legacyPeriodId = scholar ? primaryPeriod.id : activePeriod.id;
+    const saved = await mutateRequirementWaves(prisma, application.id, legacyPeriodId, async (docs, tx, latestApplication) => {
       if (scholar) {
         const latestPeriod = await tx.academic_periods.findFirst({ where: { id: activePeriod.id, is_active: true } });
         if (!latestPeriod) throw Object.assign(new Error('The selected processing period is no longer active. Refresh before uploading.'), { statusCode: 409 });

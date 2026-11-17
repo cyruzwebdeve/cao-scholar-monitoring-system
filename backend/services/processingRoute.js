@@ -1,8 +1,9 @@
 // Persisted staff choice applies only to this period. Generated membership remains
 // authoritative in list/history projections; upload timestamps never choose a route.
+const { resolveInitialRequirementPeriodId } = require('./requirementWaves');
 const resolveProcessingRoute = ({ schoolType, docs, period, requirement, legacyPeriodId = period.id }) => {
   if (requirement?.payroll_requested_at) return 'payroll';
-  if ((docs?.initialRequirementPeriodId || legacyPeriodId) === period.id) return 'payroll';
+  if (resolveInitialRequirementPeriodId(docs, legacyPeriodId) === period.id) return 'payroll';
   return String(schoolType).toLowerCase() === 'private' ? 'billing' : 'payroll';
 };
 const assertProcessingRoutes = async (tx, period, eligibility, applications, legacyPeriodId, expected) => {

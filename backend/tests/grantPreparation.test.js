@@ -51,6 +51,32 @@ test('receipt access never substitutes an earlier initial receipt for a later co
  const {receipt}=require('../controllers/grantPreparationController');const res=response();await receipt({params:{applicantId:'7'},query:{academicPeriodId:'10'},user:{id:9,role:'SuperAdmin'}},res);assert.equal(res.statusCode,404);assert.match(res.body.message,/Earlier-period/);
 });
 
+test('receipt reads recover the actual initial period without reusing its file in later periods',async()=>{
+ const initialData='data:application/pdf;base64,'+Buffer.from('%PDF-1.4\ninitial receipt\n%%EOF').toString('base64');
+ const continuingData='data:application/pdf;base64,'+Buffer.from('%PDF-1.4\ncontinuing receipt\n%%EOF').toString('base64');
+ const application={id:1,applicant_id:7,initial_docs:{initialRequirementPeriodId:10,requirementSets:{
+  '11:initial':{requirements:{tuition_receipt:{fileName:'initial.pdf',fileData:initialData,status:'Approved'}}},
+ }}};
+ const original=structuredClone(application);
+ const primary={id:10,is_active:true,is_primary:true,school_year:'2026-2027',semester:'1st Semester'};
+ prisma.academic_periods.findFirst=async({where})=>where.id?{...primary,id:where.id,is_primary:false}:primary;
+ prisma.application_submissions.findFirst=async()=>application;
+ prisma.application_submissions.findUnique=async()=>application;
+ const streamedResponse=()=>({...response(),headers:{},setHeader(name,value){this.headers[name]=value;},send(buffer){this.buffer=buffer;return this;}});
+ const {receipt}=require('../controllers/grantPreparationController');
+ const requestFor=academicPeriodId=>({params:{applicantId:'7'},query:{academicPeriodId:String(academicPeriodId)},user:{id:9,role:'SuperAdmin'}});
+ let res=streamedResponse();await receipt(requestFor(11),res);
+ assert.equal(res.statusCode,200);assert.equal(res.buffer.toString(),'%PDF-1.4\ninitial receipt\n%%EOF');
+ assert.equal(res.headers['Cache-Control'],'private, no-store');assert.equal(row,null);assert.deepEqual(events,[]);
+ res=streamedResponse();await receipt(requestFor(12),res);
+ assert.equal(res.statusCode,404);assert.match(res.body.message,/Earlier-period/);assert.equal(res.buffer,undefined);
+ assert.deepEqual(application,original);
+ application.initial_docs.requirementSets['12:continuing']={requirements:{tuition_receipt:{fileName:'continuing.pdf',fileData:continuingData,status:'Pending'}}};
+ res=streamedResponse();await receipt(requestFor(12),res);
+ assert.equal(res.statusCode,200);assert.equal(res.buffer.toString(),'%PDF-1.4\ncontinuing receipt\n%%EOF');
+ assert.equal(row,null);assert.deepEqual(events,[]);
+});
+
 test('grant preparation respects an explicit period amount without resurrecting legacy ignored values', async () => {
  row={applicant_id:7,billing_period_id:10,billing_amount:9999,list_amount_override:6500.75};
  let res=response();await save(request(5500.25),res);assert.equal(res.statusCode,200);assert.equal(res.body.grant.totalGrant,6500.75);assert.equal(res.body.grant.allowance,1000.5);

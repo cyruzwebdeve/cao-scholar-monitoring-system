@@ -57,7 +57,7 @@ const receipt = safe(async(req,res)=>{
   const continuing = getWaveSet(application.initial_docs,periodId,'continuing',primary.id).requirements.tuition_receipt;
   const inherited = getInitialRequirements(application.initial_docs,periodId,primary.id);
   const currentInitial=getWaveSet(application.initial_docs,periodId,'initial',primary.id).requirements.tuition_receipt;
-  const initialPeriodId=application.initial_docs?.initialRequirementPeriodId||primary.id;
+  const initialPeriodId=inherited.originalPeriodId;
   const file=continuing||(initialPeriodId===periodId ? inherited.requirements.tuition_receipt : null);
   if (!file?.fileName) throw error('No tuition receipt is available for this academic period. Earlier-period receipts are not used.',404);
   const sourcePeriod=continuing||currentInitial?periodId:inherited.originalPeriodId;

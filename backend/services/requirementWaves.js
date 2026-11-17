@@ -4,21 +4,46 @@ const CONTINUING_KEYS = Object.freeze(['grades', 'registration_form', 'tuition_r
 const WAVES = new Set(['initial', 'continuing']);
 const clone = (value) => JSON.parse(JSON.stringify(value || {}));
 const conflict = (message = 'This document changed while you were working. Refresh and try again.') => Object.assign(new Error(message), { statusCode: 409 });
+const validPeriodId = value => {
+  const id = Number(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+};
+const storedFile = file => Boolean(file && (file.fileName || file.fileUrl || file.fileData));
+
+// Recover an empty/stale origin only from an unambiguous saved initial set.
+// A populated origin (including archived files) remains authoritative; period
+// IDs and upload times do not establish which of several sets was the original.
+const resolveInitialRequirementPeriodId = (initialDocs, legacyPeriodId) => {
+  const markedPeriodId = validPeriodId(initialDocs?.initialRequirementPeriodId);
+  const sources = Object.entries(initialDocs?.requirementSets || {}).flatMap(([key, set]) => {
+    const match = /^([1-9]\d*):initial$/.exec(key);
+    const periodId = match && validPeriodId(match[1]);
+    if (!periodId || (set?.wave && set.wave !== 'initial')
+      || (set?.academicPeriodId && validPeriodId(set.academicPeriodId) !== periodId)) return [];
+    const hasFiles = Object.entries(set?.requirements || {}).some(([requirementKey, file]) => INITIAL_KEYS.includes(requirementKey) && storedFile(file))
+      || (set?.history || []).some(file => INITIAL_KEYS.includes(file?.requirementKey) && storedFile(file));
+    return hasFiles ? [periodId] : [];
+  });
+  if (markedPeriodId && sources.includes(markedPeriodId)) return markedPeriodId;
+  if (sources.length === 1) return sources[0];
+  return markedPeriodId || validPeriodId(legacyPeriodId);
+};
 
 const initializeWaves = (initialDocs, legacyPeriodId) => {
   const docs = clone(initialDocs);
   if (!docs.requirementSets) {
     const requirements = Object.fromEntries(Object.entries(docs.requirements || {}).filter(([key]) => INITIAL_KEYS.includes(key)));
+    const originalPeriodId = validPeriodId(docs.initialRequirementPeriodId) || legacyPeriodId;
     docs.requirementSets = {};
-    if (Object.keys(requirements).length) docs.requirementSets[`${legacyPeriodId}:initial`] = {
-      academicPeriodId: legacyPeriodId, wave: 'initial', legacy: true, requirements, history: [],
+    if (Object.keys(requirements).length) docs.requirementSets[`${originalPeriodId}:initial`] = {
+      academicPeriodId: originalPeriodId, wave: 'initial', legacy: true, requirements, history: [],
     };
   }
   Object.values(docs.requirementSets).forEach((set) => Object.values(set.requirements || {}).forEach((file) => {
     file.versionId ||= `legacy-${createHash('sha256').update(JSON.stringify([file.fileName, file.fileUrl, file.fileData, file.uploadedAt])).digest('hex').slice(0, 24)}`;
     file.revision ||= 0;
   }));
-  docs.initialRequirementPeriodId ||= legacyPeriodId;
+  docs.initialRequirementPeriodId = resolveInitialRequirementPeriodId(docs, legacyPeriodId);
   docs.requirementWaves ||= {};
   return docs;
 };
@@ -61,6 +86,7 @@ const saveWaveDocument = (docs, { periodId, wave, key, file, actorId, actorRole 
     ...(wave === 'initial' ? { reviewedAt: uploadedAt, reviewedBy: actorId, reviewNotes: 'Initial document checked and uploaded by CAO staff.' } : {}),
     reviewHistory: [],
   };
+  if (wave === 'initial') docs.initialRequirementPeriodId = resolveInitialRequirementPeriodId(docs, docs.initialRequirementPeriodId || periodId);
   return set.requirements[key];
 };
 
@@ -87,4 +113,4 @@ const mutateRequirementWaves = async (prisma, applicationId, legacyPeriodId, mut
     }
   }
 };
-module.exports = { INITIAL_KEYS, CONTINUING_KEYS, WAVES, conflict, initializeWaves, getWaveSet, getInitialRequirements, getEffectiveRequirements, continuingIsOpen, getScopedDocument, saveWaveDocument, mutateRequirementWaves };
+module.exports = { INITIAL_KEYS, CONTINUING_KEYS, WAVES, conflict, resolveInitialRequirementPeriodId, initializeWaves, getWaveSet, getInitialRequirements, getEffectiveRequirements, continuingIsOpen, getScopedDocument, saveWaveDocument, mutateRequirementWaves };

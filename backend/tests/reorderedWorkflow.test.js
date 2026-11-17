@@ -23,6 +23,21 @@ test('upload timestamps never reroute Private Scholars; only the persisted perio
  const options={schoolType:'Private',docs:record,period,legacyPeriodId:9,schedule:{late_scope:'all',late_opens_at:'2026-10-10',late_closes_at:'2026-10-12'}};
  assert.equal(resolveProcessingRoute(options),'billing');assert.equal(resolveProcessingRoute({...options,requirement:{payroll_requested_at:'2026-10-16'}}),'payroll');
 });
+test('an empty stale original marker does not choose the initial processing destination',()=>{
+ const record=docs(11);record.initialRequirementPeriodId=10;
+ const original=structuredClone(record);
+ const options={schoolType:'Private',docs:record,legacyPeriodId:10};
+ assert.equal(resolveProcessingRoute({...options,period:{id:11}}),'payroll');
+ assert.equal(resolveProcessingRoute({...options,period:{id:12}}),'billing');
+ assert.equal(resolveProcessingRoute({...options,period:{id:10}}),'billing');
+ assert.equal(resolveProcessingRoute({...options,period:{id:12},requirement:{payroll_requested_at:'2026-10-16'}}),'payroll');
+ assert.deepEqual(record,original);
+});
+test('a populated original period remains authoritative when another initial set is recorded later',()=>{
+ const record=docs(10);record.requirementSets['11:initial']={requirements:{grades:{fileName:'updated.pdf',status:'Approved'}}};
+ assert.equal(resolveProcessingRoute({schoolType:'Private',docs:record,period:{id:10},legacyPeriodId:11}),'payroll');
+ assert.equal(resolveProcessingRoute({schoolType:'Private',docs:record,period:{id:11},legacyPeriodId:11}),'billing');
+});
 test('posted intake rejects missing/stale/failed/unpublished results and binds the original application',async()=>{
  const result={id:20,passed:true,published_at:'2026-10-10',updated_at:'2026-10-10'};
  let members=[{result_id:20,application_id:3,snapshot:{resultUpdatedAt:'2026-10-10'}}];

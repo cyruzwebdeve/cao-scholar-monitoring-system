@@ -134,6 +134,7 @@ test('registration uses the independent intake and leaves processing periods and
   await createApplication(request(), res);
   assert.equal(res.statusCode, 201);
   assert.equal(state.applicants.at(-1).school_year, '2027-2028');
+  assert.equal(state.applications.at(-1).initial_docs.initialRequirementPeriodId, 2);
   assert.equal(state.slots.at(-1).exam_id, 20);
   assert.deepEqual(state.periods, periods);
   assert.equal(emails, 1);
@@ -326,6 +327,132 @@ const scholarRequest = (periodId = 1) => ({ user: { id: 5, role: 'Scholar' }, bo
   academicPeriodId: periodId, requirement: 'grades', fileName: 'synthetic-grades.pdf', fileData: dataUrl() }, query: {} });
 const adminRequest = (periodId = 1) => ({ user: { id: 99, role: 'SuperAdmin' }, params: { applicantId: '5', requirementKey: 'grades' },
   body: { ...scholarRequest(periodId).body, applicantIds: [5], schoolId: 1, yearLevel: '1st Year', course: 'Synthetic course', major: '', billingNotes: '', billingStatus: 'Not billed' }, query: {} });
+
+const postCurrentPasser = () => {
+  const result = state.results.find(row => row.applicant_id === 5);
+  prisma.passer_list_members.findMany = async () => [{
+    applicant_id: 5, application_id: 105, result_id: result.id,
+    snapshot: { resultUpdatedAt: result.updated_at.toISOString() },
+  }];
+};
+
+test('posted passer uploads record the independent intake as the initial source', async () => {
+  postCurrentPasser();
+  const periods = structuredClone(state.periods);
+  const res = response();
+  await uploadScholarRequirementByAdmin(adminRequest(2), res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.document.academicPeriodId, 2);
+  assert.equal(res.body.document.status, 'Approved');
+  const docs = state.applications[0].initial_docs;
+  assert.equal(docs.initialRequirementPeriodId, 2);
+  assert.equal(docs.requirementSets['2:initial'].requirements.grades.fileName, 'synthetic-grades.pdf');
+  assert.equal(docs.requirementSets['1:initial'], undefined);
+  assert.deepEqual(state.periods, periods);
+  assert.deepEqual(writes, ['intake-lock', 'requirements']);
+});
+
+test('initial intake uploads remain inherited for later Scholar reads and continuing submissions', async () => {
+  postCurrentPasser();
+  for (const key of ['tax_exemption', 'valid_id', 'grades', 'registration_form']) {
+    const req = adminRequest(2);
+    req.params.requirementKey = key;
+    req.body.fileName = `synthetic-${key}.pdf`;
+    const res = response();
+    await uploadScholarRequirementByAdmin(req, res);
+    assert.equal(res.statusCode, 200);
+  }
+  const originalSet = structuredClone(state.applications[0].initial_docs.requirementSets['2:initial']);
+  state.scholar = { id: 1, applicant_id: 5, scholar_id: 'SYN-CURRENT', is_active: true, result_id: 200 };
+  state.periods.find(row => row.id === 3).is_active = true;
+  const read = response();
+  await getScholarManagement({ query: { academicPeriodId: 3 } }, read);
+  assert.equal(read.statusCode, 200);
+  assert.equal(read.body.scholars[0].continuingSubmission.initialApproved, true);
+  const inherited = read.body.scholars[0].initialDocuments.find(file => file.requirementKey === 'tax_exemption');
+  assert.equal(inherited.academicPeriodId, 2);
+  assert.equal(inherited.fileName, 'synthetic-tax_exemption.pdf');
+  const upload = response();
+  await uploadMyRequirement(scholarRequest(3), upload);
+  assert.equal(upload.statusCode, 200);
+  const docs = state.applications[0].initial_docs;
+  assert.equal(docs.initialRequirementPeriodId, 2);
+  assert.deepEqual(docs.requirementSets['2:initial'], originalSet);
+  assert.equal(docs.requirementSets['3:continuing'].requirements.grades.status, 'Pending');
+  assert.equal(state.periods[0].is_primary, true);
+});
+
+test('later admin initial replacement preserves a valid original source and its files', async () => {
+  acceptFutureScholar();
+  state.periods.find(row => row.id === 3).is_active = true;
+  const originals = structuredClone(state.applications[0].initial_docs.requirementSets['2:initial'].requirements);
+  const res = response();
+  await uploadScholarRequirementByAdmin(adminRequest(3), res);
+  assert.equal(res.statusCode, 200);
+  const docs = state.applications[0].initial_docs;
+  assert.equal(docs.initialRequirementPeriodId, 2);
+  Object.entries(originals).forEach(([key, file]) => {
+    assert.equal(docs.requirementSets['2:initial'].requirements[key].fileName, file.fileName);
+    assert.equal(docs.requirementSets['2:initial'].requirements[key].status, file.status);
+  });
+  assert.equal(docs.requirementSets['3:initial'].requirements.grades.status, 'Approved');
+  assert.equal(state.periods[0].is_primary, true);
+});
+
+test('a changed intake rejects initial upload before saving source metadata', async () => {
+  postCurrentPasser();
+  const originalDocs = structuredClone(state.applications[0].initial_docs);
+  beforeTransaction = () => { intakeId = 3; };
+  const res = response();
+  await uploadScholarRequirementByAdmin(adminRequest(2), res);
+  assert.equal(res.statusCode, 409);
+  assert.deepEqual(state.applications[0].initial_docs, originalDocs);
+  assert.ok(writes.every(write => write === 'intake-lock'));
+});
+
+test('an existing wrong source is resolved for Scholar reads and normalized on continuing upload', async () => {
+  acceptFutureScholar();
+  state.applications[0].initial_docs.initialRequirementPeriodId = 1;
+  state.periods.find(row => row.id === 3).is_active = true;
+  const originalDocs = structuredClone(state.applications[0].initial_docs);
+  const read = response();
+  await getMyApplication({ user: { id: 5 }, query: { requirementPeriodId: 3 } }, read);
+  assert.equal(read.statusCode, 200);
+  assert.equal(read.body.requirementWave.academicPeriodId, 3);
+  assert.equal(read.body.requirementWave.initial.tax_exemption.fileName, 'tax_exemption.pdf');
+  assert.equal(read.body.requirementWave.submission.isOpen, true);
+  assert.deepEqual(state.applications[0].initial_docs, originalDocs);
+  assert.equal(writes.length, 0);
+  const upload = response();
+  await uploadMyRequirement(scholarRequest(3), upload);
+  assert.equal(upload.statusCode, 200);
+  const docs = state.applications[0].initial_docs;
+  assert.equal(docs.initialRequirementPeriodId, 2);
+  assert.equal(docs.requirementSets['2:initial'].requirements.tax_exemption.fileName, 'tax_exemption.pdf');
+  assert.equal(docs.requirementSets['3:continuing'].requirements.grades.status, 'Pending');
+});
+
+test('historical Applicant portal uses the recorded initial source semester without rewriting data', async () => {
+  intakeId = 3;
+  state.periods.push({ ...period(5, '2027-2028'), semester: '2nd Semester' });
+  state.applications[0].initial_docs = { initialRequirementPeriodId: 1, requirementSets: {
+    '5:initial': { academicPeriodId: 5, wave: 'initial', requirements: {
+      tax_exemption: { fileName: 'synthetic-original.pdf', status: 'Approved' },
+    } },
+  } };
+  const originalDocs = structuredClone(state.applications[0].initial_docs);
+  const res = response();
+  await getMyApplication({ user: { id: 5 }, query: {} }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.activePeriod.id, 5);
+  assert.equal(res.body.activePeriod.semester, '2nd Semester');
+  assert.equal(res.body.requirementWave.academicPeriodId, 5);
+  assert.equal(res.body.requirementWave.initial.tax_exemption.fileName, 'synthetic-original.pdf');
+  assert.equal(res.body.intakeScope.archived, true);
+  assert.equal(res.body.examination.access.allowed, false);
+  assert.deepEqual(state.applications[0].initial_docs, originalDocs);
+  assert.equal(writes.length, 0);
+});
 
 test('a future-entry Scholar remains in the directory with processing and continuing access closed', async () => {
   acceptFutureScholar();
