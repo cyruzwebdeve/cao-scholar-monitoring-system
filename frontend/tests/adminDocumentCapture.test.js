@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  assignCaptureDraft, captureDraftBytes, captureDraftHasContent, captureDraftUploadReady,
+  assignCaptureDraft, assignCaptureRequirement, captureDraftBytes, captureDraftHasContent, captureDraftUploadReady,
   createCaptureDraft, getCaptureUploadTarget, MAX_CAPTURE_DRAFT_BYTES, updateCaptureDraftContent,
 } from '../src/utils/adminDocumentCapture.js';
 
@@ -43,6 +43,66 @@ test('assignments can be corrected or cleared without losing the scanned pages',
   drafts = assignCaptureDraft(drafts, 'one', '', requirements);
   assert.equal(captureDraftUploadReady(drafts, 'one', requirements), false);
   assert.deepEqual(drafts.one.pages, ['synthetic-page']);
+});
+
+test('a requirement row replaces its selected scan atomically and preserves all document content', () => {
+  const drafts = {
+    one: { ...scanned('one', 1), requirementKey: 'valid_id' },
+    two: scanned('two', 2, 'replacement-page'),
+    three: { ...createCaptureDraft('three', 3), requirementKey: 'report_card', file: { fileName: 'report.pdf', fileData: 'synthetic-report' } },
+  };
+  const original = structuredClone(drafts);
+  const next = assignCaptureRequirement(drafts, 'valid_id', 'two', requirements);
+  assert.equal(next.one.requirementKey, '');
+  assert.equal(getCaptureUploadTarget(next, 'two', requirements), 'valid_id');
+  assert.deepEqual(next.one.pages, original.one.pages);
+  assert.deepEqual(next.two.pages, original.two.pages);
+  assert.deepEqual(next.three, original.three);
+  assert.deepEqual(drafts, original);
+});
+
+test('clearing a requirement row releases its scan without deleting content or other assignments', () => {
+  const drafts = {
+    one: { ...scanned('one', 1), requirementKey: 'valid_id' },
+    two: { ...scanned('two', 2), requirementKey: 'report_card' },
+  };
+  const original = structuredClone(drafts);
+  const cleared = assignCaptureRequirement(drafts, 'valid_id', '', requirements);
+  assert.equal(cleared.one.requirementKey, '');
+  assert.deepEqual(cleared.one.pages, original.one.pages);
+  assert.deepEqual(cleared.two, original.two);
+  assert.equal(captureDraftUploadReady(cleared, 'one', requirements), false);
+  const reassigned = assignCaptureRequirement(cleared, 'grades', 'one', requirements);
+  assert.equal(getCaptureUploadTarget(reassigned, 'one', requirements), 'grades');
+  assert.deepEqual(drafts, original);
+});
+
+test('a requirement row cannot steal a document from another row or release its old selection on failure', () => {
+  const drafts = {
+    one: { ...scanned('one', 1), requirementKey: 'valid_id' },
+    two: { ...scanned('two', 2), requirementKey: 'report_card' },
+  };
+  const original = structuredClone(drafts);
+  assert.throws(() => assignCaptureRequirement(drafts, 'valid_id', 'two', requirements), /another requirement/);
+  assert.deepEqual(drafts, original);
+  const unchanged = assignCaptureRequirement(drafts, 'valid_id', 'one', requirements);
+  assert.equal(getCaptureUploadTarget(unchanged, 'one', requirements), 'valid_id');
+  assert.deepEqual(unchanged, original);
+});
+
+test('unknown, empty-content, removed and saved row selections reject without changing current bindings', () => {
+  const drafts = {
+    one: { ...scanned('one', 1), requirementKey: 'valid_id' },
+    empty: createCaptureDraft('empty', 2),
+  };
+  const original = structuredClone(drafts);
+  assert.throws(() => assignCaptureRequirement(drafts, 'unknown', 'one', requirements), /initial checklist/);
+  assert.throws(() => assignCaptureRequirement(drafts, 'valid_id', 'empty', requirements), /Scan or choose/);
+  assert.throws(() => assignCaptureRequirement(drafts, 'valid_id', 'removed', requirements), /no longer available/);
+  assert.throws(() => assignCaptureRequirement(drafts, 'valid_id', undefined, requirements), /no longer available/);
+  assert.throws(() => assignCaptureRequirement(drafts, 'valid_id', 'one', requirements, { valid_id: true }), /already uploaded/);
+  assert.throws(() => assignCaptureRequirement(drafts, 'valid_id', '', requirements, { valid_id: true }), /already uploaded/);
+  assert.deepEqual(drafts, original);
 });
 
 test('two pending documents cannot silently target the same requirement', () => {

@@ -42,6 +42,27 @@ export const assignCaptureDraft = (drafts, id, requirementKey, requirements, sav
   return { ...drafts, [id]: { ...draft, requirementKey } };
 };
 
+// A requirement row may replace its selected document without losing either
+// scan. Validate the replacement before releasing the previous row binding.
+export const assignCaptureRequirement = (drafts, requirementKey, draftId, requirements, saved = {}) => {
+  if (!requirements.some(document => document.requirementKey === requirementKey)) {
+    throw new Error('Choose a requirement from this initial checklist.');
+  }
+  if (saved[requirementKey]) throw new Error('This requirement was already uploaded. Close and reopen the scanner to upload a correction.');
+  if (draftId !== '') {
+    const draft = drafts[draftId];
+    if (!draft) throw new Error('This scanned document is no longer available.');
+    if (!captureDraftHasContent(draft)) throw new Error('Scan or choose this document before assigning its requirement.');
+    if (draft.requirementKey && draft.requirementKey !== requirementKey) {
+      throw new Error('This scanned document is assigned to another requirement. Clear that assignment first.');
+    }
+  }
+  const next = Object.fromEntries(Object.entries(drafts).map(([id, draft]) => [id,
+    draft.requirementKey === requirementKey && id !== draftId ? { ...draft, requirementKey: '' } : draft,
+  ]));
+  return draftId === '' ? next : assignCaptureDraft(next, draftId, requirementKey, requirements, saved);
+};
+
 export const getCaptureUploadTarget = (drafts, id, requirements, saved = {}) => {
   const draft = drafts[id];
   if (!captureDraftHasContent(draft)) throw new Error('Scan or choose this document before uploading.');

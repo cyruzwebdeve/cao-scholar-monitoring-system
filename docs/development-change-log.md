@@ -5,6 +5,31 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-17 - Tab Admin Scanning and Select Documents Within Each Requirement
+
+**TL;DR**
+
+- Authorized staff now navigate initial document capture through Scan documents and Assign requirements tabs in Results and Scholar Overview.
+- Each requirement has its own scanned-document dropdown, Preview scan action and Upload & approve button. Replacing or clearing a selection preserves the scans; documents assigned elsewhere cannot be reused until released.
+- Switching tabs retains drafts and stops the camera when leaving Scan documents. Each upload uses its row's document regardless of the preview selection; existing periods, files, history and first-year report-card rules are preserved.
+- All 22 focused frontend tests and 11 actual component-function smoke scenarios passed, with three module parses and whitespace review. Browser/build/lint verification remains unavailable; no API/schema changes, migration, live writes or deployment.
+
+**Objective and reason:** Simplify the requested admin scan-and-assignment layout with tabs and move document selection into each designated requirement, making the selected file and upload target easier to review together.
+
+**Previous and new behavior:** The scanner previously displayed capture and assignment controls together and used a global requirement selector for the preview-selected draft. It now opens on Scan documents for camera/file capture and editing. Assign requirements displays each checklist row with a dropdown containing scans/PDFs that have content, its required/optional and saved status, preview actions and its own upload button. Selecting a replacement releases the previous document without deleting it; selecting the empty option clears the row. Documents assigned to another row are disabled. Uploads remove only the uploaded draft, retaining the preview-selected draft when it still exists. Reopening starts on Scan documents; corrections to an already uploaded requirement retain the existing close/reopen safeguard.
+
+**Affected users and workflows:** Authorized Results and Scholars staff use the tabs for initial requirements. Applicant/Scholar portal behavior, first-year report-card requirements, continuing uploads and explicit Scholar acceptance are unchanged.
+
+**Implementation and data flow:** InitialRequirementCapture keeps both tab panels mounted and hides the inactive one. Tab switching is blocked during processing; leaving capture stops active camera tracks and invalidates pending camera acquisition. The new assignCaptureRequirement helper validates the row and chosen draft before atomically replacing/clearing its existing binding. The underlying draft requirementKey shape remains. Per-row publishing accepts an explicit draft ID and expected requirement key, verifies that binding, prepares only that file, and rechecks the draft after asynchronous PDF preparation before using the existing authenticated period-scoped upload endpoint. Failure retains drafts; unmount suppresses a pending upload.
+
+**Files or system areas changed:** frontend/src/InitialRequirementCapture.jsx, frontend/src/utils/adminDocumentCapture.js, frontend/src/styles/document-capture.css and frontend/tests/adminDocumentCapture.test.js. Updated docs/qa/2026-11-17/admin-scan-assignment-checklist.md and both change logs.
+
+**Impact assessment:** API: no endpoint or request-contract changes. Database/schema, configuration and stored data: no changes, migration or live record writes. Security/privacy: existing authentication, section permissions, file validation, academic-period guards and private-document/history handling remain; scans remain temporary component memory with existing close/unload warnings. Accessibility: labeled requirement dropdowns, textual statuses, ARIA tabs/panels, roving tab focus with Arrow/Home/End keys, hidden inactive controls, visible focus and wrapping row actions. Deployment: frontend release only for this layout change, using the existing matching backend; no deployment-configuration changes or deployment occurred. Payroll-list scope, amounts, legacy payment-oriented code, attendance and Scholar acknowledgements are unchanged.
+
+**Validation performed and results:** All 22 focused frontend tests passed: 13 admin capture assignment tests, one capture-readiness test, five file-policy tests and three initial-evidence tests. Four new regressions cover row replacement/clear behavior, rejecting reuse without losing the previous binding, unavailable/saved/empty selections and preserving scan content. Eleven smoke scenarios executing parsed actual component functions with mocked requests verified row-specific PDF/photo payloads and Scholar/Passer endpoints with the correct period, retaining a different preview selection, rejection of mismatched/unassigned/changed drafts, failed-upload retention, unmount suppression, selecting the remaining draft after uploading the previewed document, phone-connection blocking, camera cleanup, processing guards and seven tab-key cases. Cached Babel parsed all three changed JS/JSX modules. Read-only component/CSS review and Git whitespace checks passed. Browser rendering, real camera interaction, React build and lint were not run because frontend tooling is unavailable; no live upload or database action was performed.
+
+**Known limitations, rollback considerations, and recommended next work:** Drafts remain temporary and closing/leaving discards unsaved scans. Documents uploaded in the current session require reopening for correction. Hardware scanner output still uses Choose file; phone-pairing availability is unchanged. Run the revised 15-check manual checklist on desktop/mobile when frontend tooling is restored, including keyboard focus, camera cleanup and row uploads. Reverting these frontend changes restores the prior combined layout and global requirement selector without any data rollback; uploaded files/history remain valid.
+
 ## 2026-11-17 - Scan Admin Documents Before Assignment and Require First-Year Report Cards
 
 **TL;DR**

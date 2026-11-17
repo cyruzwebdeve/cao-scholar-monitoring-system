@@ -4,14 +4,16 @@ import DocumentViewButton from './components/DocumentViewButton';
 import CapturePhotoTips from './CapturePhotoTips';
 import LaptopPhoneCapture from './LaptopPhoneCapture';
 import { useEffect, useRef, useState } from 'react';
-import { Camera, CheckCircle2, Crop, Plus, RotateCw, Trash2, Upload, X } from 'lucide-react';
+import { Camera, CheckCircle2, Crop, Eye, Plus, RotateCw, Trash2, Upload, X } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
 import { buildCapturePdf, MAX_CAPTURE_PAGES, renderCapture } from './utils/documentCapture';
-import { assignCaptureDraft, captureDraftBytes, captureDraftHasContent, captureDraftUploadReady, createCaptureDraft, getCaptureUploadTarget, MAX_CAPTURE_DRAFT_BYTES, updateCaptureDraftContent } from './utils/adminDocumentCapture';
+import { assignCaptureRequirement, captureDraftBytes, captureDraftHasContent, captureDraftUploadReady, createCaptureDraft, getCaptureUploadTarget, MAX_CAPTURE_DRAFT_BYTES, updateCaptureDraftContent } from './utils/adminDocumentCapture';
 import './styles/document-capture.css';
 export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const documents = scholar.initialDocuments || scholar.documents || [];
+  const captureId = `capture-${scholar.applicantId}-${scholar.academicPeriodId}`;
   const [open, setOpen] = useState(false);
+  const [captureTab, setCaptureTab] = useState('scan');
   const [drafts, setDrafts] = useState(() => ({ 'capture-1': createCaptureDraft('capture-1', 1) }));
   const [saved, setSaved] = useState({});
   const [draftId, setDraftId] = useState('capture-1');
@@ -28,8 +30,23 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const storeDrafts = (next) => { draftsRef.current = next; setDrafts(next); };
   const video = useRef(null), stream = useRef(null), alive = useRef(true), cameraRequest = useRef(0), request = useRef(null);
   const draft = drafts[draftId] || { pages: [], requirementKey: '' };
-  const key = draft.requirementKey;
   const stopCamera = () => { cameraRequest.current += 1; stream.current?.getTracks().forEach((track) => track.stop()); stream.current = null; setCamera(false); };
+  const changeTab = next => {
+    if (workingRef.current || !['scan', 'assign'].includes(next)) return false;
+    if (next !== 'scan') stopCamera();
+    setCaptureTab(next);
+    return true;
+  };
+  const onTabKeyDown = event => {
+    if (workingRef.current) return;
+    const tabs = ['scan', 'assign'];
+    const index = tabs.indexOf(captureTab);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1
+      : ['ArrowLeft', 'ArrowRight'].includes(event.key) ? (index + 1) % tabs.length : null;
+    if (next === null) return;
+    event.preventDefault();
+    if (changeTab(tabs[next])) event.currentTarget.querySelectorAll('[role="tab"]')[next]?.focus();
+  };
   useEffect(() => {
     alive.current = true;
     const stop = () => { cameraRequest.current += 1; stream.current?.getTracks().forEach((track) => track.stop()); stream.current = null; };
@@ -57,8 +74,9 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
     if (!Object.keys(next).length) { const empty = freshDraft(); next[empty.id] = empty; }
     storeDrafts(next); choose(Object.keys(next)[0]);
   };
-  const assign = (requirementKey) => {
-    try { storeDrafts(assignCaptureDraft(draftsRef.current, draftId, requirementKey, documents, saved)); setNotice(''); }
+  const assign = (requirementKey, selectedDraftId) => {
+    if (workingRef.current) return;
+    try { storeDrafts(assignCaptureRequirement(draftsRef.current, requirementKey, selectedDraftId, documents, saved)); setNotice(''); }
     catch (error) { setNoticeTone('warning'); setNotice(error.message); }
   };
   const startCamera = async () => {
@@ -115,15 +133,16 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
     [pages[pageIndex], pages[destination]] = [pages[destination], pages[pageIndex]];
     edit({ pages }); setPageIndex(destination); setCrop([0, 0, 0, 0]);
   };
-  const publish = () => act(async () => {
+  const publish = (uploadDraftId, expectedRequirementKey) => act(async () => {
     stopCamera();
     if (phoneConnected) throw new Error('End the phone connection before uploading this document.');
-    const requirementKey = getCaptureUploadTarget(draftsRef.current, draftId, documents, saved);
-    const item = draftsRef.current[draftId];
+    const requirementKey = getCaptureUploadTarget(draftsRef.current, uploadDraftId, documents, saved);
+    if (requirementKey !== expectedRequirementKey) throw new Error('This requirement assignment changed. Review the selected document before uploading.');
+    const item = draftsRef.current[uploadDraftId];
     setProgress('Preparing selected document...');
     const file = item.file || { fileName: `initial-${requirementKey}.pdf`, fileData: await buildCapturePdf(item.pages) };
     if (!alive.current) return;
-    if (draftsRef.current[draftId] !== item) throw new Error('This scanned document changed while preparing. Review it before uploading.');
+    if (draftsRef.current[uploadDraftId] !== item) throw new Error('This scanned document changed while preparing. Review it before uploading.');
     request.current = new AbortController();
     setProgress('Uploading selected document...');
     try {
@@ -135,24 +154,24 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
       if (!response.ok) throw new Error(body.message || 'Upload failed. This document can be retried.');
       if (!alive.current) return;
       setSaved(current => ({ ...current, [requirementKey]: true }));
-      const next = { ...draftsRef.current }; delete next[draftId];
+      const next = { ...draftsRef.current }; delete next[uploadDraftId];
       if (!Object.keys(next).length) { const empty = freshDraft(); next[empty.id] = empty; }
-      storeDrafts(next); choose(Object.keys(next)[0]);
+      storeDrafts(next); if (!next[draftId]) choose(Object.keys(next)[0]);
       setNoticeTone('success'); setNotice('Assigned document uploaded and approved. Other scans remain ready for assignment. Previous versions are retained.');
     } finally { if (alive.current) { setProgress(''); await onSaved(); } }
   });
-  const ready = captureDraftUploadReady(drafts, draftId, documents, saved);
-  const selected = documents.find((item) => item.requirementKey === key);
   const page = draft.pages?.[pageIndex];
-  const close = () => { if ((Object.values(drafts).some(captureDraftHasContent) || phoneConnected) && !window.confirm('Discard scanned documents and any phone photos that have not been uploaded?')) return; stopCamera(); storeDrafts({}); receivedPages.current.clear(); setSaved({}); setOpen(false); };
-  if (!open) return <button type="button" className="capture-start" disabled={!['Public', 'Private'].includes(scholar.schoolType)} onClick={() => { newDocument(); setOpen(true); }}><Camera size={15} />Scan and assign initial documents</button>;
+  const close = () => { if ((Object.values(drafts).some(captureDraftHasContent) || phoneConnected) && !window.confirm('Discard scanned documents and any phone photos that have not been uploaded?')) return; stopCamera(); storeDrafts({}); receivedPages.current.clear(); setSaved({}); setCaptureTab('scan'); setOpen(false); };
+  if (!open) return <button type="button" className="capture-start" disabled={!['Public', 'Private'].includes(scholar.schoolType)} onClick={() => { newDocument(); setCaptureTab('scan'); setOpen(true); }}><Camera size={15} />Scan and assign initial documents</button>;
   return <section className="document-capture" aria-label="Initial document camera intake" aria-busy={working}>
     <header><div><h4>Scan and assign initial requirements</h4><p>{scholar.name} · {scholar.controlNumber || scholar.scholarId}<br />{scholar.schoolYear} · {scholar.semester}</p></div><button type="button" disabled={working} onClick={close} aria-label="Close document scanner"><X size={16} /></button></header>
-    <p className="capture-help">Scan or choose each document first. Use New document for the next document, then select each scan and assign it to the correct requirement before uploading. Scans stay in this tab until uploaded; closing the drawer or leaving Overview discards them.</p>
+    <p className="capture-help">Scan or choose documents in Scan documents, then select a document for each requirement in Assign requirements. Switching tabs keeps your scans; closing the drawer or leaving Overview discards them.</p>
     {notice && <Notification tone={noticeTone} title={noticeTone === 'success' ? 'Initial requirements saved' : 'Capture needs attention'} onDismiss={() => setNotice('')}>{notice}</Notification>}
     {progress && <Notification tone="progress" title="Uploading initial requirements">{progress}</Notification>}
     {documents.some(document => document.requirementKey === 'report_card' && document.optional === false) && <p className="capture-help">Incoming/first-year college: the Grade 12 report card is required. Initial COG is optional.</p>}
     <LaptopPhoneCapture scholar={scholar} token={token} busy={working} onPages={receivePhonePages} onConnectionChange={setPhoneConnected} />
+    <nav className="capture-workspace-tabs" role="tablist" aria-label="Initial document upload stages" onKeyDown={onTabKeyDown}>{[['scan', 'Scan documents'], ['assign', 'Assign requirements']].map(([id, label]) => <button key={id} id={`${captureId}-tab-${id}`} type="button" role="tab" aria-selected={captureTab === id} aria-controls={`${captureId}-panel-${id}`} tabIndex={captureTab === id ? 0 : -1} className={captureTab === id ? 'active' : ''} disabled={working} onClick={() => changeTab(id)}>{label}</button>)}</nav>
+    <div className="capture-panel" id={`${captureId}-panel-scan`} role="tabpanel" aria-labelledby={`${captureId}-tab-scan`} hidden={captureTab !== 'scan'} tabIndex={0}>
     <div className="capture-document-toolbar"><h5>1. Scan documents</h5><button type="button" disabled={working || phoneConnected} onClick={newDocument}><Plus size={14} />New document</button></div>
     <div className="capture-document-list" aria-label="Scanned documents">{Object.values(drafts).map(item => {
       const assigned = documents.find(document => document.requirementKey === item.requirementKey);
@@ -171,13 +190,22 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
         <p className="capture-help">Add pages in reading order, up to {MAX_CAPTURE_PAGES} per document. Photo pages become one PDF. Use New document before scanning a different document. Choosing a PDF replaces this document's photo draft; adding a photo replaces its PDF draft.</p>
         <button type="button" onClick={removeDocument}><Trash2 size={14} />Discard this document</button>
     </fieldset>
-    <section className="capture-assignment" aria-label="Assign scanned document"><h5>2. Assign requirement</h5><label htmlFor={`capture-assignment-${scholar.applicantId}`}>Assign {draft.label || 'this document'} to<select id={`capture-assignment-${scholar.applicantId}`} value={key} disabled={working || !captureDraftHasContent(draft)} onChange={event => assign(event.target.value)}><option value="">Choose a requirement</option>{documents.map(doc => <option key={doc.requirementKey} value={doc.requirementKey} disabled={Boolean(saved[doc.requirementKey]) || Object.values(drafts).some(item => item.id !== draftId && item.requirementKey === doc.requirementKey)}>{doc.label}{doc.optional && !doc.label.includes('optional') ? ' (optional)' : ''}{saved[doc.requirementKey] ? ' · Uploaded' : ''}</option>)}</select></label><p className="capture-help">{captureDraftHasContent(draft) ? 'Check the preview and choose the matching requirement. Change the assignment here if needed.' : 'Scan or choose a document to enable assignment.'}</p>{selected?.submitted && selected.applicationId && <DocumentViewButton token={token} label={`Existing ${selected.label}`} endpoint={`/document-reviews/${selected.applicationId}/${key}/file?academicPeriodId=${selected.academicPeriodId || scholar.academicPeriodId}&submissionWave=initial`} />}</section>
+    </div>
+    <div className="capture-panel" id={`${captureId}-panel-assign`} role="tabpanel" aria-labelledby={`${captureId}-tab-assign`} hidden={captureTab !== 'assign'} tabIndex={0}>
+    <p className="capture-help">Choose a scanned document in each requirement below. Preview it before uploading; each document can belong to one requirement.</p>
+    {!Object.values(drafts).some(captureDraftHasContent) && <p className="capture-empty">No scanned documents yet. Add documents in the Scan documents tab.</p>}
     <div className="capture-checklist" aria-label="Initial requirement checklist">{documents.map(doc => {
       const assigned = Object.values(drafts).find(item => item.requirementKey === doc.requirementKey);
-      return <div className="capture-document-status" key={doc.requirementKey}><span>{doc.label}<small>{doc.optional ? 'Optional' : 'Required'}</small></span><strong>{saved[doc.requirementKey] ? <><CheckCircle2 size={14} />Uploaded · Approved</> : assigned ? `Assigned · ${assigned.label}` : doc.submitted ? doc.status || 'Submitted' : doc.optional ? 'Optional · not submitted' : 'Awaiting document'}</strong></div>;
+      const options = Object.values(drafts).filter(captureDraftHasContent);
+      const uploaded = Boolean(saved[doc.requirementKey]);
+      return <div className="capture-requirement-row" key={doc.requirementKey}>
+        <div className="capture-document-status"><span>{doc.label}<small>{doc.optional ? 'Optional' : 'Required'}</small></span><strong>{uploaded ? <><CheckCircle2 size={14} />Uploaded · Approved</> : assigned ? `Assigned · ${assigned.label}` : doc.submitted ? doc.status || 'Submitted' : doc.optional ? 'Optional · not submitted' : 'Awaiting document'}</strong></div>
+        <label className="capture-requirement-selection" htmlFor={`${captureId}-document-${doc.requirementKey}`}>Scanned document<select id={`${captureId}-document-${doc.requirementKey}`} aria-label={`Scanned document for ${doc.label}`} value={assigned?.id || ''} disabled={working || uploaded || !options.length} onChange={event => assign(doc.requirementKey, event.target.value)}><option value="">{uploaded ? 'Uploaded in this session' : 'Choose a scanned document'}</option>{options.map(item => <option key={item.id} value={item.id} disabled={Boolean(item.requirementKey && item.requirementKey !== doc.requirementKey)}>{item.label} · {item.file ? item.file.fileName : `${item.pages.length} page(s)`}{item.requirementKey && item.requirementKey !== doc.requirementKey ? ' · Assigned elsewhere' : ''}</option>)}</select></label>
+        <div className="capture-requirement-actions"><button type="button" disabled={working || !assigned} onClick={() => { choose(assigned.id); changeTab('scan'); }}><Eye size={14} />Preview scan</button>{doc.submitted && doc.applicationId && <DocumentViewButton token={token} label={`Existing ${doc.label}`} endpoint={`/document-reviews/${doc.applicationId}/${doc.requirementKey}/file?academicPeriodId=${doc.academicPeriodId || scholar.academicPeriodId}&submissionWave=initial`} />}<button type="button" className="capture-row-upload" disabled={working || phoneConnected || !captureDraftUploadReady(drafts, assigned?.id, documents, saved)} onClick={() => publish(assigned.id, doc.requirementKey)}><Upload size={14} />Upload & approve</button></div>
+      </div>;
     })}</div>
     <p className="capture-file-policy">{DOCUMENT_FILE_HELP}</p>
     <p className="capture-help">Uploading replaces only this document in the selected period. Previous versions are retained.</p>
-    <button type="button" className="capture-submit" disabled={working || phoneConnected || !ready} onClick={publish}>{working ? 'Processing…' : 'Upload & approve assigned document'}</button>
+    </div>
   </section>;
 }
