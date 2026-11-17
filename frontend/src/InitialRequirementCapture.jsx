@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera, CheckCircle2, Crop, Eye, Plus, RotateCw, Trash2, Upload, X } from 'lucide-react';
 import { API_BASE, authHeaders } from './services/api';
 import { buildCapturePdf, MAX_CAPTURE_PAGES, renderCapture } from './utils/documentCapture';
-import { assignCaptureRequirement, captureDraftBytes, captureDraftHasContent, captureDraftUploadReady, createCaptureDraft, getCaptureUploadTarget, MAX_CAPTURE_DRAFT_BYTES, updateCaptureDraftContent } from './utils/adminDocumentCapture';
+import { assignCaptureRequirement, captureDraftBytes, captureDraftHasContent, captureDraftUploadReady, createCaptureDraft, getCaptureUploadBatch, getCaptureUploadTarget, MAX_CAPTURE_DRAFT_BYTES, updateCaptureDraftContent } from './utils/adminDocumentCapture';
 import './styles/document-capture.css';
 export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const documents = scholar.initialDocuments || scholar.documents || [];
@@ -16,6 +16,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const [captureTab, setCaptureTab] = useState('scan');
   const [drafts, setDrafts] = useState(() => ({ 'capture-1': createCaptureDraft('capture-1', 1) }));
   const [saved, setSaved] = useState({});
+  const [uploadErrors, setUploadErrors] = useState({});
   const [draftId, setDraftId] = useState('capture-1');
   const [pageIndex, setPageIndex] = useState(0);
   const [crop, setCrop] = useState([0, 0, 0, 0]);
@@ -76,7 +77,11 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   };
   const assign = (requirementKey, selectedDraftId) => {
     if (workingRef.current) return;
-    try { storeDrafts(assignCaptureRequirement(draftsRef.current, requirementKey, selectedDraftId, documents, saved)); setNotice(''); }
+    try {
+      storeDrafts(assignCaptureRequirement(draftsRef.current, requirementKey, selectedDraftId, documents, saved));
+      setUploadErrors(current => { const next = { ...current }; delete next[requirementKey]; return next; });
+      setNotice('');
+    }
     catch (error) { setNoticeTone('warning'); setNotice(error.message); }
   };
   const startCamera = async () => {
@@ -133,18 +138,19 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
     [pages[pageIndex], pages[destination]] = [pages[destination], pages[pageIndex]];
     edit({ pages }); setPageIndex(destination); setCrop([0, 0, 0, 0]);
   };
-  const publish = (uploadDraftId, expectedRequirementKey) => act(async () => {
-    stopCamera();
-    if (phoneConnected) throw new Error('End the phone connection before uploading this document.');
+  const publishDocument = async ({ draftId: uploadDraftId, requirementKey: expectedRequirementKey }, position) => {
+    if (!alive.current) return false;
     const requirementKey = getCaptureUploadTarget(draftsRef.current, uploadDraftId, documents, saved);
     if (requirementKey !== expectedRequirementKey) throw new Error('This requirement assignment changed. Review the selected document before uploading.');
     const item = draftsRef.current[uploadDraftId];
-    setProgress('Preparing selected document...');
+    const label = documents.find(document => document.requirementKey === requirementKey)?.label || requirementKey;
+    setProgress(`Preparing ${label} (${position})...`);
     const file = item.file || { fileName: `initial-${requirementKey}.pdf`, fileData: await buildCapturePdf(item.pages) };
-    if (!alive.current) return;
+    if (!alive.current) return false;
     if (draftsRef.current[uploadDraftId] !== item) throw new Error('This scanned document changed while preparing. Review it before uploading.');
+    if (getCaptureUploadTarget(draftsRef.current, uploadDraftId, documents, saved) !== expectedRequirementKey) throw new Error('This requirement assignment changed. Review the selected document before uploading.');
     request.current = new AbortController();
-    setProgress('Uploading selected document...');
+    setProgress(`Uploading ${label} (${position})...`);
     try {
       const response = await fetch(`${API_BASE}/${scholar.isPasser ? 'passers' : 'scholars'}/${scholar.applicantId}/requirements/${requirementKey}`, {
         method: 'PUT', headers: { ...authHeaders(token), 'Content-Type': 'application/json' }, signal: request.current.signal,
@@ -152,16 +158,50 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Upload failed. This document can be retried.');
-      if (!alive.current) return;
+      if (!alive.current) return false;
       setSaved(current => ({ ...current, [requirementKey]: true }));
       const next = { ...draftsRef.current }; delete next[uploadDraftId];
       if (!Object.keys(next).length) { const empty = freshDraft(); next[empty.id] = empty; }
-      storeDrafts(next); if (!next[draftId]) choose(Object.keys(next)[0]);
-      setNoticeTone('success'); setNotice('Assigned document uploaded and approved. Other scans remain ready for assignment. Previous versions are retained.');
-    } finally { if (alive.current) { setProgress(''); await onSaved(); } }
+      storeDrafts(next);
+      return true;
+    } finally { request.current = null; }
+  };
+  const publishBatch = () => act(async () => {
+    stopCamera();
+    if (phoneConnected) throw new Error('End the phone connection before uploading assigned documents.');
+    const batch = getCaptureUploadBatch(draftsRef.current, documents, saved);
+    if (!batch.length) throw new Error('Assign a scanned document to a requirement before uploading.');
+    setUploadErrors({});
+    let uploaded = 0;
+    const failures = {};
+    for (const [index, item] of batch.entries()) {
+      if (!alive.current) return;
+      try { if (await publishDocument(item, `${index + 1}/${batch.length}`)) uploaded += 1; }
+      catch (error) {
+        if (!alive.current) return;
+        failures[item.requirementKey] = error.message || 'Upload failed. This document can be retried.';
+        setUploadErrors({ ...failures });
+      }
+    }
+    if (!alive.current) return;
+    if (!draftsRef.current[draftId]) choose(Object.keys(draftsRef.current)[0]);
+    let refreshFailed = false;
+    if (uploaded) {
+      setProgress('Refreshing requirement statuses...');
+      try { refreshFailed = await onSaved() === false; }
+      catch { refreshFailed = true; }
+    }
+    if (!alive.current) return;
+    const failed = Object.keys(failures).length;
+    setNoticeTone(failed ? uploaded ? 'warning' : 'error' : refreshFailed ? 'warning' : 'success');
+    const result = `${uploaded} document${uploaded === 1 ? '' : 's'} uploaded and approved.`;
+    const retry = failed ? ` ${failed} failed. Check the messages below, preview the retained scans and click Upload & approve again to retry them.` : ' Unassigned scans remain available.';
+    setNotice(`${result}${retry}${refreshFailed ? ' Saved requirement statuses could not be refreshed. Retry the status refresh or reopen this record.' : ''}`);
   });
+  const pendingDrafts = Object.values(drafts).filter(item => item.requirementKey && !saved[item.requirementKey]);
+  const batchReady = pendingDrafts.length > 0 && pendingDrafts.every(item => captureDraftUploadReady(drafts, item.id, documents, saved));
   const page = draft.pages?.[pageIndex];
-  const close = () => { if ((Object.values(drafts).some(captureDraftHasContent) || phoneConnected) && !window.confirm('Discard scanned documents and any phone photos that have not been uploaded?')) return; stopCamera(); storeDrafts({}); receivedPages.current.clear(); setSaved({}); setCaptureTab('scan'); setOpen(false); };
+  const close = () => { if ((Object.values(drafts).some(captureDraftHasContent) || phoneConnected) && !window.confirm('Discard scanned documents and any phone photos that have not been uploaded?')) return; stopCamera(); storeDrafts({}); receivedPages.current.clear(); setSaved({}); setUploadErrors({}); setCaptureTab('scan'); setOpen(false); };
   if (!open) return <button type="button" className="capture-start" disabled={!['Public', 'Private'].includes(scholar.schoolType)} onClick={() => { newDocument(); setCaptureTab('scan'); setOpen(true); }}><Camera size={15} />Scan and assign initial documents</button>;
   return <section className="document-capture" aria-label="Initial document camera intake" aria-busy={working}>
     <header><div><h4>Scan and assign initial requirements</h4><p>{scholar.name} · {scholar.controlNumber || scholar.scholarId}<br />{scholar.schoolYear} · {scholar.semester}</p></div><button type="button" disabled={working} onClick={close} aria-label="Close document scanner"><X size={16} /></button></header>
@@ -192,7 +232,7 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
     </fieldset>
     </div>
     <div className="capture-panel" id={`${captureId}-panel-assign`} role="tabpanel" aria-labelledby={`${captureId}-tab-assign`} hidden={captureTab !== 'assign'} tabIndex={0}>
-    <p className="capture-help">Choose a scanned document in each requirement below. Preview it before uploading; each document can belong to one requirement.</p>
+    <p className="capture-help">Choose a scanned document in each requirement below and use Preview scan to double-check it. When ready, upload and approve all assigned documents with one click; each document can belong to one requirement.</p>
     {!Object.values(drafts).some(captureDraftHasContent) && <p className="capture-empty">No scanned documents yet. Add documents in the Scan documents tab.</p>}
     <div className="capture-checklist" aria-label="Initial requirement checklist">{documents.map(doc => {
       const assigned = Object.values(drafts).find(item => item.requirementKey === doc.requirementKey);
@@ -201,11 +241,12 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
       return <div className="capture-requirement-row" key={doc.requirementKey}>
         <div className="capture-document-status"><span>{doc.label}<small>{doc.optional ? 'Optional' : 'Required'}</small></span><strong>{uploaded ? <><CheckCircle2 size={14} />Uploaded · Approved</> : assigned ? `Assigned · ${assigned.label}` : doc.submitted ? doc.status || 'Submitted' : doc.optional ? 'Optional · not submitted' : 'Awaiting document'}</strong></div>
         <label className="capture-requirement-selection" htmlFor={`${captureId}-document-${doc.requirementKey}`}>Scanned document<select id={`${captureId}-document-${doc.requirementKey}`} aria-label={`Scanned document for ${doc.label}`} value={assigned?.id || ''} disabled={working || uploaded || !options.length} onChange={event => assign(doc.requirementKey, event.target.value)}><option value="">{uploaded ? 'Uploaded in this session' : 'Choose a scanned document'}</option>{options.map(item => <option key={item.id} value={item.id} disabled={Boolean(item.requirementKey && item.requirementKey !== doc.requirementKey)}>{item.label} · {item.file ? item.file.fileName : `${item.pages.length} page(s)`}{item.requirementKey && item.requirementKey !== doc.requirementKey ? ' · Assigned elsewhere' : ''}</option>)}</select></label>
-        <div className="capture-requirement-actions"><button type="button" disabled={working || !assigned} onClick={() => { choose(assigned.id); changeTab('scan'); }}><Eye size={14} />Preview scan</button>{doc.submitted && doc.applicationId && <DocumentViewButton token={token} label={`Existing ${doc.label}`} endpoint={`/document-reviews/${doc.applicationId}/${doc.requirementKey}/file?academicPeriodId=${doc.academicPeriodId || scholar.academicPeriodId}&submissionWave=initial`} />}<button type="button" className="capture-row-upload" disabled={working || phoneConnected || !captureDraftUploadReady(drafts, assigned?.id, documents, saved)} onClick={() => publish(assigned.id, doc.requirementKey)}><Upload size={14} />Upload & approve</button></div>
+        <div className="capture-requirement-actions"><button type="button" disabled={working || !assigned} onClick={() => { choose(assigned.id); changeTab('scan'); }}><Eye size={14} />Preview scan</button>{doc.submitted && doc.applicationId && <DocumentViewButton token={token} label={`Existing ${doc.label}`} endpoint={`/document-reviews/${doc.applicationId}/${doc.requirementKey}/file?academicPeriodId=${doc.academicPeriodId || scholar.academicPeriodId}&submissionWave=initial`} />}</div>
+        {uploadErrors[doc.requirementKey] && <p className="capture-requirement-error">Upload failed: {uploadErrors[doc.requirementKey]}</p>}
       </div>;
     })}</div>
     <p className="capture-file-policy">{DOCUMENT_FILE_HELP}</p>
-    <p className="capture-help">Uploading replaces only this document in the selected period. Previous versions are retained.</p>
+    <div className="capture-batch-actions"><p id={`${captureId}-batch-help`} className="capture-help">{pendingDrafts.length} assigned document{pendingDrafts.length === 1 ? '' : 's'}. Uploading replaces only the assigned requirements in the selected academic year. Previous versions and unassigned scans are retained.</p><button type="button" className="capture-submit" aria-describedby={`${captureId}-batch-help`} disabled={working || phoneConnected || !batchReady} onClick={publishBatch}><Upload size={15} />{working ? 'Uploading assigned documents…' : `Upload & approve assigned documents (${pendingDrafts.length})`}</button></div>
     </div>
   </section>;
 }

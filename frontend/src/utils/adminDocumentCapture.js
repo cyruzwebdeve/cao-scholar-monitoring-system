@@ -71,6 +71,16 @@ export const getCaptureUploadTarget = (drafts, id, requirements, saved = {}) => 
   return draft.requirementKey;
 };
 
+// Validate the whole pending selection before a caller starts any upload.
+// Partial checklists are allowed; existing uploads and unassigned scans stay out.
+export const getCaptureUploadBatch = (drafts, requirements, saved = {}) => {
+  const pending = Object.entries(drafts)
+    .filter(([, draft]) => draft.requirementKey && !saved[draft.requirementKey])
+    .map(([draftId]) => ({ draftId, requirementKey: getCaptureUploadTarget(drafts, draftId, requirements, saved) }));
+  const order = new Map(requirements.map((document, index) => [document.requirementKey, index]));
+  return pending.sort((left, right) => order.get(left.requirementKey) - order.get(right.requirementKey));
+};
+
 export const captureDraftUploadReady = (drafts, id, requirements, saved = {}) => {
   try { getCaptureUploadTarget(drafts, id, requirements, saved); return true; }
   catch { return false; }

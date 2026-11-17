@@ -28,7 +28,8 @@
 .capture-requirement-selection select:disabled { opacity:.55; }
 .capture-requirement-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
 .document-capture .capture-requirement-actions button { flex-direction:row; align-items:center; text-align:center; }
-.document-capture .capture-requirement-actions .capture-row-upload { background:#168c51; border-color:#168c51; color:#fff; }
+.document-capture .capture-requirement-error { margin:10px 0 0; color:#a3382c; font-size:11px; line-height:1.7; overflow-wrap:anywhere; }
+.capture-batch-actions { margin-top:16px; padding-top:12px; border-top:1px solid #d7e3db; }
 .document-capture .capture-empty { padding:12px; border:1px dashed #d1e1d6; border-radius:8px; font-size:11px; color:#64766b; line-height:1.7; }
 .capture-document-status { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:10px; border:1px solid #d7e3db; border-radius:7px; background:#fff; font-size:11px; overflow-wrap:anywhere; }
 .capture-document-status > span { flex:1 1 160px; color:#315d41; }

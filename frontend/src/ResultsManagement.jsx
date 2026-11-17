@@ -228,12 +228,22 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
     loadIntake().then((value) => { if (active) { setIntake(value || null); setIntakeError(''); setRequirementsChecked(false); } }).catch((failure) => { if (active) { setIntake(null); setIntakeError(failure.message); } });
     return () => { active = false; };
   }, [loadIntake]);
-  const refreshIntake = async () => {
+  const refreshIntake = async ({ preserveDrafts = false } = {}) => {
     const version = viewVersion.current, applicantId = selected?.id;
     const isCurrent = () => version === viewVersion.current && selectedId.current === applicantId;
     setRequirementsChecked(false);
-    try { const value = await loadIntake(); if (isCurrent()) { setIntake(value); setIntakeError(''); } }
-    catch (failure) { if (isCurrent()) { setIntake(null); setIntakeError(failure.message); } }
+    try {
+      const value = await loadIntake();
+      if (!isCurrent()) return false;
+      setIntake(value); setIntakeError('');
+      return true;
+    } catch (failure) {
+      if (isCurrent()) {
+        setIntake(preserveDrafts ? current => current ? { ...current, initialVerified: false, reviewToken: null } : null : null);
+        setIntakeError(failure.message || 'Unable to load initial verification.');
+      }
+      return false;
+    }
   };
 
   const saveReevaluation = async () => {
@@ -404,7 +414,7 @@ export default function ResultsManagement({ token, initialApplicantId = null }) 
           <section className="rm-detail-section"><h4>Examination details</h4><dl><div><dt>Examination</dt><dd>{selected.examTitle || 'PGCEAP Qualifying Examination'}</dd></div><div><dt>Date</dt><dd>{formatResultDate(selected.date)}</dd></div><div><dt>Academic year</dt><dd>{selected.academicYear || '2026-2027'}</dd></div><div><dt>Venue</dt><dd>{selected.examVenue || selected.municipality || 'Not specified'}</dd></div></dl></section>
           <section className="rm-detail-section"><h4>Applicant location</h4><dl><div><dt>Municipality</dt><dd>{selected.municipality || 'Not specified'}</dd></div><div><dt>Barangay</dt><dd>{selected.barangay || 'Not specified'}</dd></div></dl></section>
 
-          {canEditIntake && !selected.isScholar && selected.status === 'Passed' && <section className="rm-detail-section"><h4>Initial verification before Scholar acceptance</h4>{intakeError && <Notification tone="error" title="Unable to load initial verification">{intakeError}</Notification>}{intake ? <><Notification tone={intake.initialVerified ? 'success' : 'info'} title="Initial requirement verification">{intake.initialVerified ? 'Required initial documents approved. Ready for Scholar acceptance.' : 'Admin must upload and verify all required initial documents. Barangay Indigency is optional.'}</Notification><InitialRequirementCapture key={`${selected.id}:${intake.academicPeriodId}`} scholar={intake} token={token} onSaved={refreshIntake} /><InitialVerificationDocuments intake={intake} token={token} /></> : !intakeError && <Notification tone="progress" title="Checking initial verification">Loading the posted passer and initial requirements.</Notification>}</section>}
+          {canEditIntake && !selected.isScholar && selected.status === 'Passed' && <section className="rm-detail-section"><h4>Initial verification before Scholar acceptance</h4>{intakeError && <Notification tone="error" title="Unable to load initial verification" action={<button type="button" onClick={() => { void refreshIntake({ preserveDrafts: true }); }}>Retry status refresh</button>}>{intakeError}</Notification>}{intake ? <><Notification tone={intake.initialVerified ? 'success' : 'info'} title="Initial requirement verification">{intake.initialVerified ? 'Required initial documents approved. Ready for Scholar acceptance.' : 'Admin must upload and verify all required initial documents. Barangay Indigency is optional.'}</Notification><InitialRequirementCapture key={`${selected.id}:${intake.academicPeriodId}`} scholar={intake} token={token} onSaved={() => refreshIntake({ preserveDrafts: true })} /><InitialVerificationDocuments intake={intake} token={token} /></> : !intakeError && <Notification tone="progress" title="Checking initial verification">Loading the posted passer and initial requirements.</Notification>}</section>}
 
           {reevaluationOpen && (
             <section className="rm-reevaluation-panel">
