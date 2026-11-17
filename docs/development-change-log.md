@@ -5,6 +5,31 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-17 - Redesign Potential Scholars Acceptance Confirmation
+
+**TL;DR**
+
+- Authorized staff now see a clearer final Scholar-acceptance modal with an icon/header, selected count, bordered applicant list and a prominent green Confirm acceptance action.
+- Applicant names/control numbers, whole-selection revalidation guidance, error/retry controls and acceptance/cancellation safeguards are preserved. This is a presentation change with no API or data changes.
+- The modal adds associated description text, busy state, readable wrapping and larger buttons; a bounded list and stacked mobile actions support small screens and larger selections.
+- JSX parsing, 12 AST/behavior comparisons and source/CSS/whitespace review passed. Browser/build/lint verification remains unavailable with missing frontend tooling; no live acceptance, migration or deployment.
+
+**Objective and reason:** Improve the requested Potential Scholars confirmation modal, whose heading, plain applicant list and similarly styled small action buttons made the final acceptance step difficult to scan.
+
+**Previous and new behavior:** The modal previously showed a plain heading/paragraph, an unstructured list of names/control numbers and lightly outlined buttons. It now separates a final-acceptance header, selected-applicant count and numbered applicant rows with control numbers on a second line. A separate contextual note retains the rule that changed requirements/eligibility leave the whole batch unaccepted. Confirm acceptance is solid green; Back to selection remains secondary. Existing error notification and Refresh selection action remain. The title uses singular/plural applicant wording, the list is height-bounded and scrollable, and mobile actions stack at full width.
+
+**Affected users and workflows:** Administrators authorized to accept selected Potential Scholars. Staff selection, checked-record identity, academic-year scope, server revalidation and final acceptance remain the same. Applicant/Scholar portals and document uploads are unaffected.
+
+**Implementation and data flow:** Changes are restricted to the existing dialog's markup, a Lucide icon import and modal-specific CSS. Rows still come from confirmation.rows and show the same record identity, name and control number. Existing dialog reference/showModal lifecycle, onCancel handler, button handlers and disabled guards remain; no new network calls or state transitions are introduced. The dialog associates its heading, description and contextual note through ARIA IDs and exposes accepting as its busy state. Border-box sizing includes padding in viewport calculations; names wrap and internal wrappers carry layout without overriding the native dialog's closed state.
+
+**Files or system areas changed:** frontend/src/PotentialScholars.jsx and frontend/src/styles/potential-scholars.css, plus both change logs.
+
+**Impact assessment:** API, database/schema, stored data and configuration: no impact or migration. Security/privacy: existing role checks, request lock, current-period/review identity checks and server acceptance rules are unchanged; no new personal fields, storage or disclosure. Accessibility: improved heading hierarchy, associated explanatory text, decorative icons, busy semantics, larger action targets, preserved keyboard focus styles and responsive wrapping. Deployment: frontend release only; no deployment-configuration changes or deployment occurred. Payroll-list scope/amounts, legacy payment-oriented code, attendance and Scholar payout acknowledgements are unaffected.
+
+**Validation performed and results:** Cached Babel parsed PotentialScholars.jsx successfully. Twelve AST/behavior comparisons confirmed code outside the dialog is unchanged except its icon import, including the acceptance function, all existing action handlers/disabled guards, native dialog cancellation/reference, conditional error notification and exact selected-record identity/name/control-number/count bindings. Scoped CSS review confirmed heading/button overrides, green primary hover, border-box sizing, bounded list overflow and stacked mobile actions. Git whitespace checks passed. No new behavioral tests were added for this reversible visual change. Browser rendering, screen-reader interaction, frontend build and lint remain unverified with unavailable tooling. No live acceptance or record changes occurred.
+
+**Known limitations, rollback considerations, and recommended next work:** Appearance and real keyboard/scroll behavior still need browser checks for one applicant, a large selection, long synthetic names/control numbers, an error and the accepting state on desktop/mobile. Reverting the dialog markup/import and scoped stylesheet changes restores the former appearance without any data rollback. Existing acceptance workflow and backend scope remain intact.
+
 ## 2026-11-17 - Batch Upload and Approve Assigned Initial Documents
 
 **TL;DR**

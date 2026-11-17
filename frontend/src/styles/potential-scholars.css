@@ -56,12 +56,40 @@
 .potential-table input[type="checkbox"] { width: 19px; height: 19px; accent-color: #16763e; }
 .rm-potential-confirm { display: flex; align-items: flex-start; gap: 10px; font-size: .85rem; line-height: 1.5; color: #385044; }
 .rm-potential-confirm input { width: 20px; height: 20px; flex-shrink: 0; accent-color: #16763e; }
-.potential-confirm-dialog { width: min(620px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto; padding: 24px; border: 1px solid #cddbcf; border-radius: 16px; margin: auto; color: #183d28; }
-.potential-confirm-dialog::backdrop { background: #102b21a6; }
-.potential-confirm-dialog p { line-height: 1.6; }
-.potential-confirm-dialog ul { max-height: 35vh; overflow: auto; padding-left: 24px; margin: 20px 0; }
-.potential-confirm-dialog li { padding: 6px 0; overflow-wrap: anywhere; }
-.potential-confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+.potential-confirm-dialog { box-sizing: border-box; width: min(600px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto; padding: 26px; border: 1px solid #d9e6dc; border-radius: 16px; margin: auto; background: #fff; color: #344256; box-shadow: 0 24px 80px #0b251a40; }
+.potential-confirm-dialog::backdrop { background: #102a22a6; }
+.potential-confirm-header { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: start; gap: 14px; }
+.potential-confirm-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 13px; background: #edf7ed; color: #257446; }
+.potential-confirm-eyebrow { display: block; margin: 1px 0 7px; color: #53745c; font-size: 9px; font-weight: 750; letter-spacing: .1em; line-height: 1.5; }
+.potential-scholars .potential-confirm-dialog h3 { margin: 0; color: #254c32; font-size: 22px; font-weight: 650; letter-spacing: -.025em; line-height: 1.3; }
+.potential-scholars .potential-confirm-header p { margin: 8px 0 0; color: #718096; font-size: 13px; line-height: 1.6; }
+.potential-confirm-selection { margin: 22px 0 16px; overflow: hidden; border: 1px solid #e0e9e2; border-radius: 11px; }
+.potential-confirm-list-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 12px 15px; border-bottom: 1px solid #e0e9e2; background: #f8faf8; }
+.potential-confirm-list-heading h4 { margin: 0; color: #526276; font-size: 12px; font-weight: 650; line-height: 1.5; }
+.potential-confirm-list-heading > span { padding: 3px 8px; border-radius: 999px; background: #e9f4ec; color: #267344; font-size: 10px; font-weight: 650; white-space: nowrap; }
+.potential-confirm-selection ul { max-height: min(280px, 32dvh); overflow: auto; list-style: none; padding: 0; margin: 0; }
+.potential-confirm-selection li { display: flex; align-items: center; gap: 12px; padding: 14px 15px; border-bottom: 1px solid #e8eee9; }
+.potential-confirm-selection li:last-child { border-bottom: 0; }
+.potential-confirm-number { display: grid; flex: 0 0 32px; place-items: center; width: 32px; height: 32px; border: 1px solid #e1ebe4; border-radius: 9px; background: #f5f9f6; color: #718579; font-size: 10px; font-weight: 650; }
+.potential-confirm-selection li > div { min-width: 0; }
+.potential-confirm-selection li strong { display: block; color: #202632; font-size: 13px; font-weight: 650; line-height: 1.5; overflow-wrap: anywhere; }
+.potential-confirm-control { display: block; margin-top: 3px; color: #718096; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.potential-confirm-note { display: flex; align-items: flex-start; gap: 9px; padding: 12px; border: 1px solid #dce9de; border-radius: 9px; background: #f4f9f5; }
+.potential-confirm-note > svg { flex: 0 0 auto; margin-top: 2px; color: #53745c; }
+.potential-scholars .potential-confirm-note p { margin: 0; color: #617467; font-size: 12px; line-height: 1.7; }
+.potential-confirm-dialog > .system-notice { margin-top: 14px; }
+.potential-confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid #e5ece6; }
+.potential-scholars .potential-confirm-actions button { min-height: 44px; padding: 10px 14px; border-color: #d3dfd5; border-radius: 8px; background: #fff; color: #526276; font-size: 12px; font-weight: 650; }
+.potential-scholars .potential-confirm-actions .potential-confirm-primary { border-color: #14834b; background: #14834b; color: #fff; }
+.potential-scholars .potential-confirm-actions .potential-confirm-primary:hover:not(:disabled) { border-color: #0f6d3e; background: #0f6d3e; }
+@media (max-width: 520px) {
+  .potential-confirm-dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); padding: 20px; }
+  .potential-confirm-header { grid-template-columns: 40px minmax(0, 1fr); gap: 11px; }
+  .potential-confirm-icon { width: 40px; height: 40px; border-radius: 11px; }
+  .potential-scholars .potential-confirm-dialog h3 { font-size: 19px; }
+  .potential-confirm-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .potential-scholars .potential-confirm-actions button { width: 100%; }
+}
 @media (max-width: 700px) {
   .potential-page-heading { align-items: flex-start; }
   .potential-period { min-width: 120px; padding: 7px 9px; }
