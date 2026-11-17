@@ -285,6 +285,74 @@ test('first-year initial readiness requires report card while continuing readine
   assert.equal(report(data).processing.requirementsClearedSets, 2);
 });
 
+const firstSemesterReuseFixture = () => {
+  const data = fixture();
+  data.applicants = data.applicants.filter(applicant => applicant.id === 1);
+  data.scholarAccounts = data.scholarAccounts.filter(scholar => scholar.applicant_id === 1);
+  data.requirements = data.requirements.filter(requirement => requirement.applicant_id === 1 && requirement.billing_period_id === 11);
+  data.claims = data.claims.filter(claim => claim.applicant_id === 1);
+  const savedFiles = keys => Object.fromEntries(keys.map(key => [key, {
+    fileName: `synthetic-${key}.pdf`, fileData: 'data:application/pdf;base64,c3ludGhldGlj', status: 'Approved',
+  }]));
+  data.applications = [{ applicant_id: 1, school_plan: { incomingYearLevel: '1st Year' }, initial_docs: {
+    initialRequirementPeriodId: 11, requirementSets: {
+      '11:initial': { academicPeriodId: 11, wave: 'initial', requirements: savedFiles(['tax_exemption', 'valid_id', 'report_card', 'grades', 'registration_form']) },
+      '11:continuing': { academicPeriodId: 11, wave: 'continuing', requirements: savedFiles(['grades']) },
+    },
+  } }];
+  return data;
+};
+
+test('recorded first-semester continuing clearance combines its approved replacement with reused initial registration', () => {
+  const data = firstSemesterReuseFixture(), before = structuredClone(data);
+  const result = report(data);
+  assert.equal(result.processing.requirementSets, 2);
+  assert.equal(result.processing.requirementsClearedSets, 2);
+  assert.deepEqual(data, before); // Projection cannot persist a synthetic registration upload.
+  const explicit = firstSemesterReuseFixture();
+  explicit.applications[0].initial_docs.requirementSets['11:continuing'].requirements.registration_form = {
+    fileName: 'own-registration.pdf', status: 'Approved', fileData: 'data:application/pdf;base64,c3ludGhldGlj',
+  };
+  const comparison = report(explicit);
+  assert.deepEqual(result.processing, comparison.processing);
+  assert.deepEqual(result.records, comparison.records); // Saved payroll-list amounts stay unchanged.
+  assert.deepEqual(result.lists, comparison.lists);
+});
+
+test('pending or rejected continuing replacements override approved initial evidence in Reports clearance', () => {
+  for (const key of ['grades', 'registration_form']) for (const status of ['Pending', 'Rejected']) {
+    const data = firstSemesterReuseFixture();
+    data.applications[0].initial_docs.requirementSets['11:continuing'].requirements[key] = {
+      fileName: `own-${key}.pdf`, status, fileData: 'data:application/pdf;base64,c3ludGhldGlj',
+    };
+    const result = report(data);
+    assert.equal(result.processing.requirementSets, 2);
+    assert.equal(result.processing.requirementsClearedSets, 1); // Only the original initial set is cleared.
+  }
+});
+
+test('later first-semester or second-semester Reports cannot reuse the original registration', () => {
+  for (const periodId of [12, 21]) {
+    const data = firstSemesterReuseFixture(), docs = data.applications[0].initial_docs;
+    docs.requirementSets[`${periodId}:continuing`] = { ...docs.requirementSets['11:continuing'], academicPeriodId: periodId };
+    delete docs.requirementSets['11:continuing'];
+    data.requirements.push({ applicant_id: 1, billing_period_id: periodId, school_id: 1 });
+    const result = report(data, 'all');
+    assert.equal(result.processing.requirementSets, 2);
+    assert.equal(result.processing.requirementsClearedSets, 1);
+  }
+});
+
+test('initial-only evidence never invents continuing participation or a cleared set in Reports', () => {
+  const data = firstSemesterReuseFixture();
+  delete data.applications[0].initial_docs.requirementSets['11:continuing'];
+  data.applications[0].initial_docs.requirementWaves = { 11: { continuingOpenedAt: 'period-access' } };
+  const result = report(data);
+  assert.equal(result.processing.requirementSets, 1);
+  assert.equal(result.processing.requirementsClearedSets, 1);
+  assert.deepEqual(result.records.map(row => [row.reference, row.payrollAmount]), report(firstSemesterReuseFixture()).records.map(row => [row.reference, row.payrollAmount]));
+});
+
 test('year level comes from latest chronological saved semester, never original application or another year', () => {
   const result = report();
   assert.equal(result.scholars.find(scholar => scholar.applicantId === 1).yearLevel, '2nd Year');

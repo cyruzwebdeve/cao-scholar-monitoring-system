@@ -40,6 +40,7 @@ const initializeWaves = (initialDocs, legacyPeriodId) => {
     };
   }
   Object.values(docs.requirementSets).forEach((set) => Object.values(set.requirements || {}).forEach((file) => {
+    if (!file || typeof file !== 'object') return;
     file.versionId ||= `legacy-${createHash('sha256').update(JSON.stringify([file.fileName, file.fileUrl, file.fileData, file.uploadedAt])).digest('hex').slice(0, 24)}`;
     file.revision ||= 0;
   }));
@@ -61,11 +62,30 @@ const getInitialRequirements = (initialDocs, periodId, legacyPeriodId = periodId
   const current = getWaveSet(docs, periodId, 'initial', legacyPeriodId);
   return { requirements: { ...original.requirements, ...current.requirements }, originalPeriodId, original, current };
 };
+// A first-semester entrant may reuse the actual approved initial COG and
+// registration form in that same period. This is a read projection: the source
+// remains initial evidence and any explicit continuing replacement takes over.
+const getContinuingRequirements = (initialDocs, period, legacyPeriodId = period?.id) => {
+  const periodId = validPeriodId(period?.id);
+  const continuing = getWaveSet(initialDocs, period?.id, 'continuing', legacyPeriodId);
+  if (!periodId || String(period?.semester || '').trim().toLowerCase().replace(/\s+/g, ' ') !== '1st semester') return continuing;
+  const initial = getInitialRequirements(initialDocs, periodId, legacyPeriodId);
+  if (validPeriodId(initial.originalPeriodId) !== periodId) return continuing;
+  const reusable = Object.fromEntries(['grades', 'registration_form'].flatMap((key) => {
+    const file = initial.original.requirements[key];
+    if (Object.hasOwn(continuing.requirements, key) || !file?.fileName || !(file.fileData || file.fileUrl)
+      || !['approved', 'complete', 'completed'].includes(String(file.status || '').trim().toLowerCase())) return [];
+    return [[key, { ...file, reusedFromInitial: true, sourceAcademicPeriodId: periodId, sourceSubmissionWave: 'initial' }]];
+  }));
+  return { ...continuing, requirements: { ...reusable, ...continuing.requirements } };
+};
 const continuingIsOpen = (docs, periodId) => Boolean(docs?.requirementWaves?.[periodId]?.continuingOpenedAt);
-const getEffectiveRequirements = (docs, periodId, legacyPeriodId = periodId) => {
+const getEffectiveRequirements = (docs, periodId, legacyPeriodId = periodId, period = null) => {
   const initial = getInitialRequirements(docs, periodId, legacyPeriodId).requirements;
   if (!continuingIsOpen(docs, periodId)) return { requirements: initial };
-  const continuing = getWaveSet(docs, periodId, 'continuing', legacyPeriodId).requirements;
+  const continuing = period && validPeriodId(period.id) === validPeriodId(periodId)
+    ? getContinuingRequirements(docs, period, legacyPeriodId).requirements
+    : getWaveSet(docs, periodId, 'continuing', legacyPeriodId).requirements;
   return { requirements: { ...Object.fromEntries(Object.entries(initial).filter(([key]) => !CONTINUING_KEYS.includes(key))), ...continuing } };
 };
 const getScopedDocument = (docs, periodId, wave, key, versionId, legacyPeriodId = periodId) => {
@@ -113,4 +133,4 @@ const mutateRequirementWaves = async (prisma, applicationId, legacyPeriodId, mut
     }
   }
 };
-module.exports = { INITIAL_KEYS, CONTINUING_KEYS, WAVES, conflict, resolveInitialRequirementPeriodId, initializeWaves, getWaveSet, getInitialRequirements, getEffectiveRequirements, continuingIsOpen, getScopedDocument, saveWaveDocument, mutateRequirementWaves };
+module.exports = { INITIAL_KEYS, CONTINUING_KEYS, WAVES, conflict, resolveInitialRequirementPeriodId, initializeWaves, getWaveSet, getInitialRequirements, getContinuingRequirements, getEffectiveRequirements, continuingIsOpen, getScopedDocument, saveWaveDocument, mutateRequirementWaves };

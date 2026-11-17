@@ -60,6 +60,8 @@ function ScholarDashboard({ token, user, onLogout }) {
   const [announcementError, setAnnouncementError] = useState('');
   const [notificationsError, setNotificationsError] = useState('');
   const [uploadingRequirement, setUploadingRequirement] = useState('');
+  const uploadScope = useRef({ active: false, generation: 0 });
+  const uploadActive = useRef(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileDialog = useRef(null);
@@ -233,6 +235,11 @@ function ScholarDashboard({ token, user, onLogout }) {
   const entryYearMessage = `Scholar processing will be available when CAO opens ${portalData.processingEligibility?.entrySchoolYear || 'your entry school year'} or a later processing year. Your accepted application and initial documents are retained.`;
   const requirementsDeadline = continuingSubmission ? continuingSubmission.deadline : portalData.activePeriod?.requirementsDeadline || null;
   const requirementsSubmissionClosed = loadingRequirements || Boolean(requirementsError) || (requirementPeriodId && Number(requirementPeriodId) !== portalData.requirementWave?.academicPeriodId) || !continuingOpen || continuingSubmission?.isOpen === false;
+  useEffect(() => {
+    uploadScope.current.active = true;
+    uploadScope.current.generation += 1;
+    return () => { uploadScope.current.active = false; uploadScope.current.generation += 1; };
+  }, [token, requirementPeriodId, portalData.requirementWave?.academicPeriodId, requirementsSubmissionClosed]);
   const payrollList = portalData.payrollList;
   const useCertification = portalData.processingRoute === 'billing' || (!portalData.processingRoute && isPrivateScholar && !payrollList);
   const certificationDate = formatPortalDate(portalData.certificationCreatedAt, 'Not generated', 'Asia/Manila');
@@ -268,15 +275,20 @@ function ScholarDashboard({ token, user, onLogout }) {
   };
   const hasActionNotifications = unreadScholarNotifications.length > 0 || attentionCount > 0 || pendingReviewCount > 0 || (useCertification ? certificationDate === 'Not generated' : !payrollList);
   const uploadRequirement = async (requirement, file) => {
-    if (!file) return;
+    if (!file || uploadActive.current) return;
     if (requirementsSubmissionClosed) {
       setNotice({ tone: 'error', message: continuingOpen ? 'The continuing-requirements deadline has passed. Contact CAO if a correction is required.' : 'CAO has not opened continuing submission yet.' });
       return;
     }
+    const academicPeriodId = portalData.requirementWave?.academicPeriodId || portalData.activePeriod?.id;
+    const generation = uploadScope.current.generation;
+    const isCurrent = () => uploadScope.current.active && uploadScope.current.generation === generation;
+    uploadActive.current = true;
     setUploadingRequirement(requirement);
     try {
       const contentType = await validateDocumentFile(file);
       const fileData = await documentDataUrl(file, contentType);
+      if (!isCurrent()) return;
       const response = await fetch(`${API_BASE}/applications/me/requirements`, {
         method: 'PUT',
         headers: {
@@ -285,22 +297,24 @@ function ScholarDashboard({ token, user, onLogout }) {
         },
         body: JSON.stringify({
           requirement,
-          academicPeriodId: portalData.requirementWave?.academicPeriodId || portalData.activePeriod?.id,
+          academicPeriodId,
           fileName: file.name,
           fileType: contentType,
           fileData,
         }),
       });
       const body = await response.json();
+      if (!isCurrent()) return;
       if (!response.ok) throw new Error(body.message || 'Upload failed.');
       setApplication(body.application);
       setPortalData((current) => ({ ...current, requirementWave: { ...current.requirementWave, continuing: body.continuingRequirements || {} } }));
       setRequirementsError('');
       setNotice({ tone: 'success', message: `${file.name} was submitted for Billing staff review.` });
     } catch (error) {
-      setNotice({ tone: 'error', message: error.message || 'Unable to upload this requirement.' });
+      if (isCurrent()) setNotice({ tone: 'error', message: error.message || 'Unable to upload this requirement.' });
     } finally {
-      setUploadingRequirement('');
+      uploadActive.current = false;
+      if (uploadScope.current.active) setUploadingRequirement('');
     }
   };
 
@@ -431,7 +445,7 @@ function ScholarDashboard({ token, user, onLogout }) {
               <CalendarDays size={17} />
               <div><strong>{waitingEntryYear ? 'Waiting for your entry school year' : requirementsSubmissionClosed ? continuingSubmission?.state === 'waiting_initial' ? 'Waiting for initial verification' : 'Continuing uploads closed' : 'Continuing uploads open'}</strong><span>{waitingEntryYear ? entryYearMessage : continuingSubmission?.state === 'waiting_initial' ? 'CAO must approve all required initial documents first.' : requirementsSubmissionClosed ? 'CAO has closed continuing uploads for this academic period.' : 'You may upload continuing requirements until CAO closes submissions for this period.'}</span></div>
             </div>
-            <p className="scholar-panel-copy">{requirementsComplete ? 'All continuing files have been approved for this academic period.' : continuingOpen ? `Upload your updated grades, registration form${isPrivateRequirementPeriod ? ', and Private-school tuition receipt' : ''} for this continuing submission. Initial files are preserved.` : `CAO uploads the initial requirements, including ${isFirstYearEntry(entryYearLevel) ? 'your Grade 12 report card' : 'college grades'}, registration form, and applicable tuition receipt. Your continuing upload controls open after required initial documents are approved.`}</p>
+            <p className="scholar-panel-copy">{requirementsComplete ? `All continuing files have been approved for this academic period.${requirementsSubmissionClosed ? '' : ' You may replace a file if it needs updating; replacements go to Billing staff for review.'}` : continuingOpen ? `Use the files shown below or upload updated grades, registration form${isPrivateRequirementPeriod ? ', and Private-school tuition receipt' : ''} for this continuing submission. Replacements go to Billing staff for review. Initial files are preserved.` : `CAO uploads the initial requirements, including ${isFirstYearEntry(entryYearLevel) ? 'your Grade 12 report card' : 'college grades'}, registration form, and applicable tuition receipt. Your continuing upload controls open after required initial documents are approved.`}</p>
             <div className="scholar-requirements-list" aria-busy={loadingRequirements}>
               {visibleRequirementItems.map(({ key, label, note }) => {
                 const item = uploadedRequirements[key];
@@ -452,12 +466,13 @@ function ScholarDashboard({ token, user, onLogout }) {
                                 ? `${item.fileName} · Pending Billing staff review`
                                 : note || 'No file uploaded'}
                       </small>
+                      {item?.reusedFromInitial && <small>Reused from initial documents. Replacing this file keeps the original initial document.</small>}
                       <small id={`scholar-file-policy-${key}`} className="scholar-file-policy">{DOCUMENT_FILE_HELP}</small>
                     </span>
                     <span className="scholar-requirement-actions">
-                      {item?.fileName && <DocumentViewButton token={token} label={label} endpoint={`/applications/me/requirements/${key}/file?academicPeriodId=${portalData.requirementWave?.academicPeriodId}&submissionWave=continuing`} />}
+                      {item?.fileName && <DocumentViewButton token={token} label={label} endpoint={`/applications/me/requirements/${key}/file?academicPeriodId=${item.sourceAcademicPeriodId || portalData.requirementWave?.academicPeriodId}&submissionWave=${item.sourceSubmissionWave || 'continuing'}`} />}
                       {reviewStatus !== 'missing' && <span className={`scholar-review-badge ${reviewStatus}`}>{requirementStatusLabels[reviewStatus]}</span>}
-                      {reviewStatus !== 'approved' && <label className={`scholar-upload-button ${item?.fileName ? 'submitted' : ''} ${requirementsSubmissionClosed ? 'closed' : ''}`}>
+                      {(reviewStatus !== 'approved' || !requirementsSubmissionClosed) && <label className={`scholar-upload-button ${item?.fileName ? 'submitted' : ''} ${requirementsSubmissionClosed ? 'closed' : ''}`}>
                         {requirementsSubmissionClosed ? 'Closed' : isUploading ? 'Uploading…' : reviewStatus === 'rejected' ? 'Upload again' : item?.fileName ? 'Replace' : 'Upload'}
                         <input
                           type="file"

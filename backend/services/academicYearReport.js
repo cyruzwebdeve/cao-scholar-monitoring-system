@@ -1,6 +1,6 @@
 const { findPrimaryActivePeriod } = require('./academicPeriod');
 const { isCertificationBatch } = require('./payrollListScope');
-const { INITIAL_KEYS, CONTINUING_KEYS, getInitialRequirements } = require('./requirementWaves');
+const { INITIAL_KEYS, CONTINUING_KEYS, getInitialRequirements, getContinuingRequirements } = require('./requirementWaves');
 const { initialAcademicRequirementKey } = require('./initialAcademicEvidence');
 const { ONLINE_REQUIREMENTS } = require('./lifecycleIntegrity');
 const { normalizeSchoolName, resolveScholarSchool } = require('./scholarSchool');
@@ -47,10 +47,15 @@ const recordedSets = docs => Object.entries(docs?.requirementSets || {}).map(([k
 })).filter(set => ['initial', 'continuing'].includes(set.wave)
   && (Object.keys(set.requirements || {}).length || set.history?.length));
 
-const setCleared = (set, docs, schoolType, entryYearLevel) => {
+const setCleared = (set, docs, schoolType, entryYearLevel, period) => {
   const type = String(schoolType || '').trim().toLowerCase();
   if (!['public', 'private'].includes(type)) return false;
-  if (set.wave === 'continuing') return CONTINUING_KEYS.filter(key => type === 'private' || key !== 'tuition_receipt').every(key => approved(set.requirements?.[key]));
+  if (set.wave === 'continuing') {
+    // Clearance may reuse matching initial evidence, but participation still
+    // comes exclusively from the physically recorded sets collected below.
+    const files = period ? getContinuingRequirements(docs, period, set.academicPeriodId).requirements : set.requirements;
+    return CONTINUING_KEYS.filter(key => type === 'private' || key !== 'tuition_receipt').every(key => approved(files?.[key]));
+  }
   // Explicit later initial updates can reference the original initial set;
   // unrecorded later periods never acquire an invented requirement set.
   const originalPeriodId = Number(docs?.initialRequirementPeriodId) || set.academicPeriodId;
@@ -130,7 +135,7 @@ const buildAcademicYearReport = ({ scope, periods, primaryPeriod, applicants, ap
     // recorded older semester. Missing period classification remains unknown.
     const school = schoolById.get(Number(requirement?.school_id));
     if (setCleared(set, legacy ? { requirements: set.requirements } : application?.initial_docs,
-      school?.school_type, application?.school_plan?.incomingYearLevel)) requirementsClearedSets += 1;
+      school?.school_type, application?.school_plan?.incomingYearLevel, periodById.get(set.academicPeriodId))) requirementsClearedSets += 1;
   });
 
   // Retain legacy batch/claim storage strictly as saved list membership. A

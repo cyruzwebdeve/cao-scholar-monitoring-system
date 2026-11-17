@@ -328,6 +328,70 @@ const scholarRequest = (periodId = 1) => ({ user: { id: 5, role: 'Scholar' }, bo
 const adminRequest = (periodId = 1) => ({ user: { id: 99, role: 'SuperAdmin' }, params: { applicantId: '5', requirementKey: 'grades' },
   body: { ...scholarRequest(periodId).body, applicantIds: [5], schoolId: 1, yearLevel: '1st Year', course: 'Synthetic course', major: '', billingNotes: '', billingStatus: 'Not billed' }, query: {} });
 
+const firstSemesterReuseScholar = () => {
+  acceptFutureScholar();
+  state.periods.forEach(row => { row.is_primary = row.id === 2; row.is_active = [2, 3].includes(row.id); });
+  const files = state.applications[0].initial_docs.requirementSets['2:initial'].requirements;
+  for (const key of ['grades', 'registration_form']) Object.assign(files[key], {
+    fileData: dataUrl(), versionId: `synthetic-initial-${key}`, revision: 2,
+    reviewedAt: '2027-07-22T00:00:00.000Z', reviewHistory: [{ status: 'Approved', revision: 2 }],
+  });
+};
+
+test('Scholar portal reuses approved academic files only in their original first-semester period without writing copies', async () => {
+  firstSemesterReuseScholar();
+  const originalDocs = structuredClone(state.applications[0].initial_docs);
+  const read = response();
+  await getMyApplication({ ...scholarRequest(2), query: { requirementPeriodId: '2' } }, read);
+  assert.equal(read.statusCode, 200);
+  assert.equal(read.body.requirementWave.academicPeriodId, 2);
+  assert.equal(read.body.requirementWave.continuingOpen, true);
+  for (const key of ['grades', 'registration_form']) {
+    const file = read.body.requirementWave.continuing[key];
+    assert.equal(file.fileName, `${key}.pdf`);
+    assert.equal(file.status, 'Approved');
+    assert.equal(file.reusedFromInitial, true);
+    assert.equal(file.sourceAcademicPeriodId, 2);
+    assert.equal(file.sourceSubmissionWave, 'initial');
+    assert.equal(file.versionId, `synthetic-initial-${key}`);
+    assert.equal(file.revision, 2);
+  }
+  assert.equal(read.body.requirementWave.continuing.report_card, undefined);
+  const later = response();
+  await getMyApplication({ ...scholarRequest(3), query: { requirementPeriodId: '3' } }, later);
+  assert.equal(later.statusCode, 200);
+  assert.equal(later.body.requirementWave.academicPeriodId, 3);
+  assert.equal(later.body.requirementWave.continuing.grades, undefined);
+  assert.equal(later.body.requirementWave.continuing.registration_form, undefined);
+  assert.equal(later.body.requirementWave.initial.registration_form.fileName, 'registration_form.pdf');
+  assert.deepEqual(state.applications[0].initial_docs, originalDocs);
+  assert.equal(writes.length, 0);
+});
+
+test('admin continuing document rows point reused academic evidence to its exact initial scope and version', async () => {
+  firstSemesterReuseScholar();
+  const originalDocs = structuredClone(state.applications[0].initial_docs);
+  const read = response();
+  await getScholarManagement(adminRequest(2), read);
+  assert.equal(read.statusCode, 200);
+  const record = read.body.scholars[0];
+  assert.equal(record.continuingOpen, true);
+  for (const key of ['grades', 'registration_form']) {
+    const file = record.continuingDocuments.find(row => row.requirementKey === key);
+    assert.equal(file.submitted, true);
+    assert.equal(file.status, 'Approved');
+    assert.equal(file.academicPeriodId, 2);
+    assert.equal(file.submissionWave, 'initial');
+    assert.equal(file.versionId, `synthetic-initial-${key}`);
+    assert.equal(file.revision, 2);
+    assert.equal(file.reusedFromInitial, true);
+  }
+  assert.deepEqual(state.applications[0].initial_docs.requirementSets, originalDocs.requirementSets);
+  assert.equal(state.applications[0].initial_docs.initialRequirementPeriodId, 2);
+  assert.equal(state.applications[0].initial_docs.requirementSets['2:continuing'], undefined);
+  assert.equal(writes.length, 0);
+});
+
 const postCurrentPasser = () => {
   const result = state.results.find(row => row.applicant_id === 5);
   prisma.passer_list_members.findMany = async () => [{

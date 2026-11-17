@@ -46,7 +46,7 @@ const { resolveBillingAmount } = require('../services/billingGrant');
 const { snapshotListAmounts, totalListAmount } = require('../services/scholarAmount');
 const { getOrStartAttempt, assertAttemptOpen, AttemptError } = require('../services/onlineExamAttempt');
 const { assertAutomaticGrading, loadConfiguration, publicConfiguration, scoreConfiguredAnswers, createExamTicket, verifyExamTicket } = require('../services/onlineExamConfiguration');
-const { INITIAL_KEYS, CONTINUING_KEYS, getWaveSet, getInitialRequirements, getEffectiveRequirements, resolveInitialRequirementPeriodId, continuingIsOpen, saveWaveDocument, mutateRequirementWaves } = require('../services/requirementWaves');
+const { INITIAL_KEYS, CONTINUING_KEYS, getWaveSet, getInitialRequirements, getContinuingRequirements, getEffectiveRequirements, resolveInitialRequirementPeriodId, continuingIsOpen, saveWaveDocument, mutateRequirementWaves } = require('../services/requirementWaves');
 const { resolveRequirementSubmission } = require('../services/requirementSubmission');
 const { serializePayrollListMembership } = require('../services/payrollListScope');
 const { latestCertificationCreatedAt } = require('../services/certificationDate');
@@ -878,7 +878,7 @@ const getScholarManagement = async (req, res) => {
       const processingEligibility = scholarProcessingEligibility(applicant, activePeriod);
       const continuingAccess = evaluateScholarContinuingSchedule({ applicant, schedule: continuingSchedule, period: activePeriod, docs: application?.initial_docs, applicantId: applicant.id, schoolType, legacyPeriodId: primaryPeriod.id, entryYearLevel: application?.school_plan?.incomingYearLevel });
       if (application) application.initial_docs = projectContinuingAccess(application.initial_docs, activePeriod.id, continuingAccess);
-      const applicationRequirements = getEffectiveRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id).requirements;
+      const applicationRequirements = getEffectiveRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id, activePeriod).requirements;
       const configuredBillingAmount = requirement?.list_amount_override === null || requirement?.list_amount_override === undefined
         ? null
         : Number(requirement.list_amount_override);
@@ -931,14 +931,16 @@ const getScholarManagement = async (req, res) => {
       const mapDocuments = (wave) => {
         const inherited = wave === 'initial' ? getInitialRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id) : null;
         const set = getWaveSet(application?.initial_docs, activePeriod.id, wave, primaryPeriod.id);
-        const files = inherited?.requirements || set.requirements;
+        const files = inherited?.requirements || (wave === 'continuing' ? getContinuingRequirements(application?.initial_docs, activePeriod, primaryPeriod.id).requirements : set.requirements);
         return applicableRequirementFields.map(([label, , , requirementKey]) => {
           const file = files[requirementKey];
-          const sourcePeriodId = wave === 'initial' && !set.requirements[requirementKey] ? inherited.originalPeriodId : activePeriod.id;
+          const sourcePeriodId = file?.reusedFromInitial ? file.sourceAcademicPeriodId : wave === 'initial' && !set.requirements[requirementKey] ? inherited.originalPeriodId : activePeriod.id;
+          const sourceWave = file?.reusedFromInitial ? file.sourceSubmissionWave : wave;
           const sourcePeriod = academicPeriodById.get(sourcePeriodId) || activePeriod;
+          const sourceSet = file?.reusedFromInitial ? getWaveSet(application?.initial_docs, sourcePeriodId, sourceWave, primaryPeriod.id) : set;
           return {
             label: requirementKey === 'indigency' ? 'Barangay Indigency (optional)' : label, optional: optionalRequirement(requirementKey, wave), alternativeGroup: null, requirementKey, submitted: Boolean(file?.fileName), applicationId: application?.id || null,
-            academicPeriodId: sourcePeriodId, submissionWave: wave, periodLabel: `${sourcePeriod.school_year} · ${sourcePeriod.semester}`, legacy: Boolean((set.requirements[requirementKey] ? set.legacy : inherited?.original.legacy) && !file?.uploadedByRole), versionId: file?.versionId || null, revision: file?.revision || 0, reviewHistory: file?.reviewHistory || [],
+            academicPeriodId: sourcePeriodId, submissionWave: sourceWave, reusedFromInitial: Boolean(file?.reusedFromInitial), periodLabel: `${sourcePeriod.school_year} · ${sourcePeriod.semester}`, legacy: Boolean((sourceSet.requirements[requirementKey] ? sourceSet.legacy : inherited?.original.legacy) && !file?.uploadedByRole), versionId: file?.versionId || null, revision: file?.revision || 0, reviewHistory: file?.reviewHistory || [],
             fileName: file?.fileName || null, fileType: file?.fileType || 'application/octet-stream',
             uploadedAt: file?.uploadedAt || null, reviewedAt: file?.reviewedAt || null,
             reviewNotes: file?.reviewNotes || '', status: file?.status || 'Pending',
@@ -983,7 +985,7 @@ const getScholarManagement = async (req, res) => {
         alreadyProcessedForPeriod: !billed && (payrollClaimsByApplicant.get(applicant.id) || []).some((claim) => (
           claim.academic_period_id === activePeriod.id || payrollBatchById.get(claim.payroll_batch_id)?.billing_period_id === activePeriod.id
         )),
-        initialDocs: getEffectiveRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id),
+        initialDocs: getEffectiveRequirements(application?.initial_docs, activePeriod.id, primaryPeriod.id, activePeriod),
         requirement: application?.initial_docs?.requirementSets ? undefined : requirement,
         schoolType: school?.school_type,
         entryYearLevel: applicationPlan.incomingYearLevel,
@@ -1288,7 +1290,7 @@ const processBillingSelection = async (req, res) => {
       let result = evaluateListEligibility({
         isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
         alreadyBilled: billedIds.has(applicantId),
-        initialDocs: getEffectiveRequirements(projectContinuingAccess(application?.initial_docs, activePeriod.id, access), activePeriod.id, primaryPeriod.id),
+        initialDocs: getEffectiveRequirements(projectContinuingAccess(application?.initial_docs, activePeriod.id, access), activePeriod.id, primaryPeriod.id, activePeriod),
         requirement: application?.initial_docs?.requirementSets || access.visible && continuingSchedule ? undefined : requirement,
         schoolType: school?.school_type,
         entryYearLevel: application?.school_plan?.incomingYearLevel,
@@ -1451,7 +1453,7 @@ const processPayrollSelection = async (req, res) => {
         isActive: Boolean(scholarByApplicant.get(applicantId)?.is_active),
         alreadyBilled: false,
         alreadyProcessedForPeriod: processedIds.has(applicantId),
-        initialDocs: getEffectiveRequirements(projectContinuingAccess(application?.initial_docs, activePeriod.id, access), activePeriod.id, primaryPeriod.id),
+        initialDocs: getEffectiveRequirements(projectContinuingAccess(application?.initial_docs, activePeriod.id, access), activePeriod.id, primaryPeriod.id, activePeriod),
         requirement: application?.initial_docs?.requirementSets || access.visible && continuingSchedule ? undefined : requirement,
         schoolType: school?.school_type,
         entryYearLevel: application?.school_plan?.incomingYearLevel,
@@ -1863,7 +1865,7 @@ const getMyApplication = async (req, res) => {
     const postedPasser = result?.passed && result?.published_at ? await getPostedPasser(prisma, applicantId, activePeriod.id, result, application.id) : null;
     const initialVerification = !scholar && postedPasser ? { listId: postedPasser.list_id, verified: initialApproved(application.initial_docs, activePeriod.id, selectedSchool?.school_type, activePeriod.id, application.school_plan?.incomingYearLevel), documents: initialChecklist(application.initial_docs, activePeriod.id, selectedSchool?.school_type, activePeriod.id, application.id, application.school_plan?.incomingYearLevel) } : null;
     const guidance = buildApplicantGuidance({
-      application: scholar ? { ...application, initial_docs: getEffectiveRequirements(requirementDocs, requirementPeriod.id, activePeriod.id) } : application,
+      application: scholar ? { ...application, initial_docs: getEffectiveRequirements(requirementDocs, requirementPeriod.id, activePeriod.id, requirementPeriod) } : application,
       continuingOpen: continuingAccess.visible,
       result,
       scholar,
@@ -1894,7 +1896,7 @@ const getMyApplication = async (req, res) => {
         processingEligibility: requirementEligibility,
         entryYearLevel: application.school_plan?.incomingYearLevel || null, academicPeriodId: requirementPeriod.id, periodLabel: `${requirementPeriod.school_year} · ${requirementPeriod.semester}`, schoolType: schoolClassification(requirementSchool?.school_type), continuingOpen: continuingAccess.visible, submission: continuingAccess,
         initial: getInitialRequirements(application.initial_docs, requirementPeriod.id, activePeriod.id).requirements,
-        continuing: getWaveSet(application.initial_docs, requirementPeriod.id, 'continuing', activePeriod.id).requirements,
+        continuing: scholar ? getContinuingRequirements(application.initial_docs, requirementPeriod, activePeriod.id).requirements : {},
       },
       continuingPeriods: scholar ? (await prisma.academic_periods.findMany({ where: { is_active: true }, orderBy: [{ school_year: 'desc' }, { id: 'desc' }] })).filter((period) => isScholarPeriodEligible(applicant, period)).map(serializeAcademicPeriod) : [],
       applicant,
@@ -2008,7 +2010,7 @@ const uploadMyRequirement = async (req, res) => {
     uploadedFile = null;
     res.locals.auditTargetId = application.id;
     return res.json({ message: 'Continuing requirement submitted for Billing staff review. Initial files are preserved.', application: publicApplication(saved.application),
-      continuingRequirements: getWaveSet(saved.application.initial_docs, activePeriod.id, 'continuing', primaryPeriod.id).requirements });
+      continuingRequirements: getContinuingRequirements(saved.application.initial_docs, activePeriod, primaryPeriod.id).requirements });
   } catch (error) {
     if (uploadedFile?.fileUrl) await deleteBlob(uploadedFile.fileUrl, process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN);
     if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });

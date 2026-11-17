@@ -169,6 +169,43 @@ test('second wave can open within the same period without modifying initial file
   assert.equal(getWaveSet(application.initial_docs, 10, 'continuing').requirements.grades.status, 'Pending');
   assert.equal(getEffectiveRequirements(application.initial_docs, 10).requirements.grades.fileName, 'continuing-grades.pdf');
 });
+test('Scholar replacement response retains reused first-semester registration while new COG awaits review', async () => {
+  setup({ schoolType: 'public' });
+  await adminUpload('grades', 10, 'initial-grades.pdf');
+  await adminUpload('registration_form', 10, 'initial-registration.pdf');
+  await open();
+  const original = clone(getWaveSet(application.initial_docs, 10, 'initial'));
+  const saved = await scholarUpload('grades', 10, 'revised-grades.pdf');
+  assert.equal(saved.statusCode, 200);
+  const continuing = saved.body.continuingRequirements;
+  assert.equal(continuing.grades.fileName, 'revised-grades.pdf');
+  assert.equal(continuing.grades.status, 'Pending');
+  assert.equal(continuing.grades.reusedFromInitial, undefined);
+  assert.equal(continuing.registration_form.fileName, 'initial-registration.pdf');
+  assert.equal(continuing.registration_form.status, 'Approved');
+  assert.equal(continuing.registration_form.reusedFromInitial, true);
+  assert.equal(continuing.registration_form.sourceAcademicPeriodId, 10);
+  assert.equal(continuing.registration_form.sourceSubmissionWave, 'initial');
+  assert.equal(continuing.registration_form.versionId, original.requirements.registration_form.versionId);
+  assert.equal(continuing.registration_form.revision, original.requirements.registration_form.revision);
+  assert.deepEqual(getWaveSet(application.initial_docs, 10, 'initial'), original);
+  assert.equal(getWaveSet(application.initial_docs, 10, 'continuing').requirements.registration_form, undefined);
+  assert.equal((await ownDocument('registration_form', { submissionWave: 'initial' })).statusCode, 200);
+  assert.equal((await ownDocument('registration_form', { submissionWave: 'continuing' })).statusCode, 404);
+});
+test('closed continuing window rejects replacement of reusable approved initial files without changing originals', async () => {
+  setup({ schoolType: 'public' });
+  await open();
+  const originalDocs = clone(application.initial_docs), previousWrites = writes;
+  prisma.continuing_requirement_schedules = { findUnique: async () => ({ uploads_open: false }) };
+  try {
+    const rejected = await scholarUpload('registration_form', 10, 'revised-registration.pdf');
+    assert.equal(rejected.statusCode, 403);
+    assert.match(rejected.body.message, /Continuing uploads are unavailable/);
+    assert.deepEqual(application.initial_docs, originalDocs);
+    assert.equal(writes, previousWrites);
+  } finally { delete prisma.continuing_requirement_schedules; }
+});
 test('continuing must not fall back to initial grade files or approvals', async () => {
   setup(); await adminUpload('grades'); await open();
   assert.equal(getEffectiveRequirements(application.initial_docs, 10).requirements.grades, undefined);
