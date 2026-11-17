@@ -1716,7 +1716,7 @@ const getApplicantPortalRecord = async ({ application, applicant, processingPeri
     schoolType: schoolClassification(selectedSchool?.school_type), initialVerification });
   if (!isCurrentIntake) {
     guidance.headline = 'Historical application record';
-    guidance.description = 'Your saved application and examination records remain available under their original intake year. This intake is no longer current.';
+    guidance.description = 'Your saved application and examination records remain available under their original academic year. This academic year is no longer current.';
     guidance.actions = [];
   }
   return {
@@ -1727,7 +1727,7 @@ const getApplicantPortalRecord = async ({ application, applicant, processingPeri
       : originalPeriod ? { ...serializeAcademicPeriod(originalPeriod), isCurrentIntake: false } : null,
     initialVerification,
     requirementWave: { entryYearLevel: application.school_plan?.incomingYearLevel || null,
-      academicPeriodId: periodId, periodLabel: schoolYear ? `${schoolYear}${originalPeriod?.semester ? ` · ${originalPeriod.semester}` : ''}` : 'Intake year not specified',
+      academicPeriodId: periodId, periodLabel: schoolYear ? `${schoolYear}${originalPeriod?.semester ? ` · ${originalPeriod.semester}` : ''}` : 'Academic year not specified',
       schoolType: schoolClassification(selectedSchool?.school_type), continuingOpen: false,
       initial: getInitialRequirements(application.initial_docs, periodId, originalPeriod?.id || periodId).requirements,
       continuing: {}, submission: { visible: false, isOpen: false, state: 'waiting_initial' } },
@@ -1761,6 +1761,15 @@ const getApplicantPortalRecord = async ({ application, applicant, processingPeri
   };
 };
 
+const getScholarPortalAcademicYear = async () => {
+  try {
+    return { intakePeriod: serializeIntakePeriod(await findIntakePeriod(prisma)), intakePeriodUnavailable: false };
+  } catch (error) {
+    console.error('Current academic year lookup failed.', { code: error.code || error.name || 'ACADEMIC_YEAR_LOOKUP_ERROR' });
+    return { intakePeriod: null, intakePeriodUnavailable: true };
+  }
+};
+
 const getMyApplication = async (req, res) => {
   try {
     const activePeriod = await getActiveAcademicPeriodRecord();
@@ -1790,7 +1799,7 @@ const getMyApplication = async (req, res) => {
       },
       select: { id: true },
     });
-    const [scholar, scholarRequirement, payrollClaim, scheduledExam, eligibilityAssessment, examSlots, examinationSettings] = applicantId ? await Promise.all([
+    const [scholar, scholarRequirement, payrollClaim, scheduledExam, eligibilityAssessment, examSlots, examinationSettings, currentAcademicYear] = applicantId ? await Promise.all([
       prisma.scholar_accounts.findFirst({ where: { applicant_id: applicantId, is_active: true } }),
       prisma.scholar_requirements.findFirst({ where: { applicant_id: applicantId, billing_period_id: activePeriod.id } }),
       prisma.payroll_claims.findFirst({ where: { applicant_id: applicantId, payroll_batch_id: { in: activePayrollBatches.map(({ id }) => id) } }, orderBy: { updated_at: 'desc' } }),
@@ -1807,7 +1816,8 @@ const getMyApplication = async (req, res) => {
       prisma.eligibility_assessments.findFirst({ where: { applicant_id: applicantId }, orderBy: { generated_at: 'desc' } }),
       prisma.exam_slots.findMany({ where: { applicant_id: applicantId }, orderBy: { updated_at: 'desc' } }),
       getExaminationSettings(prisma),
-    ]) : [null, null, null, null, null, null, await getExaminationSettings(prisma)];
+      getScholarPortalAcademicYear(),
+    ]) : [null, null, null, null, null, null, await getExaminationSettings(prisma), await getScholarPortalAcademicYear()];
     const result = scholar?.result_id
       ? await prisma.results.findFirst({ where: { id: scholar.result_id, applicant_id: applicantId } })
       : !scholar && scheduledExam ? await prisma.results.findFirst({ where: { applicant_id: applicantId, exam_id: scheduledExam.id } }) : null;
@@ -1866,6 +1876,7 @@ const getMyApplication = async (req, res) => {
         ? { ...item, status: 'upcoming', detail: `This stage begins in ${applicant.school_year} or a later academic period.`, completedAt: null } : item);
     }
     return res.json({
+      ...currentAcademicYear,
       initialVerification,
       processingEligibility,
       application: publicApplication(application),

@@ -219,6 +219,8 @@ test('Applicant portal preserves the original historical result without granting
   assert.equal(res.body.examination.academicYear, '2026-2027');
   assert.equal(res.body.examination.access.allowed, false);
   assert.equal(res.body.guidance.actions.length, 0);
+  assert.match(res.body.guidance.description, /original academic year/);
+  assert.doesNotMatch(res.body.guidance.description, /intake/i);
   assert.equal(writes.length, 0);
 });
 
@@ -227,12 +229,82 @@ test('changing intake leaves an accepted Scholar portal on its original processi
   const res = response();
   await getMyApplication({ user: { id: 6 }, query: {} }, res);
   assert.equal(res.statusCode, 200);
+  assert.equal(res.body.intakePeriod.id, 2);
+  assert.equal(res.body.intakePeriod.schoolYear, '2027-2028');
+  assert.equal(res.body.intakePeriod.isActive, false);
+  assert.equal(res.body.intakePeriodUnavailable, false);
   assert.equal(res.body.activePeriod.id, 1);
   assert.equal(res.body.activePeriod.schoolYear, '2026-2027');
   assert.equal(res.body.scholar.scholarId, 'SYN-SCHOLAR');
   assert.equal(res.body.examination.score, 15);
   assert.equal(res.body.requirementWave.academicPeriodId, 1);
   assert.deepEqual(res.body.continuingPeriods.map(row => row.id), [1]);
+  intakeId = 3;
+  const refreshed = response();
+  await getMyApplication({ user: { id: 6 }, query: {} }, refreshed);
+  assert.equal(refreshed.statusCode, 200);
+  assert.equal(refreshed.body.intakePeriod.schoolYear, '2028-2029');
+  assert.equal(refreshed.body.activePeriod.id, 1);
+  assert.equal(refreshed.body.requirementWave.academicPeriodId, 1);
+  assert.equal(refreshed.body.examination.academicYear, '2026-2027');
+  assert.equal(refreshed.body.examination.score, 15);
+  assert.equal(writes.length, 0);
+});
+
+test('Scholar current academic year is independent of the selected continuing-requirements period', async () => {
+  state.scholar = { id: 1, applicant_id: 6, scholar_id: 'SYN-SCHOLAR', is_active: true, result_id: 100 };
+  state.periods.find(row => row.id === 3).is_active = true;
+  const periods = structuredClone(state.periods);
+  const applicationRecord = structuredClone(state.applications.find(row => row.applicant_id === 6));
+  const res = response();
+  await getMyApplication({ user: { id: 6 }, query: { requirementPeriodId: '3' } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.intakePeriod.schoolYear, '2027-2028');
+  assert.equal(res.body.intakePeriodUnavailable, false);
+  assert.equal(res.body.activePeriod.schoolYear, '2026-2027');
+  assert.equal(res.body.requirementWave.academicPeriodId, 3);
+  assert.equal(res.body.requirementWave.periodLabel, '2028-2029 · 1st Semester');
+  assert.deepEqual(res.body.continuingPeriods.map(row => row.id), [1, 3]);
+  assert.equal(res.body.examination.score, 15);
+  assert.deepEqual(state.periods, periods);
+  assert.deepEqual(state.applications.find(row => row.applicant_id === 6), applicationRecord);
+  assert.equal(writes.length, 0);
+});
+
+test('unconfigured current academic year does not fall back to Scholar processing or original records', async () => {
+  state.scholar = { id: 1, applicant_id: 6, scholar_id: 'SYN-SCHOLAR', is_active: true, result_id: 100 };
+  for (const configuredId of [null, 999]) {
+    intakeId = configuredId;
+    const res = response();
+    await getMyApplication({ user: { id: 6 }, query: {} }, res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.intakePeriod, null);
+    assert.equal(res.body.intakePeriodUnavailable, false);
+    assert.equal(res.body.activePeriod.schoolYear, '2026-2027');
+    assert.equal(res.body.examination.score, 15);
+    assert.equal(res.body.requirementWave.academicPeriodId, 1);
+  }
+  assert.equal(writes.length, 0);
+});
+
+test('a failed current academic year lookup leaves Scholar records and processing available', async () => {
+  state.scholar = { id: 1, applicant_id: 6, scholar_id: 'SYN-SCHOLAR', is_active: true, result_id: 100 };
+  for (const lookup of [
+    null,
+    { findUnique: async () => { throw Object.assign(new Error('Synthetic missing table'), { code: 'P2021' }); } },
+    { findUnique: async () => { throw Object.assign(new Error('Synthetic database read failure'), { code: 'P1001' }); } },
+  ]) {
+    prisma.intake_settings = lookup;
+    const res = response();
+    await getMyApplication({ user: { id: 6 }, query: {} }, res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.intakePeriod, null);
+    assert.equal(res.body.intakePeriodUnavailable, true);
+    assert.equal(res.body.scholar.scholarId, 'SYN-SCHOLAR');
+    assert.equal(res.body.activePeriod.id, 1);
+    assert.equal(res.body.requirementWave.academicPeriodId, 1);
+    assert.equal(res.body.examination.score, 15);
+  }
   assert.equal(writes.length, 0);
 });
 

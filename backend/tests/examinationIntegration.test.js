@@ -476,6 +476,8 @@ test('online intake completes in an independent upcoming year while Scholar proc
   const portal = response();
   await getMyApplication({ user: { id: applicant.id }, query: {} }, portal);
   assert.equal(portal.statusCode, 200);
+  assert.equal(portal.body.intakePeriod, null);
+  assert.equal(portal.body.intakePeriodUnavailable, true);
   assert.equal(portal.body.activePeriod.id, 1);
   assert.equal(portal.body.requirementWave.academicPeriodId, 1);
   assert.deepEqual(portal.body.continuingPeriods, []);

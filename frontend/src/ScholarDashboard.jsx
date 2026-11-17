@@ -7,6 +7,7 @@ import ScholarMobileNavigation from './components/ScholarMobileNavigation';
 import { initialRequirementItemsFor, initialRequirementProgress, isFirstYearEntry } from './utils/initialAcademicEvidence';
 import DocumentViewButton from './components/DocumentViewButton';
 import Notification from './components/Notification';
+import PortalAcademicYearBar from './components/PortalAcademicYearBar';
 import {
   Bell,
   CalendarDays,
@@ -73,8 +74,10 @@ function ScholarDashboard({ token, user, onLogout }) {
 
   useEffect(() => {
     let active = true;
+    let revision = 0;
 
     const loadApplication = async (showLoading = false) => {
+      const current = ++revision;
       if (showLoading) setLoadingRequirements(true);
       try {
         const response = await fetch(`${API_BASE}/applications/me${requirementPeriodId ? `?requirementPeriodId=${requirementPeriodId}` : ''}`, {
@@ -83,31 +86,38 @@ function ScholarDashboard({ token, user, onLogout }) {
         });
         const body = await response.json();
         if (!response.ok) throw new Error(body.message || 'Unable to load requirements.');
-        if (active) {
+        if (active && current === revision) {
           setApplication(body.application);
           setPortalData(body);
           setRequirementsError('');
         }
       } catch (error) {
-        if (active) {
+        if (active && current === revision) {
           const message = error instanceof TypeError
             ? 'Unable to reach the server. Reconnecting automatically…'
             : error.message || 'Unable to load scholar records.';
           setRequirementsError(message);
         }
       } finally {
-        if (active && showLoading) setLoadingRequirements(false);
+        if (active && current === revision) setLoadingRequirements(false);
       }
     };
 
     loadApplication(true);
     const refreshPortal = () => loadApplication(false);
+    const refreshFromStorage = (event) => {
+      if (event.key === 'intakePeriodRevision') refreshPortal();
+    };
     const stopRefreshing = subscribeToVisibleRefresh(refreshPortal, { intervalMs: TIME_SENSITIVE_DATA_REFRESH_MS });
     window.addEventListener('online', refreshPortal);
+    window.addEventListener('storage', refreshFromStorage);
+    window.addEventListener('intake-period-changed', refreshPortal);
     return () => {
       active = false;
       stopRefreshing();
       window.removeEventListener('online', refreshPortal);
+      window.removeEventListener('storage', refreshFromStorage);
+      window.removeEventListener('intake-period-changed', refreshPortal);
     };
   }, [refreshRequest, token, requirementPeriodId]);
 
@@ -351,6 +361,7 @@ function ScholarDashboard({ token, user, onLogout }) {
       <div className="scholar-desktop-layout">
         {application && <ScholarDesktopNavigation />}
       <main className="scholar-dashboard-main">
+        <PortalAcademicYearBar period={portalData.intakePeriod} loading={loadingRequirements} unavailable={Boolean(requirementsError) || Boolean(portalData.intakePeriodUnavailable)} />
         {profileOpen && (
           <div className="scholar-profile-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProfileOpen(false); }}>
             <section ref={profileDialog} tabIndex={-1} className="scholar-profile-dialog" role="dialog" aria-modal="true" aria-labelledby="scholar-profile-title">

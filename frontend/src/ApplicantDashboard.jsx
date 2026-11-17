@@ -19,6 +19,7 @@ import {
 import { useEffect, useState } from "react";
 import PortalGuidance from './components/PortalGuidance';
 import EligibilityAssessmentCard from './components/EligibilityAssessmentCard';
+import PortalAcademicYearBar from './components/PortalAcademicYearBar';
 import { API_BASE, authHeaders } from "./services/api";
 import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh, TIME_SENSITIVE_DATA_REFRESH_MS } from './utils/dataRefresh';
 import './styles/applicant-prelude.css';
@@ -89,7 +90,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
   const [profile, setProfile] = useState(user);
   const [application, setApplication] = useState(null);
   const [examination, setExamination] = useState(null);
-  const [intakeScope, setIntakeScope] = useState(null);
+  const [academicYearPeriod, setAcademicYearPeriod] = useState(null);
   const [initialVerification, setInitialVerification] = useState(null);
   const [guidance, setGuidance] = useState(null);
   const [eligibilityAssessment, setEligibilityAssessment] = useState(null);
@@ -124,7 +125,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
         if (!active) return;
         setApplication(body?.application || null);
         setExamination(body?.examination || null);
-        setIntakeScope(body?.intakeScope || null);
+        setAcademicYearPeriod(body?.intakePeriod);
         setGuidance(body?.guidance || null);
         setInitialVerification(body?.initialVerification || null);
         setEligibilityAssessment(body?.eligibilityAssessment || null);
@@ -134,7 +135,7 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
         if (!active) return;
         setApplication(null);
         setExamination(null);
-        setIntakeScope(null);
+        setAcademicYearPeriod(null);
         setGuidance(null);
         setEligibilityAssessment(null);
         setDashboardError(error.message || "Unable to load your dashboard.");
@@ -293,9 +294,8 @@ function ApplicantDashboard({ token, user, onLogout, onUserUpdate }) {
           </button>
         </div>
       </header>
-      {intakeScope?.archived && <section className="applicant-official-result" role="status"><span><strong>Historical intake{intakeScope.schoolYear ? ` · ${intakeScope.schoolYear}` : ''}</strong> Your application and examination records remain available. This intake is no longer accepting examination activity.</span></section>}
-
       <main className="applicant-dashboard-main">
+        <PortalAcademicYearBar period={academicYearPeriod} loading={dashboardLoading} unavailable={Boolean(dashboardError)} />
         {dashboardLoading ? (
           <section className="applicant-dashboard-loading" role="status" aria-live="polite">
             <div className="applicant-loading-message">
