@@ -5,6 +5,30 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-17 - Prevent Text Clipping in Authentication Inputs
+
+**TL;DR**
+
+- Added vertical text space and removed inherited inner rounding in sign-in, password recovery and password reset inputs to address clipped letters such as lowercase p.
+- The visible rounded field, icons and focus styling remain; authentication, autofill, password visibility and saved data are unchanged.
+- CSS cascade, shared-field usage and whitespace review passed. Browser rendering, build and lint remain unverified because frontend tooling is unavailable.
+
+**Objective and reason:** Address the reported clipping of lowercase p in the sign-in Email or control number field.
+
+**Previous and new behavior:** The short inner input had zero padding and inherited an 18px border radius from the global form-field style, allowing text near its rounded edges to be clipped. It now has 8px vertical padding, explicit 1.5 line-height and zero inner border radius. The existing 52px minimum-height outer wrapper supplies the visible rounded border and centers the input and icons.
+
+**Affected users and workflows:** Applicants, Scholars and staff using sign-in, and account owners using password recovery/reset, receive the shared field styling. Submission, validation, account lookup, autofill and password reveal behavior are unchanged.
+
+**Implementation and data flow:** Updated only the input rule in frontend/src/styles/login.css, shared through AuthPageShell by LoginForm and PasswordRecoveryPage. No component state, handlers, input values, requests or data flow changed. The input keeps min-width: 0 and zero horizontal padding for narrow layouts.
+
+**Files or system areas changed:** frontend/src/styles/login.css and both change logs.
+
+**Impact assessment:** API, database/schema, stored data, configuration, security controls and privacy: no changes. Accessibility: additional text space improves legibility; labels, focus feedback, keyboard access and password-toggle controls remain. Deployment: a frontend release is sufficient, with no migration or deployment-configuration changes; no deployment occurred. Application, examination, Scholar processing and payroll workflows are unaffected.
+
+**Validation performed and results:** Source review confirmed the inherited radius and zero padding, the shared login/recovery/reset usage and absence of later input overrides. At the default 16px root font, the 0.93rem text with 1.5 line-height and 16px total vertical padding requires approximately 38.3px, fitting within the existing outer field. Diff and whitespace checks passed. Browser rendering and autofill appearance were not verified; Vite and ESLint dependencies remain missing. No authentication or live-record actions were performed.
+
+**Known limitations, rollback considerations, and recommended next work:** Confirm letters p, g, j, q and y in typed/autofilled identifiers and revealed passwords at desktop/mobile widths and browser zoom when rendering tools are available. Revert the three CSS declaration changes to roll back; no data rollback is needed.
+
 ## 2026-11-17 - Compact Current Academic Year Bar in Applicant and Scholar Dashboards
 
 **TL;DR**

@@ -286,11 +286,13 @@
 }
 .input-with-icon input {
   min-width: 0;
-  padding: 0;
+  padding: 8px 0;
   border: 0;
+  border-radius: 0;
   outline: 0;
   background: transparent;
   font-size: 0.93rem;
+  line-height: 1.5;
 }
 .input-with-icon input:focus {
   box-shadow: none;
