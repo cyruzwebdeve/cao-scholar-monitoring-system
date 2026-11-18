@@ -1304,7 +1304,7 @@ function Dashboard({ activeSection = 'Dashboard', user, token, onSectionChange, 
   if (activeSection === 'Applicants' && ['SuperAdmin', 'RegularAdmin', 'BillingPayrollAdmin'].includes(user?.role)) return <ApplicantWorkspace token={token} user={user} />;
   if (activeSection === 'Examination Management' || activeSection === 'Results Management') return <ApplicantWorkspace token={token} user={user} initialView={activeSection === 'Results Management' ? 'results' : 'schedules'} />;
   if (activeSection === 'Scholars') return <ScholarsManagement token={token} user={user} onSectionChange={onSectionChange} />;
-  if (activeSection === 'Billing') return <BillingPayrollManagement key="billing" token={token} mode="billing" userRole={user?.role} userId={user?.id} />;
+  if (activeSection === 'Billing') return <BillingPayrollManagement key="billing" token={token} mode="billing" userRole={user?.role} userId={user?.id} sectionAccess={user?.sectionAccess} />;
   if (activeSection === 'Payroll') return <BillingPayrollManagement key="payroll" token={token} mode="payroll" userRole={user?.role} />;
   if (activeSection === 'Announcements') return <AnnouncementsManagement token={token} />;
   if (activeSection === 'Activity Logs' && user?.role === 'SuperAdmin') return <ActivityLogsManagement token={token} />;

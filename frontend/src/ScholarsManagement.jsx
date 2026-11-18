@@ -9,7 +9,6 @@ import { canManageStaffSection } from './utils/staffAccess';
 import PrivateGrantEditor from './PrivateGrantEditor';
 import InitialRequirementCapture from './InitialRequirementCapture';
 import ContinuingRequirementsSettings from './ContinuingRequirementsSettings';
-import BatchScholarBillingPreparation from './BatchScholarBillingPreparation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   BadgeCheck,
@@ -91,7 +90,6 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const [documentStatus, setDocumentStatus] = useState('All Documents');
   const [selected, setSelected] = useState(null);
   const [sectionTab, setSectionTab] = useState('directory');
-  const [batchBillingOpened, setBatchBillingOpened] = useState(false);
   const [schedulePeriodId, setSchedulePeriodId] = useState(null);
   const [drawerTab, setDrawerTab] = useState('overview');
   const [page, setPage] = useState(1);
@@ -119,7 +117,6 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const certificateScopeRef = useRef(null);
   const certificateActionRef = useRef(null);
   const historyRequestRef = useRef(0);
-  const batchBillingScopeRef = useRef(null);
   const pageSize = 10;
   const canEditBilling = user?.role === 'SuperAdmin'
     || !Array.isArray(user?.sectionAccess)
@@ -127,16 +124,10 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const canReviewDocuments = ['SuperAdmin', 'BillingPayrollAdmin'].includes(user?.role)
     && (user?.role === 'SuperAdmin' || !Array.isArray(user?.sectionAccess) || user.sectionAccess.includes('documentReviews'));
   const canUploadScholarRequirements = canManageStaffSection(user, 'scholars');
-  const canPrepareBatchBilling = canManageStaffSection(user, 'billing');
   const canViewScholarDocuments = canReviewDocuments || canUploadScholarRequirements;
   const canOpenSettings = user?.role === 'SuperAdmin'
     || !Array.isArray(user?.sectionAccess)
     || user.sectionAccess.includes('settings');
-
-  useLayoutEffect(() => {
-    batchBillingScopeRef.current = { active: sectionTab === 'batch-billing' && canPrepareBatchBilling, token, actorId: user?.id };
-    return () => { batchBillingScopeRef.current = null; };
-  }, [sectionTab, canPrepareBatchBilling, token, user?.id]);
 
   useLayoutEffect(() => {
     certificateScopeRef.current = { applicantId: selected?.applicantId, academicPeriodId: selected?.academicPeriodId, token };
@@ -189,16 +180,6 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
   const openNewCycleSetup = () => {
     setSelected(null);
     onSectionChange?.('Settings');
-  };
-
-  const openPreparedBatchBilling = ({ periodId, applicantIds }) => {
-    const scope = batchBillingScopeRef.current;
-    if (!scope?.active || scope.token !== token || scope.actorId !== user?.id || !canPrepareBatchBilling || !onSectionChange) return false;
-    const saved = saveProcessingHandoff({ periodId, applicantIds, actorId: user?.id, mode: 'billing' });
-    if (!saved) return false;
-    setSelected(null);
-    onSectionChange('Billing');
-    return true;
   };
 
   const loadScholars = useCallback(async ({ showLoader = false, academicPeriodId } = {}) => {
@@ -581,9 +562,8 @@ export default function ScholarsManagement({ token, user, onSectionChange }) {
     <div className="scholars-management">
       <header className="scholars-admin-heading"><div><span className="scholars-admin-eyebrow">SCHOLAR RECORDS</span><h2>Scholars Management</h2><p>Manage scholar accounts, review documents, and track status updates.</p></div><button type="button" className="scholars-export" onClick={() => setExportOpen(true)} disabled={!filtered.length}><Download size={15} />Export CSV</button></header>
 
-      <nav className="examination-workspace-tabs scholars-section-tabs" aria-label="Scholars sections"><button type="button" aria-pressed={sectionTab === 'directory'} className={sectionTab === 'directory' ? 'active' : ''} onClick={() => setSectionTab('directory')}>Scholar</button>{canPrepareBatchBilling && <button type="button" aria-pressed={sectionTab === 'batch-billing'} className={sectionTab === 'batch-billing' ? 'active' : ''} onClick={() => { setBatchBillingOpened(true); setSectionTab('batch-billing'); }}>Batch Billing</button>}<button type="button" aria-pressed={sectionTab === 'continuing'} className={sectionTab === 'continuing' ? 'active' : ''} onClick={() => setSectionTab('continuing')}>Continuing Requirements</button><button type="button" aria-pressed={sectionTab === 'graduation'} className={sectionTab === 'graduation' ? 'active' : ''} onClick={() => setSectionTab('graduation')}>Graduates &amp; Latin honors</button></nav>
-      {batchBillingOpened && canPrepareBatchBilling && <div hidden={sectionTab !== 'batch-billing'}><BatchScholarBillingPreparation token={token} onAddedToBilling={openPreparedBatchBilling} /></div>}
-      {sectionTab === 'batch-billing' ? null : sectionTab === 'graduation' ? <GraduationRecognition token={token} /> : sectionTab === 'continuing' ? <ContinuingRequirementsSettings token={token} periods={academicPeriods} scholars={scholars} canEdit={canUploadScholarRequirements} onPeriodChange={async (periodId) => { setSchedulePeriodId(periodId); await loadScholars({ academicPeriodId: periodId }); }} /> : <>
+      <nav className="examination-workspace-tabs scholars-section-tabs" aria-label="Scholars sections"><button type="button" aria-pressed={sectionTab === 'directory'} className={sectionTab === 'directory' ? 'active' : ''} onClick={() => setSectionTab('directory')}>Scholar</button><button type="button" aria-pressed={sectionTab === 'continuing'} className={sectionTab === 'continuing' ? 'active' : ''} onClick={() => setSectionTab('continuing')}>Continuing Requirements</button><button type="button" aria-pressed={sectionTab === 'graduation'} className={sectionTab === 'graduation' ? 'active' : ''} onClick={() => setSectionTab('graduation')}>Graduates &amp; Latin honors</button></nav>
+      {sectionTab === 'graduation' ? <GraduationRecognition token={token} /> : sectionTab === 'continuing' ? <ContinuingRequirementsSettings token={token} periods={academicPeriods} scholars={scholars} canEdit={canUploadScholarRequirements} onPeriodChange={async (periodId) => { setSchedulePeriodId(periodId); await loadScholars({ academicPeriodId: periodId }); }} /> : <>
       <div className="scholars-admin-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <MetricDetailsCard title={label} rows={scholarMetricRows(scholars, label)} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'municipality', label: 'Municipality' }, { key: 'status', label: 'Status' }, { key: 'documentStatus', label: 'Documents' }]} disabled={loading || Boolean(loadError && !scholars.length)} className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !scholars.length) ? '—' : value}</strong><small>{detail}</small></div><i><Icon size={20} /></i></MetricDetailsCard>)}</div>
 
       {loadError && <div className="scholars-admin-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadScholars({ showLoader: true })}>Retry</button></div>}

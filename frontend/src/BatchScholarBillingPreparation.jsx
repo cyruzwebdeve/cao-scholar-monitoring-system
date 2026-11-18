@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, RefreshCw, Save, Search } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Eye, RefreshCw, Save, Search } from 'lucide-react';
 import Notification from './components/Notification';
-import DocumentViewButton from './components/DocumentViewButton';
+import BatchTuitionReceiptPreview from './components/BatchTuitionReceiptPreview';
 import { API_BASE, authHeaders } from './services/api';
 import {
-  MAX_BATCH_GRANT_ROWS, batchBillingAmount, batchBillingBlocker, batchBillingDraft,
+  MAX_BATCH_GRANT_ROWS, batchBillingAmount, batchBillingBlocker, batchBillingDraft, batchBillingStatus,
   buildBatchBillingEntries, mergeBatchBillingDrafts, readBatchBillingResults,
 } from './utils/batchScholarBilling';
 import './styles/batch-scholar-billing.css';
@@ -12,9 +12,10 @@ import './styles/batch-scholar-billing.css';
 const emptyData = { periodId: '', token: null, records: [], periods: [], loading: true, error: '' };
 const emptyRows = { periodId: '', token: null, rows: {} };
 const emptyIds = { periodId: '', token: null, ids: [] };
+const statuses = [{ value: 'needs-preparation', label: 'Needs preparation' }, { value: 'attention', label: 'Needs attention' }, { value: 'prepared', label: 'Prepared' }, { value: 'locked', label: 'Locked' }];
 const money = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'Unavailable';
 
-export default function BatchScholarBillingPreparation({ token, onAddedToBilling }) {
+export default function BatchScholarBillingPreparation({ token, onPreparedRows, onOpenBilling, active = true }) {
   const [periodId, setPeriodId] = useState('');
   const [data, setData] = useState(emptyData);
   const [draftState, setDraftState] = useState(emptyRows);
@@ -22,12 +23,16 @@ export default function BatchScholarBillingPreparation({ token, onAddedToBilling
   const [saved, setSaved] = useState(emptyIds);
   const [query, setQuery] = useState('');
   const [school, setSchool] = useState('All schools');
+  const [statusFilter, setStatusFilter] = useState('needs-preparation');
+  const [focused, setFocused] = useState(null);
+  const [bulk, setBulk] = useState(null);
   const [saving, setSaving] = useState(false);
   const [openingBilling, setOpeningBilling] = useState(false);
   const [notice, setNotice] = useState(null);
   const scopeRef = useRef(null);
   const actionRef = useRef(null);
   const requestRef = useRef(0);
+  const inputRefs = useRef({});
 
   useLayoutEffect(() => {
     scopeRef.current = { periodId, token };
@@ -36,7 +41,7 @@ export default function BatchScholarBillingPreparation({ token, onAddedToBilling
 
   const loadRecords = useCallback(async ({ signal } = {}) => {
     const scope = scopeRef.current;
-    if (!scope) return;
+    if (!active || !scope || scope.token !== token || scope.periodId !== periodId) return;
     const requestId = ++requestRef.current;
     setData((current) => ({ ...current, loading: true, error: '' }));
     try {
@@ -56,13 +61,14 @@ export default function BatchScholarBillingPreparation({ token, onAddedToBilling
     } catch (failure) {
       if (scopeRef.current === scope && requestRef.current === requestId && !signal?.aborted) setData((current) => ({ ...current, periodId, token, records: current.periodId === periodId && current.token === token ? current.records : [], loading: false, error: failure.message || 'Unable to load Scholar grant records.' }));
     }
-  }, [periodId, token]);
+  }, [active, periodId, token]);
 
   useEffect(() => {
+    if (!active) return undefined;
     const controller = new AbortController();
     loadRecords({ signal: controller.signal });
     return () => { controller.abort(); requestRef.current += 1; };
-  }, [loadRecords]);
+  }, [active, loadRecords]);
 
   const currentData = data.periodId === periodId && data.token === token;
   const records = currentData ? data.records : [];
@@ -74,17 +80,26 @@ export default function BatchScholarBillingPreparation({ token, onAddedToBilling
   const currentPeriod = data.periods.find((period) => String(period.id) === periodId);
   const schoolYears = [...new Set(data.periods.map((period) => period.schoolYear))];
   const schools = [...new Set(records.map((record) => record.school).filter(Boolean))].sort();
-  const filtered = useMemo(() => records.filter((record) => `${record.name} ${record.controlNumber || ''} ${record.school}`.toLowerCase().includes(query.trim().toLowerCase()) && (school === 'All schools' || record.school === school)), [records, query, school]);
+  const scopedRecords = useMemo(() => records.filter((record) => `${record.name} ${record.controlNumber || ''} ${record.school}`.toLowerCase().includes(query.trim().toLowerCase()) && (school === 'All schools' || record.school === school)), [records, query, school]);
+  const statusCounts = Object.fromEntries(statuses.map(({ value }) => [value, scopedRecords.filter((record) => batchBillingStatus(record, drafts[record.applicantId], periodId, savedIds.includes(record.applicantId)) === value).length]));
+  const filtered = scopedRecords.filter((record) => batchBillingStatus(record, drafts[record.applicantId], periodId, savedIds.includes(record.applicantId)) === statusFilter);
   const busy = saving || openingBilling;
-  const controlsDisabled = busy || data.loading || !currentData || Boolean(data.error);
+  const controlsDisabled = busy || data.loading || !currentData || Boolean(data.error) || !active;
   const visibleSelectable = filtered.filter((record) => !batchBillingBlocker(record, periodId) && !savedIds.includes(record.applicantId));
   const selectedRecords = records.filter((record) => selectedIds.includes(record.applicantId));
+  const ready = buildBatchBillingEntries(records, drafts, selectedIds, periodId);
+  const readyCount = ready.entries.length;
+  const skippedCount = selectedIds.length - readyCount;
+  const focusedId = focused?.periodId === periodId && focused?.token === token ? focused.applicantId : null;
+  const previewIndex = filtered.findIndex((record) => record.applicantId === focusedId);
+  const previewRecord = previewIndex >= 0 ? filtered[previewIndex] : null;
+  const bulkTuition = bulk?.periodId === periodId && bulk?.token === token ? bulk.tuition : '';
   const showNotice = (value) => setNotice(value ? { ...value, periodId, token } : null);
 
   const changePeriod = (nextId) => {
     if (actionRef.current || nextId === periodId) return;
     requestRef.current += 1;
-    setPeriodId(nextId); setQuery(''); setSchool('All schools'); showNotice(null);
+    setPeriodId(nextId); setQuery(''); setSchool('All schools'); setStatusFilter('needs-preparation'); setFocused(null); setBulk(null); showNotice(null);
   };
   const selectRows = (ids) => {
     if (controlsDisabled || actionRef.current) return;
@@ -94,35 +109,66 @@ export default function BatchScholarBillingPreparation({ token, onAddedToBilling
   };
   const editTuition = (record, tuition) => {
     if (controlsDisabled || actionRef.current || savedIds.includes(record.applicantId) || batchBillingBlocker(record, periodId)) return;
-    setDraftState((current) => ({ periodId, token, rows: { ...(current.periodId === periodId && current.token === token ? current.rows : {}), [record.applicantId]: { ...(drafts[record.applicantId] || batchBillingDraft(record)), tuition, dirty: true, error: '' } } }));
+    const previous = drafts[record.applicantId] || batchBillingDraft(record);
+    setDraftState((current) => ({ periodId, token, rows: { ...(current.periodId === periodId && current.token === token ? current.rows : {}), [record.applicantId]: { ...previous, tuition, dirty: true, error: '', attention: Boolean(previous.error || previous.attention) } } }));
   };
   const resetDraft = (record) => {
-    if (controlsDisabled || actionRef.current || savedIds.includes(record.applicantId)) return;
+    if (controlsDisabled || actionRef.current || savedIds.includes(record.applicantId) || batchBillingBlocker(record, periodId)) return;
     setDraftState((current) => ({ ...current, rows: { ...current.rows, [record.applicantId]: batchBillingDraft(record) } }));
   };
-  const handoffSavedRows = async (ids, scope) => {
+  const focusRecord = (record, focusInput = false) => {
+    if (controlsDisabled || !record) return;
+    setFocused({ periodId, token, applicantId: record.applicantId });
+    if (focusInput) inputRefs.current[record.applicantId]?.focus();
+  };
+  const navigateReceipt = (direction) => focusRecord(filtered[previewIndex < 0 ? 0 : previewIndex + direction], true);
+  const handleAmountKey = (event, record) => {
+    if (!['Enter', 'Tab'].includes(event.key) || controlsDisabled) return;
+    const index = visibleSelectable.findIndex((item) => item.applicantId === record.applicantId);
+    const next = visibleSelectable[index + (event.shiftKey ? -1 : 1)];
+    if (event.key === 'Enter' || next) event.preventDefault();
+    if (next) focusRecord(next, true);
+  };
+  const applyAmountToSelected = (tuition = bulkTuition) => {
+    if (controlsDisabled || actionRef.current || !selectedIds.length) return;
+    if (selectedRecords.length !== selectedIds.length || selectedRecords.some((record) => savedIds.includes(record.applicantId) || batchBillingBlocker(record, periodId) || !batchBillingAmount(record, tuition).valid)) {
+      showNotice({ tone: 'error', text: 'Enter an amount within every selected Scholar\'s configured grant total. Selected values were kept.' }); return;
+    }
+    setDraftState((current) => ({ ...current, rows: { ...current.rows, ...Object.fromEntries(selectedRecords.map((record) => {
+      const previous = current.rows[record.applicantId] || batchBillingDraft(record);
+      return [record.applicantId, { ...previous, tuition: String(tuition), dirty: true, error: '', attention: Boolean(previous.error || previous.attention) }];
+    })) } }));
+    showNotice({ tone: 'success', text: `Applied PHP ${money(tuition)} tuition assistance to ${selectedRecords.length} selected Scholar(s). Review the amounts before saving.` });
+  };
+  const notifyPreparedRows = async (ids, scope) => {
     if (!ids.length || scopeRef.current !== scope) return;
     try {
-      const opened = await onAddedToBilling?.({ periodId: Number(scope.periodId), applicantIds: ids });
-      if (scopeRef.current === scope && (!onAddedToBilling || opened === false)) showNotice({ tone: 'warning', text: `${ids.length} prepared record(s) remain saved. Open Billing from the sidebar or retry Open Billing to queue them.` });
+      const accepted = await onPreparedRows?.({ periodId: Number(scope.periodId), applicantIds: ids });
+      if (scopeRef.current === scope && (!onPreparedRows || accepted === false)) setNotice((current) => ({ ...current, periodId, token, tone: 'warning', text: `${current?.text || ''} Saved records remain available. Use Review Billing queue to continue.`.trim() }));
     } catch (failure) {
-      if (scopeRef.current === scope) showNotice({ tone: 'warning', text: `${ids.length} prepared record(s) remain saved. Unable to open Billing: ${failure.message || 'Please retry.'}` });
+      if (scopeRef.current === scope) setNotice((current) => ({ ...current, periodId, token, tone: 'warning', text: `${current?.text || ''} Saved records remain available. Unable to update the queue: ${failure.message || 'Please retry Review Billing queue.'}`.trim() }));
     }
   };
   const openBilling = async () => {
     if (actionRef.current || controlsDisabled || !savedIds.length) return;
     const scope = scopeRef.current, action = {};
     actionRef.current = action; setOpeningBilling(true);
-    try { await handoffSavedRows(savedIds, scope); }
-    finally { if (actionRef.current === action) { actionRef.current = null; if (scopeRef.current) setOpeningBilling(false); } }
+    try {
+      const opened = await onOpenBilling?.({ periodId: Number(scope.periodId), applicantIds: savedIds });
+      if (scopeRef.current === scope && (!onOpenBilling || opened === false)) showNotice({ tone: 'warning', text: `${savedIds.length} prepared record(s) remain saved. Open Billing's queue tab or retry Review Billing queue.` });
+    } catch (failure) {
+      if (scopeRef.current === scope) showNotice({ tone: 'warning', text: `${savedIds.length} prepared record(s) remain saved. Unable to open the queue: ${failure.message || 'Please retry.'}` });
+    } finally { if (actionRef.current === action) { actionRef.current = null; if (scopeRef.current) setOpeningBilling(false); } }
   };
   const saveBatch = async (event) => {
     event?.preventDefault();
     if (actionRef.current || controlsDisabled || !selectedIds.length) return;
     const prepared = buildBatchBillingEntries(records, drafts, selectedIds, periodId);
-    if (prepared.message) {
-      setDraftState((current) => ({ ...current, rows: Object.fromEntries(Object.entries(current.rows).map(([id, draft]) => [id, { ...draft, error: prepared.errors[id] || draft.error }])) }));
-      showNotice({ tone: 'error', text: prepared.message }); return;
+    const skipped = Object.keys(prepared.errors).length;
+    if (skipped) setDraftState((current) => ({ ...current, rows: Object.fromEntries(Object.entries(current.rows).map(([id, draft]) => [id, prepared.errors[id] ? { ...draft, error: prepared.errors[id], attention: true } : draft])) }));
+    if (!prepared.entries.length) {
+      if (skipped) setStatusFilter('attention');
+      showNotice({ tone: 'error', text: prepared.message || 'Select at least one ready row to save.' }); return;
     }
     const scope = scopeRef.current, action = {};
     actionRef.current = action; setSaving(true); showNotice(null);
@@ -142,12 +188,14 @@ export default function BatchScholarBillingPreparation({ token, onAddedToBilling
       requestRef.current += 1;
       setData((current) => ({ ...current, loading: false, records: current.records.map((record) => successes.has(record.applicantId) ? { ...record, ...successes.get(record.applicantId), preparationStatus: 'Prepared', processEligible: true, billingEligibilityReasons: [] } : record) }));
       setDraftState((current) => ({ ...current, rows: { ...current.rows, ...Object.fromEntries(results.map((result) => [result.applicantId,
-        result.success ? batchBillingDraft(result.grant) : { ...current.rows[result.applicantId], dirty: true, error: result.message },
+        result.success ? batchBillingDraft(result.grant) : { ...current.rows[result.applicantId], dirty: true, error: result.message, attention: true },
       ])) } }));
       setSelection({ periodId, token, ids: selectedIds.filter((id) => !successes.has(id)) });
       setSaved({ periodId, token, ids: nextSavedIds });
-      showNotice({ tone: successful.length ? failed.length ? 'warning' : 'success' : 'error', text: `${successful.length} record(s) saved for Billing.${failed.length ? ` ${failed.length} need attention. Correct the failed rows and retry; saved rows will not be sent again.` : ' The official certification list is generated in Billing.'}` });
-      if (!failed.length && successful.length) await handoffSavedRows(nextSavedIds, scope);
+      const remaining = failed.length + skipped;
+      if (remaining) setStatusFilter('attention');
+      showNotice({ tone: successful.length ? remaining ? 'warning' : 'success' : 'error', text: `${successful.length} record(s) saved for Billing.${skipped ? ` ${skipped} selected row(s) skipped because their amounts need attention.` : ''}${failed.length ? ` ${failed.length} submitted row(s) could not be saved.` : ''}${remaining ? ' Correct the remaining rows and retry; saved rows will not be sent again.' : ' Continue preparing Scholars or review the Billing queue.'}` });
+      if (successful.length) await notifyPreparedRows(successful.map((result) => result.applicantId), scope);
     } catch (failure) {
       if (scopeRef.current === scope) showNotice({ tone: 'error', text: failure.message || 'Unable to confirm the save. Refresh the records before retrying.' });
     } finally {
@@ -156,35 +204,39 @@ export default function BatchScholarBillingPreparation({ token, onAddedToBilling
   };
 
   return <section className="batch-scholar-billing" aria-label="Batch Scholar Billing preparation" aria-busy={data.loading || busy}>
-    <header className="batch-billing-heading"><div><span className="batch-billing-eyebrow">PRIVATE GRANT PREPARATION</span><h3>Prepare multiple Scholars for Billing</h3><p>Select Scholars and enter each tuition assistance amount. Allowance is computed separately for every Scholar.</p></div><button type="button" onClick={() => loadRecords()} disabled={busy || data.loading}><RefreshCw size={15} />Refresh records</button></header>
+    <header className="batch-billing-heading"><div><span className="batch-billing-eyebrow">PRIVATE GRANT PREPARATION</span><h3>Prepare Scholars</h3><p>Review receipts and enter amounts, then save the ready rows to Billing.</p></div><button type="button" onClick={() => loadRecords()} disabled={busy || data.loading}><RefreshCw size={15} />Refresh records</button></header>
     <div className="batch-billing-controls">
       <label><span>Academic Year</span><select value={currentPeriod?.schoolYear || ''} disabled={busy || data.loading || !data.periods.length} onChange={(event) => { const choices = data.periods.filter((period) => period.schoolYear === event.target.value); changePeriod(String((choices.find((period) => period.semester === currentPeriod?.semester) || choices[0])?.id || '')); }}><option value="" disabled>Select academic year</option>{schoolYears.map((year) => <option key={year}>{year}</option>)}</select></label>
       <label><span>Semester</span><select value={periodId} disabled={busy || data.loading || !currentPeriod} onChange={(event) => changePeriod(event.target.value)}><option value="" disabled>Select semester</option>{data.periods.filter((period) => period.schoolYear === currentPeriod?.schoolYear).map((period) => <option key={period.id} value={period.id}>{period.semester}{period.isPrimary ? ' (Primary)' : ''}</option>)}</select></label>
       <label className="batch-billing-search"><span>Search Scholars</span><div><Search size={15} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, control number or school" disabled={busy} /></div></label>
       <label><span>School</span><select value={school} onChange={(event) => setSchool(event.target.value)} disabled={busy}><option>All schools</option>{schools.map((name) => <option key={name}>{name}</option>)}</select></label>
     </div>
+    <nav className="batch-billing-status-filters" aria-label="Preparation status">{statuses.map(({ value, label }) => <button key={value} type="button" aria-pressed={statusFilter === value} className={statusFilter === value ? 'active' : ''} disabled={busy} onClick={() => setStatusFilter(value)}>{label}<span>{statusCounts[value]}</span></button>)}</nav>
     <p className="batch-billing-guidance">This view includes Private Scholars assigned to Billing. Initial or redirected Private Scholars are prepared in Payroll. Listed records are locked. Enter 0 explicitly when no tuition assistance applies.</p>
     {loadError && <Notification tone="error" title="Unable to load grant records">{loadError}</Notification>}
     {currentNotice && <Notification tone={currentNotice.tone} title={currentNotice.tone === 'error' ? 'Grant preparation needs attention' : 'Batch preparation update'}>{currentNotice.text}</Notification>}
     <form onSubmit={saveBatch} noValidate>
-      <div className="batch-billing-selection"><span><strong>{selectedIds.length}</strong> selected · {filtered.length} shown · up to {MAX_BATCH_GRANT_ROWS} per save</span><div><button type="button" onClick={() => selectRows([...selectedIds, ...visibleSelectable.map((record) => record.applicantId)].slice(0, MAX_BATCH_GRANT_ROWS))} disabled={controlsDisabled || !visibleSelectable.length}>Select visible</button><button type="button" onClick={() => selectRows([])} disabled={controlsDisabled || !selectedIds.length}>Clear selection</button></div></div>
-      <div className="batch-billing-table-wrap"><table className="batch-billing-table"><caption className="batch-billing-sr-only">Private Scholar grant amounts for the selected academic year and semester</caption><thead><tr><th scope="col">Select</th><th scope="col">Scholar</th><th scope="col">Total Grant (PHP)</th><th scope="col">Tuition Assistance (PHP)</th><th scope="col">Allowance (PHP)</th><th scope="col">Receipt / status</th></tr></thead><tbody>
-        {(!currentData || data.loading) && !records.length ? <tr><td colSpan={6} className="batch-billing-empty">Loading Scholar records…</td></tr> : !filtered.length && <tr><td colSpan={6} className="batch-billing-empty">{loadError ? 'Records are unavailable. Refresh to retry.' : 'No Private Scholars assigned to Billing match this selection.'}</td></tr>}
+      <div className="batch-billing-bulk"><label><span>Tuition amount for selected Scholars (PHP)</span><input type="number" min="0" step="0.01" value={bulkTuition} onChange={(event) => setBulk({ periodId, token, tuition: event.target.value })} disabled={controlsDisabled || !selectedIds.length} /></label><button type="button" onClick={() => applyAmountToSelected()} disabled={controlsDisabled || !selectedIds.length || bulkTuition.trim() === ''}>Apply amount to selected</button><button type="button" onClick={() => applyAmountToSelected('0')} disabled={controlsDisabled || !selectedIds.length}>Set selected tuition to zero</button></div>
+      <div className="batch-billing-workspace"><div className="batch-billing-worklist">
+      <div className="batch-billing-selection"><span><strong>{selectedIds.length}</strong> selected · {filtered.length} shown · up to {MAX_BATCH_GRANT_ROWS} per save{selectedIds.some((id) => !filtered.some((record) => record.applicantId === id)) ? ' · Includes selections in other filters' : ''}</span><div><button type="button" onClick={() => selectRows([...selectedIds, ...visibleSelectable.map((record) => record.applicantId)].slice(0, MAX_BATCH_GRANT_ROWS))} disabled={controlsDisabled || !visibleSelectable.length}>Select visible</button><button type="button" onClick={() => selectRows([])} disabled={controlsDisabled || !selectedIds.length}>Clear selection</button></div></div>
+      <div className="batch-billing-table-wrap"><table className="batch-billing-table"><caption className="batch-billing-sr-only">Private Scholar grant amounts for the selected academic year and semester</caption><thead><tr><th scope="col">Select</th><th scope="col">Scholar / grant</th><th scope="col">Tuition (PHP)</th><th scope="col">Allowance (PHP)</th><th scope="col">Receipt / status</th></tr></thead><tbody>
+        {(!currentData || data.loading) && !records.length ? <tr><td colSpan={5} className="batch-billing-empty">Loading Scholar records…</td></tr> : !filtered.length && <tr><td colSpan={5} className="batch-billing-empty">{loadError ? 'Records are unavailable. Refresh to retry.' : `No Scholars ${statusFilter === 'needs-preparation' ? 'need preparation' : 'match this status'} in this selection.`}</td></tr>}
         {filtered.map((record) => {
           const blocker = batchBillingBlocker(record, periodId), draft = drafts[record.applicantId] || batchBillingDraft(record), amount = batchBillingAmount(record, draft.tuition), rowSaved = savedIds.includes(record.applicantId);
           const disabled = controlsDisabled || Boolean(blocker) || rowSaved;
           const inputId = `batch-billing-tuition-${record.applicantId}`, helpId = `${inputId}-help`;
-          return <tr key={`${periodId}:${record.applicantId}`} className={rowSaved ? 'is-saved' : blocker ? 'is-locked' : ''}>
+          return <tr key={`${periodId}:${record.applicantId}`} className={`${rowSaved ? 'is-saved' : blocker ? 'is-locked' : ''}${previewRecord?.applicantId === record.applicantId ? ' is-reviewing' : ''}`}>
             <td data-label="Select"><input type="checkbox" aria-label={`Select ${record.name} for Billing preparation`} checked={selectedIds.includes(record.applicantId)} disabled={disabled} onChange={() => selectRows(selectedIds.includes(record.applicantId) ? selectedIds.filter((id) => id !== record.applicantId) : [...selectedIds, record.applicantId])} /></td>
-            <td data-label="Scholar"><strong className="batch-billing-name">{record.name}</strong><span className="batch-billing-secondary">{record.controlNumber || record.scholarId}</span><span className="batch-billing-secondary">{record.school}</span></td>
-            <td data-label="Total Grant"><output aria-label={`Total grant for ${record.name}`}>{money(amount.total)}</output></td>
-            <td data-label="Tuition Assistance"><label className="batch-billing-sr-only" htmlFor={inputId}>Tuition assistance for {record.name}</label><input id={inputId} type="number" min="0" max={amount.total} step="0.01" value={draft.tuition} disabled={disabled} onChange={(event) => editTuition(record, event.target.value)} aria-describedby={helpId} aria-invalid={Boolean(draft.error || draft.dirty && !amount.valid)} /><small id={helpId} className={draft.error ? 'batch-billing-row-error' : 'batch-billing-secondary'}>{draft.error || `PHP 0–${money(amount.total)}`}</small>{(draft.dirty || draft.error) && !rowSaved && !blocker && <button className="batch-billing-reset" type="button" disabled={controlsDisabled} onClick={() => resetDraft(record)}>Use saved values</button>}</td>
+            <td data-label="Scholar / grant"><strong className="batch-billing-name">{record.name}</strong><span className="batch-billing-secondary">{record.controlNumber || record.scholarId} · {record.school}</span><span className="batch-billing-total">Total grant: PHP {money(amount.total)}</span></td>
+            <td data-label="Tuition"><label className="batch-billing-sr-only" htmlFor={inputId}>Tuition assistance for {record.name}</label><input ref={(element) => { if (element) inputRefs.current[record.applicantId] = element; else delete inputRefs.current[record.applicantId]; }} id={inputId} type="number" min="0" max={amount.total} step="0.01" value={draft.tuition} disabled={disabled} onChange={(event) => editTuition(record, event.target.value)} onFocus={() => focusRecord(record)} onKeyDown={(event) => handleAmountKey(event, record)} aria-describedby={helpId} aria-invalid={Boolean(draft.error || draft.dirty && !amount.valid)} /><small id={helpId} className={draft.error || draft.dirty && !amount.valid ? 'batch-billing-row-error' : 'batch-billing-secondary'}>{draft.error || (draft.dirty && !amount.valid ? `Enter PHP 0–${money(amount.total)}, with up to two decimal places.` : `PHP 0–${money(amount.total)}`)}</small>{(draft.dirty || draft.error) && !rowSaved && !blocker && <button className="batch-billing-reset" type="button" disabled={controlsDisabled} onClick={() => resetDraft(record)}>Use saved values</button>}</td>
             <td data-label="Allowance"><output aria-label={`Computed allowance for ${record.name}`}>{amount.allowance == null ? '—' : money(amount.allowance)}</output></td>
-            <td data-label="Receipt / status"><DocumentViewButton key={`${periodId}:${record.applicantId}`} token={token} endpoint={`/scholars/${record.applicantId}/tuition-receipt?academicPeriodId=${periodId}`} label={`Tuition receipt · ${record.name} · ${currentPeriod?.schoolYear || ''} · ${currentPeriod?.semester || ''}`} buttonLabel="View receipt" disabled={controlsDisabled} /><span className={`batch-billing-status${rowSaved ? ' saved' : blocker ? ' locked' : ''}`}>{rowSaved ? 'Saved for Billing' : blocker || (record.grantPrepared ? 'Prepared · editable' : 'Not prepared')}</span>{record.processingWarnings?.length > 0 && <span className="batch-billing-secondary">Requirements incomplete; preparation remains available.</span>}</td>
+            <td data-label="Receipt / status"><button type="button" className="batch-billing-review" onClick={() => focusRecord(record, true)} disabled={controlsDisabled} aria-pressed={previewRecord?.applicantId === record.applicantId}><Eye size={14} />Review receipt<span className="batch-billing-sr-only"> for {record.name}</span></button><span className={`batch-billing-status${rowSaved ? ' saved' : blocker ? ' locked' : ''}`}>{rowSaved ? 'Saved for Billing' : blocker || (draft.attention || draft.error ? 'Needs attention' : record.grantPrepared ? 'Prepared · editable' : 'Needs preparation')}</span>{record.processingWarnings?.length > 0 && <span className="batch-billing-secondary">Requirements incomplete; preparation remains available.</span>}</td>
           </tr>;
         })}
       </tbody></table></div>
-      <footer className="batch-billing-footer"><div><strong>{selectedIds.length} selected Scholar{selectedIds.length === 1 ? '' : 's'}</strong><span>Total selected grants: PHP {money(selectedRecords.reduce((sum, record) => sum + Math.round(Number(record.totalGrant ?? record.claimAmount ?? 5000) * 100), 0) / 100)}</span><small>Saving prepares each grant. Generate the official certification list in Billing.</small></div><div className="batch-billing-footer-actions">{savedIds.length > 0 && <button type="button" onClick={openBilling} disabled={controlsDisabled}><ArrowRight size={15} />{openingBilling ? 'Opening Billing…' : `Open Billing (${savedIds.length} saved)`}</button>}<button type="submit" className="batch-billing-primary" disabled={controlsDisabled || !selectedIds.length}><Save size={15} />{saving ? 'Saving selected records…' : 'Save & Add to Billing'}</button></div></footer>
+      <p className="batch-billing-keyboard-help">Use Tab or Enter to move between tuition fields. Shift + Tab moves back.</p>
+      </div><aside className="batch-billing-receipt-panel" aria-label="Selected Scholar's tuition receipt"><header><div><span className="batch-billing-eyebrow">RECEIPT REVIEW</span><h4>{previewRecord?.name || 'Select a Scholar'}</h4><p>{previewRecord ? `${currentPeriod?.schoolYear || ''} · ${currentPeriod?.semester || ''}` : 'Choose Review receipt or focus a tuition field.'}</p></div><div className="batch-billing-receipt-navigation"><button type="button" onClick={() => navigateReceipt(-1)} disabled={controlsDisabled || previewIndex <= 0}><ChevronLeft size={14} />Previous</button><button type="button" onClick={() => navigateReceipt(1)} disabled={controlsDisabled || !filtered.length || previewIndex >= filtered.length - 1}>Next<ChevronRight size={14} /></button></div></header><BatchTuitionReceiptPreview token={token} applicantId={previewRecord?.applicantId} periodId={Number(periodId) || null} label={previewRecord ? `Tuition receipt · ${previewRecord.name} · ${currentPeriod?.schoolYear || ''} · ${currentPeriod?.semester || ''}` : 'Tuition receipt'} active={active && currentData && Boolean(previewRecord)} /></aside></div>
+      <footer className="batch-billing-footer"><div><strong>{readyCount} ready of {selectedIds.length} selected Scholar{selectedIds.length === 1 ? '' : 's'}</strong><span>Total ready grants: PHP {money(ready.entries.reduce((sum, entry) => { const record = records.find((item) => item.applicantId === entry.applicantId); return sum + Math.round(Number(record.totalGrant ?? record.claimAmount ?? 5000) * 100); }, 0) / 100)}</span><small>{skippedCount ? `${skippedCount} selected row(s) will stay here for correction. ` : ''}Saving prepares grants; generate the official list from the Billing queue.</small></div><div className="batch-billing-footer-actions">{savedIds.length > 0 && <button type="button" onClick={openBilling} disabled={controlsDisabled}><ArrowRight size={15} />{openingBilling ? 'Opening queue…' : `Review Billing queue (${savedIds.length} saved)`}</button>}<button type="submit" className="batch-billing-primary" disabled={controlsDisabled || !selectedIds.length}><Save size={15} />{saving ? 'Saving ready rows…' : `Save ready rows (${readyCount})`}</button></div></footer>
     </form>
   </section>;
 }

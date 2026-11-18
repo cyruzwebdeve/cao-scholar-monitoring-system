@@ -19,6 +19,7 @@ export const batchBillingDraft = (record) => ({
   preparedAt: record.grantPreparedAt || null,
   dirty: false,
   error: '',
+  attention: false,
 });
 
 export const mergeBatchBillingDrafts = (records, previous = {}) => Object.fromEntries(records.map((record) => [
@@ -35,6 +36,12 @@ export const batchBillingAmount = (record, tuition) => {
     && String(tuition ?? '').trim() !== '' && Number.isFinite(amount) && amount >= 0
     && amount <= total && amount === Math.round(amount * 100) / 100;
   return { total, amount, valid, allowance: valid ? (Math.round(total * 100) - Math.round(amount * 100)) / 100 : null };
+};
+
+export const batchBillingStatus = (record, draft, periodId, saved = false) => {
+  if (batchBillingBlocker(record, periodId)) return 'locked';
+  if (!saved && (draft?.error || draft?.attention)) return 'attention';
+  return saved || record.grantPrepared ? 'prepared' : 'needs-preparation';
 };
 
 export const buildBatchBillingEntries = (records, drafts, selectedIds, periodId) => {

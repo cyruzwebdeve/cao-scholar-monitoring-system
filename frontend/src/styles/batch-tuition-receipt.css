@@ -1,0 +1,21 @@
+.batch-tuition-receipt { position:sticky; top:12px; align-self:start; min-width:0; padding:16px; border:1px solid #d9e7de; border-radius:10px; color:#294535; background:#fff; }
+.batch-tuition-receipt header { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:14px; }
+.batch-tuition-receipt header span { display:block; color:#178149; font-size:9px; font-weight:800; letter-spacing:.08em; }
+.batch-tuition-receipt h4 { margin:6px 0 0; font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+.batch-tuition-receipt header > svg { flex-shrink:0; color:#708277; }
+.batch-receipt-empty { margin:0; padding:24px 0; font-size:12px; color:#708277; line-height:1.6; }
+.batch-receipt-error { color:#a42f26; font-size:12px; line-height:1.6; }
+.batch-receipt-error p { margin:0 0 12px; }
+.batch-receipt-toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px; }
+.batch-receipt-toolbar a { display:inline-flex; align-items:center; gap:5px; color:#176c3b; font-size:11px; line-height:1.5; }
+.batch-receipt-toolbar label { display:flex; align-items:center; gap:7px; font-size:10px; color:#52695b; }
+.batch-tuition-receipt .batch-receipt-toolbar select { width:auto; min-height:34px; height:34px; padding:5px 7px; font-size:10px; }
+.batch-tuition-receipt :is(button,a,select):focus-visible { outline:2px solid #19854d; outline-offset:2px; }
+.batch-tuition-receipt iframe { display:block; width:100%; height:68dvh; min-height:380px; max-height:740px; border:1px solid #e1e9e4; border-radius:5px; }
+.batch-receipt-image { max-height:68dvh; overflow:auto; border:1px solid #e1e9e4; border-radius:5px; background:#f5f7f6; }
+.batch-receipt-image img { display:block; max-width:none; height:auto; }
+@media(max-width:900px) {
+  .batch-tuition-receipt { position:static; }
+  .batch-tuition-receipt iframe { height:58dvh; min-height:300px; }
+  .batch-receipt-image { max-height:58dvh; }
+}

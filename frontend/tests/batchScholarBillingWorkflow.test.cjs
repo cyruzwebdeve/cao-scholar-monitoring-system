@@ -18,7 +18,7 @@ const component = ast.program.body.find(node => node.type === 'ExportDefaultDecl
 const globalDeclarations = ast.program.body.filter(node => node.type === 'VariableDeclaration').map(node => componentSource.slice(node.start, node.end)).join('\n');
 const declarations = component.body.body.filter(node => node.type !== 'ReturnStatement').map(node => componentSource.slice(node.start, node.end)).join('\n');
 const stateNames = component.body.body.filter(node => node.type === 'VariableDeclaration').flatMap(node => node.declarations.filter(binding => binding.init?.callee?.name === 'useState').map(binding => binding.id.elements[0].name));
-const handlers = ['loadRecords', 'changePeriod', 'selectRows', 'editTuition', 'resetDraft', 'openBilling', 'saveBatch'];
+const handlers = ['loadRecords', 'changePeriod', 'selectRows', 'editTuition', 'resetDraft', 'focusRecord', 'navigateReceipt', 'handleAmountKey', 'applyAmountToSelected', 'openBilling', 'saveBatch'];
 const helperSource = fs.readFileSync(path.join(__dirname, '../src/utils/batchScholarBilling.js'), 'utf8').replace(/^export /gm, '');
 const plain = value => JSON.parse(JSON.stringify(value));
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
@@ -31,11 +31,14 @@ const grant = tuition => ({ grantPrepared: true, totalGrant: 5000, tuitionFeeAss
 const response = (body, ok = true) => ({ ok, json: async () => body });
 
 // This VM executes the component's actual handlers/effects; React/API are mocked.
-function harness({ fetch: request, onAddedToBilling } = {}) {
-  const states = [], refs = [], callbacks = [], requests = [], handoffs = [];
+function harness({ fetch: request, onPreparedRows, onOpenBilling } = {}) {
+  const states = [], refs = [], callbacks = [], requests = [], handoffs = [], queueOpens = [];
   let stateIndex = 0, refIndex = 0, callbackIndex = 0, layoutDeps, layoutCleanup, effectCleanup, effectCallback;
   const context = {
-    props: { token, onAddedToBilling: async payload => { handoffs.push(plain(payload)); return onAddedToBilling ? onAddedToBilling(payload) : false; } },
+    props: { token, active: true,
+      onPreparedRows: async payload => { handoffs.push(plain(payload)); return onPreparedRows ? onPreparedRows(payload) : true; },
+      onOpenBilling: async payload => { queueOpens.push(plain(payload)); return onOpenBilling ? onOpenBilling(payload) : true; },
+    },
     API_BASE: '/api', AbortController, authHeaders: value => ({ Authorization: `Bearer ${value}` }),
     useState: initial => { const index = stateIndex++; if (!states[index]) states[index] = { value: initial }; return [states[index].value, next => { states[index].value = typeof next === 'function' ? next(states[index].value) : next; }]; },
     useRef: initial => { const index = refIndex++; return refs[index] ||= { current: initial }; },
@@ -50,22 +53,23 @@ function harness({ fetch: request, onAddedToBilling } = {}) {
   };
   vm.createContext(context);
   vm.runInContext(helperSource + '\n' + globalDeclarations, context);
-  const factory = vm.runInContext(`(function () { const { token, onAddedToBilling } = props; ${declarations}\nreturn { ${handlers.join(', ')} }; })`, context);
+  const factory = vm.runInContext(`(function () { const { token, onPreparedRows, onOpenBilling, active = true } = props; ${declarations}\nreturn { ${handlers.join(', ')}, view: { filtered, statusCounts, readyCount, previewRecord, bulkTuition } }; })`, context);
   let current;
   const render = props => { if (props) Object.assign(context.props, props); stateIndex = 0; refIndex = 0; callbackIndex = 0; current = factory(); return current; };
   render();
   const set = (name, value) => { states[stateNames.indexOf(name)].value = value; };
   return {
-    requests, handoffs, refs,
+    requests, handoffs, queueOpens, refs,
     get handlers() { return current; },
     get state() { return Object.fromEntries(stateNames.map((name, index) => [name, states[index].value])); },
     render,
+    set,
     seed(records = [record(7), record(8)], selected = [7, 8]) {
       set('periodId', '9'); set('data', { periodId: '9', token, records, periods: [period], loading: false, error: '' });
       set('draftState', { periodId: '9', token, rows: Object.fromEntries(records.map(row => [row.applicantId, { tuition: row.applicantId === 7 ? '3500' : '0', preparedAt: null, dirty: true, error: '' }])) });
       set('selection', { periodId: '9', token, ids: selected }); render();
     },
-    startEffect() { effectCleanup = effectCallback(); },
+    startEffect() { effectCleanup?.(); effectCleanup = effectCallback(); },
     close() { layoutCleanup?.(); effectCleanup?.(); },
   };
 }
@@ -88,7 +92,10 @@ test('one batch save preserves zero and per-Scholar tuition, merges authoritativ
   assert.deepEqual(plain(workflow.state.saved.ids), [7, 8]); assert.deepEqual(plain(workflow.state.selection.ids), []);
   assert.equal(workflow.state.data.records[0].allowance, 1500);
   assert.deepEqual(workflow.handoffs, [{ periodId: 9, applicantIds: [7, 8] }]);
-  assert.match(workflow.state.notice.text, /remain saved/); assert.equal(workflow.state.saving, false);
+  assert.match(workflow.state.notice.text, /Continue preparing/); assert.equal(workflow.state.saving, false);
+  assert.deepEqual(workflow.queueOpens, []);
+  workflow.render(); await workflow.handlers.openBilling();
+  assert.deepEqual(workflow.queueOpens, [{ periodId: 9, applicantIds: [7, 8] }]);
 });
 
 test('partial failures preserve draft/error and retry sends only failed rows, retaining earlier successes', async () => {
@@ -98,17 +105,20 @@ test('partial failures preserve draft/error and retry sends only failed rows, re
     : [{ applicantId: 8, success: true, grant: grant(0) }] }) });
   workflow.seed(); await workflow.handlers.saveBatch();
   assert.deepEqual(plain(workflow.state.selection.ids), [8]); assert.equal(workflow.state.draftState.rows[8].tuition, '0');
-  assert.match(workflow.state.draftState.rows[8].error, /retry/); assert.deepEqual(workflow.handoffs, []);
+  assert.match(workflow.state.draftState.rows[8].error, /retry/); assert.deepEqual(workflow.handoffs, [{ periodId: 9, applicantIds: [7] }]);
   workflow.render(); await workflow.handlers.saveBatch();
   assert.deepEqual(workflow.requests[1].body.entries.map(entry => entry.applicantId), [8]);
-  assert.deepEqual(plain(workflow.state.saved.ids), [7, 8]); assert.deepEqual(workflow.handoffs, [{ periodId: 9, applicantIds: [7, 8] }]);
+  assert.deepEqual(plain(workflow.state.saved.ids), [7, 8]); assert.deepEqual(workflow.handoffs, [{ periodId: 9, applicantIds: [7] }, { periodId: 9, applicantIds: [8] }]);
+  assert.deepEqual(workflow.queueOpens, []);
 });
 
-test('invalid selected rows prevent a request; double clicks share one save action', async () => {
+test('all-invalid selected rows prevent a request; double clicks share one save action', async () => {
   const gate = deferred(), workflow = harness({ fetch: () => gate.promise }); workflow.seed();
   workflow.handlers.editTuition(record(8), '5000.01'); workflow.render();
+  workflow.handlers.editTuition(record(7), ''); workflow.render();
   await workflow.handlers.saveBatch(); assert.equal(workflow.requests.length, 0); assert.ok(workflow.state.draftState.rows[8].error);
   workflow.handlers.editTuition(record(8), '0'); workflow.render();
+  workflow.handlers.editTuition(record(7), '3500'); workflow.render();
   const first = workflow.handlers.saveBatch(), duplicate = workflow.handlers.saveBatch(); await flush();
   assert.equal(workflow.requests.length, 1);
   gate.resolve(response({ results: [{ applicantId: 7, success: true, grant: grant(3500) }, { applicantId: 8, success: true, grant: grant(0) }] }));
@@ -149,4 +159,113 @@ test('old loader results are ignored after period changes and real effect cleanu
   assert.equal(workflow.requests[0].signal.aborted, true);
   gate.resolve(response({ scholars: [record(7)], activePeriod: period, activePeriods: [period] })); await flush();
   assert.equal(workflow.state.periodId, '10'); assert.equal(workflow.state.data.periodId, '9');
+});
+
+test('only valid selected rows are submitted while invalid drafts remain selected with attention', async () => {
+  const workflow = harness({ fetch: () => response({ results: [{ applicantId: 7, success: true, grant: grant(3500) }] }) });
+  workflow.seed(); workflow.handlers.editTuition(record(8), ''); workflow.render();
+  assert.equal(workflow.handlers.view.readyCount, 1);
+  await workflow.handlers.saveBatch();
+  assert.deepEqual(workflow.requests[0].body.entries.map(row => row.applicantId), [7]);
+  assert.deepEqual(plain(workflow.state.saved.ids), [7]); assert.deepEqual(plain(workflow.state.selection.ids), [8]);
+  assert.equal(workflow.state.draftState.rows[8].tuition, ''); assert.ok(workflow.state.draftState.rows[8].error);
+  assert.equal(workflow.state.statusFilter, 'attention'); assert.match(workflow.state.notice.text, /1 selected row\(s\) skipped/);
+  assert.deepEqual(workflow.handoffs, [{ periodId: 9, applicantIds: [7] }]); assert.deepEqual(workflow.queueOpens, []);
+  workflow.render(); workflow.handlers.editTuition(record(8), '0'); workflow.render();
+  assert.equal(workflow.state.draftState.rows[8].error, '');
+  assert.equal(workflow.state.draftState.rows[8].attention, true);
+  assert.deepEqual(plain(workflow.handlers.view.filtered.map(row => row.applicantId)), [8]);
+});
+
+test('status worklist defaults to needs preparation and counts match the current school/search scope', () => {
+  const workflow = harness();
+  workflow.seed([record(7), { ...record(8), grantPrepared: true, billingEligibilityReasons: [] }, { ...record(9), billed: true }, { ...record(10), school: 'Other synthetic school' }], []);
+  assert.deepEqual(plain(workflow.handlers.view.filtered.map(row => row.applicantId)), [7, 10]);
+  assert.deepEqual(plain(workflow.handlers.view.statusCounts), { 'needs-preparation': 2, attention: 0, prepared: 1, locked: 1 });
+  workflow.set('school', 'Synthetic Private School'); workflow.set('statusFilter', 'prepared'); workflow.render();
+  assert.deepEqual(plain(workflow.handlers.view.filtered.map(row => row.applicantId)), [8]);
+  assert.equal(workflow.handlers.view.statusCounts['needs-preparation'], 1);
+  workflow.set('query', 'Scholar 7'); workflow.render(); assert.equal(workflow.handlers.view.statusCounts.prepared, 0);
+});
+
+test('receipt focus and Previous/Next follow visible rows; Enter and Tab move between editable amounts', () => {
+  const workflow = harness(), focuses = [];
+  workflow.seed();
+  workflow.refs.at(-1).current[7] = { focus: () => focuses.push(7) };
+  workflow.refs.at(-1).current[8] = { focus: () => focuses.push(8) };
+  workflow.handlers.focusRecord(record(7)); workflow.render(); assert.equal(workflow.handlers.view.previewRecord.applicantId, 7);
+  workflow.handlers.navigateReceipt(1); workflow.render(); assert.equal(workflow.handlers.view.previewRecord.applicantId, 8);
+  workflow.handlers.navigateReceipt(-1); workflow.render(); assert.equal(workflow.handlers.view.previewRecord.applicantId, 7);
+  let prevented = 0;
+  workflow.handlers.handleAmountKey({ key: 'Enter', preventDefault: () => prevented++ }, record(7)); workflow.render();
+  assert.equal(workflow.handlers.view.previewRecord.applicantId, 8);
+  workflow.handlers.handleAmountKey({ key: 'Tab', shiftKey: true, preventDefault: () => prevented++ }, record(8)); workflow.render();
+  assert.equal(workflow.handlers.view.previewRecord.applicantId, 7);
+  workflow.handlers.handleAmountKey({ key: 'Enter', preventDefault: () => prevented++ }, record(8));
+  workflow.handlers.handleAmountKey({ key: 'Tab', preventDefault: () => prevented++ }, record(8));
+  assert.equal(prevented, 3); assert.deepEqual(focuses, [8, 7, 8, 7]); assert.equal(workflow.requests.length, 0);
+});
+
+test('explicit bulk amount/zero preserve versions and reject amounts exceeding any selected total', () => {
+  const workflow = harness();
+  workflow.seed([record(7), { ...record(8), totalGrant: 2000 }]);
+  workflow.set('draftState', { periodId: '9', token, rows: { 7: { tuition: '3500', preparedAt: 'original-7', dirty: true, error: '' }, 8: { tuition: '1500', preparedAt: 'original-8', dirty: false, error: '' } } }); workflow.render();
+  workflow.handlers.applyAmountToSelected('2500');
+  assert.equal(workflow.state.draftState.rows[7].tuition, '3500'); assert.equal(workflow.state.draftState.rows[8].tuition, '1500');
+  assert.equal(workflow.state.notice.tone, 'error');
+  workflow.handlers.applyAmountToSelected('1500'); workflow.render();
+  assert.equal(workflow.state.draftState.rows[7].tuition, '1500'); assert.equal(workflow.state.draftState.rows[8].tuition, '1500');
+  assert.equal(workflow.state.draftState.rows[7].preparedAt, 'original-7'); assert.equal(workflow.state.draftState.rows[8].preparedAt, 'original-8');
+  workflow.handlers.applyAmountToSelected('0'); workflow.render();
+  assert.equal(workflow.state.draftState.rows[7].tuition, '0'); assert.equal(workflow.state.draftState.rows[8].tuition, '0');
+  assert.equal(workflow.handlers.view.readyCount, 2); assert.equal(workflow.requests.length, 0);
+});
+
+test('saved records survive callback rejection and explicit queue-review failures without repeat saves', async () => {
+  const workflow = harness({ onPreparedRows: () => false, onOpenBilling: () => { throw new Error('Synthetic queue rejection.'); }, fetch: () => response({ results: [{ applicantId: 7, success: true, grant: grant(3500) }, { applicantId: 8, success: true, grant: grant(0) }] }) });
+  workflow.seed(); await workflow.handlers.saveBatch(); workflow.render();
+  assert.deepEqual(plain(workflow.state.saved.ids), [7, 8]); assert.match(workflow.state.notice.text, /Saved records remain available/);
+  assert.deepEqual(workflow.queueOpens, []); await workflow.handlers.openBilling();
+  assert.deepEqual(plain(workflow.state.saved.ids), [7, 8]); assert.match(workflow.state.notice.text, /remain saved/);
+  assert.equal(workflow.requests.length, 1); assert.equal(workflow.state.openingBilling, false);
+});
+
+test('hidden tabs disable new actions and period changes reset bulk/receipt scope', async () => {
+  const workflow = harness(); workflow.seed();
+  workflow.set('bulk', { periodId: '9', token, tuition: '1500' }); workflow.handlers.focusRecord(record(7)); workflow.render();
+  workflow.render({ active: false });
+  workflow.handlers.applyAmountToSelected('0'); await workflow.handlers.saveBatch(); await workflow.handlers.openBilling();
+  assert.equal(workflow.requests.length, 0); assert.equal(workflow.state.draftState.rows[7].tuition, '3500');
+  workflow.render({ active: true }); workflow.handlers.changePeriod('10'); workflow.render();
+  assert.equal(workflow.handlers.view.previewRecord, null); assert.equal(workflow.handlers.view.bulkTuition, '');
+  assert.equal(workflow.state.statusFilter, 'needs-preparation');
+});
+
+test('hiding aborts management reads and reopening refreshes list status while preserving changed draft versions', async () => {
+  const delayed = deferred(); let calls = 0;
+  const originalVersion = '2026-11-18T01:00:00.000Z', refreshedVersion = '2026-11-18T02:00:00.000Z';
+  const workflow = harness({ fetch: () => ++calls === 1 ? delayed.promise : response({
+    scholars: [{ ...record(7), billed: true, grantPrepared: true, tuitionFeeAssistance: 2500, grantPreparedAt: refreshedVersion }, { ...record(8), grantPrepared: true, tuitionFeeAssistance: 1000, grantPreparedAt: refreshedVersion, billingEligibilityReasons: [] }],
+    activePeriod: period, activePeriods: [period],
+  }) });
+  workflow.seed(); workflow.set('draftState', { periodId: '9', token, rows: {
+    7: { tuition: '3500', preparedAt: originalVersion, dirty: true, error: '', attention: false },
+    8: { tuition: '0', preparedAt: originalVersion, dirty: false, error: '', attention: false },
+  } }); workflow.render(); workflow.startEffect(); await flush();
+  assert.equal(workflow.requests.length, 1);
+  workflow.render({ active: false }); workflow.startEffect();
+  assert.equal(workflow.requests[0].signal.aborted, true);
+  await workflow.handlers.loadRecords(); assert.equal(workflow.requests.length, 1);
+  delayed.resolve(response({ scholars: [record(7), record(8)], activePeriod: period, activePeriods: [period] })); await flush();
+  assert.equal(workflow.state.data.records[0].billed, undefined);
+  workflow.render({ active: true }); workflow.startEffect(); await flush(); workflow.render();
+  assert.equal(workflow.requests.length, 2);
+  assert.equal(workflow.state.data.records[0].billed, true);
+  assert.equal(workflow.state.draftState.rows[7].tuition, '3500');
+  assert.equal(workflow.state.draftState.rows[7].preparedAt, originalVersion);
+  assert.equal(workflow.state.draftState.rows[8].tuition, '1000');
+  assert.equal(workflow.state.draftState.rows[8].preparedAt, refreshedVersion);
+  assert.equal(workflow.handlers.view.statusCounts.locked, 1);
+  assert.equal(workflow.handlers.view.statusCounts.prepared, 1);
+  workflow.close();
 });

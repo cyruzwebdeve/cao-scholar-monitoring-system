@@ -2,6 +2,7 @@ import ScholarAmountEditor from './ScholarAmountEditor';
 import MetricDetailsCard from './components/MetricDetailsCard';
 import { billingMetricRows } from './utils/metricDetails';
 import PayoutSchedules from './PayoutSchedules';
+import BatchScholarBillingPreparation from './BatchScholarBillingPreparation';
 import Notification from './components/Notification';
 import { matchesPayrollListStatus } from './utils/payrollListStatus';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -30,6 +31,8 @@ import ScholarSchoolIdentity from './components/ScholarSchoolIdentity';
 import RequirementsWarning from './components/RequirementsWarning';
 import { clearProcessingHandoff, preparedBillingQueueIds, readProcessingHandoff } from './utils/processingHandoff';
 import { canQueueForProcessing, isVisibleInProcessingMode } from './utils/processingVisibility';
+import { consumePreparedQueueRequest, currentPreparedQueueIds, mergePreparedQueueRequest, validPreparedQueuePayload } from './utils/batchBillingQueue';
+import { canManageStaffSection } from './utils/staffAccess';
 import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 
 const formatDate = (value) => {
@@ -79,7 +82,7 @@ const matchesDateRange = (value, from, to) => {
   return true;
 };
 
-function BillingPayrollWorkspace({ token, mode = 'billing', userId }) {
+function BillingPayrollWorkspace({ token, mode = 'billing', userId, preparedQueues = {}, reviewRequest, onPreparedQueueConsumed, onQueueBusyChange }) {
   const isPayroll = mode === 'payroll';
   const [initialHandoff] = useState(() => readProcessingHandoff(mode, userId));
   const defaultBilledFilter = isPayroll ? 'All Billing Statuses' : 'Not billed yet';
@@ -91,6 +94,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing', userId }) {
   const [handoffBatch, setHandoffBatch] = useState(() => initialHandoff?.queuePrepared ? initialHandoff : null);
   const recordsScopeRef = useRef(null);
   const recordsRequestRef = useRef(0);
+  const appliedReviewRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [, setPage] = useState(1);
@@ -114,13 +118,28 @@ function BillingPayrollWorkspace({ token, mode = 'billing', userId }) {
   const [schoolType, setSchoolType] = useState('All School Types');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const preparedQueueRequest = preparedQueues[selectedPeriodId];
+  const queueBusy = processing || Boolean(editingAmount) || Boolean(routingApplicant);
   useLayoutEffect(() => {
-    recordsScopeRef.current = { token, selectedPeriodId, userId };
+    if (!reviewRequest || reviewRequest.token !== token || reviewRequest.actorId !== userId || appliedReviewRef.current === reviewRequest) return;
+    appliedReviewRef.current = reviewRequest;
+    if (String(reviewRequest.periodId) !== selectedPeriodId) {
+      setSelectedPeriodId(String(reviewRequest.periodId));
+      setQueuedIds([]); setSourceSelection([]); setQueueSelection([]); setEditingAmount(null);
+      setOperationNotice(null); setPage(1);
+    }
+  }, [reviewRequest, token, userId, selectedPeriodId]);
+  useLayoutEffect(() => {
+    onQueueBusyChange?.(queueBusy);
+    return () => onQueueBusyChange?.(false);
+  }, [queueBusy, onQueueBusyChange]);
+  useLayoutEffect(() => {
+    recordsScopeRef.current = { token, selectedPeriodId, userId, preparedQueueRequest, queueBusy };
     return () => { recordsScopeRef.current = null; recordsRequestRef.current += 1; };
-  }, [token, selectedPeriodId, userId]);
+  }, [token, selectedPeriodId, userId, preparedQueueRequest, queueBusy]);
   const loadRecords = useCallback(async ({ showLoader = false } = {}) => {
     const scope = recordsScopeRef.current;
-    if (!scope || scope.token !== token || scope.selectedPeriodId !== selectedPeriodId || scope.userId !== userId) return;
+    if (!scope || scope.token !== token || scope.selectedPeriodId !== selectedPeriodId || scope.userId !== userId || scope.preparedQueueRequest !== preparedQueueRequest || scope.queueBusy !== queueBusy) return;
     const requestId = ++recordsRequestRef.current;
     const isCurrent = () => recordsScopeRef.current === scope && recordsRequestRef.current === requestId;
     if (showLoader) setLoading(true);
@@ -164,6 +183,13 @@ function BillingPayrollWorkspace({ token, mode = 'billing', userId }) {
         clearProcessingHandoff();
         setHandoffApplicantId(null);
       }
+      if (!isPayroll && preparedQueueRequest && !queueBusy) {
+        const ids = currentPreparedQueueIds(preparedQueueRequest, currentRecords, body.activePeriod?.id, userId);
+        setQueuedIds(current => [...new Set([...current, ...ids])]);
+        const skipped = preparedQueueRequest.applicantIds.length - ids.length;
+        setOperationNotice({ tone: skipped ? 'error' : 'success', text: `${ids.length} prepared Scholar(s) added to the Billing queue.${skipped ? ` ${skipped} record(s) are no longer eligible; review their current status.` : ' Review the queue before generating the certification list.'}` });
+        onPreparedQueueConsumed?.({ periodId: preparedQueueRequest.periodId, requestId: preparedQueueRequest.requestId });
+      }
       setLoadError('');
     } catch (error) {
       if (!isCurrent()) return;
@@ -171,7 +197,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing', userId }) {
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [handoffApplicantId, handoffBatch, selectedPeriodId, token, mode, userId]);
+  }, [handoffApplicantId, handoffBatch, selectedPeriodId, token, mode, userId, preparedQueueRequest, onPreparedQueueConsumed, isPayroll, queueBusy]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => loadRecords({ showLoader: true }), 0);
@@ -527,9 +553,56 @@ function BillingPayrollWorkspace({ token, mode = 'billing', userId }) {
   </>;
 }
 
+function BillingPreparationWorkspace({ token, userId, userRole, sectionAccess, ...props }) {
+  const [section, setSection] = useState('lists');
+  const [preparationOpened, setPreparationOpened] = useState(false);
+  const [preparedState, setPreparedState] = useState({ token: null, actorId: null, requests: {} });
+  const [reviewRequest, setReviewRequest] = useState(null);
+  const [queueBusy, setQueueBusy] = useState(false);
+  const workspaceScopeRef = useRef(null);
+  const preparedRequestRef = useRef(0);
+  const canPrepare = canManageStaffSection({ role: userRole, sectionAccess }, 'billing') && Number.isSafeInteger(userId) && userId > 0;
+  useLayoutEffect(() => {
+    workspaceScopeRef.current = { token, userId, section, canPrepare, queueBusy };
+    return () => { workspaceScopeRef.current = null; };
+  }, [token, userId, section, canPrepare, queueBusy]);
+  const preparedQueues = preparedState.token === token && preparedState.actorId === userId ? preparedState.requests : {};
+  const stagePreparedRows = (payload, review = false) => {
+    const scope = workspaceScopeRef.current;
+    if (!scope?.canPrepare || scope.token !== token || scope.userId !== userId
+      || review && (scope.section !== 'preparation' || scope.queueBusy) || !validPreparedQueuePayload(payload)
+      || !review && payload.applicantIds.length > 100) return false;
+    const requestId = ++preparedRequestRef.current;
+    setPreparedState(current => ({ token, actorId: userId, requests: mergePreparedQueueRequest(
+      current.token === token && current.actorId === userId ? current.requests : {}, payload, userId, requestId,
+    ) }));
+    if (review) {
+      setReviewRequest({ periodId: payload.periodId, actorId: userId, token, requestId });
+      setSection('lists');
+    }
+    return true;
+  };
+  const onPreparedRows = payload => stagePreparedRows(payload);
+  const onOpenBilling = payload => stagePreparedRows(payload, true);
+  const onPreparedQueueConsumed = useCallback(({ periodId, requestId }) => {
+    const scope = workspaceScopeRef.current;
+    if (!scope || scope.token !== token || scope.userId !== userId) return;
+    setPreparedState(current => current.token === token && current.actorId === userId
+      ? { ...current, requests: consumePreparedQueueRequest(current.requests, periodId, requestId) } : current);
+  }, [token, userId]);
+  return <>
+    <nav className="examination-workspace-tabs scholars-section-tabs" aria-label="Billing sections">
+      <button type="button" aria-pressed={section === 'lists'} className={section === 'lists' ? 'active' : ''} onClick={() => setSection('lists')}>Billing queue &amp; history</button>
+      {canPrepare && <button type="button" disabled={queueBusy} aria-pressed={section === 'preparation'} className={section === 'preparation' ? 'active' : ''} onClick={() => { setPreparationOpened(true); setSection('preparation'); }}>Prepare Scholars</button>}
+    </nav>
+    <div hidden={section !== 'lists'}><BillingPayrollWorkspace {...props} token={token} userId={userId} userRole={userRole} preparedQueues={preparedQueues} reviewRequest={reviewRequest} onPreparedQueueConsumed={onPreparedQueueConsumed} onQueueBusyChange={setQueueBusy} /></div>
+    {preparationOpened && canPrepare && <div hidden={section !== 'preparation'}><BatchScholarBillingPreparation token={token} active={section === 'preparation'} onPreparedRows={onPreparedRows} onOpenBilling={onOpenBilling} /></div>}
+  </>;
+}
+
 export default function BillingPayrollManagement(props) {
   const [section, setSection] = useState('lists');
   const [schedulesOpened, setSchedulesOpened] = useState(false);
-  if (props.mode !== 'payroll') return <BillingPayrollWorkspace {...props} />;
+  if (props.mode !== 'payroll') return <BillingPreparationWorkspace key={props.userId || 'staff'} {...props} />;
   return <><nav className="examination-workspace-tabs scholars-section-tabs" aria-label="Payroll sections"><button type="button" aria-pressed={section === 'lists'} className={section === 'lists' ? 'active' : ''} onClick={() => setSection('lists')}>Payroll lists</button><button type="button" aria-pressed={section === 'schedules'} className={section === 'schedules' ? 'active' : ''} onClick={() => { setSchedulesOpened(true); setSection('schedules'); }}>Payout schedules</button></nav><div hidden={section !== 'lists'}><BillingPayrollWorkspace {...props} /></div>{schedulesOpened && <div hidden={section !== 'schedules'}><PayoutSchedules token={props.token} /></div>}</>;
 }

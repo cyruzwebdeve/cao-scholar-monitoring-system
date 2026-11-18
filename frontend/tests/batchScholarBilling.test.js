@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  MAX_BATCH_GRANT_ROWS, batchBillingAmount, batchBillingBlocker, batchBillingDraft,
+  MAX_BATCH_GRANT_ROWS, batchBillingAmount, batchBillingBlocker, batchBillingDraft, batchBillingStatus,
   buildBatchBillingEntries, mergeBatchBillingDrafts, readBatchBillingResults,
 } from '../src/utils/batchScholarBilling.js';
 
@@ -49,8 +49,18 @@ test('refresh preserves changed/failed draft values and their original timestamp
   const records = [record(), record(8), record(9, { tuitionFeeAssistance: 3000, grantPreparedAt: 'fresh' })];
   const merged = mergeBatchBillingDrafts(records, previous);
   assert.deepEqual(merged[7], previous[7]); assert.deepEqual(merged[8], previous[8]);
-  assert.deepEqual(merged[9], { tuition: '3000', preparedAt: 'fresh', dirty: false, error: '' });
+  assert.deepEqual(merged[9], { tuition: '3000', preparedAt: 'fresh', dirty: false, error: '', attention: false });
   assert.equal(previous[9].tuition, 'old');
+});
+
+test('status separates preparation, preserved attention, prepared and locked records', () => {
+  assert.equal(batchBillingStatus(record(), batchBillingDraft(record()), 9), 'needs-preparation');
+  assert.equal(batchBillingStatus(record(), { tuition: '', dirty: true, error: '' }, 9), 'needs-preparation');
+  assert.equal(batchBillingStatus(record(), { error: 'Correct this row.' }, 9), 'attention');
+  assert.equal(batchBillingStatus(record(), { error: '', attention: true }, 9), 'attention');
+  assert.equal(batchBillingStatus(record(7, { grantPrepared: true }), {}, 9), 'prepared');
+  assert.equal(batchBillingStatus(record(), { attention: true }, 9, true), 'prepared');
+  assert.equal(batchBillingStatus(record(7, { billed: true }), { attention: true }, 9), 'locked');
 });
 
 test('only consistent authoritative success results count as saved; failures, missing and duplicate responses stay unconfirmed', () => {
