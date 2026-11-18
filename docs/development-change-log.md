@@ -5,6 +5,31 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-18 - Complete Billing Prepare Scholars Responsive Layout
+
+**TL;DR**
+
+- Billing's Prepare Scholars screen now groups period/search controls, status filters and bulk tuition actions into clear panels, with visible active and selected states.
+- Desktop staff get a two-column worklist and receipt preview, while narrower screens place receipt review before the worklist and phones use stacked controls and Scholar cards.
+- The sticky readiness/save bar keeps batch progress and primary actions available on larger screens and becomes a normal full-width action panel on smaller screens.
+- This frontend-only layout change does not alter grant values, queue behavior, APIs, database data or official payroll-list amounts. All 43 focused Billing preparation, integration and receipt tests passed.
+
+**Objective and reason:** Finish the presentation layer for the streamlined Billing preparation workflow. The functional markup already exposed status worklists, bulk amount entry, receipt review and readiness actions, but most of those new classes had no layout rules, leaving a flat screen with weak visual grouping, an undersized receipt column and no clear active filter/review state.
+
+**Previous and new behavior:** Period, search and School fields previously sat without a shared panel; status filters appeared as ordinary buttons; bulk actions, worklist and receipt preview did not form a coherent workspace; and the receipt/status column was only 80 pixels wide. The screen now uses a consistent card hierarchy, count badges, active filter styling, selected receipt-row highlighting, a wider receipt/status column, clearer grant totals and invalid inputs, and a sticky desktop action summary. Wide screens show the worklist beside a sticky receipt card. At 1160 pixels and below, the receipt moves above the worklist so it remains visible during review. Tablet controls reduce to two columns, phone controls and actions stack, and the table becomes labeled Scholar cards with full-width receipt actions.
+
+**Affected users and workflows:** Authorized Billing staff using Billing -> Prepare Scholars. The change improves scanning, receipt comparison, amount entry, selection review and save access on desktop, tablet and phone. Existing status filtering, keyboard movement, bulk amount/zero handling, partial-save recovery and Review Billing queue actions retain their prior behavior.
+
+**Implementation and data flow:** The existing semantic component structure and state/data flow are retained. The batch stylesheet now defines every static layout class used by the preparation component, including the status-filter grid, bulk-action panel, worklist/receipt grid, receipt navigation, selected-row state and readiness action bar. The nested receipt component loses its duplicate card border and heading inside this workspace while keeping its authenticated preview, retry, original-file and image-size behavior. CSS breakpoints at 1160, 760, 620 and 420 pixels reflow the same controls and records without changing submitted values or requests.
+
+**Files or system areas changed:** frontend/src/styles/batch-scholar-billing.css and both project change logs. No application logic, API controller, route, schema, migration, environment setting or dependency file changed.
+
+**Impact assessment:** API: no impact. Database/data: no impact, backfill or migration. Configuration/dependencies: no impact. Security and privacy: no impact; receipt access continues through the existing authenticated private endpoint and no new data is displayed or persisted. Accessibility: active status filters and receipt review now have visible states matching their existing aria-pressed values; keyboard focus remains visible; invalid amount inputs gain a clearer error treatment; phone actions retain at least 42-pixel targets. Deployment: release the updated frontend stylesheet through the normal frontend deployment process; none was performed. The approved product boundary remains unchanged: this screen prepares Scholar grant data for Billing and does not add fund release, payment claiming, official disbursement verification, reconciliation or monetary auditing. Reported monetary totals continue to represent generated payroll-list amounts.
+
+**Validation performed and results:** All 43 focused frontend tests passed with Node test isolation disabled to accommodate the Windows sandbox. They cover batch calculations and blockers, actual preparation handlers, partial saves and retries, status counts, keyboard and receipt navigation, per-period Billing queue integration, authenticated receipt loading, unsafe-file rejection and stale-request cleanup. Static checks confirmed balanced stylesheet braces, rules for every static Batch preparation class used by the component, no whitespace errors and no merge-conflict markers. The only reported unmatched class fragment was the runtime-generated tuition input ID prefix, which is not a styling class. A production build and real browser render could not run because Vite and the frontend dependencies are absent from the workspace.
+
+**Known limitations, rollback and recommended next work:** Exact rendering with the repository's production fonts and surrounding admin shell remains unverified in a real browser. Run the existing Prepare Scholars QA checklist at desktop, tablet and phone widths once frontend dependencies are available, paying special attention to long Scholar/school names, PDF and image receipts, the sticky action bar and keyboard focus. Rollback requires reverting only frontend/src/styles/batch-scholar-billing.css and the matching log entries; no data rollback is needed.
+
 ## 2026-11-18 - Default Missing Payroll Breakdown Cells to Zero and Separate History Tabs
 
 **TL;DR**
