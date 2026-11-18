@@ -15,8 +15,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import caologo from './assets/caologo-96.webp';
 import caologoLarge from './assets/caologo-400.webp';
-import communityPhoto from './assets/landing-community-720.webp';
-import communityPhotoLarge from './assets/landing-community-1200.webp';
+import caologoHero from './assets/caologo-512.webp';
+import caologoHeroLarge from './assets/caologo-1024.webp';
 import './styles/landing.css';
 
 const benefits = [
@@ -139,22 +139,18 @@ function LandingPage({ portalPath = '/login', isAuthenticated = false }) {
               </div>
             </div>
 
-            <div className="landing-hero-visual" aria-label="PGCEAP scholars and Community Affairs Office representatives">
-              <div className="landing-photo-frame">
+            <div className="landing-hero-visual">
+              <div className="landing-logo-frame">
                 <img
-                  src={communityPhoto}
-                  srcSet={`${communityPhoto} 720w, ${communityPhotoLarge} 1200w`}
-                  sizes="(max-width: 700px) calc(100vw - 32px), (max-width: 1080px) 45vw, 540px"
-                  width="1200"
-                  height="720"
+                  className="landing-hero-logo"
+                  src={caologoHero}
+                  srcSet={`${caologoHero} 512w, ${caologoHeroLarge} 1024w`}
+                  sizes="(max-width: 580px) 82vw, (max-width: 820px) 440px, (max-width: 1080px) 32vw, 440px"
+                  width="1024"
+                  height="1024"
                   fetchPriority="high"
-                  alt="PGCEAP community members and scholars"
+                  alt="Community Affairs Office seal"
                 />
-                <div className="landing-photo-shade" aria-hidden="true" />
-                <div className="landing-photo-caption">
-                  <span>PGCEAP scholar portal</span>
-                  <strong>Opening doors to brighter futures.</strong>
-                </div>
               </div>
               <div className="landing-floating-card landing-floating-year">
                 <span>Current academic year</span>

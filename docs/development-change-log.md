@@ -5,6 +5,31 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-18 - Replace Landing Hero Photo with CAO Seal
+
+**TL;DR**
+
+- The public landing-page hero now shows the official Community Affairs Office seal instead of the community photograph.
+- Responsive 512- and 1024-pixel WebP sources keep the seal clear without cropping, while the previous photo shade and caption were removed.
+- The surrounding hero content, calls to action, academic-year card and application journey card remain unchanged.
+- Both focused regression checks and whitespace validation passed. The production build remains unavailable because the existing frontend install has no Vite executable.
+
+**Objective and reason:** Use the CAO logo in the landing-page hero as requested and present the existing circular seal clearly and consistently with the CAO branding already used in the site header and authentication screens.
+
+**Previous and new behavior:** The right side of the public landing hero previously loaded a two-size community photograph, cropped it to fill a portrait frame and placed a dark gradient with a white promotional caption over it. It now loads the existing CAO seal from responsive 512- and 1024-pixel WebP assets. The seal is contained inside the same responsive hero area, remains fully visible as a circle, and sits on a light green-and-white branded background with subtle rings and shadow. The photo-only shade and caption are removed. The two floating informational cards are retained.
+
+**Affected users and workflows:** Public visitors, applicants and authenticated users who open the landing page see the CAO seal in the hero. Application, sign-in, navigation, back-to-top and portal-routing behavior are unchanged.
+
+**Implementation and data flow:** LandingPage replaces the two community-photo imports and image markup with existing CAO logo assets, responsive `srcSet`/`sizes`, intrinsic square dimensions and descriptive alternative text. The landing stylesheet replaces cover-cropping and overlay rules with a centered contained circular-logo treatment. No request, authentication, form, persistence or business-data flow changed.
+
+**Files or system areas changed:** `frontend/src/LandingPage.jsx`, `frontend/src/styles/landing.css`, new focused regression coverage in `frontend/tests/landingHeroLogo.test.cjs`, and both project change logs. Existing image assets were reused; none were added, edited or deleted.
+
+**Impact assessment:** API: no impact. Database/data: no impact, migration, backfill or record write. Configuration/dependencies: no impact; no package or environment change. Security and privacy: no impact; the public page exposes no new information and the logo is bundled locally. Accessibility/UX: the logo has descriptive alternative text, intrinsic dimensions reduce layout shift, responsive sources reduce unnecessary image transfer, and `object-fit: contain` prevents the seal or its text from being cropped. Deployment: frontend-only release through the normal deployment process; no commit, push or deployment was performed. Scholarship preparation, official payroll-list generation and all payment-scope boundaries are unaffected.
+
+**Validation performed and results:** Both focused Node regression checks passed with test isolation disabled for the Windows sandbox. They verify the responsive CAO sources and alt text, removal of the community-photo imports and overlay markup, and contained circular-logo styling. Source searches confirmed no old landing-photo selectors remain in the implementation, and `git diff --check` passed. `npm run build` was attempted but could not start because the existing partial frontend installation does not contain the Vite executable; a real browser render therefore remains unverified in this workspace.
+
+**Known limitations, rollback and recommended next work:** Exact rendering with production fonts and the full application shell should be visually accepted at desktop and phone widths after restoring the repository's frontend dependencies. The older community-photo assets remain in the asset folder but are no longer imported by the landing page; they were retained to avoid an unrelated destructive cleanup. Rollback requires reverting the landing component, stylesheet, focused test and matching log entries together; no data rollback is required.
+
 ## 2026-11-18 - Align Prepare Scholars Header and Simplify Status Filters
 
 **TL;DR**
