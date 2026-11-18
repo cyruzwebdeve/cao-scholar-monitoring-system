@@ -20,8 +20,8 @@ test('official serialized form has the supplied columns, recorded breakdowns and
   const sheet = await serialized();
   assert.deepEqual([1, 3, 5, 7, 9, 11, 13].map(column => sheet.getCell(5, column).value), ['Seq', 'NAME', 'School', 'Tuition', 'Allowance', 'Amount', 'SIGNATURE']);
   assert.equal(sheet.getCell('K4').value, 'Reference #: PAY-0043');
-  assert.equal(sheet.getCell('G6').value, '');
-  assert.equal(sheet.getCell('I6').value, '');
+  assert.equal(sheet.getCell('G6').value, 0);
+  assert.equal(sheet.getCell('I6').value, 0);
   assert.equal(sheet.getCell('K6').value, 3000);
   assert.equal(sheet.getCell('G7').value, 3500);
   assert.equal(sheet.getCell('I7').value, 1500);
@@ -119,4 +119,28 @@ test('payroll footer reproduces the supplied unsigned form while retaining draft
 test('custom saved amounts and their Private breakdown survive official Excel serialization', async () => {
  const sheet=await serialized({records:[{name:'SYNTHETIC CUSTOM',schoolType:'Private',claimAmount:6500.75,tuitionFeeAssistance:3500,allowance:3000.75}]});
  assert.equal(sheet.getCell('G6').value,3500);assert.equal(sheet.getCell('I6').value,3000.75);assert.equal(sheet.getCell('K6').value,6500.75);assert.equal(sheet.getCell('K37').value,6500.75);
+});
+
+test('missing Tuition and Allowance default to numeric zero without changing saved breakdowns or Amount', async () => {
+  const sheet = await serialized({ records: [
+    { name: 'SYNTHETIC MISSING', claimAmount: 3000 },
+    { name: 'SYNTHETIC NULL', claimAmount: 3000, tuitionFeeAssistance: null, allowance: null },
+    { name: 'SYNTHETIC EMPTY', claimAmount: 3000, tuitionFeeAssistance: '', allowance: '' },
+    { name: 'SYNTHETIC ZERO', claimAmount: 3000, tuitionFeeAssistance: 0, allowance: 0 },
+    { name: 'SYNTHETIC SAVED', claimAmount: 3000, tuitionFeeAssistance: 1500.25, allowance: 1499.75 },
+  ] });
+  for (let row = 6; row <= 9; row += 1) {
+    assert.equal(sheet.getCell(row, 7).value, 0);
+    assert.equal(sheet.getCell(row, 9).value, 0);
+    assert.equal(sheet.getCell(row, 7).numFmt, '#,##0.00');
+    assert.equal(sheet.getCell(row, 9).numFmt, '#,##0.00');
+    assert.equal(sheet.getCell(row, 11).value, 3000);
+  }
+  assert.equal(sheet.getCell('G10').value, 1500.25);
+  assert.equal(sheet.getCell('I10').value, 1499.75);
+  assert.equal(sheet.getCell('K10').value, 3000);
+  assert.equal(sheet.getCell('K36').value, 15000);
+  assert.equal(sheet.getCell('K37').value, 15000);
+  assert.equal(sheet.getCell('G11').value, '');
+  assert.equal(sheet.getCell('I11').value, '');
 });

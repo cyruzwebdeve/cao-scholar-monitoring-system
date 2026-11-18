@@ -82,7 +82,7 @@ const matchesDateRange = (value, from, to) => {
   return true;
 };
 
-function BillingPayrollWorkspace({ token, mode = 'billing', userId, preparedQueues = {}, reviewRequest, onPreparedQueueConsumed, onQueueBusyChange }) {
+function BillingPayrollWorkspace({ token, mode = 'billing', userId, preparedQueues = {}, reviewRequest, onPreparedQueueConsumed, onQueueBusyChange, view = 'lists' }) {
   const isPayroll = mode === 'payroll';
   const [initialHandoff] = useState(() => readProcessingHandoff(mode, userId));
   const defaultBilledFilter = isPayroll ? 'All Billing Statuses' : 'Not billed yet';
@@ -419,9 +419,11 @@ function BillingPayrollWorkspace({ token, mode = 'billing', userId, preparedQueu
         <label className="billing-period-selector"><span>Processing period</span><select value={selectedPeriodId} disabled={loading || processing || Boolean(editingAmount) || Boolean(routingApplicant) || !activePeriods.length} onChange={(event) => { setSelectedPeriodId(event.target.value); setQueuedIds([]); setSourceSelection([]); setQueueSelection([]); setOperationNotice(null); setPage(1); }}><option value="" disabled>Select active period</option>{activePeriods.map((period) => <option key={period.id} value={period.id}>{period.schoolYear} · {period.semester}{period.isPrimary ? ' (Primary)' : ''}</option>)}</select></label>
       </header>
 
-      <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <MetricDetailsCard title={label} rows={billingMetricRows(routedRecords, label)} description={label === 'Default Grant (PHP)' ? 'The default Private grant is PHP 5,000. Staff can edit each scholar’s amount before generating the list.' : 'Current-period records in this processing route, matching the card total. Directory search and queue filters are not applied.'} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'school', label: 'School' }, { key: 'status', label: 'Status' }]} disabled={loading || Boolean(loadError && !records.length)} className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !records.length) ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></MetricDetailsCard>)}</section>
-
       {loadError && <div className="billing-alert"><TriangleAlert size={17} /><span>{loadError}</span><button type="button" onClick={() => loadRecords({ showLoader: true })}>Retry</button></div>}
+      {operationNotice && <Notification tone={operationNotice.tone} title={operationNotice.tone === 'error' ? 'Processing needs attention' : 'Processing update'} onDismiss={() => setOperationNotice(null)}>{operationNotice.text}</Notification>}
+
+      <div hidden={view !== 'lists'}>
+      <section className="billing-metrics">{metrics.map(({ label, value, detail, tone, Icon }) => <MetricDetailsCard title={label} rows={billingMetricRows(routedRecords, label)} description={label === 'Default Grant (PHP)' ? 'The default Private grant is PHP 5,000. Staff can edit each scholar’s amount before generating the list.' : 'Current-period records in this processing route, matching the card total. Directory search and queue filters are not applied.'} columns={[{ key: 'name', label: 'Name' }, { key: 'controlNumber', label: 'Control no.' }, { key: 'school', label: 'School' }, { key: 'status', label: 'Status' }]} disabled={loading || Boolean(loadError && !records.length)} className={tone} key={label}><div><span>{label}</span><strong>{loading || (loadError && !records.length) ? '—' : Math.max(0, value)}</strong><small>{detail}</small></div><i><Icon size={20} /></i></MetricDetailsCard>)}</section>
 
       <section className="billing-filter-panel">
         <div className="billing-filter-heading"><div><i><Filter size={15} /></i><span><strong>Quick filters</strong><small>Filter scholar billing and payroll records using operational fields.</small></span></div>{hasFilters && <button type="button" onClick={clearFilters}><X size={13} />Clear filters</button>}</div>
@@ -475,8 +477,6 @@ function BillingPayrollWorkspace({ token, mode = 'billing', userId, preparedQueu
       </section>
 
       {isPayroll && payrollListStatus === 'Not included yet' && <p className="processing-remaining-note">Showing Scholars without a Billing or Payroll list record for this period. After a regular list is generated, use Send to Payroll for remaining Private Scholars. Missing a list record does not mean a late submission.</p>}
-      {operationNotice && <Notification tone={operationNotice.tone} title={operationNotice.tone === 'error' ? 'Processing needs attention' : 'Processing update'} onDismiss={() => setOperationNotice(null)}>{operationNotice.text}</Notification>}
-
       <section className="billing-transfer-board">
         <article className="billing-transfer-panel billing-source-panel">
           <header className="billing-transfer-header">
@@ -545,8 +545,12 @@ function BillingPayrollWorkspace({ token, mode = 'billing', userId, preparedQueu
           <footer className="billing-target-footer"><div><span>List count: <strong>{queuedRecords.length}</strong></span><span>{isPayroll ? 'Total payroll amount' : 'Total certification amount'}: <strong>{formatAmount(queuedTotalAmount)}</strong></span></div><button type="button" onClick={processQueue} disabled={!queuedRecords.length || processing || Boolean(editingAmount) || Boolean(routingApplicant)}>{processing ? 'Processing…' : isPayroll ? 'Generate payroll list' : 'Generate certification list'}</button></footer>
         </article>
       </section>
-      {!loadError && <section className="billing-certification-history"><header><div><span>{isPayroll ? 'PAYROLL RECORDS' : 'BILLING RECORDS'}</span><h3>{isPayroll ? 'Payroll history' : 'Billing history'}</h3><p>Review generated lists and download a previous {isPayroll ? 'Excel' : 'Word'} list again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount ?? 0), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download {isPayroll ? 'Excel' : 'Word'}</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>{isPayroll ? 'No payroll history yet' : 'No billing history yet'}</strong><span>{isPayroll ? 'Generated payroll lists' : 'Generated Private-scholar billing lists'} will appear here.</span></div>}</section>}
-      {!isPayroll && exportOpen && <CsvExportModal title={`Export ${mode} queue`} description="Choose columns and arrange their order. The Excel download uses the Billing template and is marked as a preparation copy." columns={configurableBillingColumns} allowReorder formatLabel="EXCEL EXPORT" exportLabel="Export Excel" rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={exportQueueDocument} />}
+      </div>
+      <div hidden={view !== 'history'}>
+      {loading && !records.length && !loadError && <div className="billing-queue-empty" role="status"><span className="scholars-spinner" />Loading generated lists…</div>}
+      {!loadError && (!loading || records.length > 0) && <section className="billing-certification-history"><header><div><span>{isPayroll ? 'PAYROLL RECORDS' : 'BILLING RECORDS'}</span><h3>{isPayroll ? 'Payroll history' : 'Billing history'}</h3><p>Review generated lists and download a previous {isPayroll ? 'Excel' : 'Word'} list again.</p></div><strong>{certificationHistory.length} batch{certificationHistory.length === 1 ? '' : 'es'}</strong></header>{certificationHistory.length ? <div className="billing-certification-history-list">{certificationHistory.map((batch) => <article key={batch.reference}><div><code>{batch.reference}</code><span>{batch.schoolYear} · {batch.semester}</span></div><div><strong>{batch.records.length} scholar{batch.records.length === 1 ? '' : 's'}</strong><span>{formatAmount(batch.records.reduce((total, record) => total + Number(record.claimAmount ?? 0), 0))} · {formatDate(batch.dateProcessed)}</span></div><button type="button" onClick={() => downloadHistoricalCertification(batch)}><Download size={14} />Download {isPayroll ? 'Excel' : 'Word'}</button></article>)}</div> : <div className="billing-certification-history-empty"><ReceiptText size={20} /><strong>{isPayroll ? 'No payroll history yet' : 'No billing history yet'}</strong><span>{isPayroll ? 'Generated payroll lists' : 'Generated Private-scholar billing lists'} will appear here.</span></div>}</section>}
+      </div>
+      {!isPayroll && exportOpen && view === 'lists' && <CsvExportModal title={`Export ${mode} queue`} description="Choose columns and arrange their order. The Excel download uses the Billing template and is marked as a preparation copy." columns={configurableBillingColumns} allowReorder formatLabel="EXCEL EXPORT" exportLabel="Export Excel" rowCount={queuedRecords.length} onClose={() => setExportOpen(false)} onExport={exportQueueDocument} />}
 
     </div>
 
@@ -592,10 +596,11 @@ function BillingPreparationWorkspace({ token, userId, userRole, sectionAccess, .
   }, [token, userId]);
   return <>
     <nav className="examination-workspace-tabs scholars-section-tabs" aria-label="Billing sections">
-      <button type="button" aria-pressed={section === 'lists'} className={section === 'lists' ? 'active' : ''} onClick={() => setSection('lists')}>Billing queue &amp; history</button>
+      <button type="button" aria-pressed={section === 'lists'} className={section === 'lists' ? 'active' : ''} onClick={() => setSection('lists')}>Billing queue</button>
+      <button type="button" disabled={queueBusy} aria-pressed={section === 'history'} className={section === 'history' ? 'active' : ''} onClick={() => setSection('history')}>Billing history</button>
       {canPrepare && <button type="button" disabled={queueBusy} aria-pressed={section === 'preparation'} className={section === 'preparation' ? 'active' : ''} onClick={() => { setPreparationOpened(true); setSection('preparation'); }}>Prepare Scholars</button>}
     </nav>
-    <div hidden={section !== 'lists'}><BillingPayrollWorkspace {...props} token={token} userId={userId} userRole={userRole} preparedQueues={preparedQueues} reviewRequest={reviewRequest} onPreparedQueueConsumed={onPreparedQueueConsumed} onQueueBusyChange={setQueueBusy} /></div>
+    <div hidden={section === 'preparation'}><BillingPayrollWorkspace {...props} token={token} userId={userId} userRole={userRole} view={section === 'history' ? 'history' : 'lists'} preparedQueues={preparedQueues} reviewRequest={reviewRequest} onPreparedQueueConsumed={onPreparedQueueConsumed} onQueueBusyChange={setQueueBusy} /></div>
     {preparationOpened && canPrepare && <div hidden={section !== 'preparation'}><BatchScholarBillingPreparation token={token} active={section === 'preparation'} onPreparedRows={onPreparedRows} onOpenBilling={onOpenBilling} /></div>}
   </>;
 }
@@ -603,6 +608,7 @@ function BillingPreparationWorkspace({ token, userId, userRole, sectionAccess, .
 export default function BillingPayrollManagement(props) {
   const [section, setSection] = useState('lists');
   const [schedulesOpened, setSchedulesOpened] = useState(false);
+  const [queueBusy, setQueueBusy] = useState(false);
   if (props.mode !== 'payroll') return <BillingPreparationWorkspace key={props.userId || 'staff'} {...props} />;
-  return <><nav className="examination-workspace-tabs scholars-section-tabs" aria-label="Payroll sections"><button type="button" aria-pressed={section === 'lists'} className={section === 'lists' ? 'active' : ''} onClick={() => setSection('lists')}>Payroll lists</button><button type="button" aria-pressed={section === 'schedules'} className={section === 'schedules' ? 'active' : ''} onClick={() => { setSchedulesOpened(true); setSection('schedules'); }}>Payout schedules</button></nav><div hidden={section !== 'lists'}><BillingPayrollWorkspace {...props} /></div>{schedulesOpened && <div hidden={section !== 'schedules'}><PayoutSchedules token={props.token} /></div>}</>;
+  return <><nav className="examination-workspace-tabs scholars-section-tabs" aria-label="Payroll sections"><button type="button" aria-pressed={section === 'lists'} className={section === 'lists' ? 'active' : ''} onClick={() => setSection('lists')}>Payroll lists</button><button type="button" disabled={queueBusy} aria-pressed={section === 'history'} className={section === 'history' ? 'active' : ''} onClick={() => setSection('history')}>Payroll history</button><button type="button" disabled={queueBusy} aria-pressed={section === 'schedules'} className={section === 'schedules' ? 'active' : ''} onClick={() => { setSchedulesOpened(true); setSection('schedules'); }}>Payout schedules</button></nav><div hidden={section === 'schedules'}><BillingPayrollWorkspace {...props} view={section === 'history' ? 'history' : 'lists'} onQueueBusyChange={setQueueBusy} /></div>{schedulesOpened && <div hidden={section !== 'schedules'}><PayoutSchedules token={props.token} /></div>}</>;
 }

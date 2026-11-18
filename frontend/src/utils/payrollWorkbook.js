@@ -1,4 +1,4 @@
-const recordedAmount = (value) => value == null || value === '' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
+const recordedAmount = (value) => value == null || value === '' ? 0 : Number.isFinite(Number(value)) ? Number(value) : null;
 
 export const payrollTemplateColumns = [
   { key: 'sequence', label: 'No.', header: 'Seq', width: 5, value: (_record, index) => index + 1 },
