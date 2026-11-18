@@ -259,3 +259,27 @@ test('certification preparation and reused saved certifications create no genera
   assert.equal(ACTIONS['POST /scholars/:applicantId/certifications/prepare'], undefined);
   assert.equal(calls, 0);
 });
+
+test('batch grant preparation records aggregate operational metadata without row payloads', async () => {
+  let recorded;
+  const middleware = createActivityAudit({ recorder: async (_client, details) => { recorded = details; } });
+  const req = { method: 'POST', params: {}, route: { path: '/scholars/grant-preparation/batch' },
+    user: { id: 2, role: 'BillingPayrollAdmin' }, ip: '127.0.0.1',
+    body: { academicPeriodId: 10, entries: [{ applicantId: 7, tuitionFeeAssistance: 3500, preparedAt: 'test-row-do-not-log' }] } };
+  const res = new EventEmitter(); res.statusCode = 200;
+  res.locals = { auditDescription: 'Prepared 1 Private Scholar grant record(s) for Billing in academic period 10; 1 not saved.' };
+  middleware(req, res, () => res.emit('finish'));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(recorded.action, 'PRIVATE_GRANTS_BATCH_PREPARED'); assert.equal(recorded.targetTable, 'scholar_requirements');
+  assert.equal(recorded.targetId, null); assert.equal(recorded.description, res.locals.auditDescription);
+  assert.equal(JSON.stringify(recorded).includes('do-not-log'), false); assert.equal(recorded.entries, undefined);
+});
+
+test('a batch with no saved grants does not create an operational mutation event', async () => {
+  let calls = 0;
+  const middleware = createActivityAudit({ recorder: async () => { calls += 1; } });
+  const req = { method: 'POST', params: {}, route: { path: '/scholars/grant-preparation/batch' }, user: { id: 2, role: 'RegularAdmin' } };
+  const res = new EventEmitter(); res.statusCode = 200; res.locals = { auditSkip: true };
+  middleware(req, res, () => res.emit('finish'));
+  await new Promise(resolve => setImmediate(resolve)); assert.equal(calls, 0);
+});

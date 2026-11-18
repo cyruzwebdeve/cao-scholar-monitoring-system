@@ -33,6 +33,7 @@ const ACTIONS = {
   'POST /billing/process': ['BILLING_PROCESSED', 'payroll_batches', 'Generated the private-scholar tuition certification list.'],
   'PUT /scholars/:applicantId/billing-details': ['SCHOLAR_BILLING_DETAILS_UPDATED', 'scholar_requirements', 'Updated scholar billing details.'],
   'PUT /scholars/:applicantId/billing-metadata': ['SCHOLAR_BILLING_METADATA_UPDATED', 'scholar_requirements', 'Updated scholar billing period and status.'],
+  'POST /scholars/grant-preparation/batch': ['PRIVATE_GRANTS_BATCH_PREPARED', 'scholar_requirements', 'Prepared Private-scholar grant records for Billing.'],
   'POST /scholars/:applicantId/certifications': ['SCHOLAR_CERTIFICATION_GENERATED', 'scholar_certifications', 'Generated and saved an individual scholar enrollment certification.'],
   'POST /payroll/process': ['PAYROLL_LIST_GENERATED', 'payroll_batches', 'Generated the official payroll list for public-school scholars.'],
   'POST /scholars/:applicantId/accept': ['APPLICANT_ACCEPTED_AS_SCHOLAR', 'scholar_accounts', 'Accepted an applicant as a scholar.'],

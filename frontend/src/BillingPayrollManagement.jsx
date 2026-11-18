@@ -4,7 +4,7 @@ import { billingMetricRows } from './utils/metricDetails';
 import PayoutSchedules from './PayoutSchedules';
 import Notification from './components/Notification';
 import { matchesPayrollListStatus } from './utils/payrollListStatus';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Banknote,
   CalendarRange,
@@ -28,7 +28,7 @@ import { downloadBillingCertificationDocument } from './utils/billingCertificati
 import CsvExportModal from './components/CsvExportModal';
 import ScholarSchoolIdentity from './components/ScholarSchoolIdentity';
 import RequirementsWarning from './components/RequirementsWarning';
-import { clearProcessingHandoff, readProcessingHandoff } from './utils/processingHandoff';
+import { clearProcessingHandoff, preparedBillingQueueIds, readProcessingHandoff } from './utils/processingHandoff';
 import { canQueueForProcessing, isVisibleInProcessingMode } from './utils/processingVisibility';
 import { ROUTINE_DATA_REFRESH_MS, subscribeToVisibleRefresh } from './utils/dataRefresh';
 
@@ -79,15 +79,18 @@ const matchesDateRange = (value, from, to) => {
   return true;
 };
 
-function BillingPayrollWorkspace({ token, mode = 'billing' }) {
+function BillingPayrollWorkspace({ token, mode = 'billing', userId }) {
   const isPayroll = mode === 'payroll';
-  const [initialHandoff] = useState(() => readProcessingHandoff(mode));
+  const [initialHandoff] = useState(() => readProcessingHandoff(mode, userId));
   const defaultBilledFilter = isPayroll ? 'All Billing Statuses' : 'Not billed yet';
   const defaultPayrollListFilter = isPayroll ? 'Not included yet' : 'All Payroll Statuses';
   const [records, setRecords] = useState([]);
   const [activePeriods, setActivePeriods] = useState([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState(() => initialHandoff ? String(initialHandoff.periodId) : '');
   const [handoffApplicantId, setHandoffApplicantId] = useState(() => initialHandoff?.applicantId || null);
+  const [handoffBatch, setHandoffBatch] = useState(() => initialHandoff?.queuePrepared ? initialHandoff : null);
+  const recordsScopeRef = useRef(null);
+  const recordsRequestRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [, setPage] = useState(1);
@@ -111,13 +114,23 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
   const [schoolType, setSchoolType] = useState('All School Types');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  useLayoutEffect(() => {
+    recordsScopeRef.current = { token, selectedPeriodId, userId };
+    return () => { recordsScopeRef.current = null; recordsRequestRef.current += 1; };
+  }, [token, selectedPeriodId, userId]);
   const loadRecords = useCallback(async ({ showLoader = false } = {}) => {
+    const scope = recordsScopeRef.current;
+    if (!scope || scope.token !== token || scope.selectedPeriodId !== selectedPeriodId || scope.userId !== userId) return;
+    const requestId = ++recordsRequestRef.current;
+    const isCurrent = () => recordsScopeRef.current === scope && recordsRequestRef.current === requestId;
     if (showLoader) setLoading(true);
     try {
       const periodQuery = selectedPeriodId ? `?academicPeriodId=${encodeURIComponent(selectedPeriodId)}` : '';
       const response = await fetch(`${API_BASE}/scholars/management${periodQuery}`, { headers: authHeaders(token), cache: 'no-store' });
       const body = await response.json();
+      if (!isCurrent()) return;
       if (!response.ok) throw new Error(body.message || 'Unable to load billing and payroll records.');
+      if (selectedPeriodId && String(body.activePeriod?.id) !== selectedPeriodId) throw new Error('The processing period changed. Reload the selected period before preparing a list.');
       const currentRecords = (body.scholars || []).map((record) => ({ ...record, isArchivedPeriod: false }));
       const archivedRecords = (body.scholars || []).flatMap((record) => (record.financialHistory || [])
         .filter((history) => !history.isActivePeriod)
@@ -133,7 +146,14 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
       setEditingAmount(current => current && currentRecords.some(record => record.applicantId === current.applicantId && record.academicPeriodId === current.academicPeriodId && canQueueForProcessing(record, mode)) ? current : null);
       setActivePeriods(body.activePeriods || (body.activePeriod ? [body.activePeriod] : []));
       setSelectedPeriodId((current) => current || String(body.activePeriod?.id || ''));
-      if (handoffApplicantId) {
+      if (handoffBatch) {
+        const ids = preparedBillingQueueIds(handoffBatch, currentRecords, body.activePeriod?.id, userId);
+        setQueuedIds((current) => [...new Set([...current, ...ids])]);
+        const skipped = handoffBatch.applicantIds.length - ids.length;
+        setOperationNotice({ tone: skipped ? 'error' : 'success', text: `${ids.length} saved Scholar(s) added to the Billing queue.${skipped ? ` ${skipped} record(s) are no longer eligible for this queue; review their current status before retrying.` : ' Review the queue before generating the certification list.'}` });
+        clearProcessingHandoff();
+        setHandoffBatch(null);
+      } else if (handoffApplicantId) {
         const preparedScholar = currentRecords.find((record) => record.applicantId === handoffApplicantId);
         if (preparedScholar) {
           setQuery((current) => current || preparedScholar.controlNumber || preparedScholar.email || preparedScholar.name);
@@ -146,11 +166,12 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
       }
       setLoadError('');
     } catch (error) {
+      if (!isCurrent()) return;
       setLoadError(error instanceof TypeError ? 'Unable to reach the server. Retrying automatically…' : error.message || 'Unable to load records.');
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  }, [handoffApplicantId, selectedPeriodId, token, mode]);
+  }, [handoffApplicantId, handoffBatch, selectedPeriodId, token, mode, userId]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => loadRecords({ showLoader: true }), 0);
@@ -205,9 +226,10 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
   const currentRecords = useMemo(() => records.filter((record) => !record.isArchivedPeriod), [records]);
   const visibleRecords = useMemo(() => filtered.filter((record) => !record.isArchivedPeriod), [filtered]);
   const queuedRecords = useMemo(() => records.filter((record) => queuedIds.includes(record.applicantId)
-    && canQueueForProcessing(record, isPayroll ? 'payroll' : 'billing')), [records, queuedIds, isPayroll]);
+    && String(record.academicPeriodId) === selectedPeriodId
+    && canQueueForProcessing(record, isPayroll ? 'payroll' : 'billing')), [records, queuedIds, isPayroll, selectedPeriodId]);
   const sourceRecords = useMemo(() => visibleRecords.filter((record) => !queuedIds.includes(record.applicantId)), [visibleRecords, queuedIds]);
-  const movableSourceRecords = useMemo(() => sourceRecords.filter((record) => canQueueForProcessing(record, isPayroll ? 'payroll' : 'billing')), [sourceRecords, isPayroll]);
+  const movableSourceRecords = useMemo(() => sourceRecords.filter((record) => String(record.academicPeriodId) === selectedPeriodId && canQueueForProcessing(record, isPayroll ? 'payroll' : 'billing')), [sourceRecords, isPayroll, selectedPeriodId]);
   const selectedMovableIds = sourceSelection.filter((id) => movableSourceRecords.some((record) => record.applicantId === id));
   const queuedTotalAmount = queuedRecords.reduce((sum, record) => sum + Math.round(Number(record.claimAmount || 0) * 100), 0) / 100;
   const routedRecords = currentRecords.filter((item) => item.processRoute === (isPayroll ? 'payroll' : 'billing'));
@@ -441,7 +463,7 @@ function BillingPayrollWorkspace({ token, mode = 'billing' }) {
               {loading && !records.length && <div className="billing-queue-empty"><span className="scholars-spinner" />Loading scholars…</div>}
               {!loading && !loadError && !sourceRecords.length && <div className="billing-queue-empty"><Search size={20} /><strong>No scholar records</strong><span>{hasFilters ? 'No records match the selected filters.' : 'Scholar records will appear here automatically.'}</span></div>}
               {sourceRecords.map((record) => {
-                const canMove = canQueueForProcessing(record, isPayroll ? 'payroll' : 'billing');
+                const canMove = String(record.academicPeriodId) === selectedPeriodId && canQueueForProcessing(record, isPayroll ? 'payroll' : 'billing');
                 const isSelected = canMove && sourceSelection.includes(record.applicantId);
                 const statusLabel = record.schoolType === 'Private' && !record.grantPrepared && !record.billed && !record.inPayroll
                   ? 'Grant preparation required' : record.schoolType === 'Unclassified'
