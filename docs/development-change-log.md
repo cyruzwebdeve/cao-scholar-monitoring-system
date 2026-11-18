@@ -5,6 +5,31 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-18 - Align Prepare Scholars Header and Simplify Status Filters
+
+**TL;DR**
+
+- Billing -> Prepare Scholars now uses the same standard page header structure, typography and solid-green header action as Billing queue and other administration pages.
+- The visible preparation filters are reduced to Needs preparation and Prepared. Rows with validation or save errors remain under Needs preparation, while Scholars already included in a generated list are omitted.
+- Internal eligibility, stale-edit, generated-list locking and error safeguards remain active; no grant values, queue behavior, API contracts or database records changed.
+- All 43 focused Billing preparation, queue-integration and receipt tests passed, together with source and whitespace checks.
+
+**Objective and reason:** Make the Prepare Scholars tab visually consistent with the default Billing header and remove the two status choices requested by the user without hiding correctable errors or weakening record locks.
+
+**Previous and new behavior:** Prepare Scholars previously used a custom bordered gradient header card, while Billing queue used the shared administration page header. It also exposed four filters: Needs preparation, Needs attention, Prepared and Locked. The tab now reuses the standard billing-heading markup with the normal eyebrow, H2 title, description and green Refresh records action. Only Needs preparation and Prepared appear. Drafts with invalid amounts, conflicts or failed saves are folded into Needs preparation so staff can correct them immediately. Records already included in a generated Billing or Payroll list no longer appear in this preparation worklist. The guidance text now states that generated-list records are excluded.
+
+**Affected users and workflows:** Authorized Billing staff preparing multiple Private-school Scholar grants. Period selection, search, School filtering, receipt review, bulk amount entry, partial-save retry, saved-row staging and Review Billing queue continue to work as before. Staff see fewer filter choices and the same page-title hierarchy used elsewhere in Billing.
+
+**Implementation and data flow:** BatchScholarBillingPreparation now exposes two display statuses. Its existing internal batchBillingStatus result is projected for presentation: attention maps to needs-preparation, prepared remains prepared and locked has no visible filter match. Both all-invalid and partial-save paths explicitly return to Needs preparation. The underlying blocker and attention values remain intact for selection validation, concurrent-edit handling, notices and backend enforcement. The custom batch header CSS was removed, and a narrow compatibility rule preserves the shared Billing header button appearance against the component's generic button styles.
+
+**Files or system areas changed:** frontend/src/BatchScholarBillingPreparation.jsx, frontend/src/styles/batch-scholar-billing.css, frontend/tests/batchScholarBillingWorkflow.test.cjs and both project change logs.
+
+**Impact assessment:** API: no impact. Database/data: no impact, migration or backfill. Configuration/dependencies: no impact. Security: no impact; route, role, section, active-period, list-membership and optimistic-version checks remain authoritative. Privacy: no impact. Accessibility/UX: the page uses the shared H2 header hierarchy, retains visible keyboard focus and reduces filter choice; failed rows remain reachable rather than disappearing with the removed Needs attention filter. Deployment: frontend-only release through the normal deployment process; none was performed. Product scope remains limited to preparation and official list generation, with no fund release, payment claiming, disbursement verification, reconciliation or monetary auditing.
+
+**Validation performed and results:** All 43 focused frontend tests passed with Node test isolation disabled for the Windows sandbox. Updated workflow checks confirm invalid and failed rows remain selected and visible under Needs preparation, status counts expose only the two requested filters, generated-list records are excluded, prepared rows remain available and hidden/reopened tabs still refresh safely. Existing helper tests continue to verify internal attention and locked semantics. Source searches confirmed the obsolete custom header class and visible Needs attention/Locked filter declarations are removed. Git whitespace checks passed. A production build and browser render remain unavailable because Vite and the frontend dependencies are absent from the workspace.
+
+**Known limitations, rollback and recommended next work:** Exact appearance inside the production admin shell remains pending browser acceptance. Internal errors can still explain that a record became locked if eligibility changes concurrently; this is a necessary safeguard rather than a visible filter. Revert the component, batch stylesheet, focused test and matching log entries together to restore the four-filter custom-header view; no data rollback is required.
+
 ## 2026-11-18 - Complete Billing Prepare Scholars Responsive Layout
 
 **TL;DR**

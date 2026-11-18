@@ -117,6 +117,7 @@ test('all-invalid selected rows prevent a request; double clicks share one save 
   workflow.handlers.editTuition(record(8), '5000.01'); workflow.render();
   workflow.handlers.editTuition(record(7), ''); workflow.render();
   await workflow.handlers.saveBatch(); assert.equal(workflow.requests.length, 0); assert.ok(workflow.state.draftState.rows[8].error);
+  assert.equal(workflow.state.statusFilter, 'needs-preparation');
   workflow.handlers.editTuition(record(8), '0'); workflow.render();
   workflow.handlers.editTuition(record(7), '3500'); workflow.render();
   const first = workflow.handlers.saveBatch(), duplicate = workflow.handlers.saveBatch(); await flush();
@@ -161,7 +162,7 @@ test('old loader results are ignored after period changes and real effect cleanu
   assert.equal(workflow.state.periodId, '10'); assert.equal(workflow.state.data.periodId, '9');
 });
 
-test('only valid selected rows are submitted while invalid drafts remain selected with attention', async () => {
+test('only valid selected rows are submitted while invalid drafts remain in Needs preparation', async () => {
   const workflow = harness({ fetch: () => response({ results: [{ applicantId: 7, success: true, grant: grant(3500) }] }) });
   workflow.seed(); workflow.handlers.editTuition(record(8), ''); workflow.render();
   assert.equal(workflow.handlers.view.readyCount, 1);
@@ -169,7 +170,7 @@ test('only valid selected rows are submitted while invalid drafts remain selecte
   assert.deepEqual(workflow.requests[0].body.entries.map(row => row.applicantId), [7]);
   assert.deepEqual(plain(workflow.state.saved.ids), [7]); assert.deepEqual(plain(workflow.state.selection.ids), [8]);
   assert.equal(workflow.state.draftState.rows[8].tuition, ''); assert.ok(workflow.state.draftState.rows[8].error);
-  assert.equal(workflow.state.statusFilter, 'attention'); assert.match(workflow.state.notice.text, /1 selected row\(s\) skipped/);
+  assert.equal(workflow.state.statusFilter, 'needs-preparation'); assert.match(workflow.state.notice.text, /1 selected row\(s\) skipped/);
   assert.deepEqual(workflow.handoffs, [{ periodId: 9, applicantIds: [7] }]); assert.deepEqual(workflow.queueOpens, []);
   workflow.render(); workflow.handlers.editTuition(record(8), '0'); workflow.render();
   assert.equal(workflow.state.draftState.rows[8].error, '');
@@ -181,7 +182,7 @@ test('status worklist defaults to needs preparation and counts match the current
   const workflow = harness();
   workflow.seed([record(7), { ...record(8), grantPrepared: true, billingEligibilityReasons: [] }, { ...record(9), billed: true }, { ...record(10), school: 'Other synthetic school' }], []);
   assert.deepEqual(plain(workflow.handlers.view.filtered.map(row => row.applicantId)), [7, 10]);
-  assert.deepEqual(plain(workflow.handlers.view.statusCounts), { 'needs-preparation': 2, attention: 0, prepared: 1, locked: 1 });
+  assert.deepEqual(plain(workflow.handlers.view.statusCounts), { 'needs-preparation': 2, prepared: 1 });
   workflow.set('school', 'Synthetic Private School'); workflow.set('statusFilter', 'prepared'); workflow.render();
   assert.deepEqual(plain(workflow.handlers.view.filtered.map(row => row.applicantId)), [8]);
   assert.equal(workflow.handlers.view.statusCounts['needs-preparation'], 1);
@@ -265,7 +266,6 @@ test('hiding aborts management reads and reopening refreshes list status while p
   assert.equal(workflow.state.draftState.rows[7].preparedAt, originalVersion);
   assert.equal(workflow.state.draftState.rows[8].tuition, '1000');
   assert.equal(workflow.state.draftState.rows[8].preparedAt, refreshedVersion);
-  assert.equal(workflow.handlers.view.statusCounts.locked, 1);
-  assert.equal(workflow.handlers.view.statusCounts.prepared, 1);
+  assert.deepEqual(plain(workflow.handlers.view.statusCounts), { 'needs-preparation': 0, prepared: 1 });
   workflow.close();
 });

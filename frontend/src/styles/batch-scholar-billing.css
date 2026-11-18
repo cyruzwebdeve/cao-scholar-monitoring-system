@@ -12,37 +12,11 @@
   box-sizing: border-box;
 }
 
-.batch-billing-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
-  padding: 22px 24px;
-  border: 1px solid var(--batch-border);
-  border-radius: 14px;
-  background: linear-gradient(135deg, #fff 0%, #f3faf5 100%);
-  box-shadow: 0 8px 24px rgba(35, 86, 56, 0.06);
-}
-
 .batch-billing-eyebrow {
   color: var(--batch-green);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.12em;
-}
-
-.batch-billing-heading h3 {
-  margin: 7px 0 5px;
-  font-size: 22px;
-  line-height: 1.25;
-}
-
-.batch-billing-heading p {
-  max-width: 660px;
-  margin: 0;
-  color: #6c8073;
-  font-size: 12px;
-  line-height: 1.6;
 }
 
 .batch-scholar-billing button {
@@ -72,6 +46,22 @@
 .batch-scholar-billing button:disabled {
   opacity: 0.55;
   cursor: default;
+}
+
+.batch-scholar-billing > .billing-heading > button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  background: #168c51;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.batch-scholar-billing > .billing-heading > button:hover:not(:disabled) {
+  border-color: transparent;
+  background: #117943;
 }
 
 .batch-scholar-billing :is(button, input, select):focus-visible {
@@ -155,7 +145,7 @@
 
 .batch-billing-status-filters {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin: 0 0 12px;
 }
@@ -632,15 +622,6 @@
 }
 
 @media (max-width: 760px) {
-  .batch-billing-heading {
-    align-items: flex-start;
-    padding: 18px;
-  }
-
-  .batch-billing-heading h3 {
-    font-size: 20px;
-  }
-
   .batch-billing-bulk {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
@@ -672,16 +653,6 @@
 }
 
 @media (max-width: 620px) {
-  .batch-billing-heading {
-    flex-direction: column;
-    gap: 15px;
-    padding: 16px;
-  }
-
-  .batch-billing-heading > button {
-    width: 100%;
-  }
-
   .batch-billing-controls {
     grid-template-columns: minmax(0, 1fr);
     padding: 14px;

@@ -12,7 +12,7 @@ import './styles/batch-scholar-billing.css';
 const emptyData = { periodId: '', token: null, records: [], periods: [], loading: true, error: '' };
 const emptyRows = { periodId: '', token: null, rows: {} };
 const emptyIds = { periodId: '', token: null, ids: [] };
-const statuses = [{ value: 'needs-preparation', label: 'Needs preparation' }, { value: 'attention', label: 'Needs attention' }, { value: 'prepared', label: 'Prepared' }, { value: 'locked', label: 'Locked' }];
+const statuses = [{ value: 'needs-preparation', label: 'Needs preparation' }, { value: 'prepared', label: 'Prepared' }];
 const money = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'Unavailable';
 
 export default function BatchScholarBillingPreparation({ token, onPreparedRows, onOpenBilling, active = true }) {
@@ -81,8 +81,12 @@ export default function BatchScholarBillingPreparation({ token, onPreparedRows, 
   const schoolYears = [...new Set(data.periods.map((period) => period.schoolYear))];
   const schools = [...new Set(records.map((record) => record.school).filter(Boolean))].sort();
   const scopedRecords = useMemo(() => records.filter((record) => `${record.name} ${record.controlNumber || ''} ${record.school}`.toLowerCase().includes(query.trim().toLowerCase()) && (school === 'All schools' || record.school === school)), [records, query, school]);
-  const statusCounts = Object.fromEntries(statuses.map(({ value }) => [value, scopedRecords.filter((record) => batchBillingStatus(record, drafts[record.applicantId], periodId, savedIds.includes(record.applicantId)) === value).length]));
-  const filtered = scopedRecords.filter((record) => batchBillingStatus(record, drafts[record.applicantId], periodId, savedIds.includes(record.applicantId)) === statusFilter);
+  const visibleStatus = (record) => {
+    const status = batchBillingStatus(record, drafts[record.applicantId], periodId, savedIds.includes(record.applicantId));
+    return status === 'attention' ? 'needs-preparation' : status;
+  };
+  const statusCounts = Object.fromEntries(statuses.map(({ value }) => [value, scopedRecords.filter((record) => visibleStatus(record) === value).length]));
+  const filtered = scopedRecords.filter((record) => visibleStatus(record) === statusFilter);
   const busy = saving || openingBilling;
   const controlsDisabled = busy || data.loading || !currentData || Boolean(data.error) || !active;
   const visibleSelectable = filtered.filter((record) => !batchBillingBlocker(record, periodId) && !savedIds.includes(record.applicantId));
@@ -167,7 +171,7 @@ export default function BatchScholarBillingPreparation({ token, onPreparedRows, 
     const skipped = Object.keys(prepared.errors).length;
     if (skipped) setDraftState((current) => ({ ...current, rows: Object.fromEntries(Object.entries(current.rows).map(([id, draft]) => [id, prepared.errors[id] ? { ...draft, error: prepared.errors[id], attention: true } : draft])) }));
     if (!prepared.entries.length) {
-      if (skipped) setStatusFilter('attention');
+      if (skipped) setStatusFilter('needs-preparation');
       showNotice({ tone: 'error', text: prepared.message || 'Select at least one ready row to save.' }); return;
     }
     const scope = scopeRef.current, action = {};
@@ -193,7 +197,7 @@ export default function BatchScholarBillingPreparation({ token, onPreparedRows, 
       setSelection({ periodId, token, ids: selectedIds.filter((id) => !successes.has(id)) });
       setSaved({ periodId, token, ids: nextSavedIds });
       const remaining = failed.length + skipped;
-      if (remaining) setStatusFilter('attention');
+      if (remaining) setStatusFilter('needs-preparation');
       showNotice({ tone: successful.length ? remaining ? 'warning' : 'success' : 'error', text: `${successful.length} record(s) saved for Billing.${skipped ? ` ${skipped} selected row(s) skipped because their amounts need attention.` : ''}${failed.length ? ` ${failed.length} submitted row(s) could not be saved.` : ''}${remaining ? ' Correct the remaining rows and retry; saved rows will not be sent again.' : ' Continue preparing Scholars or review the Billing queue.'}` });
       if (successful.length) await notifyPreparedRows(successful.map((result) => result.applicantId), scope);
     } catch (failure) {
@@ -204,7 +208,7 @@ export default function BatchScholarBillingPreparation({ token, onPreparedRows, 
   };
 
   return <section className="batch-scholar-billing" aria-label="Batch Scholar Billing preparation" aria-busy={data.loading || busy}>
-    <header className="batch-billing-heading"><div><span className="batch-billing-eyebrow">PRIVATE GRANT PREPARATION</span><h3>Prepare Scholars</h3><p>Review receipts and enter amounts, then save the ready rows to Billing.</p></div><button type="button" onClick={() => loadRecords()} disabled={busy || data.loading}><RefreshCw size={15} />Refresh records</button></header>
+    <header className="billing-heading"><div><span>BILLING OPERATIONS</span><h2>Prepare Scholars</h2><p>Review receipts and enter amounts, then save the ready rows to Billing.</p></div><button type="button" onClick={() => loadRecords()} disabled={busy || data.loading}><RefreshCw size={15} />Refresh records</button></header>
     <div className="batch-billing-controls">
       <label><span>Academic Year</span><select value={currentPeriod?.schoolYear || ''} disabled={busy || data.loading || !data.periods.length} onChange={(event) => { const choices = data.periods.filter((period) => period.schoolYear === event.target.value); changePeriod(String((choices.find((period) => period.semester === currentPeriod?.semester) || choices[0])?.id || '')); }}><option value="" disabled>Select academic year</option>{schoolYears.map((year) => <option key={year}>{year}</option>)}</select></label>
       <label><span>Semester</span><select value={periodId} disabled={busy || data.loading || !currentPeriod} onChange={(event) => changePeriod(event.target.value)}><option value="" disabled>Select semester</option>{data.periods.filter((period) => period.schoolYear === currentPeriod?.schoolYear).map((period) => <option key={period.id} value={period.id}>{period.semester}{period.isPrimary ? ' (Primary)' : ''}</option>)}</select></label>
@@ -212,9 +216,9 @@ export default function BatchScholarBillingPreparation({ token, onPreparedRows, 
       <label><span>School</span><select value={school} onChange={(event) => setSchool(event.target.value)} disabled={busy}><option>All schools</option>{schools.map((name) => <option key={name}>{name}</option>)}</select></label>
     </div>
     <nav className="batch-billing-status-filters" aria-label="Preparation status">{statuses.map(({ value, label }) => <button key={value} type="button" aria-pressed={statusFilter === value} className={statusFilter === value ? 'active' : ''} disabled={busy} onClick={() => setStatusFilter(value)}>{label}<span>{statusCounts[value]}</span></button>)}</nav>
-    <p className="batch-billing-guidance">This view includes Private Scholars assigned to Billing. Initial or redirected Private Scholars are prepared in Payroll. Listed records are locked. Enter 0 explicitly when no tuition assistance applies.</p>
+    <p className="batch-billing-guidance">This view includes Private Scholars assigned to Billing. Initial or redirected Private Scholars are prepared in Payroll. Scholars already included in a generated list are excluded. Enter 0 explicitly when no tuition assistance applies.</p>
     {loadError && <Notification tone="error" title="Unable to load grant records">{loadError}</Notification>}
-    {currentNotice && <Notification tone={currentNotice.tone} title={currentNotice.tone === 'error' ? 'Grant preparation needs attention' : 'Batch preparation update'}>{currentNotice.text}</Notification>}
+    {currentNotice && <Notification tone={currentNotice.tone} title={currentNotice.tone === 'error' ? 'Check grant preparation' : 'Batch preparation update'}>{currentNotice.text}</Notification>}
     <form onSubmit={saveBatch} noValidate>
       <div className="batch-billing-bulk"><label><span>Tuition amount for selected Scholars (PHP)</span><input type="number" min="0" step="0.01" value={bulkTuition} onChange={(event) => setBulk({ periodId, token, tuition: event.target.value })} disabled={controlsDisabled || !selectedIds.length} /></label><button type="button" onClick={() => applyAmountToSelected()} disabled={controlsDisabled || !selectedIds.length || bulkTuition.trim() === ''}>Apply amount to selected</button><button type="button" onClick={() => applyAmountToSelected('0')} disabled={controlsDisabled || !selectedIds.length}>Set selected tuition to zero</button></div>
       <div className="batch-billing-workspace"><div className="batch-billing-worklist">
@@ -230,7 +234,7 @@ export default function BatchScholarBillingPreparation({ token, onPreparedRows, 
             <td data-label="Scholar / grant"><strong className="batch-billing-name">{record.name}</strong><span className="batch-billing-secondary">{record.controlNumber || record.scholarId} · {record.school}</span><span className="batch-billing-total">Total grant: PHP {money(amount.total)}</span></td>
             <td data-label="Tuition"><label className="batch-billing-sr-only" htmlFor={inputId}>Tuition assistance for {record.name}</label><input ref={(element) => { if (element) inputRefs.current[record.applicantId] = element; else delete inputRefs.current[record.applicantId]; }} id={inputId} type="number" min="0" max={amount.total} step="0.01" value={draft.tuition} disabled={disabled} onChange={(event) => editTuition(record, event.target.value)} onFocus={() => focusRecord(record)} onKeyDown={(event) => handleAmountKey(event, record)} aria-describedby={helpId} aria-invalid={Boolean(draft.error || draft.dirty && !amount.valid)} /><small id={helpId} className={draft.error || draft.dirty && !amount.valid ? 'batch-billing-row-error' : 'batch-billing-secondary'}>{draft.error || (draft.dirty && !amount.valid ? `Enter PHP 0–${money(amount.total)}, with up to two decimal places.` : `PHP 0–${money(amount.total)}`)}</small>{(draft.dirty || draft.error) && !rowSaved && !blocker && <button className="batch-billing-reset" type="button" disabled={controlsDisabled} onClick={() => resetDraft(record)}>Use saved values</button>}</td>
             <td data-label="Allowance"><output aria-label={`Computed allowance for ${record.name}`}>{amount.allowance == null ? '—' : money(amount.allowance)}</output></td>
-            <td data-label="Receipt / status" className="batch-billing-receipt"><button type="button" className="batch-billing-review" onClick={() => focusRecord(record, true)} disabled={controlsDisabled} aria-pressed={previewRecord?.applicantId === record.applicantId} aria-label={`View receipt for ${record.name}`}><Eye size={14} />Review receipt<span className="batch-billing-sr-only"> for {record.name}</span></button><span className={`batch-billing-status${rowSaved ? ' saved' : blocker ? ' locked' : ''}`}>{rowSaved ? 'Saved for Billing' : blocker || (draft.attention || draft.error ? 'Needs attention' : record.grantPrepared ? 'Prepared · editable' : 'Needs preparation')}</span>{record.processingWarnings?.length > 0 && <span className="batch-billing-secondary">Requirements incomplete; preparation remains available.</span>}</td>
+            <td data-label="Receipt / status" className="batch-billing-receipt"><button type="button" className="batch-billing-review" onClick={() => focusRecord(record, true)} disabled={controlsDisabled} aria-pressed={previewRecord?.applicantId === record.applicantId} aria-label={`View receipt for ${record.name}`}><Eye size={14} />Review receipt<span className="batch-billing-sr-only"> for {record.name}</span></button><span className={`batch-billing-status${rowSaved ? ' saved' : blocker ? ' locked' : ''}`}>{rowSaved ? 'Saved for Billing' : blocker || (draft.attention || draft.error ? 'Needs preparation' : record.grantPrepared ? 'Prepared · editable' : 'Needs preparation')}</span>{record.processingWarnings?.length > 0 && <span className="batch-billing-secondary">Requirements incomplete; preparation remains available.</span>}</td>
           </tr>;
         })}
       </tbody></table></div>
