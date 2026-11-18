@@ -64,3 +64,19 @@
   .batch-billing-table td[data-label]::before { content:attr(data-label); display:block; margin-bottom:6px; font-size:9px; font-weight:800; color:#6d8375; }
   .batch-billing-table output { padding-top:0; }
 }
+
+/* Sticky bulk‑action bar */
+.batch-billing-action-bar {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  z-index: 10;
+  padding-top: 8px;
+  border-top: 1px solid #d9e7de;
+}
+
+/* Receipt column styling */
+.batch-billing-receipt {
+  width: 80px;
+  text-align: center;
+}
