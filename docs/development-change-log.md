@@ -11105,3 +11105,54 @@ The new test suite executes the complete unbroken chain:
 - **Limitations:** The test runs against in-memory database facades; testing against a live PostgreSQL server requires a configured local or cloud database instance.
 - **Rollback Considerations:** Remove `backend/tests/fullProcessLifecycle.test.js` and `scripts/run-full-process-test.js`, and revert the `test:process` entry in `package.json`.
 - **Recommended Next Work:** Integrate `npm run test:process` into CI/CD deployment pipelines as a smoke test gate prior to production release.
+
+## 2026-11-20: Admin Document Capture & Assignment Split-Panel Modal Workspace
+
+### TL;DR
+- Replaced the cramped 368px vertical-drawer tabbed intake with a dedicated split-panel modal workspace (min(1120px, 96vw) by min(840px, 90vh)).
+- Affected users: SuperAdmin, RegularAdmin, and BillingPayrollAdmin conducting initial requirement verification in Results Management and Scholars Management.
+- Fixed layout collapse where the modal middle workspace had 0px height by enforcing explicit viewport modal bounds and scrollable panel heights.
+- Retained all existing document validation, phone companion capture pairing, PDF compilation, batch PUT endpoints, and CAO non-disbursement scope boundaries.
+
+### Objective and reason for the change
+The previous document capture component was rendered inside a 460px drawer (.rm-drawer / .scholars-drawer), leaving only ~368px of working width. Admins had to toggle back and forth between two tabs ("Scan documents" and "Assign requirements"), memorizing generic labels without visual context. The objective was to modernize this into a wide, dual-panel workspace where scanning/editing (left panel) and requirement assignment (right panel) are visible simultaneously.
+
+### Previous and new behavior
+- **Previous:** Admin clicked "Scan and assign initial documents" inside the narrow sidebar drawer. The UI rendered two tabs: "Scan documents" and "Assign requirements". Admins could not see requirement slots while scanning, and assigning required choosing from text-only dropdowns without visual thumbnails.
+- **New:** Admin clicks "Scan and assign initial documents", opening an expansive modal dialog backdrop. The left panel contains document chip carousels, camera viewfinders, page strips, high-resolution previews, crop sliders, and quality tips. The right panel displays the requirements checklist with inline mini-thumbnail previews of assigned scans. A sticky footer displays assignment readiness and one-click batch upload.
+
+### Affected user roles and workflows
+- **Roles:** SuperAdmin, RegularAdmin, BillingPayrollAdmin with examination or scholar access.
+- **Workflows:** Initial requirement intake before official Scholar acceptance in Results Management, and scholar document upload in Scholars Management.
+
+### Implementation and data flow
+- Refactored rontend/src/InitialRequirementCapture.jsx to render a centered modal overlay with header, dual-panel workspace (.capture-scan-panel and .capture-assign-panel), and sticky footer.
+- Updated rontend/src/styles/document-capture.css with explicit height bounds (height: min(840px, 90vh) and min-height: 500px), preventing flexbox container height collapse.
+- Left panel displays document drafts as visual thumbnail chips, camera controls, and editing tools.
+- Right panel maps requirements to selected drafts with inline thumbnail confirmations.
+- Batch submission compiles multi-page drafts to PDF using uildCapturePdf and uploads sequentially via existing PUT endpoints.
+
+### Files or system areas changed
+- rontend/src/InitialRequirementCapture.jsx: Component markup refactored to dual-panel modal structure.
+- rontend/src/styles/document-capture.css: Modal overlay, split-grid workspace, thumbnail chips, card states, and responsive styles added.
+- change_log.txt: Added concise summary entry.
+- docs/development-change-log.md: Added detailed change log record.
+
+### API, database, configuration, security, privacy, accessibility, and deployment impact
+- **API Impact:** None. Endpoints (PUT /passers/:id/requirements/:key, PUT /scholars/:id/requirements/:key, /phone-capture/sessions) and payload structures remain identical.
+- **Database Impact:** None.
+- **Configuration Impact:** None.
+- **Security & Privacy Impact:** None. Authentication tokens, admin session verification, and sanitized inputs remain unchanged.
+- **Accessibility Impact:** Dialog uses ria-modal="true", ole="dialog", keyboard close on backdrop, and readable font sizing (\text{px}$–\text{px}$).
+- **Deployment Impact:** Frontend stylesheet and component update; no migrations or restart required.
+
+### Validation performed and its results
+- Inspected user screenshot showing collapsed modal state.
+- Identified root cause in CSS: .capture-modal lacked a concrete height while .capture-workspace had lex: 1 1 0; min-height: 0; overflow: hidden;, calculating basis as 0px.
+- Resolved by defining height: min(840px, 90vh); min-height: 500px; and lex: 1 1 auto on the workspace container.
+- Verified responsive fallback for tablet/mobile (@media (max-width: 900px) and @media (max-width: 600px)).
+
+### Known limitations, rollback considerations, and recommended next work
+- **Limitations:** Screen sizes below 600px stack panels vertically.
+- **Rollback Considerations:** Revert rontend/src/InitialRequirementCapture.jsx and rontend/src/styles/document-capture.css to previous git revision.
+- **Recommended Next Work:** Add drag-and-drop attachment from the left scan panel directly onto requirement checklist rows.
