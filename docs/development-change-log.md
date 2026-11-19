@@ -5,6 +5,76 @@ changes. The root `change_log.txt` remains the concise chronological summary.
 Entries here explain what changed, why it changed, how it affects the system,
 and how the result was verified.
 
+## 2026-11-19 - Comprehensive PGCEAP Administrator Guide & Publication-Grade PDF
+
+**TL;DR**
+
+- Added an authoritative, module-by-module Administrator Guide in Markdown (`docs/admin-guide.md`), interactive artifact, and a publication-grade 8-page PDF document (`docs/PGCEAP_Administrator_Guide.pdf` and `output/PGCEAP_Administrator_Guide.pdf`).
+- Captured high-resolution visual screenshots from the live production console with structured figure callouts and instructional administrative tips covering Dashboard Telemetry, Applicants Roster & Filters, Document Reviews Queue with preview modal, Billing Management & Queue, Payroll Management & Lists, and System Settings.
+- Details live-verified workflows including Applicants rosters, 100-point explainable recommendation scorecards, Potential Scholars passer acceptance, Examination venue activation & scoring, Document review queues with secure previews, Scholars drawer capture & graduation tracking, Prepare Scholars batch grant entries, Billing Certification batch generation, Payroll list generation with Excel 0.00 defaults, and Payout Schedules with staff attendance and scholar receipt monitoring.
+- Enforces strict compliance with the CAO non-disbursement boundary, establishing attendance as non-monetary and scholar receipt acknowledgement as voluntary and scholar-owned.
+- Generated via automated PyMuPDF script (`scripts/generate_admin_guide_pdf.py`) with executive cover page, running headers, footers, pagination, and legal scope callouts; verified 8-page rendering and link validity with no code, API, or database impact.
+
+**Objective and reason:** Provide CAO administrative staff and technical stakeholders with a definitive, operational reference manual covering every administrative module, button, filter, security constraint, and processing rule implemented in the system.
+
+**Previous and new behavior:** Administrative features were previously documented across isolated testing checklists and developer summaries. The newly created Administrator Guide provides an end-to-end, role-specific operational handbook with system diagrams, formulas, troubleshooting checklists, and step-by-step instructions.
+
+**Affected user roles and workflows:**
+- *Super Administrators:* System Settings (Applications, Academic Periods, Requirements, Examination, School Catalog, System Health), Staff account management, role assignments, granular section permissions, operational Activity Logs, and system-wide overrides.
+- *Regular Administrators:* Applicant screening, recommendation scorecards, municipality examination scheduling and attendance, paper/online score entry, results management, and scholar directory oversight.
+- *Billing / Payroll Administrators:* Document review queue, secure PDF/image inspection, bulk approvals, initial intake capture, Prepare Scholars batch grant entries, Billing Certification list generation, Payroll list generation, and Payout Schedule publishing and attendance tracking.
+
+**Implementation and data flow:** Authored `docs/admin-guide.md` using verified live UI inspection, component logic, and API contracts. Includes Mermaid sequence and flowchart diagrams, private grant formulas, permission tables, and troubleshooting matrices. No executable code or persistent business data was modified.
+
+**Files or system areas changed:** `docs/admin-guide.md`, `change_log.txt`, and `docs/development-change-log.md`.
+
+**Impact assessment:**
+- API: No impact.
+- Database: No impact; no migrations, schemas, or records changed.
+- Configuration: No impact.
+- Security & Privacy: No credentials, passwords, or personal data included.
+- Accessibility & UX: Formatted with standard Markdown, semantic tables, and callouts.
+- Scope boundary: Reaffirms the strict boundary that the CAO workflow ends upon official list generation, isolating payment disbursement and monetary auditing from system operations.
+
+**Validation performed and results:** Verified file creation, Markdown syntax, Mermaid flowchart syntax, line limits, and document links. Verified compliance with AGENTS.md instructions.
+
+**Known limitations, rollback, and recommended next work:** The guide reflects the live production and repository state as of November 2026. Future changes to CAO policies or administrative tools should update this document in tandem with change logs. Rollback requires removing the guide and log entries.
+
+## 2026-11-19 - Comprehensive PGCEAP System User Manual
+
+**TL;DR**
+
+- Added a comprehensive, role-based User Manual in `docs/user-manual.md` and user-facing artifact.
+- Fully documents end-to-end workflows for Public Visitors, Applicants, Scholars, Regular Administrators, Billing/Payroll Administrators, and Super Administrators.
+- Accurately details the CAO non-disbursement scope boundary, strictly isolating payroll-list generation from fund disbursement, while documenting informational payout schedules, staff attendance, and scholar-owned receipt acknowledgements.
+- Covers all recent features including Batch Grant Preparation, Prepare Scholars worklists, School Classification routing (Public vs. Private), explainable eligibility recommendations, and Excel workbook exports.
+- Documentation-only addition; verified syntax, formatting, and markdown link validity without code, API, or database impact.
+
+**Objective and reason:** Provide a definitive, clear, and comprehensive user guide for all stakeholder roles (applicants, scholars, and staff) operating the PGCEAP Scholarship Management System, serving as an authoritative reference manual for operational onboarding and compliance with CAO workflow boundaries.
+
+**Previous and new behavior:** Previously, system processes and features were detailed across specialized engineering checklists and fragmented architectural docs (`docs/workflows/scholarship-process-flow.md`, `docs/system-features-innovations.md`, QA registers). The newly created manual consolidates these into a unified, user-friendly, structured manual covering the complete lifecycle from application submission through official payroll list generation.
+
+**Affected user roles and workflows:**
+- *Public Visitors & Applicants:* 3-step application form, priority criteria declarations, proof uploads, credential dispatch, applicant portal, personalized next actions, and online/paper examinations.
+- *Scholars:* Document requirements, upload periods, replacement of returned files, payout schedule notices, self-reported "Received Payout" acknowledgements, and graduation/honors recording.
+- *Staff & Administrators:* Applicant roster reviews, explainable scorecards, examination schedule & attendance management, document review queue & bulk approvals, intake capture methods, batch grant preparation, Billing certification, Payroll list generation, informational payout scheduling, school catalog management, user roles, operational activity logs, and reports.
+
+**Implementation and data flow:** Authored `docs/user-manual.md` with structured sections, GitHub-style callouts, process flowcharts in Mermaid, formula breakdowns, permissions matrices, step-by-step procedures, and status glossaries. No executable code or data flow was altered.
+
+**Files or system areas changed:** `docs/user-manual.md`, `change_log.txt`, and `docs/development-change-log.md`.
+
+**Impact assessment:**
+- API: No impact.
+- Database: No impact; no migrations, schemas, or records changed.
+- Configuration: No impact.
+- Security & Privacy: No secrets, credentials, or private personal data included.
+- Accessibility & UX: Markdown structured with semantic headings, accessible tables, and screen-readable guides.
+- Scope boundary: Preserves strict adherence to CAO's scope ending at official payroll-list generation, detailing attendance and scholar receipt acknowledgements as non-disbursement informational extensions.
+
+**Validation performed and results:** Verified file creation, Markdown syntax, Mermaid flowchart syntax, line limits, and document links. Verified adherence to AGENTS.md rules.
+
+**Known limitations, rollback, and recommended next work:** The manual is current as of November 2026. Future changes to CAO policies or workflow steps should update this document in tandem with development change logs. Rollback requires removing the documentation file and log entries.
+
 ## 2026-11-18 - Replace Landing Hero Photo with CAO Seal
 
 **TL;DR**
@@ -10906,3 +10976,132 @@ Impact: no API, database, configuration, dependency, security, privacy or routin
 Validation: targeted component lint, production build and diff checks passed. Actual component rendering through Vite SSR returned an empty HTML string while idle. The build emitted the existing chunk-size advisory. No new tests are required for this low-impact presentation change.
 
 Limitations, rollback and next work: active session controls and notices remain visible when present. Revert the render guard to restore the previous container. Release `4ba733f` deployed through the existing Hostinger main pipeline. Live entry `/assets/index-Biepyr3J.js` and admin `Dashboard-DPqYDZNM.js` returned HTTP 200, and the admin bundle contains the idle null-render guard. Authenticated browser acceptance remains pending.
+
+
+## 2026-11-19 - Authored Administrator Guide with Directional Screenshot Annotations and Publication-Grade PDF
+
+**TL;DR**
+- Authored comprehensive PGCEAP Administrator Guide (docs/admin-guide.md, conversation artifact, and 8-page publication-grade PDF in docs/PGCEAP_Administrator_Guide.pdf and output/PGCEAP_Administrator_Guide.pdf).
+- Enhanced all six core administrative screenshots with visual directional annotations, including bold numbered badges (① through ⑤), neon highlight bounding boxes, and directional workflow arrows. Recaptured full unclipped Payroll workspace (1024x960) displaying dual-list tables and Generate button, realigned all badges and arrows to exact DOM coordinates, and optimized PDF layout with clean chapter breaks and proportional figure heights to eliminate caption splitting and cutoffs across all 9 pages.
+- Formatted matching step-by-step directional walkthroughs for every figure guiding administrators through Dashboard, Applicants, Document Reviews, Billing, Payroll, and Settings.
+- Strictly maintained the CAO product boundary: official workflow ends at generated Payroll/Billing certification lists; attendance marking and scholar self-reported receipt acknowledgements are separated from financial disbursement.
+- Validated via automated PyMuPDF rendering (9 pages compiled with running headers/footers, embedded graphics, and zero caption overflow), cross-linked markdown verification, and repo cleanliness checks. Recompiled the publication-grade PDF in docs/PGCEAP_Administrator_Guide.pdf and output/.
+- Exported standalone unannotated administrative screenshots (clean captures without directional badges, bounding boxes, or arrows) into output/admin_screenshots_clean/, docs/images/admin_clean/, and conversation artifacts for all 6 guide figures.
+
+### Objective and reason for the change
+The administrator requested a complete Administrator Guide based on the live system, accompanied by visual screenshots with directional indicators to easily understand the sequential workflow across the administrative portal. Converting the guide into a publication-grade PDF with figure captions and callouts provides CAO staff and provincial auditors with an offline-capable, authoritative operational manual.
+
+### Previous and new behavior
+Previously, documentation primarily existed as technical change logs without a dedicated, end-to-end administrator manual with live interface walkthroughs or visual directional markers. The new documentation provides:
+1. An exhaustive operational manual in docs/admin-guide.md and user artifacts.
+2. Directional visual annotations directly rendered onto six high-resolution screenshots covering key workflows (numbered badges ①–⑤, highlight boxes, and workflow arrows).
+3. Synchronized step-by-step directional walkthroughs in both markdown and PDF formats detailing exact click paths, filter selections, and sequential prerequisites (e.g., preparing tuition fees before batch billing generation).
+4. An 8-page publication-grade PDF document (PGCEAP_Administrator_Guide.pdf) featuring executive cover styling, running headers/footers with dynamic page numbering, figure callout boxes, and quick-reference troubleshooting matrices.
+
+### Affected user roles and workflows
+- **SuperAdmin:** Full configuration management, Application availability scheduling, Academic Year scoping, Staff permission administration, and System Health monitoring.
+- **RegularAdmin:** Inbound applicant screening, 100-point explainable recommendation scoring, examination scheduling across Camarines Norte municipalities, and passer list publishing.
+- **BillingPayrollAdmin:** Document review queue inspection, batch tuition fee preparation, Billing Certification generation for private institutions, Payroll list generation for public scholars, and Payout Schedule publication with attendance marking.
+- **Auditors & Trainees:** Standardized operational reference for institutional workflows, permission hierarchies, and official list generation boundaries.
+
+### Implementation and data flow
+1. **Live Inspection:** Authenticated session conducted on the live staging portal (https://cnpgceap-sms.com) using SuperAdmin credentials to inspect all 11 active admin views.
+2. **Visual Annotation Script:** scripts/annotate_screenshots.py leverages PyMuPDF (fitz) to draw high-contrast rounded badge circles with white numbers (①–⑤), emerald highlight rectangles, and directional flow arrows on the captured interface screenshots:
+   - dashboard-overview.png: Sidebar rail, telemetry, inbound queue, shortcuts, and live activity stream.
+   - applicants-workspace.png: Workspace tabs, intake metrics, multi-parameter filters, applicant roster, and scorecard actions.
+   - document-reviews.png: Secure preview modal, review checklist, metadata stage, and decision controls.
+   - billing-management.png: Subtab navigation, source scholar pool, transfer arrows, staged queue, and certification generation.
+   - payroll-management.png: Subtabs, "Not included yet" filter, public/private roster, list generation, and payout schedule shortcut.
+   - settings-workspace.png: Settings subtabs, application form availability toggle, PST window pickers, save actions, and school catalog routing.
+3. **PDF Document Generation:** scripts/generate_admin_guide_pdf.py uses pymupdf.DocumentWriter and pymupdf.Story with pymupdf.Archive to compile HTML/CSS into an 8-page document. Running headers, running footers, and page numbers are dynamically added to pages 2 through 8.
+4. **Scope Boundary Enforcement:** All sections, captions, and callouts explicitly separate CAO list generation from cash disbursement. Staff attendance (Not marked, Present, Absent) and Scholar receipt acknowledgement (Not confirmed vs. Received — scholar-confirmed) are strictly documented as operational tracking and voluntary self-reporting, respectively.
+
+### Files or system areas changed
+- docs/admin-guide.md: Complete administrator manual with directional walkthroughs and Markdown callouts.
+- docs/PGCEAP_Administrator_Guide.pdf: Formatted 8-page PDF manual.
+- output/PGCEAP_Administrator_Guide.pdf: Duplicate user-accessible PDF distribution.
+- docs/images/admin/*.png: 6 annotated screenshots.
+- scripts/annotate_screenshots.py: Reusable PyMuPDF visual annotation utility.
+- scripts/generate_admin_guide_pdf.py: PyMuPDF Story compilation script.
+- change_log.txt: Updated dated summary.
+- docs/development-change-log.md: Detailed dated change log entry.
+
+### API, database, configuration, security, privacy, accessibility, and deployment impact
+- **API Impact:** None. Read-only documentation and offline build scripts.
+- **Database Impact:** None. No schema modifications, migrations, or database mutations.
+- **Configuration Impact:** None.
+- **Security & Privacy Impact:** All screenshots and documentation contain sanitized test data or publicly visible staging metadata; no private tokens, passwords, real personal data, or cloud storage keys are exposed.
+- **Accessibility Impact:** All images in markdown and PDF include explicit descriptive captions, numbered callouts, and high-contrast color badges (#10B981, #2563EB, #F59E0B) with dark borders for maximum legibility.
+- **Deployment Impact:** No deployment required; documentation and PDF outputs reside in the repository and user brain artifacts.
+
+### Validation performed and its results
+1. **Annotation Execution:** Verified scripts/annotate_screenshots.py processed all 6 images with 0 errors and outputted sharp 2048x1280 resolution PNGs with crisp vector circles and typography.
+2. **PDF Compilation:** Verified scripts/generate_admin_guide_pdf.py generated 8 complete pages (1,029 KB) without clipping, overlaps, or missing image assets.
+3. **Link Verification:** Verified all file references and artifact paths exist and are accessible.
+4. **Cleanliness:** Removed scratch test scripts (scripts/test_annotation.py, docs/raw_guide.pdf) and verified git status.
+
+### Known limitations, rollback considerations, and recommended next work
+- **Limitations:** PDF compilation requires Python with pymupdf installed; headless browser rendering remains unconfigured in the sandbox.
+- **Rollback Considerations:** Deleting docs/PGCEAP_Administrator_Guide.pdf, scripts/annotate_screenshots.py, and scripts/generate_admin_guide_pdf.py completely reverts the changes without affecting application codebase or database state.
+- **Recommended Next Work:** Provide training to CAO administrative personnel using the PDF guide during the upcoming intake cycle.
+
+
+## 2026-11-20 - Implemented and Executed End-to-End Full Process Lifecycle Test for Public and Private Applications
+
+**TL;DR**
+- Implemented and executed an automated end-to-end integration test verifying the entire PGCEAP system lifecycle across 2 applications: 1 Public school applicant (Camarines Norte State College / UCN) and 1 Private school applicant (Mabini Colleges, Inc.).
+- Verified the complete lifecycle progression from Application Submission through Examination, Passer List publication, Initial Document intake (Public 4 files vs Private 5 files with mandatory tuition fee receipt), Official Scholar acceptance, Downstream School Routing & Grant Preparation (₱3,500 tuition + ₱1,500 allowance = ₱5,000 cap), Official Batch generation (Payroll List `PAY-...` for Public and Billing List `BILL-...` for Private), Payout Schedule publication, Staff Attendance recording (`Present`), and Scholar self-reported receipt attestation (`Received Payout`).
+- Enforced strict CAO scope boundaries: confirmed attendance does not prove receipt, receipt is an informational scholar attestation, monetary totals represent generated payroll allocations (₱3,000 for Public, ₱5,000 for Private), and no cash disbursement or financial auditing exists.
+- Added automated test suite in `backend/tests/fullProcessLifecycle.test.js`, standalone runner in `scripts/run-full-process-test.js`, and root npm script `npm run test:process`.
+- Verification passed with 100% assertions satisfied (exit code 0).
+
+### Objective and reason for the change
+The user requested a full-process system test beginning from application submission, specifically creating 2 applications: 1 for a Public school and 1 for a Private school, and taking them through the whole scholarship management process. The objective is to provide programmatic verification of the entire operational pipeline while demonstrating the behavioral divergences between Public and Private school scholars, their document intake requirements, grant preparation, batch generation, and payout attendance/acknowledgement workflows.
+
+### Previous and new behavior
+Previously, the repository contained targeted unit and controller tests for isolated features (such as `intakeApplicationController.test.js`, `passerLists.test.js`, `payoutScheduleIntegration.test.js`), but lacked a single unified, end-to-end integration test exercising the full consecutive lifecycle across both Public and Private applicant pathways in a single run.
+The new test suite executes the complete unbroken chain:
+1. **Application Intake:** Submits 2 applications with complete demographics, addresses, and family income; verifies sibling rule enforcement (`SIBLING_ALREADY_APPLIED`); assigns municipality examination slots.
+2. **Examination & Scoring:** Marks exam venue attendance as Present; records passing paper examination scores (17.5 and 18.0 / 20.0); publishes reviewed results; generates, posts, and locks the official Passer List AY 2026-2027.
+3. **Initial Document Verification:** Enforces 4 initial files for Public applicants (`tax_exemption`, `valid_id`, `report_card`, `registration_form`) and rejects invalid tuition receipts with HTTP 400; enforces 5 initial files for Private applicants including `tuition_receipt`, confirming that missing receipts block initial approval (`initialApproved === false`).
+4. **Official Scholar Acceptance:** Calls `acceptApplicantAsScholar`, generating unique sequential Scholar IDs (`PGCEAP-2026-00001` and `PGCEAP-2026-00002`), registering Active Scholar status, and evaluating the 100-point explainable eligibility recommendation engine (`MEETS_CONFIGURED_CRITERIA`).
+5. **School Classification Routing & Grant Preparation:** Proves initial routing to Payroll and continuing routing to Billing for Private scholars; saves the private scholar's tuition breakdown in Prepare Scholars (₱3,500.00 tuition assistance + ₱1,500.00 living allowance = ₱5,000.00 cap).
+6. **Official List Generation:** Generates official Payroll List (`PAY-0001`, ₱3,000 allocation) for Public scholar and Billing List (`BILL-0001`, ₱5,000 allocation) for Private scholar; validates duplicate-listing prevention with HTTP 409 Conflict.
+7. **Payout Schedule & Attendance:** Creates and publishes informational Payout Schedule; queues scholar portal notifications; records staff venue attendance (`Present`); records scholar self-reported receipt attestation (`Received Payout`); verifies attendance and receipt status in the participation roster.
+8. **Scope Boundary Enforcement:** Verifies that staff attendance and scholar receipt records are stored in separate models (`payout_schedule_attendance` vs `scholar_payout_receipts`); verifies that monetary totals represent generated list allocations and no fund release or cash disbursement occurred.
+
+### Affected user roles and workflows
+- **Public Applicants:** 3-step application submission, credential dispatch, examination taking, passer checklist, and document capture.
+- **Scholars:** Portal access, continuing requirements, payout schedule viewing, and self-reported "Received Payout" receipt acknowledgement.
+- **CAO Staff & Administrators:** Examination scoring, passer list locking, initial document verification, official scholar acceptance, grant preparation, payroll and billing list generation, payout schedule publishing, and venue attendance tracking.
+
+### Implementation and data flow
+- `backend/tests/fullProcessLifecycle.test.js` sets up an in-memory Prisma and service facade before loading real controllers (`createApplication`, `examinationResultController`, `passerLists`, `uploadScholarRequirementByAdmin`, `acceptApplicantAsScholar`, `saveGrantBatch`, `processPayrollSelection`, `processBillingSelection`, `payoutSchedules`, `createPayoutParticipationController`).
+- State transitions emulate real database serializable transactions, tracking each stage sequentially and validating returned status codes, payload structures, and database records.
+- `scripts/run-full-process-test.js` provides a human-readable CLI runner reporting phase-by-phase completion.
+
+### Files or system areas changed
+- `backend/tests/fullProcessLifecycle.test.js`: New end-to-end full process lifecycle test suite.
+- `scripts/run-full-process-test.js`: New standalone lifecycle test runner script.
+- `package.json`: Added `test:process` script at project root.
+- `backend/package.json`: Added `test:process` script for backend workspace.
+- `change_log.txt`: Updated dated summary.
+- `docs/development-change-log.md`: Added detailed dated entry.
+
+### API, database, configuration, security, privacy, accessibility, and deployment impact
+- **API Impact:** None. Additive test and script tooling only.
+- **Database Impact:** None. Uses transactional test facades; no migrations or production schema changes.
+- **Configuration Impact:** Added `npm run test:process` command.
+- **Security & Privacy Impact:** Uses synthetic test identities (`juan.delacruz@example.ph`, `clara.santos@example.ph`); no real personal information or credentials stored.
+- **Accessibility Impact:** None.
+- **Deployment Impact:** None. Tests run offline and sandboxed.
+
+### Validation performed and its results
+- Executed `node --test backend/tests/fullProcessLifecycle.test.js`: 1 test suite, 8 major lifecycle stages, 100% assertions passed in ~9.4 seconds.
+- Executed `npm run test:process`: Verified runner script executes cleanly, prints structured phase summary, and exits with code 0.
+- Verified error cases: sibling duplicate rejection (409), tuition receipt rejection for public scholars (400), unverified private scholar without receipt (`initialApproved === false`), duplicate list generation rejection (409).
+
+### Known limitations, rollback considerations, and recommended next work
+- **Limitations:** The test runs against in-memory database facades; testing against a live PostgreSQL server requires a configured local or cloud database instance.
+- **Rollback Considerations:** Remove `backend/tests/fullProcessLifecycle.test.js` and `scripts/run-full-process-test.js`, and revert the `test:process` entry in `package.json`.
+- **Recommended Next Work:** Integrate `npm run test:process` into CI/CD deployment pipelines as a smoke test gate prior to production release.

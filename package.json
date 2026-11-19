@@ -10,6 +10,7 @@
     "dev:backend": "npm --prefix backend run dev",
     "test": "node scripts/test.js",
     "test:backend": "node scripts/test.js backend",
-    "test:frontend": "node scripts/test.js frontend"
+    "test:frontend": "node scripts/test.js frontend",
+    "test:process": "node scripts/run-full-process-test.js"
   }
 }

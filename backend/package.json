@@ -28,6 +28,7 @@
     "seed:production": "node ./scripts/bootstrap-production.js",
     "render-build": "npm run prisma:generate && npm run prisma:deploy && npm run seed:production",
     "test": "node --test",
+    "test:process": "node --test tests/fullProcessLifecycle.test.js",
     "test:rate-limits": "node --test tests/rateLimits.test.js",
     "mailer:verify": "node ./scripts/verify-mailer.js",
     "gmail:authorize": "node ./scripts/authorize-gmail.js"

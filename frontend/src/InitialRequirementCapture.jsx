@@ -13,7 +13,6 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const documents = scholar.initialDocuments || scholar.documents || [];
   const captureId = `capture-${scholar.applicantId}-${scholar.academicPeriodId}`;
   const [open, setOpen] = useState(false);
-  const [captureTab, setCaptureTab] = useState('scan');
   const [drafts, setDrafts] = useState(() => ({ 'capture-1': createCaptureDraft('capture-1', 1) }));
   const [saved, setSaved] = useState({});
   const [uploadErrors, setUploadErrors] = useState({});
@@ -32,22 +31,6 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const video = useRef(null), stream = useRef(null), alive = useRef(true), cameraRequest = useRef(0), request = useRef(null);
   const draft = drafts[draftId] || { pages: [], requirementKey: '' };
   const stopCamera = () => { cameraRequest.current += 1; stream.current?.getTracks().forEach((track) => track.stop()); stream.current = null; setCamera(false); };
-  const changeTab = next => {
-    if (workingRef.current || !['scan', 'assign'].includes(next)) return false;
-    if (next !== 'scan') stopCamera();
-    setCaptureTab(next);
-    return true;
-  };
-  const onTabKeyDown = event => {
-    if (workingRef.current) return;
-    const tabs = ['scan', 'assign'];
-    const index = tabs.indexOf(captureTab);
-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1
-      : ['ArrowLeft', 'ArrowRight'].includes(event.key) ? (index + 1) % tabs.length : null;
-    if (next === null) return;
-    event.preventDefault();
-    if (changeTab(tabs[next])) event.currentTarget.querySelectorAll('[role="tab"]')[next]?.focus();
-  };
   useEffect(() => {
     alive.current = true;
     const stop = () => { cameraRequest.current += 1; stream.current?.getTracks().forEach((track) => track.stop()); stream.current = null; };
@@ -201,52 +184,126 @@ export default function InitialRequirementCapture({ scholar, token, onSaved }) {
   const pendingDrafts = Object.values(drafts).filter(item => item.requirementKey && !saved[item.requirementKey]);
   const batchReady = pendingDrafts.length > 0 && pendingDrafts.every(item => captureDraftUploadReady(drafts, item.id, documents, saved));
   const page = draft.pages?.[pageIndex];
-  const close = () => { if ((Object.values(drafts).some(captureDraftHasContent) || phoneConnected) && !window.confirm('Discard scanned documents and any phone photos that have not been uploaded?')) return; stopCamera(); storeDrafts({}); receivedPages.current.clear(); setSaved({}); setUploadErrors({}); setCaptureTab('scan'); setOpen(false); };
-  if (!open) return <button type="button" className="capture-start" disabled={!['Public', 'Private'].includes(scholar.schoolType)} onClick={() => { newDocument(); setCaptureTab('scan'); setOpen(true); }}><Camera size={15} />Scan and assign initial documents</button>;
-  return <section className="document-capture" aria-label="Initial document camera intake" aria-busy={working}>
-    <header><div><h4>Scan and assign initial requirements</h4><p>{scholar.name} · {scholar.controlNumber || scholar.scholarId}<br />{scholar.schoolYear} · {scholar.semester}</p></div><button type="button" disabled={working} onClick={close} aria-label="Close document scanner"><X size={16} /></button></header>
-    <p className="capture-help">Scan or choose documents in Scan documents, then select a document for each requirement in Assign requirements. Switching tabs keeps your scans; closing the drawer or leaving Overview discards them.</p>
-    {notice && <Notification tone={noticeTone} title={noticeTone === 'success' ? 'Initial requirements saved' : 'Capture needs attention'} onDismiss={() => setNotice('')}>{notice}</Notification>}
-    {progress && <Notification tone="progress" title="Uploading initial requirements">{progress}</Notification>}
-    {documents.some(document => document.requirementKey === 'report_card' && document.optional === false) && <p className="capture-help">Incoming/first-year college: the Grade 12 report card is required. Initial COG is optional.</p>}
-    <LaptopPhoneCapture scholar={scholar} token={token} busy={working} onPages={receivePhonePages} onConnectionChange={setPhoneConnected} />
-    <nav className="capture-workspace-tabs" role="tablist" aria-label="Initial document upload stages" onKeyDown={onTabKeyDown}>{[['scan', 'Scan documents'], ['assign', 'Assign requirements']].map(([id, label]) => <button key={id} id={`${captureId}-tab-${id}`} type="button" role="tab" aria-selected={captureTab === id} aria-controls={`${captureId}-panel-${id}`} tabIndex={captureTab === id ? 0 : -1} className={captureTab === id ? 'active' : ''} disabled={working} onClick={() => changeTab(id)}>{label}</button>)}</nav>
-    <div className="capture-panel" id={`${captureId}-panel-scan`} role="tabpanel" aria-labelledby={`${captureId}-tab-scan`} hidden={captureTab !== 'scan'} tabIndex={0}>
-    <div className="capture-document-toolbar"><h5>1. Scan documents</h5><button type="button" disabled={working || phoneConnected} onClick={newDocument}><Plus size={14} />New document</button></div>
-    <div className="capture-document-list" aria-label="Scanned documents">{Object.values(drafts).map(item => {
-      const assigned = documents.find(document => document.requirementKey === item.requirementKey);
-      return <button type="button" key={item.id} aria-pressed={draftId === item.id} disabled={working} onClick={() => choose(item.id)}><strong>{item.label}</strong><small>{item.file ? item.file.fileName : item.pages.length ? `${item.pages.length} scanned page(s)` : 'Ready to scan'}</small><small>{assigned ? `Assigned: ${assigned.label}` : 'Not assigned'}</small></button>;
-    })}</div>
-    <fieldset disabled={working}>
-      <legend>{draft.label || 'Document preview'}</legend>
-      <p id="initial-capture-file-policy" className="capture-help">{CAPTURE_FILE_HELP}</p>
-        <div className="capture-actions"><button type="button" onClick={camera ? stopCamera : startCamera}><Camera size={14} />{camera ? 'Stop camera' : 'Open live camera'}</button><label className="capture-file"><Camera size={14} />Take photo<input type="file" aria-describedby="initial-capture-file-policy" accept="image/jpeg,image/png" capture="environment" onChange={(event) => { pick(event.target.files?.[0], true); event.target.value = ''; }} /></label><label className="capture-file"><Upload size={14} />Choose file<input type="file" aria-describedby="initial-capture-file-policy" accept={DOCUMENT_FILE_ACCEPT} onChange={(event) => { pick(event.target.files?.[0]); event.target.value = ''; }} /></label></div>
-        {camera && <div className="capture-camera"><video ref={video} autoPlay muted playsInline aria-label="Live document camera preview" /><button type="button" onClick={() => act(() => addPage(video.current))}>Capture page</button></div>}
-        {draft.file && <div className="capture-pdf"><p>{draft.file.fileName} · PDF document</p><iframe title="Selected PDF preview" src={draft.file.fileData} /><button type="button" onClick={() => edit({ pages: [], file: null })}>Remove PDF</button></div>}
-        {draft.pages?.length > 0 && <>
-          <div className="capture-pages">{draft.pages.map((source, index) => <button type="button" key={index} aria-pressed={index === pageIndex} onClick={() => { setPageIndex(index); setCrop([0, 0, 0, 0]); }}><img src={source} alt={`Captured page ${index + 1}`} /><span>Page {index + 1}</span></button>)}</div>
-          {page && <><div className="capture-preview"><img src={page} alt={`Full preview of page ${pageIndex + 1}`} /><div className="capture-crop-guide" style={{ left: `${crop[0]}%`, top: `${crop[1]}%`, right: `${crop[2]}%`, bottom: `${crop[3]}%` }} /></div><CapturePhotoTips source={page} /><div className="capture-crop-controls">{['Left', 'Top', 'Right', 'Bottom'].map((edge, index) => <label key={edge}>{edge} trim: {crop[index]}%<input type="range" min="0" max="40" value={crop[index]} onChange={(event) => setCrop((current) => current.map((value, i) => i === index ? Number(event.target.value) : value))} /></label>)}</div><div className="capture-actions"><button type="button" onClick={() => transform(false)}><Crop size={14} />Apply crop</button><button type="button" onClick={() => transform(true)}><RotateCw size={14} />Rotate page</button><button type="button" onClick={() => { edit({ pages: draft.pages.filter((_, index) => index !== pageIndex) }); setPageIndex(0); setCrop([0, 0, 0, 0]); }}><Trash2 size={14} />Remove / retake page</button><button type="button" disabled={pageIndex === 0} onClick={() => movePage(-1)}>Move page earlier</button><button type="button" disabled={pageIndex === draft.pages.length - 1} onClick={() => movePage(1)}>Move page later</button></div></>}
-        </>}
-        <p className="capture-help">Add pages in reading order, up to {MAX_CAPTURE_PAGES} per document. Photo pages become one PDF. Use New document before scanning a different document. Choosing a PDF replaces this document's photo draft; adding a photo replaces its PDF draft.</p>
-        <button type="button" onClick={removeDocument}><Trash2 size={14} />Discard this document</button>
-    </fieldset>
+  const requiredCount = documents.filter(d => !d.optional).length;
+  const close = () => { if ((Object.values(drafts).some(captureDraftHasContent) || phoneConnected) && !window.confirm('Discard scanned documents and any phone photos that have not been uploaded?')) return; stopCamera(); storeDrafts({}); receivedPages.current.clear(); setSaved({}); setUploadErrors({}); setOpen(false); };
+  if (!open) return <button type="button" className="capture-start" disabled={!['Public', 'Private'].includes(scholar.schoolType)} onClick={() => { newDocument(); setOpen(true); }}><Camera size={15} />Scan and assign initial documents</button>;
+  return <div className="capture-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !working) close(); }}>
+    <div className="capture-modal" role="dialog" aria-modal="true" aria-label="Scan and assign initial requirements" aria-busy={working}>
+      <header className="capture-modal-header">
+        <div>
+          <span className="capture-eyebrow">SCAN &amp; ASSIGN REQUIREMENTS</span>
+          <h3>{scholar.name}</h3>
+          <p>{scholar.controlNumber || scholar.scholarId} · {scholar.schoolYear} · {scholar.semester}</p>
+        </div>
+        <button type="button" className="capture-modal-close" disabled={working} onClick={close} aria-label="Close document scanner"><X size={18} /></button>
+      </header>
+
+      <div className="capture-notices">
+        {notice && <Notification tone={noticeTone} title={noticeTone === 'success' ? 'Initial requirements saved' : 'Capture needs attention'} onDismiss={() => setNotice('')}>{notice}</Notification>}
+        {progress && <Notification tone="progress" title="Uploading initial requirements">{progress}</Notification>}
+      </div>
+
+      <div className="capture-workspace">
+        {/* ── Left Panel: Scan & Preview ── */}
+        <div className="capture-scan-panel">
+          <div className="capture-scan-header">
+            <h4>Scanned Documents</h4>
+            <div className="capture-scan-actions">
+              <button type="button" disabled={working} onClick={camera ? stopCamera : startCamera}><Camera size={14} />{camera ? 'Stop' : 'Camera'}</button>
+              <label className="capture-file capture-file-btn"><Camera size={14} />Take photo<input type="file" accept="image/jpeg,image/png" capture="environment" onChange={(event) => { pick(event.target.files?.[0], true); event.target.value = ''; }} /></label>
+              <label className="capture-file capture-file-btn"><Upload size={14} />File<input type="file" accept={DOCUMENT_FILE_ACCEPT} onChange={(event) => { pick(event.target.files?.[0]); event.target.value = ''; }} /></label>
+            </div>
+          </div>
+
+          <div className="capture-chip-strip" aria-label="Scanned documents">
+            {Object.values(drafts).map(item => {
+              const assigned = documents.find(d => d.requirementKey === item.requirementKey);
+              return <button type="button" key={item.id} className={`capture-chip${draftId === item.id ? ' active' : ''}${assigned ? ' assigned' : ''}`} disabled={working} onClick={() => choose(item.id)}>
+                {item.pages?.[0] ? <img src={item.pages[0]} alt="" className="capture-chip-thumb" /> : <span className="capture-chip-icon">{item.file ? <Upload size={16} /> : <Camera size={16} />}</span>}
+                <span className="capture-chip-text">
+                  <strong>{item.label}</strong>
+                  <small>{item.file ? 'PDF' : item.pages.length ? `${item.pages.length} pg` : 'Empty'}</small>
+                  {assigned && <small className="capture-chip-tag">{assigned.label}</small>}
+                </span>
+              </button>;
+            })}
+            <button type="button" className="capture-chip capture-chip-add" disabled={working || phoneConnected} onClick={newDocument} aria-label="New document"><Plus size={16} /></button>
+          </div>
+
+          <div className="capture-editor">
+            {camera && <div className="capture-camera"><video ref={video} autoPlay muted playsInline aria-label="Live document camera preview" /><button type="button" disabled={working} onClick={() => act(() => addPage(video.current))}>Capture page</button></div>}
+
+            {draft.file && <div className="capture-pdf"><p>{draft.file.fileName} · PDF document</p><iframe title="Selected PDF preview" src={draft.file.fileData} /><button type="button" onClick={() => edit({ pages: [], file: null })}>Remove PDF</button></div>}
+
+            {draft.pages?.length > 0 && <>
+              <div className="capture-page-strip">{draft.pages.map((source, index) => <button type="button" key={index} className={index === pageIndex ? 'active' : ''} disabled={working} onClick={() => { setPageIndex(index); setCrop([0, 0, 0, 0]); }}><img src={source} alt={`Page ${index + 1}`} /><span>{index + 1}</span></button>)}</div>
+              {page && <>
+                <div className="capture-preview"><img src={page} alt={`Full preview of page ${pageIndex + 1}`} /><div className="capture-crop-guide" style={{ left: `${crop[0]}%`, top: `${crop[1]}%`, right: `${crop[2]}%`, bottom: `${crop[3]}%` }} /></div>
+                <CapturePhotoTips source={page} />
+                <div className="capture-crop-controls">{['Left', 'Top', 'Right', 'Bottom'].map((edge, index) => <label key={edge}>{edge}: {crop[index]}%<input type="range" min="0" max="40" value={crop[index]} onChange={(event) => setCrop((current) => current.map((value, i) => i === index ? Number(event.target.value) : value))} /></label>)}</div>
+                <div className="capture-edit-actions">
+                  <button type="button" disabled={working} onClick={() => transform(false)}><Crop size={14} />Crop</button>
+                  <button type="button" disabled={working} onClick={() => transform(true)}><RotateCw size={14} />Rotate</button>
+                  <button type="button" disabled={pageIndex === 0 || working} onClick={() => movePage(-1)}>◂ Earlier</button>
+                  <button type="button" disabled={pageIndex === draft.pages.length - 1 || working} onClick={() => movePage(1)}>Later ▸</button>
+                  <button type="button" className="capture-btn-danger" disabled={working} onClick={() => { edit({ pages: draft.pages.filter((_, i) => i !== pageIndex) }); setPageIndex(0); setCrop([0, 0, 0, 0]); }}><Trash2 size={14} />Remove</button>
+                </div>
+              </>}
+            </>}
+
+            {!camera && !draft.file && !draft.pages?.length && <div className="capture-editor-empty"><Camera size={30} /><p>Open the camera, take a photo, or choose a file to start scanning</p><p className="capture-help">{CAPTURE_FILE_HELP}</p></div>}
+          </div>
+
+          <div className="capture-draft-footer">
+            <button type="button" className="capture-btn-danger" disabled={working} onClick={removeDocument}><Trash2 size={14} />Discard {draft.label || 'document'}</button>
+            <span className="capture-help">Up to {MAX_CAPTURE_PAGES} pages per document. Photo pages become one PDF.</span>
+          </div>
+
+          <LaptopPhoneCapture scholar={scholar} token={token} busy={working} onPages={receivePhonePages} onConnectionChange={setPhoneConnected} />
+        </div>
+
+        {/* ── Right Panel: Requirements Checklist ── */}
+        <div className="capture-assign-panel">
+          <h4>Requirements Checklist</h4>
+          {documents.some(d => d.requirementKey === 'report_card' && d.optional === false) && <p className="capture-help">Incoming/first-year college: the Grade 12 report card is required. Initial COG is optional.</p>}
+
+          {!Object.values(drafts).some(captureDraftHasContent) && <p className="capture-empty">No scanned documents yet. Scan or choose documents in the left panel.</p>}
+
+          <div className="capture-checklist" aria-label="Initial requirement checklist">{documents.map(doc => {
+            const assigned = Object.values(drafts).find(item => item.requirementKey === doc.requirementKey);
+            const options = Object.values(drafts).filter(captureDraftHasContent);
+            const uploaded = Boolean(saved[doc.requirementKey]);
+            return <div className={`capture-req-card${uploaded ? ' uploaded' : assigned ? ' assigned' : ''}`} key={doc.requirementKey}>
+              <div className="capture-req-header">
+                <span className="capture-req-name">{doc.label}<span className={`capture-req-badge ${doc.optional ? 'optional' : 'required'}`}>{doc.optional ? 'Optional' : 'Required'}</span></span>
+                <strong className="capture-req-status">{uploaded ? <><CheckCircle2 size={13} /> Uploaded</> : assigned ? assigned.label : doc.submitted ? doc.status || 'Submitted' : doc.optional ? 'Not submitted' : 'Awaiting'}</strong>
+              </div>
+
+              {assigned && !uploaded && <div className="capture-req-preview">
+                {assigned.pages?.[0] && <img src={assigned.pages[0]} alt={`Preview of ${doc.label}`} className="capture-req-thumb" />}
+                <span>{assigned.file ? assigned.file.fileName : `${assigned.pages.length} page(s) scanned`}</span>
+              </div>}
+
+              <div className="capture-req-controls">
+                <select id={`${captureId}-doc-${doc.requirementKey}`} aria-label={`Scanned document for ${doc.label}`} value={assigned?.id || ''} disabled={working || uploaded || !options.length} onChange={event => assign(doc.requirementKey, event.target.value)}>
+                  <option value="">{uploaded ? 'Uploaded this session' : 'Select scanned document…'}</option>
+                  {options.map(item => <option key={item.id} value={item.id} disabled={Boolean(item.requirementKey && item.requirementKey !== doc.requirementKey)}>{item.label} · {item.file ? item.file.fileName : `${item.pages.length} pg`}{item.requirementKey && item.requirementKey !== doc.requirementKey ? ' · Used' : ''}</option>)}
+                </select>
+                <div className="capture-req-actions">
+                  <button type="button" disabled={working || !assigned} onClick={() => { if (assigned) choose(assigned.id); }}><Eye size={14} />Preview</button>
+                  {doc.submitted && doc.applicationId && <DocumentViewButton token={token} label="Existing" endpoint={`/document-reviews/${doc.applicationId}/${doc.requirementKey}/file?academicPeriodId=${doc.academicPeriodId || scholar.academicPeriodId}&submissionWave=initial`} />}
+                </div>
+              </div>
+              {uploadErrors[doc.requirementKey] && <p className="capture-req-error">Upload failed: {uploadErrors[doc.requirementKey]}</p>}
+            </div>;
+          })}</div>
+        </div>
+      </div>
+
+      <footer className="capture-modal-footer">
+        <p className="capture-footer-status">{pendingDrafts.length} document{pendingDrafts.length === 1 ? '' : 's'} assigned · {requiredCount} required · {DOCUMENT_FILE_HELP}</p>
+        <button type="button" className="capture-submit" disabled={working || phoneConnected || !batchReady} onClick={publishBatch}><Upload size={15} />{working ? 'Uploading…' : `Upload & approve (${pendingDrafts.length})`}</button>
+      </footer>
     </div>
-    <div className="capture-panel" id={`${captureId}-panel-assign`} role="tabpanel" aria-labelledby={`${captureId}-tab-assign`} hidden={captureTab !== 'assign'} tabIndex={0}>
-    <p className="capture-help">Choose a scanned document in each requirement below and use Preview scan to double-check it. When ready, upload and approve all assigned documents with one click; each document can belong to one requirement.</p>
-    {!Object.values(drafts).some(captureDraftHasContent) && <p className="capture-empty">No scanned documents yet. Add documents in the Scan documents tab.</p>}
-    <div className="capture-checklist" aria-label="Initial requirement checklist">{documents.map(doc => {
-      const assigned = Object.values(drafts).find(item => item.requirementKey === doc.requirementKey);
-      const options = Object.values(drafts).filter(captureDraftHasContent);
-      const uploaded = Boolean(saved[doc.requirementKey]);
-      return <div className="capture-requirement-row" key={doc.requirementKey}>
-        <div className="capture-document-status"><span>{doc.label}<small>{doc.optional ? 'Optional' : 'Required'}</small></span><strong>{uploaded ? <><CheckCircle2 size={14} />Uploaded · Approved</> : assigned ? `Assigned · ${assigned.label}` : doc.submitted ? doc.status || 'Submitted' : doc.optional ? 'Optional · not submitted' : 'Awaiting document'}</strong></div>
-        <label className="capture-requirement-selection" htmlFor={`${captureId}-document-${doc.requirementKey}`}>Scanned document<select id={`${captureId}-document-${doc.requirementKey}`} aria-label={`Scanned document for ${doc.label}`} value={assigned?.id || ''} disabled={working || uploaded || !options.length} onChange={event => assign(doc.requirementKey, event.target.value)}><option value="">{uploaded ? 'Uploaded in this session' : 'Choose a scanned document'}</option>{options.map(item => <option key={item.id} value={item.id} disabled={Boolean(item.requirementKey && item.requirementKey !== doc.requirementKey)}>{item.label} · {item.file ? item.file.fileName : `${item.pages.length} page(s)`}{item.requirementKey && item.requirementKey !== doc.requirementKey ? ' · Assigned elsewhere' : ''}</option>)}</select></label>
-        <div className="capture-requirement-actions"><button type="button" disabled={working || !assigned} onClick={() => { choose(assigned.id); changeTab('scan'); }}><Eye size={14} />Preview scan</button>{doc.submitted && doc.applicationId && <DocumentViewButton token={token} label={`Existing ${doc.label}`} endpoint={`/document-reviews/${doc.applicationId}/${doc.requirementKey}/file?academicPeriodId=${doc.academicPeriodId || scholar.academicPeriodId}&submissionWave=initial`} />}</div>
-        {uploadErrors[doc.requirementKey] && <p className="capture-requirement-error">Upload failed: {uploadErrors[doc.requirementKey]}</p>}
-      </div>;
-    })}</div>
-    <p className="capture-file-policy">{DOCUMENT_FILE_HELP}</p>
-    <div className="capture-batch-actions"><p id={`${captureId}-batch-help`} className="capture-help">{pendingDrafts.length} assigned document{pendingDrafts.length === 1 ? '' : 's'}. Uploading replaces only the assigned requirements in the selected academic year. Previous versions and unassigned scans are retained.</p><button type="button" className="capture-submit" aria-describedby={`${captureId}-batch-help`} disabled={working || phoneConnected || !batchReady} onClick={publishBatch}><Upload size={15} />{working ? 'Uploading assigned documents…' : `Upload & approve assigned documents (${pendingDrafts.length})`}</button></div>
-    </div>
-  </section>;
+  </div>;
 }
